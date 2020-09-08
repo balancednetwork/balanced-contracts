@@ -1,3 +1,9 @@
+# System files
+.DS_Store
+keystores/*
+*.json
+*.zip
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -7,6 +13,7 @@ __pycache__/
 *.so
 
 # Distribution / packaging
+*.zip
 .Python
 build/
 develop-eggs/
