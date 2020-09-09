@@ -1,7 +1,7 @@
 # System files
 .DS_Store
 keystores/*
-*.json
+*keystore*
 *.zip
 
 # Byte-compiled / optimized / DLL files
