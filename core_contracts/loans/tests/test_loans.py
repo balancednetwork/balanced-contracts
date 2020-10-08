@@ -7,7 +7,7 @@ class TestLoans(ScoreTestCase):
     def setUp(self):
         super().setUp()
         self.mock_score_address = Address.from_string(f"cx{'1234'*10}")
-        self.score2 = self.get_score_instance(SimpleScore2, self.test_account1,
+        self.loans = self.get_score_instance(Loans, self.test_account1,
                                               on_install_params={'score_address': self.mock_score_address})
 
         self.test_account3 = Address.from_string(f"hx{'12345'*8}")
@@ -19,66 +19,66 @@ class TestLoans(ScoreTestCase):
 
     def test_set_value(self):
         str_value = 'string_value'
-        self.score2.setValue(str_value)
+        self.loans.setValue(str_value)
         # assert event log called with specified arguments
-        self.score2.SetValue.assert_called_with(str_value)
+        self.loans.SetValue.assert_called_with(str_value)
 
-        self.assertEqual(self.score2.getValue(), str_value)
+        self.assertEqual(self.loans.getValue(), str_value)
 
     def test_get_value_and_set_value(self):
         # at first, value is empty string
-        self.assertEqual(self.score2.getValue(), '')
+        self.assertEqual(self.loans.getValue(), '')
 
         str_value = 'strValue'
-        self.score2.setValue(str_value)
+        self.loans.setValue(str_value)
 
-        self.assertEqual(self.score2.getValue(), str_value)
+        self.assertEqual(self.loans.getValue(), str_value)
 
     # try writing value inside readonly method
     def test_write_on_readonly(self):
-        self.assertRaises(DatabaseException, self.score2.write_on_readonly)
+        self.assertRaises(DatabaseException, self.loans.write_on_readonly)
 
     # internal call
     def test_internal_call(self):
         self.patch_internal_method(self.mock_score_address, 'getValue', lambda: 150) # Patch the getValue function of SCORE at self.mock_score_address address with a function that takes no argument and returns 150
-        value = self.score2.getSCOREValue()
+        value = self.loans.getSCOREValue()
         self.assertEqual(value, 150)
         self.assert_internal_call(self.mock_score_address, 'getValue') # assert getValue in self.mock_score_address is called.
 
-        self.score2.setSCOREValue('asdf')
+        self.loans.setSCOREValue('asdf')
         self.assert_internal_call(self.mock_score_address, 'setValue', 'asdf') # assert setValue in self.mock_score_address is called with 'asdf'
 
     # internal call
     def test_internal_call2(self):
         # To determine whether a method is called properly with specified arguments, calling register_interface_score method is enough
         self.register_interface_score(self.mock_score_address)
-        self.score2.setSCOREValue('asdf')
+        self.loans.setSCOREValue('asdf')
         self.assert_internal_call(self.mock_score_address, 'setValue', 'asdf')
 
     def test_msg(self):
         self.set_msg(Address.from_string(f"hx{'1234'*10}"), 3)
-        self.score2.t_msg() # On the upper line, set the msg property to pass the assert statement so that no exception is raised.
+        self.loans.t_msg() # On the upper line, set the msg property to pass the assert statement so that no exception is raised.
 
         self.set_msg(Address.from_string(f"hx{'12'*20}"), 3)
-        self.assertRaises(AssertionError, self.score2.t_msg) # On the upper line, set the msg property not to pass the assert statement, and raise an exception.
+        self.assertRaises(AssertionError, self.loans.t_msg) # On the upper line, set the msg property not to pass the assert statement, and raise an exception.
 
     def test_tx(self):
         self.set_tx(Address.from_string(f"hx{'1234'*10}"))
-        self.score2.t_tx() # On the upper line, set the tx property to pass the assert statement so that no exception is raised.
+        self.loans.t_tx() # On the upper line, set the tx property to pass the assert statement so that no exception is raised.
 
         self.set_tx(Address.from_string(f"hx{'12'*20}"))
-        self.assertRaises(AssertionError, self.score2.t_tx) # On the upper line, set the tx property not to pass the assert statement, and raise an exception.
+        self.assertRaises(AssertionError, self.loans.t_tx) # On the upper line, set the tx property not to pass the assert statement, and raise an exception.
 
     def test_block(self):
         self.set_block(3, 30)
-        self.score2.t_block() # On the upper line, set the block property to pass the assert statement so that no exception is raised.
+        self.loans.t_block() # On the upper line, set the block property to pass the assert statement so that no exception is raised.
 
         self.set_block(3)
-        self.assertRaises(AssertionError, self.score2.t_block) # On the upper line, set the block property not to pass the assert statement, and raise an exception.
+        self.assertRaises(AssertionError, self.loans.t_block) # On the upper line, set the block property not to pass the assert statement, and raise an exception.
 
     def test_update(self):
-        self.score2 = self.update_score(self.score2.address, SimpleScore2, on_update_params={"value": "updated_value"})
-        self.assertEqual(self.score2.value.get(), "updated_value") # In the on_update method of SimpleScore2, set the value of the value to "updated_value".
+        self.loans = self.update_score(self.loans.address, Loans, on_update_params={"value": "updated_value"})
+        self.assertEqual(self.loans.value.get(), "updated_value") # In the on_update method of Loans, set the value of the value to "updated_value".
 
     def test_get_balance(self):
         balance = self.get_balance(self.test_account3)

@@ -14,6 +14,9 @@ class ZeroValueError(Exception):
 class InvalidNameError(Exception):
 	pass
 
+class ZeroValueError(Exception):
+	pass
+
 
 # An interface of tokenFallback.
 # Receiving SCORE that has implemented this interface can handle
@@ -48,17 +51,14 @@ class IRC2(TokenStandard, IconScoreBase):
 		self._balances = DictDB(self._BALANCES, db, value_type=int)
 		self._admin = VarDB(self._ADMIN, db, value_type=Address)
 
-	def on_install(self, _tokenName: str,
-						 _symbolName: str,
-						 _initialSupply: int = DEFAULT_INITIAL_SUPPLY,
-						 _decimals: int = DEFAULT_DECIMAL_VALUE) -> None:
+	def on_install(self, _tokenName: str, _symbolName: str, _initialSupply: int, _decimals: int = DEFAULT_DECIMAL_VALUE) -> None:
 		"""
 		Variable Initialization.
 
 		:param _tokenName: The name of the token.
 		:param _symbolName: The symbol of the token.
 		:param _initialSupply: The total number of tokens to initialize with.
-					It is set to total supply in the beginning, 0 by default.
+					It is set to total supply in the beginning.
 		:param _decimals: The number of decimals. Set to 18 by default.
 
 		total_supply is set to `_initialSupply`* 10 ^ decimals.
@@ -218,7 +218,7 @@ class IRC2(TokenStandard, IconScoreBase):
 		Increases the balance of that account and total supply.
 		This is an internal function
 
-		:param account: The account at which token is to be created.
+		:param account: The account at whhich token is to be created.
 		:param amount: Number of tokens to be created at the `account`.
 		:param _data: Any information or message
 
