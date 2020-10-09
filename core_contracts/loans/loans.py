@@ -414,12 +414,15 @@ class Loans(IconScoreBase):
         address = str(self.tx.origin)
         collateral = self.get_sicx_value(self._positions[self._day_index.get()][address]['sICX'])
         max_loan_value = 100 * collateral // self._locking_ratio.get()
-        new_loan_value = self.get_price_in_icx(_asset) * amount // UNITS_PER_TOKEN
+        new_loan_value = self.get_price_in_icx(_asset) * _amount // UNITS_PER_TOKEN
         if self.get_total_position_value() + new_loan_value > max_loan_value:
-            revert(f'Insufficient collateral to originate loan.')
+            revert(f'{collateral / UNITS_PER_TOKEN} collateral is insufficient '
+                   f'to originate a loan of {_amount / UNITS_PER_TOKEN} {_asset}'
+                   f' when max_loan_value = {max_loan_value / UNITS_PER_TOKEN} and new_loan_value '
+                   f'= {new_loan_value / UNITS_PER_TOKEN}.')
         self._positions[self._day_index.get()][address][_asset] += _amount
         self._asset_mint(self.tx.origin, _amount, _asset)
-        OriginateLoan(self.tx.origin, _asset, _amount,
+        self.OriginateLoan(self.tx.origin, _asset, _amount,
             f'Loan of {_amount // UNITS_PER_TOKEN} {_asset} from Balanced.')
 
     @external
@@ -482,7 +485,7 @@ class Loans(IconScoreBase):
         """
         pass
 
-    def _send_token(self, _token: str, _to: Address, amount: int, msg: str) -> None:
+    def _send_token(self, _token: str, _to: Address, _amount: int, msg: str) -> None:
         """
         Sends IRC2 token to an address.
         :param _token: Token symbol.
@@ -497,14 +500,14 @@ class Loans(IconScoreBase):
         try:
             address = self._asset_addresses[_token]
             token_score = self.create_interface_score(address, TokenInterface)
-            token_score.transfer(_to, amount)
+            token_score.transfer(_to, _amount)
             symbol = token_score.symbol()
-            self.TokenTransfer(_to, amount, msg + f' {amount} {symbol} sent to {_to}.')
+            self.TokenTransfer(_to, _amount, msg + f' {_amount} {symbol} sent to {_to}.')
         except BaseException as e:
-            revert(f'{amount} {symbol} not sent to {_to}. '
+            revert(f'{_amount} {symbol} not sent to {_to}. '
                    f'Exception: {e}')
 
-    def _send_ICX(self, _to: Address, amount: int, msg: str) -> None:
+    def _send_ICX(self, _to: Address, _amount: int, msg: str) -> None:
         """
         Sends ICX to an address.
         :param _to: ICX destination address.
@@ -515,10 +518,10 @@ class Loans(IconScoreBase):
         :type msg: str
         """
         try:
-            self.icx.transfer(_to, amount)
-            self.FundTransfer(_to, amount, msg + f' {amount} ICX sent to {_to}.')
+            self.icx.transfer(_to, _amount)
+            self.FundTransfer(_to, _amount, msg + f' {_amount} ICX sent to {_to}.')
         except BaseException as e:
-            revert(f'{amount} ICX not sent to {_to}. '
+            revert(f'{_amount} ICX not sent to {_to}. '
                    f'Exception: {e}')
 
     def fallback(self):
