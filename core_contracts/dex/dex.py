@@ -126,7 +126,7 @@ class DEX(IconScoreBase):
         :param _data: Method and parameters to call once tokens are received.
         :type _data: bytes
         """
-        if self.msg.sender != self._token_score.get():
+        if self.msg.sender not in self._tokens:
             revert(f'This DEX can only handle sICX, ICD and BAL tokens.')
         Logger.debug(f'({_value}) tokens received from {_from}.', TAG)
         try:

@@ -4,7 +4,7 @@ from .scorelib import *
 
 TAG = 'Staking'
 
-UNITS_PER_TOKEN = 1000000000000000000
+DENOMINATOR = 1000000000000000000
 
 # An interface of token to distribute daily rewards
 class sICXTokenInterface(InterfaceScore):
@@ -70,9 +70,9 @@ class Staking(IconScoreBase):
         sICX_score = self.create_interface_score(self._sICX_address.get(),
                                                  sICXTokenInterface)
         if self.icx.get_balance(self.address) == 0:
-            rate = UNITS_PER_TOKEN
+            rate = DENOMINATOR
         else:
-            rate = self.icx.get_balance(self.address) * UNITS_PER_TOKEN // sICX_score.totalSupply()
+            rate = self.icx.get_balance(self.address) * DENOMINATOR // sICX_score.totalSupply()
         return rate
 
     @external
@@ -107,7 +107,7 @@ class Staking(IconScoreBase):
         sICX_score.mintTo(_to, amount, _data)
 
         self._sICX_supply.set(self._sICX_supply.get() + amount)
-        self.TokenTransfer(_to, amount, f'{amount / UNITS_PER_TOKEN} sICX minted to {_to}')
+        self.TokenTransfer(_to, amount, f'{amount / DENOMINATOR} sICX minted to {_to}')
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:

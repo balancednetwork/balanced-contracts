@@ -20,6 +20,10 @@ from .consts import *
 
 class Utils():
 
+    # Conversion
+    LOOP_TO_ICX = 10**18
+
+    # Enums
     @staticmethod
     def enum_names(cls):
         return [i for i in cls.__dict__.keys() if i[:1] != '_']
