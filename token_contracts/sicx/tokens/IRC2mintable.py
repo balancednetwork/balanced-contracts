@@ -15,6 +15,8 @@ class IRC2Mintable(IRC2):
 
 		:param _amount: Number of tokens to be created at the account.
 		"""
+		# revert(f'Yes, got to here! Minting {_amount} {self.symbol()} to {self.msg.sender}. '
+		# 	   f'Forwarding data = {_data.decode("utf-8")}')
 		if _data is None:
 			_data = b'None'
 		self._mint(self.msg.sender, _amount, _data)
@@ -29,6 +31,7 @@ class IRC2Mintable(IRC2):
 		:param _account: The account at which token is to be created.
 		:param _amount: Number of tokens to be created at the account.
 		"""
+		# revert(f'This should print...')
 		if _data is None:
 			_data = b'None'
 		self._mint(_account, _amount, _data)

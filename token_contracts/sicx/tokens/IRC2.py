@@ -205,6 +205,8 @@ class IRC2(TokenStandard, IconScoreBase):
 			If the recipient is SCORE,
 			then calls `tokenFallback` to hand over control.
 			"""
+			# revert(f'Yes, about to transfer to {_to}, from {_from}, {_value} sICX. '
+			# 	   f'Forwarding data = {_data.decode("utf-8")}')
 			recipient_score = self.create_interface_score(_to, TokenFallbackInterface)
 			recipient_score.tokenFallback(_from, _value, _data)
 

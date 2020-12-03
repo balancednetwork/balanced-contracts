@@ -8,9 +8,9 @@ U_SECONDS_DAY = 86400000000  # Microseconds in a day.
 DEFAULT_MINING_RATIO = 500
 DEFAULT_LOCKING_RATIO = 400
 DEFAULT_LIQUIDATION_RATIO = 125
-MIN_UPDATE_TIME = 300000000  # 5 minutes
+MIN_UPDATE_TIME = 30000000  # 30 seconds
 
 POSITION_DB_PREFIX = b'position'
 
-    def _get_day_index(self) -> int:
-        return (self.now() // U_SECONDS_DAY) % 2
+def get_day_index(loans) -> int:
+    return (loans.now() // U_SECONDS_DAY) % 2

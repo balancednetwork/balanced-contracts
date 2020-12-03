@@ -29,6 +29,10 @@ class sICXTokenInterface(InterfaceScore):
         pass
 
     @interface
+    def mint(self, _amount: int, _data: bytes = None) -> None:
+        pass
+
+    @interface
     def burn(self, _amount: int) -> None:
         pass
 
@@ -104,7 +108,29 @@ class Staking(IconScoreBase):
             amount = self.msg.value
         else:
             amount = supply * self.msg.value // (balance - self.msg.value)
+        # revert(f'Yes, got to here! Minting {amount / DENOMINATOR} {sICX_score.symbol()} to {_to}.')
         sICX_score.mintTo(_to, amount, _data)
+
+        self._sICX_supply.set(self._sICX_supply.get() + amount)
+        self.TokenTransfer(_to, amount, f'{amount / DENOMINATOR} sICX minted to {_to}')
+
+    @payable
+    @external
+    def test_mint(self, _to: Address, _data: bytes = None) -> None:
+        if _data is None:
+            _data = b'None'
+        sicx = self._sICX_address.get()
+        sICX_score = self.create_interface_score(sicx, sICXTokenInterface)
+
+        supply = self._sICX_supply.get()
+        balance = self.icx.get_balance(self.address)
+        if balance == self.msg.value:
+            amount = self.msg.value
+        else:
+            amount = supply * self.msg.value // (balance - self.msg.value)
+        # revert(f'Yes, got to here! Minting {amount / DENOMINATOR} {sICX_score.symbol()} to {_to}.')
+        sICX_score.mint(amount, _data)
+        sICX_score.transfer(_to, amount, _data)
 
         self._sICX_supply.set(self._sICX_supply.get() + amount)
         self.TokenTransfer(_to, amount, f'{amount / DENOMINATOR} sICX minted to {_to}')

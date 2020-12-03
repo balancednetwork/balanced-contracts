@@ -1,5 +1,5 @@
 from iconservice import *
-from .scorelib.id_factory import IdFactory
+from ..scorelib.id_factory import IdFactory
 
 TAG = 'BalancedReplayLog'
 
@@ -47,8 +47,8 @@ class ReplayLogDB:
     def __init__(self, db: IconScoreDatabase):
         self._db = db
         self._items = {}
-        self._id_factory = IdFactory(REPLAY + IDFACTORY, db)
-        self._events = ArrayDB(REPLAY + EVENTS, db, value_type=int)
+        self._id_factory = IdFactory(self.REPLAY + self.IDFACTORY, db)
+        self._events = ArrayDB(self.REPLAY + self.EVENTS, db, value_type=int)
 
     def __getitem__(self, id: int) -> ReplayEvent:
         if id not in self._items:
