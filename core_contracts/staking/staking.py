@@ -321,7 +321,7 @@ class Staking(IconScoreBase):
     def _check_for_day(self) -> None:
         if self._system.getIISSInfo()["nextPRepTerm"] > self._block_height_day.get() +  43200:
             self._block_height_day.set(self._system.getIISSInfo()["nextPRepTerm"])
-            # self._claim_iscore()
+            self._claim_iscore()
 
     @payable
     @external
