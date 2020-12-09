@@ -371,6 +371,7 @@ class Staking(IconScoreBase):
                 for dict_prep_delegation in previous_address_delegations.items():
                     amount_to_stake_in_per += dict_prep_delegation[1]
                     self._set_address_delegations(_to, Address.from_string(str(dict_prep_delegation[0])),int(dict_prep_delegation[1]), prep_delegations, total_sicx_of_user,1)
+                amount_to_stake_in_per = amount_to_stake_in_per // DENOMINATOR
         if amount_to_stake_in_per != 100:
             revert(f'The total delegations should be 100 %')
         to_evenly_distribute_value  = self._check_top_100_preps(top_preps, total_sicx_of_user)
@@ -477,10 +478,10 @@ class Staking(IconScoreBase):
                 one = Address.from_string(str(one))
                 delegation_info: Delegation = {
                     "address": one,
-                    "value": self._prep_delegations[str(one)] + evenly_distribute_value + claim_reward
+                    "value": self._prep_delegations[str(one)] + evenly_distribute_value
                 }
                 delegation_list.append(delegation_info)
-            # revert(f'{delegation_list} and {self.total_stake.get()} and {self.get_prep_delegations()} and {evenly_distribute_value}')
+        # revert(f'{delegation_list} and {self.total_stake.get()} and {self.get_prep_delegations()} and {evenly_distribute_value}')
         self._system.setDelegation(delegation_list)
 
     def _unstake(self, _from: Address, _value: int) -> None:
