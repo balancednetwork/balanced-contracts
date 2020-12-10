@@ -5,7 +5,7 @@ from .utils.consts import *
 # from .scorelib import *
 
 
-TAG = 'StakedICXManager'
+TAG = 'Staking'
 
 DENOMINATOR = 1000000000000000000
 
@@ -502,3 +502,10 @@ class Staking(IconScoreBase):
         """Only for the dummy contract, to simulate claiming Iscore."""
         pass
 
+    @external(readonly=True)
+    def get_stake_from_contract(self,address:Address) -> int:
+        return self._system.getStake(address)
+
+    @external(readonly=True)
+    def get_delegation_from_contract(self, address: Address) -> dict:
+        return self._system.getDelegation(address)    
