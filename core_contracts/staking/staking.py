@@ -5,7 +5,7 @@ from .utils.consts import *
 # from .scorelib import *
 
 
-TAG = 'Staking'
+TAG = 'StakedICXManager'
 
 DENOMINATOR = 1000000000000000000
 
@@ -75,6 +75,7 @@ class PrepDelegations(TypedDict):
 
 class Staking(IconScoreBase):
     _SICX_SUPPLY = 'sICX_supply'
+    _RATE = '_rate'
     _SICX_ADDRESS = 'sICX_address'
     _BLOCK_HEIGHT_WEEK = '_block_height_week'
     _BLOCK_HEIGHT_DAY = '_block_height_day'
@@ -101,6 +102,7 @@ class Staking(IconScoreBase):
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self._sICX_supply = VarDB(self._SICX_SUPPLY, db, value_type=int)
+        self._rate = VarDB(self._RATE, db, value_type=int)
         # to store the block height for checking the top 100 preps in a week
         self._block_height_week = VarDB(self._BLOCK_HEIGHT_WEEK,db,value_type=int)
         self._block_height_day = VarDB(self._BLOCK_HEIGHT_DAY,db,value_type=int)
@@ -130,6 +132,7 @@ class Staking(IconScoreBase):
         # initializing the block height to claim rewards once a day
         self._block_height_day.set(self._system.getIISSInfo()["nextPRepTerm"])
         # top 100 preps is initialized at first
+        self._rate.set(self.get_rate())
         self._set_top_preps()
 
     def on_update(self) -> None:
@@ -164,6 +167,10 @@ class Staking(IconScoreBase):
     @external(readonly=True)
     def get_stake_from_network(self,_address:Address) -> dict:
         return self._system.getStake(_address)
+
+    @external(readonly=True)
+    def get_delegation_from_network(self, address: Address) -> dict:
+        return self._system.getDelegation(address)
 
     @external(readonly=True)
     def get_total_stake(self) -> int:
@@ -292,7 +299,7 @@ class Staking(IconScoreBase):
     def _update_internally(self,_to:Address,total_sicx_of_user:int) -> None:
         previous_address_delegations = self.get_address_delegations(_to)
         self._address_delegations[str(_to)] = ''
-        total_icx_hold = (total_sicx_of_user * self.get_rate()) // DENOMINATOR
+        total_icx_hold = (total_sicx_of_user * self._rate.get()) // DENOMINATOR
         total_icx_hold = total_icx_hold - self.msg.value
         for each in previous_address_delegations.items():
             x = Address.from_string(str(each[0]))
@@ -320,14 +327,17 @@ class Staking(IconScoreBase):
     def _check_for_day(self) -> None:
         if self._system.getIISSInfo()["nextPRepTerm"] > self._block_height_day.get() +  43200:
             self._block_height_day.set(self._system.getIISSInfo()["nextPRepTerm"])
+            self._rate.set(self.get_rate())
             self._claim_iscore()
 
     @payable
     @external
-    def add_collateral(self, _to: Address, _user_delegations: List[PrepDelegations] = None) -> None:
+    def add_collateral(self, _to: Address = '', _user_delegations: List[PrepDelegations] = None) -> None:
         if _user_delegations is not None:
             if len(_user_delegations) > 100:
                 revert('Only 100 prep addresses should be provided')
+        if _to == '':
+            _to = self.msg.sender
         if _to not in self.get_user_address_list():
             self._address_list.put(_to)
         self._check_for_week()
@@ -405,14 +415,12 @@ class Staking(IconScoreBase):
             total_staked_amount = total_staked_dict['stake']
             dict_prep_reward= {}
             for single_prep in prep_delegations:
-                value_in_icx = self._prep_delegations[str(one)]
+                value_in_icx = self._prep_delegations[str(single_prep)]
                 total_weightage_in_per = ((value_in_icx * DENOMINATOR) //total_staked_amount) * 100
                 single_prep_reward = ((total_weightage_in_per // 100) * amount) // DENOMINATOR
                 dict_prep_reward[single_prep] = single_prep_reward
             self._stake(self.total_stake.get() + self.total_reward.get())
             self._delegations(0,dict_prep_reward)
-        else:
-            revert('There is no iscore to claim')
 
 
     @external
@@ -502,10 +510,3 @@ class Staking(IconScoreBase):
         """Only for the dummy contract, to simulate claiming Iscore."""
         pass
 
-    @external(readonly=True)
-    def get_stake_from_contract(self,address:Address) -> int:
-        return self._system.getStake(address)
-
-    @external(readonly=True)
-    def get_delegation_from_contract(self, address: Address) -> dict:
-        return self._system.getDelegation(address)    
