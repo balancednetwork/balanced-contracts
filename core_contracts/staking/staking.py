@@ -122,6 +122,9 @@ class Staking(IconScoreBase):
         self._prep_delegations = DictDB(self._PREP_DELEGATIONS, db, value_type=int)
         # initializing the system score
         self._system = IconScoreBase.create_interface_score(SYSTEM_SCORE, InterfaceSystemScore)
+        #initialize the sicx score
+        self.sICX_score = self.create_interface_score(self._sICX_address.get(), sICXTokenInterface)
+
 
 
 
@@ -144,21 +147,21 @@ class Staking(IconScoreBase):
 
     @external(readonly=True)
     def getRate(self) -> int:
-        sICX_score = self.create_interface_score(self._sICX_address.get(),
-                                                 sICXTokenInterface)
+        # sICX_score = self.create_interface_score(self._sICX_address.get(),
+                                                 # sICXTokenInterface)
 
         if (self._total_stake.get() ) == 0:
             rate = DENOMINATOR
         else:
-            rate = (self._total_stake.get()) * DENOMINATOR // sICX_score.totalSupply()
+            rate = (self._total_stake.get()) * DENOMINATOR // self.sICX_score.totalSupply()
         return rate
 
     @external
     def set_sICX_supply(self) -> None:
         """Only necessary for the dummy contract."""
-        sICX_score = self.create_interface_score(self._sICX_address.get(),
-                                                 sICXTokenInterface)
-        self._sICX_supply.set(sICX_score.totalSupply())
+        # sICX_score = self.create_interface_score(self._sICX_address.get(),
+        #                                          sICXTokenInterface)
+        self._sICX_supply.set(self.sICX_score.totalSupply())
 
     @external(readonly=True)
     def getSicxAddress(self) -> Address:
@@ -205,8 +208,7 @@ class Staking(IconScoreBase):
     def getAddressDelegations(self,_address:Address) -> dict:
         dict1 ={}
         dict_address_votes = self.getAddressDelegationsInPer(_address)
-        sICX_score = self.create_interface_score(sicx, sICXTokenInterface)
-        total_sicx_of_user = sICX_score.balanceOf(_address)
+        total_sicx_of_user = self.sICX_score.balanceOf(_address)
         total_icx_hold = (total_sicx_of_user * self.getRate()) // DENOMINATOR
         for one in dict_address_votes.items():
             address = one[0]
@@ -253,7 +255,7 @@ class Staking(IconScoreBase):
 
     def _loop_in_params(self,_to:Address,_user_delegations:list,prep_list_contract:list, get_delegated_value:dict,total_sicx:int) -> int:
         amount_to_stake = 0
-        for single_prep in _user_delegation:
+        for single_prep in _user_delegations:
             if single_prep["_address"] not in prep_list_contract:
                 self._prep_list.put(single_prep["_address"])
             if single_prep["_address"] not in self.getTopPreps():
@@ -262,12 +264,15 @@ class Staking(IconScoreBase):
             self._set_address_delegations(_to, single_prep['_address'], single_prep["_votes_in_per"], get_delegated_value,total_sicx)
         return amount_to_stake
 
-    def _distribute_evenly(self, amount_to_distribute: int, top_preps: list,total_sicx:int=0,flags:int=0) -> int:
+    def _distribute_evenly(self, amount_to_distribute: int, top_preps: list,total_sicx:int=0,flags:int=0,_to:Address=None,prep_list:list=[]) -> int:
         _value = 0
         if flags == 1:
             prep_delegations = self.getPrepDelegations()
+            evenly_ditribution = (DENOMINATOR * amount_to_distribute) // len(top_preps)
             for one_prep in top_preps:
-                self._set_address_delegations(_to, one_prep, _value, prep_delegations,
+                if one_prep not in prep_list:
+                    self._prep_list.put(one_prep)
+                self._set_address_delegations(_to, one_prep, evenly_ditribution, prep_delegations,
                                               total_sicx)
         else:
             evenly_ditribution = (DENOMINATOR * amount_to_distribute) // len(top_preps)
@@ -308,6 +313,7 @@ class Staking(IconScoreBase):
             else:
                 self._prep_delegations[str(_prep)] = _value
 
+
     def _stake_and_delegate(self,evenly_distribute_value:int = 0) -> None:
         self._stake(self.getTotalStake())
         self._delegations(evenly_distribute_value,{})
@@ -324,7 +330,7 @@ class Staking(IconScoreBase):
             if self._prep_delegations[str(x)] < 0:
                 self._prep_delegations[str(x)] = 0
 
-    def _check_top_100_preps(self, top_preps: list) -> int:
+    def _check_top_100_preps(self, top_preps: list) -> None:
         to_distribute = 0
         for single_prep in self.getPrepDelegations().keys():
             if Address.from_string(single_prep) not in top_preps:
@@ -349,22 +355,22 @@ class Staking(IconScoreBase):
 
     @payable
     @external
-    def addCollateral(self, _to: Address = '', _user_delegations: List[PrepDelegations] = None) -> None:
+    def addCollateral(self, _to: Address = None , _user_delegations: List[PrepDelegations] = None) -> None:
         if _user_delegations is not None:
             if len(_user_delegations) > 100:
                 revert('Only 100 prep addresses should be provided')
-        if _to == '':
+        if _to == None:
             _to = self.msg.sender
         if _to not in self.getUserAddressList():
             self._address_list.put(_to)
         self._check_for_week()
         self._check_for_day()
         self._total_stake.set(self._total_stake.get()+self.msg.value)
-        sicx = self._sICX_address.get()
-        sICX_score = self.create_interface_score(sicx, sICXTokenInterface)
+        # sicx = self._sICX_address.get()
+        # sICX_score = self.create_interface_score(sicx, sICXTokenInterface)
         amount = self._get_amount_to_mint()
-        sICX_score.mintTo(_to, amount, _data)
-        total_sicx_of_user = sICX_score.balanceOf(_to)
+        self.sICX_score.mintTo(_to, amount)
+        total_sicx_of_user = self.sICX_score.balanceOf(_to)
         previous_address_delegations = self.getAddressDelegationsInPer(_to)
         if previous_address_delegations != {}:
             self._update_internally(_to,total_sicx_of_user)
@@ -381,7 +387,7 @@ class Staking(IconScoreBase):
             if previous_address_delegations == {}:
                 amount_to_stake_in_per = 100
                 flags= 1
-                to_evenly_distribute_value = self._distribute_evenly(amount_to_stake_in_per, top_preps, total_sicx_of_user,flags)
+                to_evenly_distribute_value = self._distribute_evenly(amount_to_stake_in_per, top_preps, total_sicx_of_user,flags,_to,prep_list_of_contract)
 
             else:
                 for dict_prep_delegation in previous_address_delegations.items():
@@ -406,8 +412,8 @@ class Staking(IconScoreBase):
         self._check_for_week()
         self._check_for_day()
         sicx = self._sICX_address.get()
-        sICX_score = self.create_interface_score(sicx, sICXTokenInterface)
-        total_sicx_of_user = sICX_score.balanceOf(_to)
+        # sICX_score = self.create_interface_score(sicx, sICXTokenInterface)
+        total_sicx_of_user = self.sICX_score.balanceOf(_to)
         self._update_internally(_to,total_sicx_of_user)
         prep_list_of_contract = self.getPrepList()
         prep_delegations = self.getPrepDelegations()
@@ -489,7 +495,8 @@ class Staking(IconScoreBase):
                     "value": self._prep_delegations[str(one)] + evenly_distribute_value
                 }
                 delegation_list.append(delegation_info)
-        # revert(f'{delegation_list} and {self.total_stake.get()} and {self.getPrepDelegations()} and {evenly_distribute_value}')
+        revert(delegation_list)
+        # revert(f'{delegation_list} and {self._total_stake.get()} and {self.getPrepDelegations()} and {evenly_distribute_value} ')
         self._system.setDelegation(delegation_list)
 
     def _unstake(self, _from: Address, _value: int) -> None:
