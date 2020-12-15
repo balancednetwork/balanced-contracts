@@ -86,6 +86,7 @@ class Staking(IconScoreBase):
     _TOP_PREPS = '_top_preps'
     _ADDRESS_DELEGATIONS = '_address_delegations'
     _PREP_DELEGATIONS = '_prep_delegations'
+    _UNSTAKE_AMOUNT = '_unstake_amount'
 
     @eventlog(indexed=3)
     def Transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
@@ -111,6 +112,8 @@ class Staking(IconScoreBase):
         self._total_stake = VarDB(self._TOTAL_STAKE, db, value_type=int)
         # vardb to store total rewards
         self._total_reward = VarDB(self._TOTAL_REWARD, db, value_type=int)
+        # vardb to store total unstaking amount
+        self._unstake_amount = VarDB(self._UNSTAKE_AMOUNT, db, value_type=int)
         # array for storing all the addresses and prep addresses
         self._address_list = ArrayDB(self._ADDRESS_LIST, db, value_type=Address)
         self._prep_list = ArrayDB(self._PREP_LIST, db, value_type=Address)
@@ -166,6 +169,10 @@ class Staking(IconScoreBase):
     @external(readonly=True)
     def getSicxAddress(self) -> Address:
         return self._sICX_address.get()
+
+    @external(readonly=True)
+    def getUnstakingAmount(self):
+        return self._unstake_amount.get()
 
     @external(readonly=True)
     def getStakeFromNetwork(self) -> dict:
@@ -273,7 +280,7 @@ class Staking(IconScoreBase):
                 if one_prep not in prep_list:
                     self._prep_list.put(one_prep)
                 self._set_address_delegations(_to, one_prep, evenly_ditribution, prep_delegations,
-                                              total_sicx)
+                                              total_sicx,1)
         else:
             evenly_ditribution = (DENOMINATOR * amount_to_distribute) // len(top_preps)
             _value = (evenly_ditribution) // DENOMINATOR
@@ -444,11 +451,12 @@ class Staking(IconScoreBase):
 
 
     @external
-    def withdraw(self, _from: Address, _value:int = 0, _data: bytes = None):
+    def withdraw(self, _to: Address, _value:int = 0, _data: bytes = None):
         if _data is None:
             _data = b'None'
-        if _from not in self.getUserAddressList():
+        if _to not in self.getUserAddressList():
             revert('You need to stake first before unstaking')
+
         unstaked_amount  = self.tokenFallback(_to,_value,_data)
         amount_to_unstake = _value * self.getRate()
         delegation_dict = self.getAddressDelegationsInPer(str(_to))
@@ -495,7 +503,6 @@ class Staking(IconScoreBase):
                     "value": self._prep_delegations[str(one)] + evenly_distribute_value
                 }
                 delegation_list.append(delegation_info)
-        # revert(delegation_list)
         # revert(f'{delegation_list} and {self._total_stake.get()} and {self.getPrepDelegations()} and {evenly_distribute_value} ')
         self._system.setDelegation(delegation_list)
 
