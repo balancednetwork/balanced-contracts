@@ -495,7 +495,7 @@ class Staking(IconScoreBase):
                     "value": self._prep_delegations[str(one)] + evenly_distribute_value
                 }
                 delegation_list.append(delegation_info)
-        revert(delegation_list)
+        # revert(delegation_list)
         # revert(f'{delegation_list} and {self._total_stake.get()} and {self.getPrepDelegations()} and {evenly_distribute_value} ')
         self._system.setDelegation(delegation_list)
 
