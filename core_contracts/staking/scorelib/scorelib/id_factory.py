@@ -16,14 +16,19 @@
 
 from iconservice import *
 
-# ================================================
-#  Consts
-# ================================================
-MAX_ITERATION_LOOP = 100
 
-# ================================================
-#  Consts
-# ================================================
-TAG = 'SCORELib'
-VERSION = '0.1.0'
-ZERO_SCORE_ADDRESS = Address.from_string('cx0000000000000000000000000000000000000000')
+class IdFactory:
+    """ IdFactory is able to generate unique identifiers for a collection of items. """
+
+    _NAME = '_ID_FACTORY'
+
+    def __init__(self, var_key: str, db: IconScoreDatabase):
+        self._name = var_key + IdFactory._NAME
+        self._uid = VarDB(f'{self._name}_uid', db, int)
+        self._db = db
+
+    def get_uid(self) -> int:
+        # UID = 0 is forbidden in order to prevent conflict with uninitialized uid
+        # Starts with UID 1
+        self._uid.set(self._uid.get() + 1)
+        return self._uid.get()

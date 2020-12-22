@@ -14,6 +14,10 @@ class ZeroValueError(Exception):
 class InvalidNameError(Exception):
 	pass
 
+class stakingManagementInterface(InterfaceScore):
+	@interface
+	def transferUpdateDelegations(self,_from:Address,_to:Address,_value:int):
+		pass
 
 # An interface of tokenFallback.
 # Receiving SCORE that has implemented this interface can handle
@@ -105,6 +109,12 @@ class IRC2(TokenStandard, IconScoreBase):
 		"""
 		return self._name.get()
 
+	@external
+	def set_admin(self, _address: Address):
+		if self.msg.sender != self.owner:
+			revert('only owner can call the function')
+		self._admin.set(_address)
+
 	@external(readonly=True)
 	def symbol(self) -> str:
 		"""
@@ -169,6 +179,8 @@ class IRC2(TokenStandard, IconScoreBase):
 	def transfer(self, _to: Address, _value: int, _data: bytes = None):
 		if _data is None:
 			_data = b'None'
+		staking_score = self.create_interface_score(self._admin.get(), stakingManagementInterface)
+		staking_score.transferUpdateDelegations(self.msg.sender,_to,_value)
 		self._transfer(self.msg.sender, _to, _value, _data)
 
 	def _transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
@@ -230,7 +242,6 @@ class IRC2(TokenStandard, IconScoreBase):
 		if amount <= 0:
 			raise ZeroValueError("Invalid Value")
 			pass
-
 		self._beforeTokenTransfer(0, account, amount)
 
 		self._total_supply.set(self._total_supply.get() + amount)
