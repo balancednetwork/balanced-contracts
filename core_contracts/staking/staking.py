@@ -509,8 +509,6 @@ class Staking(IconScoreBase):
             _to = self.msg.sender
         if _to not in self.getUserAddressList():
             revert('You need to stake first before unstaking')
-        if _to not in self.getUnstakingPendingAddress:
-            self._unstake_address.put(_to)
         self._check_for_week()
         self._check_for_day()
         self._check_for_balance()
@@ -565,17 +563,17 @@ class Staking(IconScoreBase):
         # revert(f'{delegation_list} and {self._total_stake.get()} and {self.getPrepDelegations()} and {evenly_distribute_value} ')
         self._system.setDelegation(delegation_list)
 
-    def _unstake(self, _from: Address, _value: int) -> None:
+    def _unstake(self, _to: Address, _value: int) -> None:
         # unstaked = self.icx.get_balance(self.address) * _value // sICX_score.totalSupply()
         self.sICX_score.burn(_value)
         user_total_sicx = self.sICX_score.balanceOf(_to)
         amount_to_unstake = _value * self.getRate()
         top_preps = self.getTopPreps()
+        evenly_deduct = 0
         if _value == user_total_sicx:
             self._address_delegations[str(_to)] = ''
         else:
-            delegation_in_per = self.getAddressDelegationsInPer()
-            evenly_deduct =0
+            delegation_in_per = self.getAddressDelegationsInPer(_to)
             amount = 0
             for single in delegation_in_per.items():
                 if single not in top_preps:
@@ -592,7 +590,7 @@ class Staking(IconScoreBase):
         #this value is only the value that needs to be deducted from all top preps
         value_to_unstake_in_icx = ((deduct_value_in_per // 100)  * amount_to_unstake) // DENOMINATOR
         # a dictdb is created for storing the address requesting for unstaking and the total amount to unstake
-        self._linked_list_var.append(str(_from)+":"+str(amount_to_unstake), self._linked_list_var._tail_id.get() + 1)
+        self._linked_list_var.append(str(_to)+":"+str(amount_to_unstake), self._linked_list_var._tail_id.get() + 1)
         # removing the amount to be unstaked from stake
         self._stake(self._total_stake.get() - amount_to_unstake)
         self._delegations(value_to_unstake_in_icx,{'source':'unstake'})
@@ -619,29 +617,3 @@ class Staking(IconScoreBase):
     def fallback(self):
         """Only for the dummy contract, to simulate claiming Iscore."""
         pass
-
-
-    def _set_linked_list(self) -> None:
-        self._linked_list_var.append("ok:20.",1)
-
-    @external
-    def get_linked_list(self):
-        a = self._linked_list_var._tail_id.get()
-        self._set_linked_list()
-        y = self._linked_list_var._tail_id.get()
-        self._linked_list_var.append("bc:70.",2)
-        self._linked_list_var.append("cd:90.",3)
-        b = self._linked_list_var._head_id.get()
-        self._linked_list_var.remove(1)
-        self._linked_list_var.append("cde:40.",4)
-        c = self._linked_list_var._head_id.get()
-        lis1 =[]
-        for items in self._linked_list_var:
-            lis1.append(items)
-        x = self._linked_list_var.tail_value()
-        z = self._linked_list_var._tail_id.get()
-        # y = self._linked_list_var.node_value(x)
-        # lis2 =[]
-        # for items in x:
-        #     lis2.append(items)
-        revert(f'{lis1} anddd {x} and {y} and {z}  and {a} and {b} and {c}')
