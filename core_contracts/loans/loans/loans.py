@@ -8,6 +8,8 @@ from .replay_log import ReplayLogDB
 
 TAG = 'BalancedLoans'
 
+POINTS = 10000
+
 # An interface of token
 class TokenInterface(InterfaceScore):
     @interface
@@ -18,10 +20,10 @@ class TokenInterface(InterfaceScore):
 class Loans(IconScoreBase):
 
     _LOANS_ON = 'loans_on'
+    _DIVIDENDS = "dividends"
     _ADMIN = 'admin'
     _COLLATERAL_MIN = 'collateral_min'
     _SYSTEM_DEBT = 'system_debt'
-    _RESERVE = 'reserve'
     _MINING_RATIO = 'mining_ratio'
     _LOCKING_RATIO = 'locking_ratio'
     _LIQUIDATION_RATIO = 'liquidation_ratio'
@@ -31,6 +33,7 @@ class Loans(IconScoreBase):
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self._loans_on = VarDB(self._LOANS_ON, db, value_type=bool)
+        self._dividends = VarDB(self._DIVIDENDS, db, value_type=Address)
 
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._collateral_min = VarDB(self._COLLATERAL_MIN, db, value_type=int)
@@ -72,6 +75,24 @@ class Loans(IconScoreBase):
     @only_owner
     def toggle_loans_on(self) -> None:
         self._loans_on.set(not self._loans_on.get())
+
+    @external
+    @only_owner
+    def set_dividends(self, _address: Address) -> None:
+        self._dividends.set(_address)
+
+    @external(readonly=True)
+    def get_dividends(self) -> Address:
+        self._dividends.get()
+
+    @external
+    @only_owner
+    def set_origination_fee(self, _fee: int) -> None:
+        self._origination_fee.set(_address)
+
+    @external(readonly=True)
+    def get_origination_fee(self) -> int:
+        self._origination_fee.get()
 
     @external(readonly=True)
     def get_total_collateral(self) -> int:
@@ -256,15 +277,19 @@ class Loans(IconScoreBase):
             revert(f'Collateral must be deposited before originating a loan.')
         max_loan_value = 100 * collateral // self._locking_ratio.get()
         new_loan_value = self._assets[_asset].price_in_icx() * _amount // EXA
-        if pos.total_debt() + new_loan_value > max_loan_value:
+        fee = self._origination_fee.get() * new_loan_value // POINTS
+        if pos.total_debt() + new_loan_value + fee > max_loan_value:
             revert(f'{collateral / EXA} collateral is insufficient'
                    f' to originate a loan of {_amount / EXA} {_asset}'
                    f' when max_loan_value = {max_loan_value / EXA} and'
-                   f' new_loan_value = {new_loan_value / EXA}.')
+                   f' new_loan_value = {new_loan_value / EXA}'
+                   f' plus a fee of {fee / EXA}.')
         pos[_asset] += _amount
         self._assets[_asset].mint(origin, _amount)
         self.OriginateLoan(origin, _asset, _amount,
             f'Loan of {_amount / EXA} {_asset} from Balanced.')
+        self._assets[_asset].mint(self._dividends.get(), fee)
+        self.FeePaid(_asset, fee, "origination", "")
 
     @external
     def withdraw_collateral(self, _value: int) -> None:

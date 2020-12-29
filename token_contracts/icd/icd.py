@@ -81,3 +81,12 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
         priceData = oracle.get_reference_data(self._peg.get(), 'ICX')
         self._last_price.set(priceData['rate'])
         self._price_update_time.set(self.now())
+        self.OraclePrice("ICXUSD", priceData['rate'], self.now())
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # EVENTS
+    # ------------------------------------------------------------------------------------------------------------------
+
+    @eventlog(indexed=3)
+    def OraclePrice(self, market: str, price: int, time: int):
+        pass
