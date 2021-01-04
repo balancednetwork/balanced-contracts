@@ -15,7 +15,6 @@ DENOMINATOR = 1000000000000000000
 
 TOTAL_PREPS = 20
 
-
 # An interface of token to distribute daily rewards
 class sICXTokenInterface(InterfaceScore):
     @interface
@@ -74,7 +73,6 @@ class InterfaceSystemScore(InterfaceScore):
     @interface
     def getPReps(self, startRanking: int, endRanking: int) -> list: pass
 
-
 class Staking(IconScoreBase):
     _SICX_SUPPLY = 'sICX_supply'
     _RATE = '_rate'
@@ -105,24 +103,24 @@ class Staking(IconScoreBase):
         self._sICX_supply = VarDB(self._SICX_SUPPLY, db, value_type=int)
         self._rate = VarDB(self._RATE, db, value_type=int)
         # to store the block height for checking the top 100 preps in a week
-        self._block_height_week = VarDB(self._BLOCK_HEIGHT_WEEK, db, value_type=int)
-        self._block_height_day = VarDB(self._BLOCK_HEIGHT_DAY, db, value_type=int)
+        self._block_height_week = VarDB(self._BLOCK_HEIGHT_WEEK,db,value_type=int)
+        self._block_height_day = VarDB(self._BLOCK_HEIGHT_DAY,db,value_type=int)
         self._sICX_address = VarDB(self._SICX_ADDRESS, db, value_type=Address)
         # total staked from staking contract
         self._total_stake = VarDB(self._TOTAL_STAKE, db, value_type=int)
         # vardb to store total rewards
         self._total_lifetime_reward = VarDB(self._TOTAL_LIFETIME_REWARD, db, value_type=int)
         self._daily_reward = VarDB(self._DAILY_REWARD, db, value_type=int)
-        self._distributing = VarDB(self._DISTRIBUTING, db, value_type=bool)
+        self._distributing = VarDB(self._DISTRIBUTING,db,value_type=bool)
         # vardb to store total unstaking amount
         # array to store top 100 preps
         self._top_preps = ArrayDB(self._TOP_PREPS, db, value_type=Address)
         # initializing the system score
         self._system = IconScoreBase.create_interface_score(SYSTEM_SCORE, InterfaceSystemScore)
-        # initialize the sicx score
+        #initialize the sicx score
         self.sICX_score = self.create_interface_score(self._sICX_address.get(), sICXTokenInterface)
-        # initialize the linked list
-        self._linked_list_var = LinkedListDB("unstake_dict", db, value_type=str)
+        #initialize the linked list
+        self._linked_list_var = LinkedListDB("unstake_dict", db)
 
     def on_install(self) -> None:
         super().on_install()
@@ -146,7 +144,7 @@ class Staking(IconScoreBase):
         """
         Get the ratio of ICX to sICX.
         """
-        if (self._total_stake.get()) == 0:
+        if (self._total_stake.get() ) == 0:
             rate = DENOMINATOR
         else:
             rate = (self._total_stake.get()) * DENOMINATOR // self.sICX_score.totalSupply()
@@ -199,7 +197,7 @@ class Staking(IconScoreBase):
         """
         Returns the top prep addresses that is set every week.
         """
-        top_prep_list = []
+        top_prep_list= []
         for x in self._top_preps:
             top_prep_list.append(x)
         return top_prep_list
@@ -210,10 +208,9 @@ class Staking(IconScoreBase):
         Returns a dictionary that shows wallet address as a key and the request of unstaked amount by that address
         as a value.
         """
-        unstake_info_list = []
+        unstake_info_list =[]
         for items in self._linked_list_var:
-            split_string = items[1].split(':')
-            unstake_info_list.append(split_string)
+            unstake_info_list.append([items[1],items[2]])
         return unstake_info_list
 
     @external
@@ -224,14 +221,14 @@ class Staking(IconScoreBase):
         """
         self._sICX_address.set(_address)
 
-    def _set_top_preps(self) -> None:
+    def _set_top_preps(self) -> None :
         """Weekly this function is called to set the top 100 prep address in an arraydb"""
-        prep_dict = self._system.getPReps(1, 20)
+        prep_dict =  self._system.getPReps(1, 20)
         prep_address_list = prep_dict['preps']
         for each_prep in prep_address_list:
             self._top_preps.put(each_prep['address'])
 
-    def _get_amount_to_mint(self):
+    def _get_amount_to_mint(self) -> int:
         """Returns the amount to be minted to a address"""
         supply = self._sICX_supply.get()
         balance = self.getTotalStake()
@@ -255,7 +252,7 @@ class Staking(IconScoreBase):
         """
         Claim iscore and sets new rate daily.
         """
-        if self._system.getIISSInfo()["nextPRepTerm"] > self._block_height_day.get() + 43200:
+        if self._system.getIISSInfo()["nextPRepTerm"] > self._block_height_day.get() +  43200:
             self._block_height_day.set(self._system.getIISSInfo()["nextPRepTerm"])
             self._claim_iscore()
 
@@ -269,14 +266,14 @@ class Staking(IconScoreBase):
         if balance_score > 0:
             unstake_info_list = self.getUserUnstakeInfo()
             for each_info in unstake_info_list:
-                value_to_transfer = int(each_info[1])
+                value_to_transfer = each_info[0]
                 if value_to_transfer <= balance_score:
-                    self._send_ICX(Address.from_string(each_info[0]), value_to_transfer)
+                    self._send_ICX(each_info[1], value_to_transfer)
                     self._linked_list_var.remove(self._linked_list_var._head_id.get())
                 break
 
-    def _evenly_distrubuted_amount(self):
-        return (self._total_stake.get() // TOTAL_PREPS, self._total_stake.get() % TOTAL_PREPS)
+    def _evenly_distrubuted_amount(self) -> tuple:
+        return (self._total_stake.get() // TOTAL_PREPS, self._total_stake.get()% TOTAL_PREPS)
 
     @payable
     @external
@@ -291,19 +288,19 @@ class Staking(IconScoreBase):
         self._reset_top_preps()
         self._check_for_iscore()
         self._check_unstake_result()
-        if self._distributing.get():
+        if self._distributing.get() == True:
             self._rate.set(self.getRate())
             self._total_stake.set(self._total_stake.get() + self._daily_reward.get())
             self._distributing.set(False)
             self._daily_reward.set(0)
-        self._total_stake.set(self._total_stake.get() + self.msg.value)
+        self._total_stake.set(self._total_stake.get()+self.msg.value)
         amount = self._get_amount_to_mint()
         self.sICX_score.mintTo(_to, amount)
         self._stake(self._total_stake.get())
         icx_to_distribute = self._evenly_distrubuted_amount()
         remainder_icx = icx_to_distribute[1]
         evenly_distributed_amount = icx_to_distribute[0]
-        self._delegations(evenly_distributed_amount, remainder_icx)
+        self._delegations(evenly_distributed_amount,remainder_icx)
         self._sICX_supply.set(self._sICX_supply.get() + amount)
         self.TokenTransfer(_to, amount, f'{amount / DENOMINATOR} sICX minted to {_to}')
 
@@ -365,6 +362,8 @@ class Staking(IconScoreBase):
         if d["method"] == "unstake":
             self._unstake(_from, _value)
 
+
+
     def _unstake(self, _to: Address, _value: int) -> None:
         """
         Burns the sICX and removes delegations
@@ -379,8 +378,7 @@ class Staking(IconScoreBase):
             self._check_unstake_result()
             self.sICX_score.burn(_value)
             amount_to_unstake = (_value * self._rate.get()) // DENOMINATOR
-            self._linked_list_var.append(str(_to) + ":" + str(amount_to_unstake),
-                                         self._linked_list_var._tail_id.get() + 1)
+            self._linked_list_var.append(_to, amount_to_unstake, self._linked_list_var._tail_id.get() + 1)
             self._total_stake.set(self._total_stake.get() - amount_to_unstake)
             icx_to_distribute = self._evenly_distrubuted_amount()
             remainder_icx = icx_to_distribute[1]
@@ -391,7 +389,8 @@ class Staking(IconScoreBase):
         except BaseException as e:
             revert(f'You can try unstaking later, {e}')
 
-    def _send_ICX(self, _to: Address, amount: int, msg: str = '') -> None:
+
+    def _send_ICX(self, _to: Address, amount: int, msg: str='') -> None:
         """
         Sends ICX to an address.
         :param _to: ICX destination address.
@@ -412,3 +411,6 @@ class Staking(IconScoreBase):
     def fallback(self):
         """Only for the dummy contract, to simulate claiming Iscore."""
         pass
+
+
+
