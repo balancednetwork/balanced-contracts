@@ -252,7 +252,7 @@ class Staking(IconScoreBase):
         """
         Claim iscore and sets new rate daily.
         """
-        if self._system.getIISSInfo()["nextPRepTerm"] > self._block_height_day.get() +  43200:
+        if self._system.getIISSInfo()["nextPRepTerm"] > self._block_height_day.get() +  432:
             self._block_height_day.set(self._system.getIISSInfo()["nextPRepTerm"])
             self._claim_iscore()
 
@@ -289,8 +289,8 @@ class Staking(IconScoreBase):
         self._check_for_iscore()
         self._check_unstake_result()
         if self._distributing.get() == True:
-            self._rate.set(self.getRate())
             self._total_stake.set(self._total_stake.get() + self._daily_reward.get())
+            self._rate.set(self.getRate())
             self._distributing.set(False)
             self._daily_reward.set(0)
         self._total_stake.set(self._total_stake.get()+self.msg.value)
@@ -376,8 +376,14 @@ class Staking(IconScoreBase):
             self._reset_top_preps()
             self._check_for_iscore()
             self._check_unstake_result()
+            if self._distributing.get() == True:
+                self._total_stake.set(self._total_stake.get() + self._daily_reward.get())
+                self._rate.set(self.getRate())
+                self._distributing.set(False)
+                self._daily_reward.set(0)
             self.sICX_score.burn(_value)
             amount_to_unstake = (_value * self._rate.get()) // DENOMINATOR
+            # (40 * 10**18 * 1000004209828632503) // 10**18
             self._linked_list_var.append(_to, amount_to_unstake, self._linked_list_var._tail_id.get() + 1)
             self._total_stake.set(self._total_stake.get() - amount_to_unstake)
             icx_to_distribute = self._evenly_distrubuted_amount()
