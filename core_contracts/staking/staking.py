@@ -140,14 +140,17 @@ class Staking(IconScoreBase):
         return "Staking"
 
     @external(readonly=True)
+    def getTodayRate(self) -> int:
+        return self._rate.get()
+
     def getRate(self) -> int:
         """
         Get the ratio of ICX to sICX.
         """
-        if (self._total_stake.get() ) == 0:
+        if (self._total_stake.get() + self._daily_reward.get()) == 0:
             rate = DENOMINATOR
         else:
-            rate = (self._total_stake.get()) * DENOMINATOR // self.sICX_score.totalSupply()
+            rate = (self._total_stake.get() + self._daily_reward.get()) * DENOMINATOR // self.sICX_score.totalSupply()
         return rate
 
     @external
@@ -283,16 +286,15 @@ class Staking(IconScoreBase):
         addresses and receives equivalent of sICX by the user address.
         :params _to: Wallet address where sICX is minted to.
         """
+        if self._distributing.get() == True:
+            self._total_stake.set(self._total_stake.get() + self._daily_reward.get())
+            self._distributing.set(False)
+            self._daily_reward.set(0)
         if _to == None:
             _to = self.tx.origin
         self._reset_top_preps()
         self._check_for_iscore()
         self._check_unstake_result()
-        if self._distributing.get() == True:
-            self._total_stake.set(self._total_stake.get() + self._daily_reward.get())
-            self._rate.set(self.getRate())
-            self._distributing.set(False)
-            self._daily_reward.set(0)
         self._total_stake.set(self._total_stake.get()+self.msg.value)
         amount = self._get_amount_to_mint()
         self.sICX_score.mintTo(_to, amount)
@@ -313,6 +315,7 @@ class Staking(IconScoreBase):
             amount = iscore_details_dict["estimatedICX"]
             self._system.claimIScore()
             self._daily_reward.set(amount)
+            self._rate.set(self.getRate())
             self._total_lifetime_reward.set(self.getLifetimeReward() + amount)
             self._distributing.set(True)
 
@@ -373,17 +376,15 @@ class Staking(IconScoreBase):
         :params _value : Amount of sICX to be burned.
         """
         try:
+            if self._distributing.get() == True:
+                self._total_stake.set(self._total_stake.get() + self._daily_reward.get())
+                self._distributing.set(False)
+                self._daily_reward.set(0)
             self._reset_top_preps()
             self._check_for_iscore()
             self._check_unstake_result()
-            if self._distributing.get() == True:
-                self._total_stake.set(self._total_stake.get() + self._daily_reward.get())
-                self._rate.set(self.getRate())
-                self._distributing.set(False)
-                self._daily_reward.set(0)
             self.sICX_score.burn(_value)
             amount_to_unstake = (_value * self._rate.get()) // DENOMINATOR
-            # (40 * 10**18 * 1000004209828632503) // 10**18
             self._linked_list_var.append(_to, amount_to_unstake, self._linked_list_var._tail_id.get() + 1)
             self._total_stake.set(self._total_stake.get() - amount_to_unstake)
             icx_to_distribute = self._evenly_distrubuted_amount()
@@ -417,6 +418,3 @@ class Staking(IconScoreBase):
     def fallback(self):
         """Only for the dummy contract, to simulate claiming Iscore."""
         pass
-
-
-
