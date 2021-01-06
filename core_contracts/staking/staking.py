@@ -143,7 +143,7 @@ class Staking(IconScoreBase):
     def getTodayRate(self) -> int:
         return self._rate.get()
 
-    def getRate(self) -> int:
+    def _get_rate(self) -> int:
         """
         Get the ratio of ICX to sICX.
         """
@@ -322,7 +322,7 @@ class Staking(IconScoreBase):
             amount = iscore_details_dict["estimatedICX"]
             self._system.claimIScore()
             self._daily_reward.set(amount)
-            self._rate.set(self.getRate())
+            self._rate.set(self._get_rate())
             self._total_lifetime_reward.set(self.getLifetimeReward() + amount)
             self._distributing.set(True)
 
