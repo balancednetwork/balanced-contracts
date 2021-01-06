@@ -1,18 +1,3 @@
-# -*- coding: utf-8 -*-
-
-# Copyright 2020 ICONation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 from iconservice import *
 from .id_factory import *
@@ -124,7 +109,6 @@ class LinkedListDB:
         node = self._get_node(cur_id)
         yield cur_id, node.get_value(),node.get_key()
         tail_id = self._tail_id.get()
-
         # Iterate until tail
         while cur_id != tail_id:
             cur_id = node.get_next()
@@ -170,6 +154,10 @@ class LinkedListDB:
     def node_value(self, cur_id: int):
         """ Returns the value of a given node id """
         return self._get_node(cur_id).get_value()
+
+    def node_key(self,cur_id: int):
+        """ Returns the value of a given node id """
+        return self._get_node(cur_id).get_key()
 
     def head_value(self):
         """ Returns the value of the head of the linkedlist """

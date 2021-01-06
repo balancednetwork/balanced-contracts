@@ -129,7 +129,7 @@ class Staking(IconScoreBase):
         # initializing the block height to claim rewards once a day
         self._block_height_day.set(self._system.getIISSInfo()["nextPRepTerm"])
         # top 100 preps is initialized at first
-        self._rate.set(self.getRate())
+        self._rate.set(DENOMINATOR)
         self._set_top_preps()
 
     def on_update(self) -> None:
@@ -147,7 +147,7 @@ class Staking(IconScoreBase):
         """
         Get the ratio of ICX to sICX.
         """
-        if (self._total_stake.get() + self._daily_reward.get()) == 0:
+        if self.sICX_score.totalSupply() == 0:
             rate = DENOMINATOR
         else:
             rate = (self._total_stake.get() + self._daily_reward.get()) * DENOMINATOR // self.sICX_score.totalSupply()
@@ -275,6 +275,19 @@ class Staking(IconScoreBase):
                     self._linked_list_var.remove(self._linked_list_var._head_id.get())
                 break
 
+    def _perform_checks(self) -> None:
+        if self._distributing.get() == True:
+            if self._sICX_supply.get() == 0:
+                last_unstaking_address = self._linked_list_var.node_key(self._linked_list_var._tail_id.get())
+                self._send_ICX(last_unstaking_address,self._daily_reward.get())
+            else:
+                self._total_stake.set(self._total_stake.get() + self._daily_reward.get())
+                self._distributing.set(False)
+                self._daily_reward.set(0)
+        self._reset_top_preps()
+        self._check_for_iscore()
+        self._check_unstake_result()
+
     def _evenly_distrubuted_amount(self) -> tuple:
         return (self._total_stake.get() // TOTAL_PREPS, self._total_stake.get()% TOTAL_PREPS)
 
@@ -286,15 +299,9 @@ class Staking(IconScoreBase):
         addresses and receives equivalent of sICX by the user address.
         :params _to: Wallet address where sICX is minted to.
         """
-        if self._distributing.get() == True:
-            self._total_stake.set(self._total_stake.get() + self._daily_reward.get())
-            self._distributing.set(False)
-            self._daily_reward.set(0)
         if _to == None:
             _to = self.tx.origin
-        self._reset_top_preps()
-        self._check_for_iscore()
-        self._check_unstake_result()
+        self._perform_checks()
         self._total_stake.set(self._total_stake.get()+self.msg.value)
         amount = self._get_amount_to_mint()
         self.sICX_score.mintTo(_to, amount)
@@ -365,8 +372,6 @@ class Staking(IconScoreBase):
         if d["method"] == "unstake":
             self._unstake(_from, _value)
 
-
-
     def _unstake(self, _to: Address, _value: int) -> None:
         """
         Burns the sICX and removes delegations
@@ -376,15 +381,11 @@ class Staking(IconScoreBase):
         :params _value : Amount of sICX to be burned.
         """
         try:
-            if self._distributing.get() == True:
-                self._total_stake.set(self._total_stake.get() + self._daily_reward.get())
-                self._distributing.set(False)
-                self._daily_reward.set(0)
-            self._reset_top_preps()
-            self._check_for_iscore()
-            self._check_unstake_result()
+            self._perform_checks()
             self.sICX_score.burn(_value)
             amount_to_unstake = (_value * self._rate.get()) // DENOMINATOR
+            if self._sICX_supply.get() - _value == 0:
+                amount_to_unstake = _value
             self._linked_list_var.append(_to, amount_to_unstake, self._linked_list_var._tail_id.get() + 1)
             self._total_stake.set(self._total_stake.get() - amount_to_unstake)
             icx_to_distribute = self._evenly_distrubuted_amount()
