@@ -3,7 +3,7 @@ from iconsdk.providers.http_provider import HTTPProvider
 from iconsdk.builder.transaction_builder import CallTransactionBuilder, TransactionBuilder, DeployTransactionBuilder
 from iconsdk.builder.call_builder import CallBuilder
 from iconsdk.signed_transaction import SignedTransaction
-icon_service = IconService(HTTPProvider('http://13.57.193.25:9000/', 3))
+icon_service = IconService(HTTPProvider('http://52.53.175.151:9000/', 3))
 
 class Test(object):
 
@@ -12,7 +12,7 @@ class Test(object):
 
     def asset_count(self):
         call = CallBuilder().from_('hxe7af5fcfd8dfc67530a01a0e403882687528dfcb')\
-            .to('cxa7ad4817078015ef25503942822442a4aa22dcec')\
+            .to('cx064b8c7b72a6b8c0987a06f9f2e1b322e6c464e8')\
             .method('asset_count')\
             .params({})\
             .build()
@@ -20,7 +20,7 @@ class Test(object):
 
     def get_account_positions(self, _owner):
         call = CallBuilder().from_('hxe7af5fcfd8dfc67530a01a0e403882687528dfcb')\
-            .to('cxa7ad4817078015ef25503942822442a4aa22dcec')\
+            .to('cx064b8c7b72a6b8c0987a06f9f2e1b322e6c464e8')\
             .method('get_account_positions')\
             .params({'_owner': _owner})\
             .build()
@@ -28,7 +28,7 @@ class Test(object):
 
     def get_available_assets(self):
         call = CallBuilder().from_('hxe7af5fcfd8dfc67530a01a0e403882687528dfcb')\
-            .to('cxa7ad4817078015ef25503942822442a4aa22dcec')\
+            .to('cx064b8c7b72a6b8c0987a06f9f2e1b322e6c464e8')\
             .method('get_available_assets')\
             .params({})\
             .build()
@@ -36,7 +36,7 @@ class Test(object):
 
     def get_total_collateral(self):
         call = CallBuilder().from_('hxe7af5fcfd8dfc67530a01a0e403882687528dfcb')\
-            .to('cxa7ad4817078015ef25503942822442a4aa22dcec')\
+            .to('cx064b8c7b72a6b8c0987a06f9f2e1b322e6c464e8')\
             .method('get_total_collateral')\
             .params({})\
             .build()
@@ -44,7 +44,7 @@ class Test(object):
 
     def name(self):
         call = CallBuilder().from_('hxe7af5fcfd8dfc67530a01a0e403882687528dfcb')\
-            .to('cxa7ad4817078015ef25503942822442a4aa22dcec')\
+            .to('cx064b8c7b72a6b8c0987a06f9f2e1b322e6c464e8')\
             .method('name')\
             .params({})\
             .build()
