@@ -77,10 +77,13 @@ class Staking(IconScoreBase):
     _SICX_SUPPLY = 'sICX_supply'
     _RATE = '_rate'
     _DISTRIBUTING = '_distributing'
+    _LAST_UNSTAKE_TRANSCATION = '_last_unstake_transaction'
+    _LAST_UNSTAKE_ADDRESS = '_last_unstake_address'
     _SICX_ADDRESS = 'sICX_address'
     _BLOCK_HEIGHT_WEEK = '_block_height_week'
     _BLOCK_HEIGHT_DAY = '_block_height_day'
     _TOTAL_STAKE = '_total_stake'
+    _TOTAL_UNSTAKE_AMOUNT = '_total_unstake_amount'
     _TOTAL_LIFETIME_REWARD = '_total_lifetime_reward'
     _DAILY_REWARD = '_daily_reward'
     _LINKED_LIST_VAR = '_linked_list_var'
@@ -106,12 +109,15 @@ class Staking(IconScoreBase):
         self._block_height_week = VarDB(self._BLOCK_HEIGHT_WEEK,db,value_type=int)
         self._block_height_day = VarDB(self._BLOCK_HEIGHT_DAY,db,value_type=int)
         self._sICX_address = VarDB(self._SICX_ADDRESS, db, value_type=Address)
+        self._last_unstake_address = VarDB(self._LAST_UNSTAKE_ADDRESS, db, value_type=Address)
         # total staked from staking contract
         self._total_stake = VarDB(self._TOTAL_STAKE, db, value_type=int)
         # vardb to store total rewards
         self._total_lifetime_reward = VarDB(self._TOTAL_LIFETIME_REWARD, db, value_type=int)
+        self._total_unstake_amount = VarDB(self._TOTAL_UNSTAKE_AMOUNT, db, value_type=int)
         self._daily_reward = VarDB(self._DAILY_REWARD, db, value_type=int)
         self._distributing = VarDB(self._DISTRIBUTING,db,value_type=bool)
+        self._last_unstake_transaction = VarDB(self._LAST_UNSTAKE_TRANSCATION,db,value_type=bool)
         # vardb to store total unstaking amount
         # array to store top 100 preps
         self._top_preps = ArrayDB(self._TOP_PREPS, db, value_type=Address)
@@ -143,7 +149,7 @@ class Staking(IconScoreBase):
     def getTodayRate(self) -> int:
         return self._rate.get()
 
-    def _get_rate(self) -> int:
+    def getRate(self) -> int:
         """
         Get the ratio of ICX to sICX.
         """
@@ -166,20 +172,6 @@ class Staking(IconScoreBase):
         Get the address of sICX token contract.
         """
         return self._sICX_address.get()
-
-    # @external(readonly=True)
-    # def getStakeFromNetwork(self) -> dict:
-    #     """
-    #     Returns a dictionary that specifies the total value staked in a network.
-    #     """
-    #     return self._system.getStake(self.address)
-    #
-    # @external(readonly=True)
-    # def getDelegationFromNetwork(self) -> dict:
-    #     """
-    #     Returns the delegations sent to the network.
-    #     """
-    #     return self._system.getDelegation(self.address)
 
     @external(readonly=True)
     def getTotalStake(self) -> int:
@@ -226,7 +218,7 @@ class Staking(IconScoreBase):
 
     def _set_top_preps(self) -> None :
         """Weekly this function is called to set the top 100 prep address in an arraydb"""
-        prep_dict =  self._system.getPReps(1, 20)
+        prep_dict =  self._system.getPReps(1, TOTAL_PREPS)
         prep_address_list = prep_dict['preps']
         for each_prep in prep_address_list:
             self._top_preps.put(each_prep['address'])
@@ -266,6 +258,7 @@ class Staking(IconScoreBase):
          data from linked list .
          """
         balance_score = self.icx.get_balance(self.address) - self._daily_reward.get()
+        # revert(f'{self.icx.get_balance(self.address)}, {self.msg.value}')
         if balance_score > 0:
             unstake_info_list = self.getUserUnstakeInfo()
             for each_info in unstake_info_list:
@@ -273,13 +266,26 @@ class Staking(IconScoreBase):
                 if value_to_transfer <= balance_score:
                     self._send_ICX(each_info[1], value_to_transfer)
                     self._linked_list_var.remove(self._linked_list_var._head_id.get())
+                    self._total_unstake_amount.set(self._total_unstake_amount.get() - value_to_transfer)
                 break
 
     def _perform_checks(self) -> None:
         if self._distributing.get() == True:
-            if self._sICX_supply.get() == 0:
-                last_unstaking_address = self._linked_list_var.node_key(self._linked_list_var._tail_id.get())
+            stake_in_network = self._system.getStake(self.address)
+            total_unstake = 0
+            if 'unstakes' in stake_in_network.keys():
+                for each in stake_in_network['unstakes']:
+                    total_unstake += each['unstake']
+            daily_reward  = total_unstake + self.icx.get_balance(self.address) - self._total_unstake_amount -self.msg.value
+            self._daily_reward.set(daily_reward)
+            self._rate.set(self.getRate())
+            self._total_lifetime_reward.set(self.getLifetimeReward() + amount)
+            if self._last_unstake_transaction.get() == True:
+                last_unstaking_address = self._last_unstake_address.get()
                 self._send_ICX(last_unstaking_address,self._daily_reward.get())
+                self._distributing.set(False)
+                self._last_unstake_transaction.set(False)
+                self._daily_reward.set(0)
             else:
                 self._total_stake.set(self._total_stake.get() + self._daily_reward.get())
                 self._distributing.set(False)
@@ -293,7 +299,7 @@ class Staking(IconScoreBase):
 
     @payable
     @external
-    def addCollateral(self, _to: Address = None) -> None:
+    def addCollateral(self, _to: Address = None) -> int:
         """
         stakes and delegates some ICX to top prep
         addresses and receives equivalent of sICX by the user address.
@@ -305,13 +311,14 @@ class Staking(IconScoreBase):
         self._total_stake.set(self._total_stake.get()+self.msg.value)
         amount = self._get_amount_to_mint()
         self.sICX_score.mintTo(_to, amount)
+        # revert(f'{self.msg.value} {self._total_stake.get()} {self.icx.get_balance(self.address)}')
         self._stake(self._total_stake.get())
-        icx_to_distribute = self._evenly_distrubuted_amount()
-        remainder_icx = icx_to_distribute[1]
-        evenly_distributed_amount = icx_to_distribute[0]
+        evenly_distributed_amount,remainder_icx = self._evenly_distrubuted_amount()
         self._delegations(evenly_distributed_amount,remainder_icx)
         self._sICX_supply.set(self._sICX_supply.get() + amount)
+        # revert(f'{self._total_stake.get()} {self.icx.get_balance(self.address)}')
         self.TokenTransfer(_to, amount, f'{amount / DENOMINATOR} sICX minted to {_to}')
+        return amount
 
     def _claim_iscore(self) -> None:
         """
@@ -319,11 +326,11 @@ class Staking(IconScoreBase):
          """
         iscore_details_dict = self._system.queryIScore(self.address)
         if iscore_details_dict['estimatedICX'] != 0:
-            amount = iscore_details_dict["estimatedICX"]
+            # amount = iscore_details_dict["estimatedICX"]
             self._system.claimIScore()
-            self._daily_reward.set(amount)
-            self._rate.set(self._get_rate())
-            self._total_lifetime_reward.set(self.getLifetimeReward() + amount)
+            # self._daily_reward.set(amount)
+            # self._rate.set(self.getRate())
+            # self._total_lifetime_reward.set(self.getLifetimeReward() + amount)
             self._distributing.set(True)
 
     def _stake(self, _stake_value: int) -> None:
@@ -385,15 +392,19 @@ class Staking(IconScoreBase):
             self.sICX_score.burn(_value)
             amount_to_unstake = (_value * self._rate.get()) // DENOMINATOR
             if self._sICX_supply.get() - _value == 0:
-                amount_to_unstake = _value
+                amount_to_unstake = self._total_stake.get()
+                self._last_unstake_transaction.set(True)
+                self._last_unstake_address.set(_to)
             self._linked_list_var.append(_to, amount_to_unstake, self._linked_list_var._tail_id.get() + 1)
+            x = self._total_stake.get()
             self._total_stake.set(self._total_stake.get() - amount_to_unstake)
-            icx_to_distribute = self._evenly_distrubuted_amount()
-            remainder_icx = icx_to_distribute[1]
-            evenly_distributed_amount = icx_to_distribute[0]
+            self._total_unstake_amount.set(self._total_unstake_amount.get()+amount_to_unstake)
+            # revert(f'{x} and {self._total_stake.get()} and {amount_to_unstake}')
+            evenly_distributed_amount, remainder_icx = self._evenly_distrubuted_amount()
             self._delegations(evenly_distributed_amount, remainder_icx)
             self._stake(self._total_stake.get())
             self._sICX_supply.set(self._sICX_supply.get() - _value)
+            # revert(f'{self._total_stake.get()} {self.icx.get_balance(self.address)}')
         except BaseException as e:
             revert(f'You can try unstaking later, {e}')
 
