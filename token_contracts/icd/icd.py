@@ -63,7 +63,7 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
         self._min_interval.set(_interval)
 
     @external
-    def price_in_icx(self) -> int:
+    def price_in_loop(self) -> int:
         """
         Returns the price of the asset in loop. Makes a call to the oracle if
         the last recorded price is not recent enough.

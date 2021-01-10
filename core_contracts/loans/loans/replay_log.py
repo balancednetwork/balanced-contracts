@@ -17,13 +17,19 @@ class ReplayEvent(object):
         self.created = VarDB('created', db, int)
         self.symbol = VarDB('symbol', db, str)
         self.value = VarDB('value', db, int)
+        self.remaining_value = VarDB('remaining_value', db, int)
         self.sicx_rate = VarDB('sicx_rate', db, int)
+        self.sicx_returned = VarDB('sicx_returned', db, int)
+        self.returned_sicx_remaining = VarDB('returned_sicx_remaining', db, int)
         self.asset_supply = VarDB('asset_supply', db, int)
+        self.remaining_supply = VarDB('remaining_supply', db, int)
 
-    def to_json(self) -> str:
+    def to_dict(self) -> dict:
         """
-        Convert to json string
-        :return: the json string
+        Return object data as a dict.
+
+        :return: dict of the object data
+        :rtype dict
         """
 
         event = {
@@ -31,11 +37,15 @@ class ReplayEvent(object):
             'created': self.created.get(),
             'symbol': self.symbol.get(),
             'value': self.value.get(),
+            'remaining_value': self.remaining_value.get(),
             'sicx_rate': self.sicx_rate.get(),
-            'asset_supply': self.asset_supply.get()
+            'sicx_returned': self.sicx_returned.get(),
+            'returned_sicx_remaining': self.returned_sicx_remaining.get(),
+            'asset_supply': self.asset_supply.get(),
+            'remaining_supply':self.remaining_supply.get()
         }
 
-        return json_dumps(event)
+        return event
 
 
 class ReplayLogDB:
@@ -64,10 +74,18 @@ class ReplayLogDB:
     def __len__(self):
         return len(self._events)
 
-    def new_event(self) -> ReplayEvent:
+    def new_event(self, **kwargs) -> ReplayEvent:
         id = self._id_factory.get_uid()
         self._events.put(id)
         _new_event = __get_item__(id)
         _new_event.index.set(id)
         _new_event.created.set(self.now())
+        _new_event.symbol.set(kwargs.get('symbol'))
+        _new_event.value.set(kwargs.get('value'))
+        _new_event.remaining_value.set(kwargs.get('value'))
+        _new_event.sicx_rate.set(kwargs.get('sicx_rate'))
+        _new_event.sicx_returned.set(kwargs.get('sicx_returned'))
+        _new_event.returned_sicx_remaining.set(kwargs.get('sicx_returned'))
+        _new_event.asset_supply.set(kwargs.get('asset_supply'))
+        _new_event.remaining_supply.set(kwargs.get('asset_supply'))
         return _new_event

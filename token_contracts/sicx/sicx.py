@@ -40,7 +40,7 @@ class StakedICX(IRC2Mintable, IRC2Burnable):
 		return self._staking_address.get()
 
 	@external
-	def price_in_icx(self) -> int:
+	def price_in_loop(self) -> int:
 		"""
 		Returns the price of sICX in loop.
 		"""
