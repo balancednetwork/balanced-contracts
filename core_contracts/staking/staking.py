@@ -136,10 +136,15 @@ class Staking(IconScoreBase):
         self._block_height_day.set(self._system.getIISSInfo()["nextPRepTerm"])
         # top 100 preps is initialized at first
         self._rate.set(DENOMINATOR)
+        self._distributing.set(False)
+        self._last_unstake_transaction.set(False)
         self._set_top_preps()
 
     def on_update(self) -> None:
         super().on_update()
+        # self._last_unstake_transaction.set(False)
+        # self._total_unstake_amount.set(0)
+
 
     @external(readonly=True)
     def name(self) -> str:
@@ -208,6 +213,10 @@ class Staking(IconScoreBase):
             unstake_info_list.append([items[1],items[2]])
         return unstake_info_list
 
+    @external(readonly=True)
+    def get_unstake_amount(self) -> int:
+        return self._total_unstake_amount.get()
+
     @external
     def setSicxAddress(self, _address: Address) -> None:
         """
@@ -259,6 +268,7 @@ class Staking(IconScoreBase):
          """
         balance_score = self.icx.get_balance(self.address) - self._daily_reward.get()
         # revert(f'{self.icx.get_balance(self.address)}, {self.msg.value}')
+        # revert(f'{balance_score}, {self.icx.get_balance(self.address)},{self._daily_reward.get()}')
         if balance_score > 0:
             unstake_info_list = self.getUserUnstakeInfo()
             for each_info in unstake_info_list:
@@ -276,20 +286,22 @@ class Staking(IconScoreBase):
             if 'unstakes' in stake_in_network.keys():
                 for each in stake_in_network['unstakes']:
                     total_unstake += each['unstake']
-            daily_reward  = total_unstake + self.icx.get_balance(self.address) - self._total_unstake_amount -self.msg.value
+            daily_reward  = total_unstake + self.icx.get_balance(self.address) - self._total_unstake_amount.get() -self.msg.value
             self._daily_reward.set(daily_reward)
-            self._rate.set(self.getRate())
-            self._total_lifetime_reward.set(self.getLifetimeReward() + amount)
+            self._total_lifetime_reward.set(self.getLifetimeReward() + daily_reward)
             if self._last_unstake_transaction.get() == True:
                 last_unstaking_address = self._last_unstake_address.get()
                 self._send_ICX(last_unstaking_address,self._daily_reward.get())
                 self._distributing.set(False)
+                self._rate.set(DENOMINATOR)
                 self._last_unstake_transaction.set(False)
                 self._daily_reward.set(0)
             else:
+                self._rate.set(self.getRate())
                 self._total_stake.set(self._total_stake.get() + self._daily_reward.get())
                 self._distributing.set(False)
                 self._daily_reward.set(0)
+        # revert(f'{self._total_unstake_amount.get()},{self._last_unstake_transaction.get()}')
         self._reset_top_preps()
         self._check_for_iscore()
         self._check_unstake_result()
@@ -307,6 +319,7 @@ class Staking(IconScoreBase):
         """
         if _to == None:
             _to = self.tx.origin
+        # revert(self._daily_reward.get())
         self._perform_checks()
         self._total_stake.set(self._total_stake.get()+self.msg.value)
         amount = self._get_amount_to_mint()
@@ -396,7 +409,7 @@ class Staking(IconScoreBase):
                 self._last_unstake_transaction.set(True)
                 self._last_unstake_address.set(_to)
             self._linked_list_var.append(_to, amount_to_unstake, self._linked_list_var._tail_id.get() + 1)
-            x = self._total_stake.get()
+            # x = self._total_stake.get()
             self._total_stake.set(self._total_stake.get() - amount_to_unstake)
             self._total_unstake_amount.set(self._total_unstake_amount.get()+amount_to_unstake)
             # revert(f'{x} and {self._total_stake.get()} and {amount_to_unstake}')
