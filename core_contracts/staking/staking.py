@@ -77,8 +77,6 @@ class Staking(IconScoreBase):
     _SICX_SUPPLY = 'sICX_supply'
     _RATE = '_rate'
     _DISTRIBUTING = '_distributing'
-    _LAST_UNSTAKE_TRANSCATION = '_last_unstake_transaction'
-    _LAST_UNSTAKE_ADDRESS = '_last_unstake_address'
     _SICX_ADDRESS = 'sICX_address'
     _BLOCK_HEIGHT_WEEK = '_block_height_week'
     _BLOCK_HEIGHT_DAY = '_block_height_day'
@@ -109,7 +107,6 @@ class Staking(IconScoreBase):
         self._block_height_week = VarDB(self._BLOCK_HEIGHT_WEEK,db,value_type=int)
         self._block_height_day = VarDB(self._BLOCK_HEIGHT_DAY,db,value_type=int)
         self._sICX_address = VarDB(self._SICX_ADDRESS, db, value_type=Address)
-        self._last_unstake_address = VarDB(self._LAST_UNSTAKE_ADDRESS, db, value_type=Address)
         # total staked from staking contract
         self._total_stake = VarDB(self._TOTAL_STAKE, db, value_type=int)
         # vardb to store total rewards
@@ -117,7 +114,6 @@ class Staking(IconScoreBase):
         self._total_unstake_amount = VarDB(self._TOTAL_UNSTAKE_AMOUNT, db, value_type=int)
         self._daily_reward = VarDB(self._DAILY_REWARD, db, value_type=int)
         self._distributing = VarDB(self._DISTRIBUTING,db,value_type=bool)
-        self._last_unstake_transaction = VarDB(self._LAST_UNSTAKE_TRANSCATION,db,value_type=bool)
         # vardb to store total unstaking amount
         # array to store top 100 preps
         self._top_preps = ArrayDB(self._TOP_PREPS, db, value_type=Address)
@@ -137,7 +133,6 @@ class Staking(IconScoreBase):
         # top 100 preps is initialized at first
         self._rate.set(DENOMINATOR)
         self._distributing.set(False)
-        self._last_unstake_transaction.set(False)
         self._set_top_preps()
 
     def on_update(self) -> None:
@@ -289,18 +284,10 @@ class Staking(IconScoreBase):
             daily_reward  = total_unstake + self.icx.get_balance(self.address) - self._total_unstake_amount.get() -self.msg.value
             self._daily_reward.set(daily_reward)
             self._total_lifetime_reward.set(self.getLifetimeReward() + daily_reward)
-            if self._last_unstake_transaction.get() == True:
-                last_unstaking_address = self._last_unstake_address.get()
-                self._send_ICX(last_unstaking_address,self._daily_reward.get())
-                self._distributing.set(False)
-                self._rate.set(DENOMINATOR)
-                self._last_unstake_transaction.set(False)
-                self._daily_reward.set(0)
-            else:
-                self._rate.set(self.getRate())
-                self._total_stake.set(self._total_stake.get() + self._daily_reward.get())
-                self._distributing.set(False)
-                self._daily_reward.set(0)
+            self._rate.set(self.getRate())
+            self._total_stake.set(self._total_stake.get() + self._daily_reward.get())
+            self._distributing.set(False)
+            self._daily_reward.set(0)
         # revert(f'{self._total_unstake_amount.get()},{self._last_unstake_transaction.get()}')
         self._reset_top_preps()
         self._check_for_iscore()
@@ -404,10 +391,6 @@ class Staking(IconScoreBase):
             self._perform_checks()
             self.sICX_score.burn(_value)
             amount_to_unstake = (_value * self._rate.get()) // DENOMINATOR
-            if self._sICX_supply.get() - _value == 0:
-                amount_to_unstake = self._total_stake.get()
-                self._last_unstake_transaction.set(True)
-                self._last_unstake_address.set(_to)
             self._linked_list_var.append(_to, amount_to_unstake, self._linked_list_var._tail_id.get() + 1)
             # x = self._total_stake.get()
             self._total_stake.set(self._total_stake.get() - amount_to_unstake)
