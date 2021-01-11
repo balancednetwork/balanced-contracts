@@ -209,7 +209,7 @@ class Staking(IconScoreBase):
         return unstake_info_list
 
     @external(readonly=True)
-    def get_unstake_amount(self) -> int:
+    def getUnstakeAmount(self) -> int:
         return self._total_unstake_amount.get()
 
     @external
