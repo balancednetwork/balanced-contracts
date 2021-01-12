@@ -7,10 +7,6 @@ ASSET_DB_PREFIX = b'asset'
 # An interface of token to distribute daily rewards
 class TokenInterface(InterfaceScore):
     @interface
-    def transfer(self, _to: Address, _value: int, _data: bytes=None):
-        pass
-
-    @interface
     def symbol(self) -> str:
         pass
 
@@ -35,7 +31,7 @@ class TokenInterface(InterfaceScore):
         pass
 
     @interface
-    def price_in_icx(self) -> int:
+    def price_in_loop(self) -> int:
         pass
 
 
@@ -47,12 +43,26 @@ class Asset(object):
         self.updated = VarDB('updated', db, value_type=int)
         self.asset_address = VarDB('address', db, value_type=Address)
         self.bad_debt = VarDB('bad_debt', db, value_type=int)
+        self.liquidation_pool = VarDB('liquidation_pool', db, value_type=int)
+        self.is_collateral = VarDB('is_collateral', db, value_type=bool)
         self.active = VarDB('active', db, value_type=bool)
         self.dead_market = VarDB('dead_market', db, value_type=bool)
 
-    def price_in_icx(self) -> int:
+    def symbol(self) -> str:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
-        return token.price_in_icx()
+        return token.symbol()
+
+    def totalSupply(self) -> int:
+        token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
+        return token.totalSupply()
+
+    def balanceOf(self, _address: Address) -> int:
+        token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
+        return token.balanceOf(_address)
+
+    def get_peg(self) -> str:
+        token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
+        return token.get_peg()
 
     def mint(self, _to: Address, _amount: int, _data: bytes = None) -> None:
         """
@@ -76,22 +86,30 @@ class Asset(object):
         except BaseException as e:
             revert(f'Trouble burning {self.get()} tokens. Exception: {e}')
 
-    def balanceOf(self, _address: Address) -> int:
+    def price_in_loop(self) -> int:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
-        return token.balanceOf(_address)
+        return token.price_in_loop()
 
-    def symbol(self) -> int:
-        token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
-        return token.symbol()
-
-    def get_peg(self) -> int:
-        token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
-        return token.get_peg()
-
-    def to_json(self) -> str:
+    def dead(self) -> bool:
         """
-        Convert to json string
-        :return: the json string
+        Calculates whether the market is dead and set the dead market flag.
+
+        :return: Dead status
+        :rtype: bool
+        """
+        bad_debt = self.bad_debt.get()
+        outstanding = self.totalSupply() - bad_debt
+        net_bad_debt = bad_debt - self.liquidation_pool.get()
+        dead = net_bad_debt > outstanding / 2
+        self.dead_market.set(dead)
+        return dead
+
+    def to_dict(self) -> dict:
+        """
+        Return object data as a dict.
+
+        :return: dict of the object data
+        :rtype dict
         """
 
         asset = {
@@ -99,19 +117,19 @@ class Asset(object):
             'address': str(self.asset_address.get()),
             'peg': self.get_peg(),
             'added': self.added.get(),
+            'is_collateral': self.is_collateral.get(),
             'active': self.active.get()
         }
-
         if self.updated.get():
             asset['updated'] = self.updated.get()
-
         if self.dead_market.get():
             asset['dead_market'] = self.dead_market.get()
-
         if self.bad_debt.get():
             asset['bad_debt'] = self.bad_debt.get()
+        if self.liquidation_pool.get():
+            asset['liquidation_pool'] = self.liquidation_pool.get()
 
-        return json_dumps(asset)
+        return asset
 
 
 class AssetsDB:
@@ -121,6 +139,7 @@ class AssetsDB:
         self._loans = loans
         self.alist = ArrayDB('address_list', db, value_type=Address)
         self.slist = ArrayDB('symbol_list', db, value_type=str)
+        self.collateral = ArrayDB('collateral', db, value_type=str)
         self.symboldict = DictDB('symbol|address', db, value_type=str)
         self._items = {}
 
@@ -142,15 +161,16 @@ class AssetsDB:
         sub_db = self._db.get_sub_db(b'|'.join([ASSET_DB_PREFIX, _address.encode()]))
         return Asset(sub_db, self._loans)
 
-    def list_assets(self) -> list:
-        assets = []
+    def get_assets(self) -> dict:
+        assets = {}
         for address in self.alist:
             asset = self._get_asset(str(address))
             if asset.active.get():
-                assets.append(asset.to_json())
+                asset_dict = asset.to_dict()
+                assets[asset_dict['symbol']] = asset_dict
         return assets
 
-    def add_asset(self, _address: Address) -> None:
+    def add_asset(self, _address: Address, is_active: bool = True, is_collateral: bool = False) -> None:
         address = str(_address)
         if _address in self.alist:
             revert(f'{address} already exists in the database.')
@@ -161,5 +181,8 @@ class AssetsDB:
         symbol = asset.symbol()
         self.slist.put(symbol)
         self.symboldict[symbol] = address
-        asset.active.set(True)
+        asset.active.set(is_active)
+        if is_collateral:
+            asset.is_collateral.set(is_collateral)
+            self.collateral.put(symbol)
         self._items[symbol] = asset

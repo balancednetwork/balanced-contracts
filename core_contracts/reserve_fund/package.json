@@ -1,0 +1,5 @@
+{
+    "version": "0.1.0",
+    "main_file": "reserve_fund",
+    "main_score": "ReserveFund"
+}
