@@ -19,6 +19,4 @@ from iconservice import *
 # ================================================
 #  Consts
 # ================================================
-TAG = 'SCORELib'
-VERSION = '0.1.0'
-ZERO_SCORE_ADDRESS = Address.from_string('cx0000000000000000000000000000000000000000')
+MAX_ITERATION_LOOP = 100
