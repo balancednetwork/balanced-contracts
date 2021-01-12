@@ -48,7 +48,7 @@ class Asset(object):
         self.active = VarDB('active', db, value_type=bool)
         self.dead_market = VarDB('dead_market', db, value_type=bool)
 
-    def symbol(self) -> int:
+    def symbol(self) -> str:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
         return token.symbol()
 
@@ -60,7 +60,7 @@ class Asset(object):
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
         return token.balanceOf(_address)
 
-    def get_peg(self) -> int:
+    def get_peg(self) -> str:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
         return token.get_peg()
 
@@ -102,7 +102,7 @@ class Asset(object):
         net_bad_debt = bad_debt - self.liquidation_pool.get()
         dead = net_bad_debt > outstanding / 2
         self.dead_market.set(dead)
-        return dead        
+        return dead
 
     def to_dict(self) -> dict:
         """
@@ -139,6 +139,7 @@ class AssetsDB:
         self._loans = loans
         self.alist = ArrayDB('address_list', db, value_type=Address)
         self.slist = ArrayDB('symbol_list', db, value_type=str)
+        self.collateral = ArrayDB('collateral', db, value_type=str)
         self.symboldict = DictDB('symbol|address', db, value_type=str)
         self._items = {}
 
@@ -169,17 +170,19 @@ class AssetsDB:
                 assets[asset_dict['symbol']] = asset_dict
         return assets
 
-    def add_asset(self, _address: Address, is_collateral: bool = False) -> None:
+    def add_asset(self, _address: Address, is_active: bool = True, is_collateral: bool = False) -> None:
         address = str(_address)
         if _address in self.alist:
             revert(f'{address} already exists in the database.')
         self.alist.put(_address)
         asset = self._get_asset(address)
-        asset.is_collateral.set(is_collateral)
         asset.asset_address.set(_address)
         asset.added.set(self._loans.now())
         symbol = asset.symbol()
         self.slist.put(symbol)
         self.symboldict[symbol] = address
-        asset.active.set(True)
+        asset.active.set(is_active)
+        if is_collateral:
+            asset.is_collateral.set(is_collateral)
+            self.collateral.put(symbol)
         self._items[symbol] = asset

@@ -57,9 +57,10 @@ class Position(object):
         :rtype: int
         """
         asset_value = 0
+        day = self.get_day_index()
         for symbol in self.asset_db.slist:
-            if not self.asset_db[symbol].is_collateral.get() and symbol in self.assets:
-                amount = self.assets[self.get_day_index()][symbol]
+            if not self.asset_db[symbol].is_collateral.get() and symbol in self.assets[day]:
+                amount = self.assets[day][symbol]
                 if amount > 0:
                     asset_value += self.asset_db[symbol].price_in_loop() * amount // EXA
         return asset_value
@@ -91,7 +92,7 @@ class Position(object):
         self.update_standing()
 
     def update_standing(self) -> None:
-        ratio: int = self.total_debt() * EXA // self.collateral_value()
+        ratio: int = self.collateral_value() * EXA // self.total_debt()
         self.updated.set(self._loans.now())
         self.ratio.set(ratio)
         if ratio > DEFAULT_MINING_RATIO * EXA // 100:
@@ -112,14 +113,15 @@ class Position(object):
         """
         assets = {}
         for asset in self.asset_db.slist:
-            if asset in self.assets:
-                amount = self.assets[self.get_day_index()][asset]
+            if asset in self.assets[self.get_day_index()]:
+                amount = (self.assets[0][asset], self.assets[1][asset])
                 assets[asset] = amount
 
         position = {
             'created': self.created.get(),
             'address': str(self.address.get()),
-            'assets': assets
+            'assets': assets,
+            'standing': Standing.STANDINGS[self.standing.get()]
         }
 
         if self.updated.get():
@@ -144,18 +146,15 @@ class PositionsDB:
         self._event_log = ReplayLogDB(db)
         self._id_factory = IdFactory(self.POSITIONS + self.IDFACTORY, db)
         self.addressID = DictDB(self.POSITIONS + self.ADDRESSID, db, value_type=int)
-        self.mining = ArrayDB(self.MINING + self.POSITIONS, db, value_type=bool)
+        # The mining list is updated each day for the most recent snapshot.
+        self.mining = ArrayDB(self.MINING + self.POSITIONS, db, value_type=int)
         self.nonzero = ArrayDB(self.NONZERO + self.POSITIONS, db, value_type=int)
         self.frozen = VarDB(self.FROZEN, db, bool)
 
-    def __getitem__(self, _owner: Union[Address, int]) -> Position:
-        if type(_owner) == Address:
-            id = self.addressID[_owner]
-        else:
-            id = _owner
+    def __getitem__(self, id: int) -> Position:
         if id not in self._items:
-            if id > self._id_factory.get_last_uid() or id < 1:
-                revert(f'That key does not exist.')
+            if id > self._id_factory.get_last_uid():
+                revert(f'That key does not exist yet.')
             sub_db = self._db.get_sub_db(b'|'.join([POSITION_DB_PREFIX, str(id).encode()]))
             self._items[id] = Position(sub_db, self._db, self._loans)
 
@@ -167,23 +166,20 @@ class PositionsDB:
     def __len__(self):
         return self._id_factory.get_last_uid()
 
-    def list_pos(self, _owner: Union[Address, int]) -> dict:
-        if type(_owner) == Address:
-            id = self.addressID[_owner]
+    def list_pos(self, _owner: Address) -> dict:
+        id = self.addressID[_owner]
         if id == 0:
             return "That address has no outstanding loans or deposited collateral."
         return self.__getitem__(id).to_dict()
 
-    def add_nonzero(self, _owner: Union[Address, int]) -> None:
-        if type(_owner) == Address:
-            id = self.addressID[_owner]
+    def add_nonzero(self, _owner: Address) -> None:
+        id = self.addressID[_owner]
         if id > self._id_factory.get_last_uid() or id < 1:
             revert(f'That key does not exist yet. (add_nonzero)')
         self.nonzero.put(id)
 
-    def remove_nonzero(self, _owner: Union[Address, int]) -> None:
-        if type(_owner) == Address:
-            id = self.addressID[_owner]
+    def remove_nonzero(self, _owner: Address) -> None:
+        id = self.addressID[_owner]
         if id > self._id_factory.get_last_uid() or id < 1:
             revert(f'That key does not exist yet. (remove_nonzero)')
         top = self.nonzero.pop()
@@ -193,11 +189,8 @@ class PositionsDB:
                     self.nonzero[i] = top
                     return
 
-    def get_pos(self, _owner: Union[Address, int]) -> Position:
-        if type(_owner) == Address:
-            id = self.addressID[_owner]
-        else:
-            id = _owner
+    def get_pos(self, _owner: Address) -> Position:
+        id = self.addressID[_owner]
         if id == 0:
             return self.new_pos(_owner)
         return self.__getitem__(id)

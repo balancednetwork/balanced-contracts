@@ -31,6 +31,10 @@ class ReserveFund(IconScoreBase):
     def TokenTransfer(self, recipient: Address, amount: int, note: str):
         pass
 
+    @eventlog(indexed=1)
+    def RedeemFail(self, _to: Address, _value: int):
+        pass
+
     _LOANS_SCORE = 'loans_score'
     _BALN_TOKEN = 'baln_token'
     _SICX_TOKEN = 'sicx_token'
@@ -84,8 +88,9 @@ class ReserveFund(IconScoreBase):
         self._sicx_token.get()
 
     @external
-    @only_from(address=self._loans_score.get())
     def redeem(self, _to: Address, _amount: int, sicx_rate: int) -> int:
+        if self.msg.sender != self._loans_score.get():
+            revert(f'The redeem method can only be called by the Loans SCORE.')
         sicx = self._sicx.get()
         if _amount <= sicx:
             sicx_to_send = _amount
@@ -95,8 +100,12 @@ class ReserveFund(IconScoreBase):
             balance = self.create_interface_score(baln_address, TokenInterface)
             baln_rate = balance.price_in_loop()
             baln_to_send = (_amount - sicx) * sicx_rate // baln_rate
+            baln_remaining = self._baln.get() - baln_to_send
+            if baln_remaining < 0: # Revert in case where there is not enough BALN.
+                revert(f'Unable to process request at this time.')
+                self.RedeemFail(self.tx.origin, 'BALN', baln_to_send)
             self._send_token(baln_address, _to, baln_to_send, 'Redeemed:')
-            self._baln.set(self._baln.get() - baln_to_send) # Need to handle case where there is not enough BALN.
+            self._baln.set(baln_remaining)
         self._sicx.set(sicx - sicx_to_send)
         self._send_token(self._sicx_token.get(), self._loans_score.get(), sicx_to_send, 'To Loans:')
 
@@ -112,9 +121,9 @@ class ReserveFund(IconScoreBase):
         :param _data: Unused, ignored.
         :type _data: bytes
         """
-        if self.msg.sender = self._baln_token.get():
+        if self.msg.sender == self._baln_token.get():
             self._baln.set(self._baln.get() + _value)
-        elif self.msg.sender = self._sicx_token.get():
+        elif self.msg.sender == self._sicx_token.get():
             self._sicx.set(self._sicx.get() + _value)
         else:
             revert('The Reserve Fund can only accept BALN or sICX tokens.')
