@@ -198,12 +198,11 @@ class Staking(IconScoreBase):
     @external(readonly=True)
     def getUserUnstakeInfo(self) -> list:
         """
-        Returns a dictionary that shows wallet address as a key and the request of unstaked amount by that address
-        as a value.
+        Returns a list that shows wallet address unstaked amount,wallet address and unstake amount period.
         """
         unstake_info_list = []
         for items in self._linked_list_var:
-            unstake_info_list.append([items[1], items[2]])
+            unstake_info_list.append([items[1], items[2],items[3]])
         return unstake_info_list
 
     @external(readonly=True)
@@ -249,7 +248,7 @@ class Staking(IconScoreBase):
         """
         Claim iscore and sets new rate daily.
         """
-        if self._system.getIISSInfo()["nextPRepTerm"] > self._block_height_day.get() + 432:
+        if self._system.getIISSInfo()["nextPRepTerm"] > self._block_height_day.get() + 43200:
             self._block_height_day.set(self._system.getIISSInfo()["nextPRepTerm"])
             self._claim_iscore()
 
@@ -380,12 +379,13 @@ class Staking(IconScoreBase):
             self._perform_checks()
             self.sICX_score.burn(_value)
             amount_to_unstake = (_value * self._rate.get()) // DENOMINATOR
-            self._linked_list_var.append(self.tx.origin, amount_to_unstake, self._linked_list_var._tail_id.get() + 1)
             self._total_stake.set(self._total_stake.get() - amount_to_unstake)
             self._total_unstake_amount.set(self._total_unstake_amount.get() + amount_to_unstake)
             evenly_distributed_amount, remainder_icx = self._evenly_distrubuted_amount()
             self._delegations(evenly_distributed_amount, remainder_icx)
             self._stake(self._total_stake.get())
+            stake_in_network = self._system.getStake(self.address)
+            self._linked_list_var.append(self.tx.origin, amount_to_unstake,stake_in_network['unstakes'][-1]['unstakeBlockHeight'], self._linked_list_var._tail_id.get() + 1)
             self._sICX_supply.set(self._sICX_supply.get() - _value)
         except BaseException as e:
             revert(f'You can try unstaking later, {e}')
