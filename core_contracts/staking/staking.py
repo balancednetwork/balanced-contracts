@@ -1,10 +1,8 @@
 from iconservice import *
 from .utils.checks import *
-from .utils.consts import *
 from .scorelib.consts import *
-from .scorelib.scorelib.consts import *
-from .scorelib.scorelib.id_factory import *
-from .scorelib.scorelib.linked_list import *
+from .scorelib.id_factory import *
+from .scorelib.linked_list import *
 
 # from .scorelib import *
 
@@ -293,18 +291,20 @@ class Staking(IconScoreBase):
 
     @payable
     @external
-    def addCollateral(self, _to: Address = None) -> int:
+    def addCollateral(self, _to: Address = None, _data: bytes = None) -> int:
         """
         stakes and delegates some ICX to top prep
         addresses and receives equivalent of sICX by the user address.
         :params _to: Wallet address where sICX is minted to.
         """
+        if _data is None:
+            _data = b'None'
         if _to is None:
             _to = self.tx.origin
         self._perform_checks()
         self._total_stake.set(self._total_stake.get() + self.msg.value)
         amount = self._get_amount_to_mint()
-        self.sICX_score.mintTo(_to, amount)
+        self.sICX_score.mintTo(_to, amount,_data)
         self._stake(self._total_stake.get())
         evenly_distributed_amount, remainder_icx = self._evenly_distrubuted_amount()
         self._delegations(evenly_distributed_amount, remainder_icx)
