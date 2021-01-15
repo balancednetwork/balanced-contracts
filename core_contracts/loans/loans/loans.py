@@ -140,28 +140,34 @@ class Loans(IconScoreBase):
         self._replay_batch_size.get()
 
     @external(readonly=True)
-    def get_collateral_tokens(self) -> dict:
+    def getCollateralTokens(self) -> dict:
         """
         Returns a dictionary of assets from the assetsDB that are marked as
         collateral, with token symbol as the key and address as a string value.
         """
-        assets = self._assets.get_assets()
         collateral = {}
-        for symbol in assets:
-            if assets[symbol]['is_collateral']:
-                collateral[symbol] = assets[symbol]['address']
+        for symbol in self._assets.slist:
+            if self._assets[symbol].is_collateral.get():
+                collateral[symbol] = self._assets.symboldict[symbol]
         return collateral
 
     @external(readonly=True)
-    def get_total_collateral(self) -> int:
-
-        try:
-            return self._assets['sICX'].balanceOf(self.address)
-        except:
-            return 0
+    def getTotalCollateral(self) -> int:
+        """
+        Sum of all active collateral held on the loans SCORE in loop.
+        Read-only; does not check for a more recent price update.
+        """
+        total_collateral = 0
+        for symbol in self._assets.slist:
+            asset = self._assets[symbol]
+            if asset.is_collateral.get() and asset.active.get():
+                supply = asset.totalSupply()
+                price = asset.lastPriceInLoop()
+                total_collateral += supply * price
+        return total_collateral // EXA
 
     @external(readonly=True)
-    def get_account_positions(self, _owner: Address) -> str:
+    def getAccountPositions(self, _owner: Address) -> str:
         """
         Get account positions.
         """
@@ -172,14 +178,14 @@ class Loans(IconScoreBase):
         return position
 
     @external(readonly=True)
-    def get_available_assets(self) -> dict:
+    def getAvailableAssets(self) -> dict:
         """
         Returns a dict of assets.
         """
         return self._assets.get_assets()
 
     @external(readonly=True)
-    def asset_count(self) -> int:
+    def assetCount(self) -> int:
         """
         Returns the number of assets in the AssetsDB.
         """
@@ -309,8 +315,8 @@ class Loans(IconScoreBase):
         asset = self._assets._get_asset(str(self.msg.sender))
         symbol = asset.symbol()
         bad_debt = asset.bad_debt.get()
-        sicx_rate = self._assets['sICX'].price_in_loop()
-        price = asset.price_in_loop()
+        sicx_rate = self._assets['sICX'].priceInLoop()
+        price = asset.priceInLoop()
         self._assets[symbol].burn(_value)
         redeemed = _value
         sicx: int = 0
@@ -377,7 +383,7 @@ class Loans(IconScoreBase):
         pos = self._positions.get_pos(origin)
 
         # Check for sufficient collateral
-        collateral = pos['sICX']
+        collateral = pos.collateral_value()
         if collateral == 0:
             revert(f'Collateral must be deposited before originating a loan.')
         if self._assets[_asset].dead():
@@ -385,7 +391,7 @@ class Loans(IconScoreBase):
                    f'it is in a dead market state.')
         max_debt_value = 100 * collateral // self._locking_ratio.get()
         fee = self._origination_fee.get() * _amount // POINTS
-        new_debt_value = self._assets[_asset].price_in_loop() * (_amount + fee) // EXA
+        new_debt_value = self._assets[_asset].priceInLoop() * (_amount + fee) // EXA
         if pos.total_debt() + new_debt_value > max_debt_value:
             revert(f'{collateral / EXA} collateral is insufficient'
                    f' to originate a loan of {_amount / EXA} {_asset}'
@@ -418,7 +424,7 @@ class Loans(IconScoreBase):
             revert(f'Position holds less collateral than the requested withdrawal.')
         asset_value = pos.total_debt() # Value in ICX
         remaining_sicx = pos['sICX'] - _value
-        remaining_coll = remaining_sicx * self._assets['sICX'].price_in_loop() // EXA
+        remaining_coll = remaining_sicx * self._assets['sICX'].priceInLoop() // EXA
         locking_value = self._locking_ratio.get() * asset_value // 100
         if remaining_coll < locking_value:
             revert(f'Requested withdrawal is more than available collateral. '
@@ -465,7 +471,7 @@ class Loans(IconScoreBase):
                 if not self._assets[symbol].is_collateral.get() and pos[symbol] > 0:
                     bad_debt = self._assets[symbol].bad_debt.get()
                     self._assets[symbol].bad_debt.set(bad_debt + pos[symbol])
-                    symbol_debt = pos[symbol] * self._assets[symbol].price_in_loop()
+                    symbol_debt = pos[symbol] * self._assets[symbol].priceInLoop()
                     share = for_pool * symbol_debt // total_debt
                     total_debt -= symbol_debt
                     for_pool -= share

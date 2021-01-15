@@ -47,7 +47,14 @@ class Position(object):
         :return: Value of position collateral in loop.
         :rtype: int
         """
-        return self['sICX'] * self.asset_db['sICX'].price_in_loop() // EXA
+        collateral = 0
+        for symbol in self.asset_db.collateral:
+            asset = self.asset_db[symbol]
+            if asset.active.get():
+                amount = self.__getitem__(symbol)
+                price = asset.priceInLoop()
+                collateral += amount * price
+        return collateral // EXA
 
     def total_debt(self) -> int:
         """
@@ -62,7 +69,7 @@ class Position(object):
             if not self.asset_db[symbol].is_collateral.get() and symbol in self.assets[day]:
                 amount = self.assets[day][symbol]
                 if amount > 0:
-                    asset_value += self.asset_db[symbol].price_in_loop() * amount // EXA
+                    asset_value += self.asset_db[symbol].priceInLoop() * amount // EXA
         return asset_value
 
     def apply_event(self, _event: ReplayEvent) -> None:

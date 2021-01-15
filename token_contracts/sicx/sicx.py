@@ -9,6 +9,12 @@ TAG = 'sICX'
 TOKEN_NAME = 'StakedICX'
 SYMBOL_NAME = 'sICX'
 
+class stakingInterface(InterfaceScore):
+    @interface
+    def getTodayRate(self):
+        pass
+
+
 class StakedICX(IRC2Mintable, IRC2Burnable):
 
 	_PEG = 'peg'
@@ -40,10 +46,16 @@ class StakedICX(IRC2Mintable, IRC2Burnable):
 		return self._staking_address.get()
 
 	@external
-	def price_in_loop(self) -> int:
+	def priceInLoop(self) -> int:
 		"""
 		Returns the price of sICX in loop.
 		"""
-		pool = self.icx.get_balance(self._staking_address.get())
-		rate = EXA * pool // self._total_supply.get()
-		return rate
+		staking_score = self.create_interface_score(self._staking_address.get(), stakingInterface)
+		return staking_score.getTodayRate()
+
+	@external(readonly=True)
+	def lastPriceInLoop(self) -> int:
+		"""
+		Returns the price of sICX in loop.
+		"""
+		return self.priceInLoop()

@@ -31,7 +31,11 @@ class TokenInterface(InterfaceScore):
         pass
 
     @interface
-    def price_in_loop(self) -> int:
+    def priceInLoop(self) -> int:
+        pass
+
+    @interface
+    def lastPriceInLoop(self) -> int:
         pass
 
 
@@ -86,9 +90,13 @@ class Asset(object):
         except BaseException as e:
             revert(f'Trouble burning {self.get()} tokens. Exception: {e}')
 
-    def price_in_loop(self) -> int:
+    def priceInLoop(self) -> int:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
-        return token.price_in_loop()
+        return token.priceInLoop()
+
+    def lastPriceInLoop(self) -> int:
+        token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
+        return token.lastPriceInLoop()
 
     def dead(self) -> bool:
         """
