@@ -33,6 +33,7 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
 
 	def on_install(self) -> None:
 		super().on_install(TOKEN_NAME, SYMBOL_NAME)
+		self._last_price.set(10**17)
 
 	def on_update(self) -> None:
 		super().on_update()
@@ -52,13 +53,20 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
 		self._min_interval.set(_interval)
 
 	@external
-	def price_in_loop(self) -> int:
+	def priceInLoop(self) -> int:
 		"""
 		Returns the price of the asset in loop. Makes a call to the DEX if
 		the last recorded price is not recent enough.
 		"""
-		if self.now() - self._price_update_time.get() > MIN_UPDATE_TIME:
-			self.update_asset_value()
+		# if self.now() - self._price_update_time.get() > MIN_UPDATE_TIME:
+		# 	self.update_asset_value()
+		return self._last_price.get()
+
+	@external(readonly=True)
+	def lastPriceInLoop(self) -> int:
+		"""
+		Returns the latest price of the asset in loop.
+		"""
 		return self._last_price.get()
 
 	def update_asset_value(self) -> None:

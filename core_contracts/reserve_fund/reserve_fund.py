@@ -13,7 +13,7 @@ class TokenInterface(InterfaceScore):
         pass
 
     @interface
-    def price_in_loop(self) -> int:
+    def priceInLoop(self) -> int:
         pass
 
 
@@ -98,7 +98,7 @@ class ReserveFund(IconScoreBase):
             sicx_to_send = sicx
             baln_address = self._baln_token.get()
             balance = self.create_interface_score(baln_address, TokenInterface)
-            baln_rate = balance.price_in_loop()
+            baln_rate = balance.priceInLoop()
             baln_to_send = (_amount - sicx) * sicx_rate // baln_rate
             baln_remaining = self._baln.get() - baln_to_send
             if baln_remaining < 0: # Revert in case where there is not enough BALN.
@@ -126,7 +126,10 @@ class ReserveFund(IconScoreBase):
         elif self.msg.sender == self._sicx_token.get():
             self._sicx.set(self._sicx.get() + _value)
         else:
-            revert('The Reserve Fund can only accept BALN or sICX tokens.')
+            revert(f'The Reserve Fund can only accept BALN or sICX tokens.',
+                   f'Deposit not accepted from {str(self.msg.sender)}',
+                   f'Only accepted from BALN = {str(self._baln_token.get())}',
+                   f'Or sICX = {str(self._sicx_token.get())}')
 
     def _send_token(self, _token_address: Address, _to: Address, _amount: int, msg: str) -> None:
         """
