@@ -213,7 +213,12 @@ class Staking(IconScoreBase):
         unstake_info_list = []
         for items in self._linked_list_var:
             if items[2] == _address:
-                unstake_info_list.append([items[1], items[2], items[3], items[4]])
+                unstake_dict={}
+                unstake_dict['amount'] = items[1]
+                unstake_dict['user'] = items[2]
+                unstake_dict['blockHeight'] = items[3]
+                unstake_dict['contract'] = items[4]
+                unstake_info_list.append(unstake_dict)
         return unstake_info_list
 
     @external(readonly=True)
