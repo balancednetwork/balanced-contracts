@@ -658,46 +658,28 @@ class Staking(IconScoreBase):
             self._system.claimIScore()
             self._distributing.set(True)
 
-
     @external
-    def withdraw(self, _to: Address = None, _value: int = 0, _data: bytes = None) -> None:
+    def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
-        Burns the sICX into ICX and unstakes from the network.
-        :params _to : Address that is making unstaking request.
-        :params _value : Amount of sICX to be burned.
-        :params _data : data.
+        Used only to receive sICX for unstaking.
+        :param _from: Token orgination address.
+        :type _from: :class:`iconservice.base.address.Address`
+        :param _value: Number of tokens sent.
+        :type _value: int
+        :param _data: Unused, ignored.
+        :type _data: bytes
         """
-        if _data is None:
-            _data = b'None'
-        if _to is None:
-            _to = self.msg.sender
-        if _to not in self.getUserAddressList():
-            revert('You need to stake first before unstaking')
-        self._checkForWeek()
-        self._checkForDay()
-        self._checkForBalance()
-        stake_info = self.getStakeFromNetwork()
-        if 'unstakes' in stake_info:
-            if len(stake_info['unstakes']) == 1000:
-                revert('You can try unstaking later')
-        # self.tokenFallback(_to,_value,_data)
-        self._unstake(_to, _value)
-
-    # @external
-    # def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
-    #     """
-    #     Used only to receive sICX for unstaking.
-    #     :param _from: Token orgination address.
-    #     :type _from: :class:`iconservice.base.address.Address`
-    #     :param _value: Number of tokens sent.
-    #     :type _value: int
-    #     :param _data: Unused, ignored.
-    #     :type _data: bytes
-    #     """
-    #     if self.msg.sender != self._sICX_address.get():
-    #         revert(f'The Staking contract only accepts sICX tokens.')
-    #     Logger.debug(f'({_value}) tokens received from {_from}.', TAG)
-    #     return self._unstake(_from, _value)
+        if self.msg.sender != self._sICX_address.get():
+            revert(f'The Staking contract only accepts sICX tokens.')
+        Logger.debug(f'({_value}) tokens received from {_from}.', TAG)
+        try:
+            d = json_loads(_data.decode("utf-8"))
+        except BaseException as e:
+            revert(f'Invalid data: {_data}. Exception: {e}')
+        if set(d.keys()) != set(["method"]):
+            revert('Invalid parameters.')
+        if d["method"] == "unstake":
+            self._unstake(_value)
 
     def _stake(self, _stake_value: int) -> None:
         """
@@ -742,7 +724,6 @@ class Staking(IconScoreBase):
         :params _to : Address that is making unstaking request.
         :params _value : Amount of sICX to be burned.
         """
-        # unstaked = self.icx.get_balance(self.address) * _value // sICX_score.totalSupply()
         self.sICX_score.burn(_value)
         user_total_sicx = self.sICX_score.balanceOf(_to)
         amount_to_unstake = _value * self.getRate()
