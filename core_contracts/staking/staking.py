@@ -692,7 +692,7 @@ class Staking(IconScoreBase):
         if set(d.keys()) != set(["method"]):
             revert('Invalid parameters.')
         if d["method"] == "unstake":
-            self._unstake(_value)
+            self._unstake(_from,_value)
 
     def _stake(self, _stake_value: int) -> None:
         """
@@ -741,6 +741,7 @@ class Staking(IconScoreBase):
         user_total_sicx = self.sICX_score.balanceOf(_to)
         amount_to_unstake = _value * self.getRate()
         top_preps = self.getTopPreps()
+        self._total_unstake_amount.set(self._total_unstake_amount.get() + amount_to_unstake)
         evenly_deduct = 0
         if _value == user_total_sicx:
             self._address_delegations[str(_to)] = ''
@@ -758,13 +759,17 @@ class Staking(IconScoreBase):
                     amount += amount_to_remove_from_prep
                     self._prep_delegations[str(single[0])] = self._prep_delegations[
                                                                  str(single[0])] - amount_to_remove_from_prep
-        deduct_value_in_per = self._distributeEvenly(evenly_deduct)
+        deduct_value_in_per = self._calculate_equally_distributed_value(evenly_deduct)
         # this value is only the value that needs to be deducted from all top preps
         value_to_unstake_in_icx = ((deduct_value_in_per // 100) * amount_to_unstake) // DENOMINATOR
         # a dictdb is created for storing the address requesting for unstaking and the total amount to unstake
-        self._linked_list_var.append(str(_to) + ":" + str(amount_to_unstake), self._linked_list_var._tail_id.get() + 1)
+        stake_in_network = self._system.getStake(self.address)
+        self._linked_list_var.append(self.tx.origin, amount_to_unstake,
+                                     stake_in_network['unstakes'][-1]['unstakeBlockHeight'], _to,
+                                     self._linked_list_var._tail_id.get() + 1)
         # removing the amount to be unstaked from stake
-        self._stake(self._total_stake.get() - amount_to_unstake)
+        self._total_stake.set(self._total_stake.get() - amount_to_unstake)
+        self._stake(self._total_stake.get())
         self._delegations(value_to_unstake_in_icx, {'source': 'unstake'})
         self._sICX_supply.set(self._sICX_supply.get() - _value)
 
