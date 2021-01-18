@@ -1,18 +1,3 @@
-# -*- coding: utf-8 -*-
-
-# Copyright 2020 ICONation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 from iconservice import *
 from .id_factory import *
@@ -43,16 +28,22 @@ class _NodeDB:
     _UNINITIALIZED = 0
     _INITIALIZED = 1
 
-    def __init__(self, var_key: str, db: IconScoreDatabase, value_type: type):
+    def __init__(self, var_key: str, db: IconScoreDatabase):
         self._name = var_key + _NodeDB._NAME
         self._init = VarDB(f'{self._name}_init', db, int)
-        self._value = VarDB(f'{self._name}_value', db, value_type)
+        self._value = VarDB(f'{self._name}_value', db, int)
+        self._key = VarDB(f'{self._name}_key', db, Address)
+        self._block_height = VarDB(f'{self._name}_block_height',db,int)
+        self._sender_address = VarDB(f'{self._name}_address',db,Address)
         self._next = VarDB(f'{self._name}_next', db, int)
         self._prev = VarDB(f'{self._name}_prev', db, int)
         self._db = db
 
     def delete(self) -> None:
         self._value.remove()
+        self._key.remove()
+        self._block_height.remove()
+        self._sender_address.remove()
         self._prev.remove()
         self._next.remove()
         self._init.remove()
@@ -63,9 +54,30 @@ class _NodeDB:
     def get_value(self):
         return self._value.get()
 
-    def set_value(self, value) -> None:
+    def get_key(self):
+        return self._key.get()
+
+    def get_block_height(self):
+        return self._block_height.get()
+
+    def get_sender_address(self):
+        return self._sender_address.get()
+
+    def set_value(self, _value : int) -> None:
         self._init.set(_NodeDB._INITIALIZED)
-        self._value.set(value)
+        self._value.set(_value)
+
+    def set_key(self, _key : Address) -> None:
+        self._init.set(_NodeDB._INITIALIZED)
+        self._key.set(_key)
+
+    def set_block_height(self, _block_height : int) -> None:
+        self._init.set(_NodeDB._INITIALIZED)
+        self._block_height.set(_block_height)
+
+    def set_sender_address(self, _sender_address : Address) -> None:
+        self._init.set(_NodeDB._INITIALIZED)
+        self._sender_address.set(_sender_address)
 
     def get_next(self) -> int:
         return self._next.get()
@@ -89,12 +101,11 @@ class LinkedListDB:
 
     _NAME = '_LINKED_LISTDB'
 
-    def __init__(self, var_key: str, db: IconScoreDatabase, value_type: type):
+    def __init__(self, var_key: str, db: IconScoreDatabase):
         self._name = var_key + LinkedListDB._NAME
         self._head_id = VarDB(f'{self._name}_head_id', db, int)
         self._tail_id = VarDB(f'{self._name}_tail_id', db, int)
         self._length = VarDB(f'{self._name}_length', db, int)
-        self._value_type = value_type
         self._db = db
 
     def delete(self) -> None:
@@ -114,20 +125,19 @@ class LinkedListDB:
             return iter(())
 
         node = self._get_node(cur_id)
-        yield (cur_id, node.get_value())
+        yield cur_id, node.get_value(),node.get_key(),node.get_block_height(),node.get_sender_address()
         tail_id = self._tail_id.get()
-
         # Iterate until tail
         while cur_id != tail_id:
             cur_id = node.get_next()
             node = self._get_node(cur_id)
-            yield (cur_id, node.get_value())
+            yield cur_id, node.get_value(), node.get_key(),node.get_block_height(),node.get_sender_address()
             tail_id = self._tail_id.get()
 
     def _node(self, node_id) -> _NodeDB:
-        return _NodeDB(str(node_id) + self._name, self._db, self._value_type)
+        return _NodeDB(str(node_id) + self._name, self._db)
 
-    def _create_node(self, value, node_id: int = None) -> tuple:
+    def _create_node(self, key: Address, value: int, block_height: int,sender_addres:Address, node_id: int = None) -> tuple:
         if node_id is None:
             node_id = IdFactory(self._name + '_nodedb', self._db).get_uid()
 
@@ -138,6 +148,9 @@ class LinkedListDB:
             raise LinkedNodeAlreadyExists(self._name, node_id)
 
         node.set_value(value)
+        node.set_key(key)
+        node.set_block_height(block_height)
+        node.set_sender_address(sender_addres)
         return (node_id, node)
 
     def _get_node(self, node_id: int) -> _NodeDB:
@@ -161,6 +174,18 @@ class LinkedListDB:
     def node_value(self, cur_id: int):
         """ Returns the value of a given node id """
         return self._get_node(cur_id).get_value()
+
+    def node_key(self,cur_id: int):
+        """ Returns the value of a given node id """
+        return self._get_node(cur_id).get_key()
+
+    def node_block_height(self,cur_id: int):
+        """ Returns the value of a given node id """
+        return self._get_node(cur_id).get_block_height()
+
+    def node_sender_address(self,cur_id: int):
+        """ Returns the value of a given node id """
+        return self._get_node(cur_id).get_sender_address()
 
     def head_value(self):
         """ Returns the value of the head of the linkedlist """
@@ -213,9 +238,9 @@ class LinkedListDB:
         self._head_id.remove()
         self._length.set(0)
 
-    def append(self, value, node_id: int = None) -> int:
+    def append(self,key : Address, value : int,block_height: int,sender_address:Address, node_id: int = None) -> int:
         """ Append an element at the end of the linkedlist """
-        cur_id, cur = self._create_node(value, node_id)
+        cur_id, cur = self._create_node(key, value,block_height,sender_address, node_id)
         if self._length.get() == 0:
             # Empty LinkedList
             self._head_id.set(cur_id)

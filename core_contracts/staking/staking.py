@@ -1,10 +1,8 @@
 from iconservice import *
 from .utils.checks import *
-from .utils.consts import *
 from .scorelib.consts import *
-from .scorelib.scorelib.consts import *
-from .scorelib.scorelib.id_factory import *
-from .scorelib.scorelib.linked_list import *
+from .scorelib.id_factory import *
+from .scorelib.linked_list import *
 
 # from .scorelib import *
 
@@ -136,7 +134,7 @@ class Staking(IconScoreBase):
         # initialize the sicx score
         self.sICX_score = self.create_interface_score(self._sICX_address.get(), sICXTokenInterface)
         # initialize the linked list
-        self._linked_list_var = LinkedListDB("unstake_dict", db, value_type=str)
+        self._linked_list_var = LinkedListDB("unstake_dict", db)
 
     def on_install(self) -> None:
         super().on_install()
