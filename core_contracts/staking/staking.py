@@ -83,7 +83,8 @@ class Staking(IconScoreBase):
     _BLOCK_HEIGHT_WEEK = '_block_height_week'
     _BLOCK_HEIGHT_DAY = '_block_height_day'
     _TOTAL_STAKE = '_total_stake'
-    _TOTAL_REWARD = '_total_reward'
+    _DAILY_REWARD = '_daily_reward'
+    _TOTAL_LIFETIME_REWARD = '_total_lifetime_reward'
     _DISTRIBUTING = '_distributing'
     _ADDRESS_LIST = '_address_list'
     _PREP_LIST = '_prep_list'
@@ -91,7 +92,7 @@ class Staking(IconScoreBase):
     _TOP_PREPS = '_top_preps'
     _ADDRESS_DELEGATIONS = '_address_delegations'
     _PREP_DELEGATIONS = '_prep_delegations'
-    _UNSTAKE_AMOUNT = '_unstake_amount'
+    _TOTAL_UNSTAKE_AMOUNT = '_total_unstake_amount'
 
     @eventlog(indexed=3)
     def Transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
@@ -116,10 +117,11 @@ class Staking(IconScoreBase):
         # total staked from staking contract
         self._total_stake = VarDB(self._TOTAL_STAKE, db, value_type=int)
         # vardb to store total rewards
-        self._total_reward = VarDB(self._TOTAL_REWARD, db, value_type=int)
+        self._daily_reward = VarDB(self._DAILY_REWARD, db, value_type=int)
+        self._total_lifetime_reward = VarDB(self._TOTAL_LIFETIME_REWARD, db, value_type=int)
         self._distributing = VarDB(self._DISTRIBUTING, db, value_type=bool)
         # vardb to store total unstaking amount
-        self._unstake_amount = VarDB(self._UNSTAKE_AMOUNT, db, value_type=int)
+        self._total_unstake_amount = VarDB(self._TOTAL_UNSTAKE_AMOUNT, db, value_type=int)
         # array for storing all the addresses and prep addresses
         self._address_list = ArrayDB(self._ADDRESS_LIST, db, value_type=Address)
         self._prep_list = ArrayDB(self._PREP_LIST, db, value_type=Address)
@@ -212,7 +214,7 @@ class Staking(IconScoreBase):
         """
         Returns the total rewards earned up to now by the staking contract.
         """
-        return self._total_reward.get()
+        return self._total_lifetime_reward.get()
 
     @external(readonly=True)
     def getTopPreps(self) -> list:
@@ -287,18 +289,6 @@ class Staking(IconScoreBase):
             return {}
 
     @external(readonly=True)
-    def getUnstakeRequest(self) -> dict:
-        """
-        Returns a dictionary that shows wallet address as a key and the request of unstaked amount by that address
-        as a value.
-        """
-        dict1 = {}
-        for items in self._linked_list_var:
-            split_string = items[1].split(':')
-            dict1[str(split_string[0])] = split_string[1]
-        return dict1
-
-    @external(readonly=True)
     def getPrepDelegations(self) -> dict:
         """
         Returns the dictionary with prep addresses as a key and total ICX delegated to that prep address as a
@@ -316,6 +306,29 @@ class Staking(IconScoreBase):
         :params _address : the address of sICX token contract.
         """
         self._sICX_address.set(_address)
+
+    @external(readonly=True)
+    def getUnstakeInfo(self) -> list:
+        """
+        Returns a list that shows wallet address unstaked amount,wallet address, unstake amount period
+        and self.msg.sender.
+        """
+        unstake_info_list = []
+        for items in self._linked_list_var:
+            unstake_info_list.append([items[1], items[2], items[3], items[4]])
+        return unstake_info_list
+
+    @external(readonly=True)
+    def getUserUnstakeInfo(self, _address: Address) -> list:
+        """
+        Returns a list that shows wallet address unstaked amount,wallet address, unstake amount period
+        and self.msg.sender.
+        """
+        unstake_info_list = []
+        for items in self._linked_list_var:
+            if items[2] == _address:
+                unstake_info_list.append([items[1], items[2], items[3], items[4]])
+        return unstake_info_list
 
     def _set_top_preps(self) -> None:
         """Weekly this function is called to set the top 100 prep address in an arraydb"""
@@ -450,8 +463,6 @@ class Staking(IconScoreBase):
                                                      str(x)] - ((each[1] * previous_icx_hold) // (100 * DENOMINATOR))
                 if self._prep_delegations[str(x)] < 0:
                     self._prep_delegations[str(x)] = 0
-        else:
-            revert('You need to have delegations before updating')
 
         return previous_address_delegations
 
@@ -500,7 +511,7 @@ class Staking(IconScoreBase):
         # revert(f'{self.icx.get_balance(self.address)}, {self.msg.value}')
         # revert(f'{balance_score}, {self.icx.get_balance(self.address)},{self._daily_reward.get()}')
         if balance_score > 0:
-            unstake_info_list = self.getUserUnstakeInfo()
+            unstake_info_list = self.getUnstakeInfo()
             for each_info in unstake_info_list:
                 value_to_transfer = each_info[0]
                 if value_to_transfer <= balance_score:
@@ -639,6 +650,8 @@ class Staking(IconScoreBase):
         total_sicx_of_user = self.sICX_score.balanceOf(_to)
         total_icx_hold = (total_sicx_of_user * self._rate.get()) // DENOMINATOR
         previous_prep_delegations  = self._remove_previous_delegations(_to, total_icx_hold)
+        if previous_prep_delegations == {}:
+            revert(f'You need to delegate before updating.')
         prep_list_of_contract = self.getPrepList()
         prep_delegations = self.getPrepDelegations()
         amount_to_stake_in_per = self._delegate_votes(_to, _user_delegations,
