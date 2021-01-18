@@ -194,13 +194,26 @@ class Staking(IconScoreBase):
         return top_prep_list
 
     @external(readonly=True)
-    def getUserUnstakeInfo(self) -> list:
+    def getUnstakeInfo(self) -> list:
         """
-        Returns a list that shows wallet address unstaked amount,wallet address and unstake amount period.
+        Returns a list that shows wallet address unstaked amount,wallet address, unstake amount period
+        and self.msg.sender.
         """
         unstake_info_list = []
         for items in self._linked_list_var:
-            unstake_info_list.append([items[1], items[2],items[3]])
+            unstake_info_list.append([items[1], items[2],items[3],items[4]])
+        return unstake_info_list
+
+    @external(readonly=True)
+    def getUserUnstakeInfo(self,_address:Address) -> list:
+        """
+        Returns a list that shows wallet address unstaked amount,wallet address, unstake amount period
+        and self.msg.sender.
+        """
+        unstake_info_list = []
+        for items in self._linked_list_var:
+            if items[2] == _address:
+                unstake_info_list.append([items[1], items[2], items[3], items[4]])
         return unstake_info_list
 
     @external(readonly=True)
@@ -258,7 +271,7 @@ class Staking(IconScoreBase):
          """
         balance_score = self.icx.get_balance(self.address) - self._daily_reward.get()
         if balance_score > 0:
-            unstake_info_list = self.getUserUnstakeInfo()
+            unstake_info_list = self.getUnstakeInfo()
             for each_info in unstake_info_list:
                 value_to_transfer = each_info[0]
                 if value_to_transfer <= balance_score:
@@ -365,9 +378,9 @@ class Staking(IconScoreBase):
         if set(d.keys()) != set(["method"]):
             revert('Invalid parameters.')
         if d["method"] == "unstake":
-            self._unstake(_value)
+            self._unstake(_from,_value)
 
-    def _unstake(self, _value: int) -> None:
+    def _unstake(self,_from:Address,_value: int) -> None:
         """
         Burns the sICX and removes delegations
         from the prep addresses and adds the
@@ -385,7 +398,7 @@ class Staking(IconScoreBase):
             self._delegations(evenly_distributed_amount, remainder_icx)
             self._stake(self._total_stake.get())
             stake_in_network = self._system.getStake(self.address)
-            self._linked_list_var.append(self.tx.origin, amount_to_unstake,stake_in_network['unstakes'][-1]['unstakeBlockHeight'], self._linked_list_var._tail_id.get() + 1)
+            self._linked_list_var.append(self.tx.origin, amount_to_unstake,stake_in_network['unstakes'][-1]['unstakeBlockHeight'],_from, self._linked_list_var._tail_id.get() + 1)
             self._sICX_supply.set(self._sICX_supply.get() - _value)
         except BaseException as e:
             revert(f'You can try unstaking later, {e}')
