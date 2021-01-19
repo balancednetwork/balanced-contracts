@@ -180,7 +180,8 @@ class IRC2(TokenStandard, IconScoreBase):
 		if _data is None:
 			_data = b'None'
 		staking_score = self.create_interface_score(self._admin.get(), stakingManagementInterface)
-		staking_score.transferUpdateDelegations(self.msg.sender,_to,_value)
+		if _to != self._admin.get():
+			staking_score.transferUpdateDelegations(self.msg.sender,_to,_value)
 		self._transfer(self.msg.sender, _to, _value, _data)
 
 	def _transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
