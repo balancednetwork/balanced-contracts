@@ -63,13 +63,20 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
         self._min_interval.set(_interval)
 
     @external
-    def price_in_icx(self) -> int:
+    def priceInLoop(self) -> int:
         """
         Returns the price of the asset in loop. Makes a call to the oracle if
         the last recorded price is not recent enough.
         """
         if self.now() - self._price_update_time.get() > MIN_UPDATE_TIME:
             self.update_asset_value()
+        return self._last_price.get()
+
+    @external(readonly=True)
+    def lastPriceInLoop(self) -> int:
+        """
+        Returns the latest price of the asset in loop.
+        """
         return self._last_price.get()
 
     def update_asset_value(self) -> None:
@@ -81,3 +88,12 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
         priceData = oracle.get_reference_data(self._peg.get(), 'ICX')
         self._last_price.set(priceData['rate'])
         self._price_update_time.set(self.now())
+        self.OraclePrice("ICXUSD", priceData['rate'], self.now())
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # EVENTS
+    # ------------------------------------------------------------------------------------------------------------------
+
+    @eventlog(indexed=3)
+    def OraclePrice(self, market: str, price: int, time: int):
+        pass

@@ -11,7 +11,7 @@ TAG = 'StakedICXManager'
 
 DENOMINATOR = 1000000000000000000
 
-TOTAL_PREPS = 20
+TOTAL_PREPS = 4
 
 
 # An interface of token to distribute daily rewards
@@ -322,7 +322,7 @@ class Staking(IconScoreBase):
         self._perform_checks()
         self._total_stake.set(self._total_stake.get() + self.msg.value)
         amount = self._get_amount_to_mint()
-        self.sICX_score.mintTo(_to, amount,_data)
+        self.sICX_score.mintTo(_to, amount, _data)
         self._stake(self._total_stake.get())
         evenly_distributed_amount, remainder_icx = self._evenly_distrubuted_amount()
         self._delegations(evenly_distributed_amount, remainder_icx)
