@@ -86,7 +86,7 @@ def get_data_from_data_source(prefix: str, data_source: 'DataSourceDB') -> dict:
     return {
         'day' : day,
         'contract_address' : contract_address,
-        'balTokenDistPercent' : bal_token_dist_percent
+        'bal_token_dist_percent' : bal_token_dist_percent
     }
 
 
