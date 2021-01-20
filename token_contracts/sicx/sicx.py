@@ -33,12 +33,12 @@ class StakedICX(IRC2Mintable, IRC2Burnable):
 		super().on_update()
 
 	@external(readonly=True)
-	def get_peg(self) -> str:
+	def getPeg(self) -> str:
 		return self._peg.get()
 
 	@external
 	@only_owner
-	def set_staking_address(self, _address: Address) -> None:
+	def setStakingAddress(self, _address: Address) -> None:
 		self._staking_address.set(_address)
 
 	@external(readonly=True)
