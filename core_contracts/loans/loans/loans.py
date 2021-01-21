@@ -54,7 +54,8 @@ class Loans(IconScoreBase):
     _REPLAY_BATCH_SIZE = 'replay_batch_size'
 
     _SYSTEM_DEBT = 'system_debt'
-    _CALCULATING = 'calculating'
+    _REWARDS_DONE = 'rewards_done'
+    _DIVIDENDS_DONE = 'dividends_done'
     _CURRENT_DAY = 'current_day'
     _LAUNCH_DAY = 'launch_day'
 
@@ -79,7 +80,8 @@ class Loans(IconScoreBase):
         self._positions = PositionsDB(db, self)
         self._event_log = ReplayLogDB(db)
         self._system_debt = DictDB(self._SYSTEM_DEBT, db, value_type=int)
-        self._rewards_done = VarDB(self._CALCULATING, db, value_type=bool)
+        self._rewards_done = VarDB(self._REWARDS_DONE, db, value_type=bool)
+        self._dividends_done = VarDB(self._DIVIDENDS_DONE, db, value_type=bool)
         self._current_day = VarDB(self._CURRENT_DAY, db, value_type=int)
         self._launch_day = VarDB(self._LAUNCH_DAY, db, value_type=int)
 
@@ -341,7 +343,7 @@ class Loans(IconScoreBase):
     def _take_new_day_snapshot(self) -> bool:
         day = self.getDay()
         if day > self._current_day.get():
-            self._positions._takeSnapshot()
+            self._positions._takeSnapshot(day)
             self._current_day.set(day)
             self._rewards_done.set(False)
             if day % 7 == 0:

@@ -10,7 +10,7 @@ MIN_UPDATE_TIME = 2000000 # 2 seconds
 TOKEN_NAME = 'BalanceToken'
 SYMBOL_NAME = 'BALN'
 DEFAULT_PEG = 'BALN'
-DEFAULT_ORACLE_ADDRESS = ''
+DEFAULT_ORACLE_ADDRESS = 'cx31bb0d42d9667fd6acab1bbebcfa3b916f04a3f3'
 DEFAULT_ORACLE_NAME = 'BalancedDEX'
 BALN_PRICE_ESTIMATE = 10**17
 
@@ -21,7 +21,7 @@ class OracleInterface(InterfaceScore):
         pass
 
 
-class ICONDollar(IRC2Mintable, IRC2Burnable):
+class BalanceToken(IRC2Mintable, IRC2Burnable):
 
     _PEG = 'peg'
     _ORACLE_ADDRESS = 'oracle_address'
@@ -44,7 +44,7 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
         self._peg.set(DEFAULT_PEG)
         self._oracle_address.set(Address.from_string(DEFAULT_ORACLE_ADDRESS))
         self._oracle_name.set(DEFAULT_ORACLE_NAME)
-		self._last_price.set(BALN_PRICE_ESTIMATE)
+        self._last_price.set(BALN_PRICE_ESTIMATE)
 
     def on_update(self) -> None:
         super().on_update()
@@ -98,10 +98,10 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
         quote = "ICX"
         oracle_address = self._oracle_address.get()
         try:
-        	oracle = self.create_interface_score(oracle_address, OracleInterface)
+            oracle = self.create_interface_score(oracle_address, OracleInterface)
             priceData = oracle.get_reference_data(base, quote)
-	        self._last_price.set(priceData['rate'])
-	        self._price_update_time.set(self.now())
+            self._last_price.set(priceData['rate'])
+            self._price_update_time.set(self.now())
         except BaseException as e:
             self.OraclePriceUpdateFailed(base + quote, self.oracle_name.get(), oracle_address, f'Exception: {e}')
         self.OraclePrice(base + quote, self.oracle_name.get(), oracle_address, priceData['rate'])

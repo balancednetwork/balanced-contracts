@@ -96,10 +96,10 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
         quote = "ICX"
         oracle_address = self._oracle_address.get()
         try:
-        	oracle = self.create_interface_score(oracle_address, OracleInterface)
+            oracle = self.create_interface_score(oracle_address, OracleInterface)
             priceData = oracle.get_reference_data(base, quote)
-	        self._last_price.set(priceData['rate'])
-	        self._price_update_time.set(self.now())
+            self._last_price.set(priceData['rate'])
+            self._price_update_time.set(self.now())
         except BaseException as e:
             self.OraclePriceUpdateFailed(base + quote, self.oracle_name.get(), oracle_address, f'Exception: {e}')
         self.OraclePrice(base + quote, self.oracle_name.get(), oracle_address, priceData['rate'])

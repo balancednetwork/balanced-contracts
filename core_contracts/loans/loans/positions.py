@@ -40,7 +40,7 @@ class Position(object):
     def get_standing(self) -> int:
         return self.standing.get()
 
-    def collateral_value(self, _day: int) -> int:
+    def collateral_value(self, _day: int = -1) -> int:
         """
         Returns the value of the collateral in loop.
 
@@ -292,7 +292,7 @@ class PositionsDB:
         _new_pos.id.set(id)
         return _new_pos
 
-    def takeSnapshot(self) -> None:
+    def takeSnapshot(self, _day: int) -> None:
         """
         Captures necessary data for the current snapshot in the SnapshotDB.
         """
@@ -303,7 +303,7 @@ class PositionsDB:
             if assets[symbol].active.get():
                 snapshot.prices[symbol] = assets[symbol].priceInLoop()
         snapshot.replay_index.set(self._event_log._events[-1])
-        self._snapshot_db.new_snapshot()
+        self._snapshot_db.new_snapshot(_day)
 
     def _calculate_snapshot(self, id: int, batch_size: int) -> bool:
         """
