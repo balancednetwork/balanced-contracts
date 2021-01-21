@@ -5,8 +5,16 @@ from .scorelib import *
 TAG = 'Governance'
 
 UNITS_PER_TOKEN = 1000000000000000000
+U_SECONDS_DAY = 86400000000  # Microseconds in a day.
+DAY_ZERO = 18628 # Will use 18647 for launch.
+DAY_START = 61200000000 # 17:00 UTC
 
 class Governance(IconScoreBase):
+    """
+    The Governance SCORE will have control of all parameters in BalancedDAO.
+    All other SCOREs and external queries will be able to get SCORE addresses
+    and parameter values here.
+    """
 
     @eventlog(indexed=3)
     def Transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
@@ -32,6 +40,10 @@ class Governance(IconScoreBase):
     @external(readonly=True)
     def name(self) -> str:
         return "Governance"
+
+    @external
+    def getDay(self) -> int:
+        return (self.now() - DAY_START) // U_SECONDS_DAY - DAY_ZERO
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:

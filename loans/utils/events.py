@@ -13,14 +13,6 @@ def TokenTransfer(self, recipient: Address, amount: int, note: str):
     pass
 
 @eventlog(indexed=3)
-def AssetAdded(self, account: Address, symbol: str, is_collateral: bool):
-    pass
-
-@eventlog(indexed=2)
-def CollateralReceived(self, account: Address, symbol: str):
-    pass
-
-@eventlog(indexed=3)
 def OriginateLoan(self, recipient: Address, symbol: str, amount: int, note: str):
     pass
 
@@ -50,8 +42,4 @@ def FeePaid(self, symbol: str, amount: int, type: str, note: str):
 
 @eventlog(indexed=2)
 def OraclePriceUpdate(self, symbol: str, rate: int, note: str):
-    pass
-
-@eventlog(indexed=2)
-def PositionStanding(self, address: Address, standing: str, ratio: str, note: str):
     pass

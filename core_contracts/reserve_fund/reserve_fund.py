@@ -62,30 +62,42 @@ class ReserveFund(IconScoreBase):
 
     @external
     @only_owner
-    def set_loans_score(self, _address: Address) -> None:
+    def setLoansScore(self, _address: Address) -> None:
         self._loans_score.set(_address)
 
     @external(readonly=True)
-    def get_loans_score(self) -> Address:
+    def getLoansScore(self) -> Address:
         self._loans_score.get()
 
     @external
     @only_owner
-    def set_baln_token(self, _address: Address) -> None:
+    def setBalnToken(self, _address: Address) -> None:
         self._baln_token.set(_address)
 
     @external(readonly=True)
-    def get_baln_token(self) -> Address:
+    def getBalnToken(self) -> Address:
         self._baln_token.get()
 
     @external
     @only_owner
-    def set_sicx_token(self, _address: Address) -> None:
+    def setSicxToken(self, _address: Address) -> None:
         self._sicx_token.set(_address)
 
     @external(readonly=True)
-    def get_sicx_token(self) -> Address:
+    def getSicxToken(self) -> Address:
         self._sicx_token.get()
+
+    @external(readonly=True)
+    def getBalances(self) -> dict:
+        loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
+        assets = loans.getCollateralTokens()
+        balances = {}
+        for symbol in assets:
+            token = self.create_interface_score(Address.from_string(assets[symbol]), TokenInterface)
+            balance = token.balanceOf(self.address)
+            if balance > 0:
+                balances[symbol] = balance
+        return balances
 
     @external
     def redeem(self, _to: Address, _amount: int, sicx_rate: int) -> int:
@@ -97,8 +109,8 @@ class ReserveFund(IconScoreBase):
         else:
             sicx_to_send = sicx
             baln_address = self._baln_token.get()
-            balance = self.create_interface_score(baln_address, TokenInterface)
-            baln_rate = balance.priceInLoop()
+            baln = self.create_interface_score(baln_address, TokenInterface)
+            baln_rate = baln.priceInLoop()
             baln_to_send = (_amount - sicx) * sicx_rate // baln_rate
             baln_remaining = self._baln.get() - baln_to_send
             if baln_remaining < 0: # Revert in case where there is not enough BALN.

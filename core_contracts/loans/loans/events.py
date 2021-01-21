@@ -1,23 +1,11 @@
 from iconservice import *
 
 @eventlog(indexed=3)
-def Transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
-    pass
-
-@eventlog(indexed=2)
-def FundTransfer(self, destination: Address, amount: int, note: str):
-    pass
-
-@eventlog(indexed=2)
-def TokenTransfer(self, recipient: Address, amount: int, note: str):
-    pass
-
-@eventlog(indexed=3)
 def AssetAdded(self, account: Address, symbol: str, is_collateral: bool):
     pass
 
 @eventlog(indexed=2)
-def CollateralReceived(self, account: Address, symbol: str):
+def TokenTransfer(self, recipient: Address, amount: int, note: str):
     pass
 
 @eventlog(indexed=3)
@@ -46,10 +34,6 @@ def TotalDebt(self, symbol: str, amount: int, note: str):
 
 @eventlog(indexed=3)
 def FeePaid(self, symbol: str, amount: int, type: str, note: str):
-    pass
-
-@eventlog(indexed=2)
-def OraclePriceUpdate(self, symbol: str, rate: int, note: str):
     pass
 
 @eventlog(indexed=2)
