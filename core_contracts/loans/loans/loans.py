@@ -1,7 +1,6 @@
 from iconservice import *
 from ..utils.checks import *
 from ..utils.consts import *
-from ..scorelib import *
 from .positions import PositionsDB
 from .assets import AssetsDB, Asset
 from .replay_log import ReplayLogDB
@@ -14,7 +13,21 @@ TEST_ADDRESS = Address.from_string('hx3f01840a599da07b0f620eeae7aa9c574169a4be')
 # An interface to the Emergency Reserve Fund
 class ReserveFund(InterfaceScore):
     @interface
-    def redeem(self, _to: Address, _amount: int, sicx_rate: int):
+    def redeem(self, _to: Address, _amount: int, sicx_rate: int) -> int:
+        pass
+
+
+# An interface to the Rewards SCORE
+class Rewards(InterfaceScore):
+    @interface
+    def distribute(self) -> bool:
+        pass
+
+
+# An interface to the Dividends SCORE
+class Dividends(InterfaceScore):
+    @interface
+    def distribute(self) -> bool:
         pass
 
 
@@ -32,12 +45,18 @@ class TokenInterface(InterfaceScore):
 class Loans(IconScoreBase):
 
     _LOANS_ON = 'loans_on'
-    _DIVIDENDS = "dividends"
+    _GOVERNANCE = 'governance'
+    _DIVIDENDS = 'dividends'
     _RESERVE = 'reserve'
+    _REWARDS = 'rewards'
     _ADMIN = 'admin'
     _REPLAY_BATCH_SIZE = 'replay_batch_size'
 
     _SYSTEM_DEBT = 'system_debt'
+    _REWARDS_DONE = 'rewards_done'
+    _DIVIDENDS_DONE = 'dividends_done'
+    _CURRENT_DAY = 'current_day'
+    _TIME_OFFSET = 'time_offset'
 
     _MINING_RATIO = 'mining_ratio'
     _LOCKING_RATIO = 'locking_ratio'
@@ -45,12 +64,15 @@ class Loans(IconScoreBase):
     _ORIGINATION_FEE = 'origination_fee'
     _REDEMPTION_FEE = 'redemption_fee'
     _RETIREMENT_BONUS = 'retirement_bonus'
+    _REDEEM_MINIMUM = 'redeem_minimum'
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self._loans_on = VarDB(self._LOANS_ON, db, value_type=bool)
+        self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
         self._dividends = VarDB(self._DIVIDENDS, db, value_type=Address)
         self._reserve = VarDB(self._RESERVE, db, value_type=Address)
+        self._rewards = VarDB(self._REWARDS, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._replay_batch_size = VarDB(self._REPLAY_BATCH_SIZE, db, value_type=int)
 
@@ -58,6 +80,10 @@ class Loans(IconScoreBase):
         self._positions = PositionsDB(db, self)
         self._event_log = ReplayLogDB(db)
         self._system_debt = DictDB(self._SYSTEM_DEBT, db, value_type=int)
+        self._rewards_done = VarDB(self._REWARDS_DONE, db, value_type=bool)
+        self._dividends_done = VarDB(self._DIVIDENDS_DONE, db, value_type=bool)
+        self._current_day = VarDB(self._CURRENT_DAY, db, value_type=int)
+        self._time_offset = VarDB(self._TIME_OFFSET, db, value_type=int)
 
         self._mining_ratio = VarDB(self._MINING_RATIO, db, value_type=int)
         self._locking_ratio = VarDB(self._LOCKING_RATIO, db, value_type=int)
@@ -65,19 +91,22 @@ class Loans(IconScoreBase):
         self._origination_fee = VarDB(self._ORIGINATION_FEE, db, value_type=int)
         self._redemption_fee = VarDB(self._REDEMPTION_FEE, db, value_type=int)
         self._retirement_bonus = VarDB(self._RETIREMENT_BONUS, db, value_type=int)
+        self._redeem_minimum = VarDB(self._REDEEM_MINIMUM, db, value_type=int)
 
     def on_install(self) -> None:
         super().on_install()
         self._loans_on.set(False)
         self._admin.set(self.owner)
         self._replay_batch_size.set(REPLAY_BATCH_SIZE)
+        self._rewards_done.set(True)
+        self._dividends_done.set(True)
         self._mining_ratio.set(DEFAULT_MINING_RATIO)
         self._locking_ratio.set(DEFAULT_LOCKING_RATIO)
         self._liquidation_ratio.set(DEFAULT_LIQUIDATION_RATIO)
         self._origination_fee.set(DEFAULT_ORIGINATION_FEE)
         self._redemption_fee.set(DEFAULT_REDEMPTION_FEE)
         self._retirement_bonus.set(BAD_DEBT_RETIREMENT_BONUS)
-        self._positions.frozen.set(False)
+        self._redeem_minimum.set(REDEEM_MINIMUM)
 
     def on_update(self) -> None:
         super().on_update()
@@ -94,50 +123,37 @@ class Loans(IconScoreBase):
         return "BalancedLoans"
 
     @external
-    @only_owner
-    def setAdmin(self, _admin: Address) -> None:
-        self._admin.set(_admin)
+    def turnLoansOn(self) -> None:
+        if self.msg.sender != self._governance.get():
+            revert("Loans can only be turned on by the Governance SCORE.")
+        self._loans_on.set(True)
+        self._positions._snapshot_db.new_snapshot(self.getDay())
 
     @external
-    @only_owner
-    def toggle_loans_on(self) -> None:
+    def toggleLoansOn(self) -> None:
+        if self.msg.sender != self._governance.get():
+            revert("The Loans active status can only be controlled through the"
+                   "Governance SCORE.")
         self._loans_on.set(not self._loans_on.get())
 
     @external
-    @only_owner
-    def set_dividends(self, _address: Address) -> None:
-        self._dividends.set(_address)
-
-    @external(readonly=True)
-    def get_dividends(self) -> Address:
-        self._dividends.get()
+    def getLoansOn(self) -> bool:
+        return self._loans_on.get()
 
     @external
-    @only_owner
-    def set_reserve(self, _address: Address) -> None:
-        self._reserve.set(_address)
+    def getDay(self) -> int:
+        return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
 
     @external(readonly=True)
-    def get_reserve(self) -> Address:
-        self._reserve.get()
-
-    @external
-    @only_owner
-    def set_origination_fee(self, _fee: int) -> None:
-        self._origination_fee.set(_fee)
-
-    @external(readonly=True)
-    def get_origination_fee(self) -> int:
-        self._origination_fee.get()
-
-    @external
-    @only_owner
-    def set_replay_batch_size(self, _size: int) -> None:
-        self._replay_batch_size.set(_size)
-
-    @external(readonly=True)
-    def get_replay_batch_size(self) -> int:
-        self._replay_batch_size.get()
+    def getAssetTokens(self) -> dict:
+        """
+        Returns a dictionary of assets from the assetsDB with token symbol as
+        the key and address as a string value.
+        """
+        assets = {}
+        for symbol in self._assets.slist:
+            assets[symbol] = self._assets.symboldict[symbol]
+        return assets
 
     @external(readonly=True)
     def getCollateralTokens(self) -> dict:
@@ -167,7 +183,7 @@ class Loans(IconScoreBase):
         return total_collateral // EXA
 
     @external(readonly=True)
-    def getAccountPositions(self, _owner: Address) -> str:
+    def getAccountPositions(self, _owner: Address) -> dict:
         """
         Get account positions.
         """
@@ -191,9 +207,17 @@ class Loans(IconScoreBase):
         """
         return len(self._assets)
 
+    @external(readonly=True)
+    def hasDebt(self, _owner: Address) -> bool:
+        """
+        Returns whether the address holds a debt position.
+        """
+        pos = self._positions.get_pos(_owner)
+        return pos.has_debt()
+
     @external
     @only_admin
-    def add_asset(self, _token_address: Address, is_active: bool = True, is_collateral: bool = False) -> None:
+    def addAsset(self, _token_address: Address, is_active: bool = True, is_collateral: bool = False) -> None:
         """
         Adds a token to the assets dictionary.
         """
@@ -203,15 +227,74 @@ class Loans(IconScoreBase):
 
     @external
     @only_owner
-    def toggle_asset_active(self, _symbol) -> None:
+    def toggleAssetActive(self, _symbol) -> None:
         self._assets[_symbol].active.set(not self._assets[_symbol].active.get())
 
     @external
-    def read_position_data_batch(self) -> dict:
+    def precompute(self, snap: int, batch_size: int) -> bool:
+        """
+        prepares the position data snapshot to send to the rewards SCORE.
+        """
+        if self.msg.sender != self._rewards.get():
+            revert(f'The precompute method may only be invoked by the rewards SCORE.')
+        if self._take_new_day_snapshot():
+            return False
+        # Iterate through all positions in the snapshot to bring them up to date.
+        if self._positions._calculate_snapshot(snap, batch_size):
+            return True
+        return False
+
+    @external
+    def getTotalValue(self, snap: int) -> int:
         """
         Read position data batch.
         """
-        pass
+        if self.msg.sender != self._rewards.get():
+            revert(f'The getTotalValue method may only be invoked by the rewards SCORE.')
+        return self._positions._snapshot_db[snap].total_mining_debt.get()
+
+    @external
+    def getDataCount(self, snap: int) -> int:
+        """
+        Returns the number of records in the snapshot.
+        """
+        if self.msg.sender != self._rewards.get():
+            revert(f'The getDataCount method may only be invoked by the rewards SCORE.')
+        return len(self._positions._snapshot_db[snap].mining)
+
+    @external
+    def getDataBatch(self, snap: int, batch_start: int, batch_size: int) -> dict:
+        """
+        Read position data batch.
+        """
+        if self.msg.sender != self._rewards.get():
+            revert(f'The getDataBatch method may only be invoked by the rewards SCORE.')
+        batch = {}
+        mining = self._positions._snapshot_db[snap].mining
+        for i in range(batch_start, batch_start + batch_size):
+            address_id = mining[i]
+            pos = self._positions[address_id]
+            batch[pos.address] = pos.total_debt[pos.get_snapshot_id(snap)]
+        return batch
+
+    def _take_new_day_snapshot(self) -> bool:
+        day = self.getDay()
+        if day > self._current_day.get():
+            self._positions._take_snapshot(day)
+            self._current_day.set(day)
+            self._rewards_done.set(False)
+            if day % 7 == 0:
+                self._dividends_done.set(False)
+            return True
+        return False
+
+    def _check_distributions(self) -> None:
+        if not self._rewards_done.get():
+            rewards = self.create_interface_score(self._rewards.get(), Rewards)
+            self._rewards_done.set(rewards.distribute())
+        elif not self._dividends_done.get():
+            dividends = self.create_interface_score(self._dividends.get(), Dividends)
+            self._dividends_done.set(dividends.distribute())
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
@@ -225,10 +308,16 @@ class Loans(IconScoreBase):
         :param _data: Method and parameters to call once tokens are received.
         :type _data: bytes
         """
+        if not self._loans_on.get():
+            revert('Balanced is currently not accepting transactions.')
         if _value <= 0:
             revert(f'Amount sent must be greater than zero.')
         if self.msg.sender not in self._assets.alist:
             revert(f'The Balanced Loans contract does not accept that token type.')
+        if self._take_new_day_snapshot():
+            pass
+        else:
+            self._check_distributions()
         if _from == self._reserve.get():
             return
         try:
@@ -268,9 +357,10 @@ class Loans(IconScoreBase):
         if pos['sICX'] == 0:
             self._positions.add_nonzero(self.tx.origin)
         pos['sICX'] += _value
+        self.CollateralReceived(self.tx.origin, 'sICX')
         if _asset == '' or _amount == 0:
             return
-        self.originate_loan(_asset, _amount)
+        self.originateLoan(_asset, _amount)
 
     def _repay_loan(self, _from: Address, _value: int) -> None:
         """
@@ -313,10 +403,13 @@ class Loans(IconScoreBase):
         :type _value: int
         """
         asset = self._assets._get_asset(str(self.msg.sender))
+        price = asset.priceInLoop()
+        redeem_min = self._redeem_minimum.get()
+        if _value * price // (self._assets['ICD'].priceInLoop() * EXA) < redeem_min:
+            revert(f'Minimum redeemed asset value is ${redeem_min}')
         symbol = asset.symbol()
         bad_debt = asset.bad_debt.get()
         sicx_rate = self._assets['sICX'].priceInLoop()
-        price = asset.priceInLoop()
         self._assets[symbol].burn(_value)
         redeemed = _value
         sicx: int = 0
@@ -332,7 +425,7 @@ class Loans(IconScoreBase):
                                       sicx_rate=sicx_rate,
                                       sicx_returned=sicx,
                                       asset_supply=supply)
-
+            self._positions._snapshot_db[-1].replay_index.set(self._event_log._events[-1])
         self._send_token("sICX", _from, sicx, "Collateral redeemed.")
         self.AssetRedeemed(_from, symbol, _value,
             f'{_value // EXA} {symbol} redeemed on Balanced.')
@@ -370,7 +463,7 @@ class Loans(IconScoreBase):
         return in_pool + reserve.redeem(_from, bd_sicx - in_pool)
 
     @external
-    def originate_loan(self, _asset: str, _amount: int) -> None:
+    def originateLoan(self, _asset: str, _amount: int) -> None:
         """
         Originate a loan of an asset if there is sufficient collateral.
 
@@ -392,26 +485,26 @@ class Loans(IconScoreBase):
         max_debt_value = 100 * collateral // self._locking_ratio.get()
         fee = self._origination_fee.get() * _amount // POINTS
         new_debt_value = self._assets[_asset].priceInLoop() * (_amount + fee) // EXA
-        if pos.total_debt() + new_debt_value > max_debt_value:
+        if pos._total_debt() + new_debt_value > max_debt_value:
             revert(f'{collateral / EXA} collateral is insufficient'
                    f' to originate a loan of {_amount / EXA} {_asset}'
                    f' when max_debt_value = {max_debt_value / EXA} and'
                    f' new_debt_value = {new_debt_value / EXA},'
                    f' plus a fee of {fee / EXA} {_asset},'
-                   f' and an existing loan value of {pos.total_debt() / EXA}.')
+                   f' and an existing loan value of {pos._total_debt() / EXA}.')
 
         # Originate loan
         pos[_asset] += _amount + fee
-        self._assets[_asset].mint(origin, _amount)
         self.OriginateLoan(origin, _asset, _amount,
             f'Loan of {_amount / EXA} {_asset} from Balanced.')
+        self._assets[_asset].mint(origin, _amount)
 
         # Pay fee
         self._assets[_asset].mint(self._dividends.get(), fee)
         self.FeePaid(_asset, fee, "origination", "")
 
     @external
-    def withdraw_collateral(self, _value: int) -> None:
+    def withdrawCollateral(self, _value: int) -> None:
         """
         Withdraw sICX collateral up to the collateral locking ratio.
 
@@ -422,7 +515,7 @@ class Loans(IconScoreBase):
         pos = self._positions.get_pos(origin)
         if pos['sICX'] < _value:
             revert(f'Position holds less collateral than the requested withdrawal.')
-        asset_value = pos.total_debt() # Value in ICX
+        asset_value = pos._total_debt() # Value in ICX
         remaining_sicx = pos['sICX'] - _value
         remaining_coll = remaining_sicx * self._assets['sICX'].priceInLoop() // EXA
         locking_value = self._locking_ratio.get() * asset_value // 100
@@ -437,7 +530,7 @@ class Loans(IconScoreBase):
         self._send_token('sICX', origin, _value, "Collateral withdrawn.")
 
     @external
-    def threshold_check(self, _position: Address) -> int:
+    def thresholdCheck(self, _owner: Address) -> int:
         """
         Check liquidation threshold. Replay retirement events that have not yet
         been applied to the position. Update the standing of the position given
@@ -446,9 +539,9 @@ class Loans(IconScoreBase):
         :param _value: Amount of sICX to withdraw.
         :type _value: int
         """
-        pos = self._positions.get_pos(_position)
-        if pos.replay_index.get() < len(self._event_log):
-            results = self.replay_events(_position)
+        pos = self._positions.get_pos(_owner)
+        if pos.replay_index[self.getDay()] < len(self._event_log):
+            results = self.replay_events(_owner)
             if results[1] != 0:
                 return Standing.UNDETERMINED
         else:
@@ -456,22 +549,22 @@ class Loans(IconScoreBase):
         return pos.get_standing()
 
     @external
-    def liquidate(self, _position: Address) -> None:
+    def liquidate(self, _owner: Address) -> None:
         """
         Liquidate collateral if the position is below the liquidation threshold.
         """
-        _standing = self.threshold_check(_position)
-        pos = self._positions.get_pos(_position)
+        _standing = self.thresholdCheck(_owner)
+        pos = self._positions.get_pos(_owner)
         if _standing == Standing.LIQUIDATE:
             collateral = pos['sICX']
             reward = collateral * LIQUIDATION_REWARD // POINTS
             for_pool = collateral - reward
-            total_debt = pos.total_debt()
+            total_debt = pos._total_debt()
             for symbol in self._assets.slist:
                 if not self._assets[symbol].is_collateral.get() and pos[symbol] > 0:
                     bad_debt = self._assets[symbol].bad_debt.get()
                     self._assets[symbol].bad_debt.set(bad_debt + pos[symbol])
-                    symbol_debt = pos[symbol] * self._assets[symbol].priceInLoop()
+                    symbol_debt = pos[symbol] * self._assets[symbol].priceInLoop() // EXA
                     share = for_pool * symbol_debt // total_debt
                     total_debt -= symbol_debt
                     for_pool -= share
@@ -481,14 +574,14 @@ class Loans(IconScoreBase):
             self._send_token('sICX', self.tx.origin, reward, "Liquidation reward of")
             pos['sICX'] = 0
             self._positions.remove_nonzero(self.tx.origin)
-            self.Liquidate(_position, collateral, f'{collateral} liquidated from {_position}')
+            self.Liquidate(_owner, collateral, f'{collateral} liquidated from {_owner}')
         elif _standing != Standing.UNDETERMINED:
-            self.PositionStanding(_position,
+            self.PositionStanding(_owner,
                                   Standing.STANDINGS[_standing],
-                                  str(pos.collateral_value() / pos.total_debt()),
+                                  str(pos.collateral_value() / pos._total_debt()),
                                   "Position up to date.")
         else:
-            self.PositionStanding(_position,
+            self.PositionStanding(_owner,
                                   Standing.STANDINGS[_standing],
                                   "Ratio not yet determined.",
                                   "Position not up to date.")
@@ -540,16 +633,150 @@ class Loans(IconScoreBase):
     def fallback(self):
         pass
 
-    # ------------------------------------------------------------------------------------------------------------------
-    # EVENTS
-    # ------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+#   SETTERS AND GETTERS
+#-------------------------------------------------------------------------------
+
+    @external
+    @only_owner
+    def setAdmin(self, _admin: Address) -> None:
+        self._admin.set(_admin)
+
+    @external
+    def getAdmin(self) -> Address:
+        self._admin.get()
+
+    @external
+    @only_owner
+    def setGovernance(self, _address: Address) -> None:
+        self._governance.set(_address)
+
+    @external(readonly=True)
+    def getGovernance(self) -> Address:
+        self._governance.get()
+
+    @external
+    @only_owner
+    def setDividends(self, _address: Address) -> None:
+        self._dividends.set(_address)
+
+    @external(readonly=True)
+    def getDividends(self) -> Address:
+        self._dividends.get()
+
+    @external
+    @only_owner
+    def setReserve(self, _address: Address) -> None:
+        self._reserve.set(_address)
+
+    @external(readonly=True)
+    def getReserve(self) -> Address:
+        self._reserve.get()
+
+    @external
+    @only_owner
+    def setRewards(self, _address: Address) -> None:
+        self._rewards.set(_address)
+
+    @external(readonly=True)
+    def getRewards(self) -> Address:
+        self._rewards.get()
+
+    @external
+    @only_owner
+    def setReplayBatchSize(self, _size: int) -> None:
+        self._replay_batch_size.set(_size)
+
+    @external(readonly=True)
+    def getReplayBatchSize(self) -> int:
+        self._replay_batch_size.get()
+
+    @external
+    @only_owner
+    def setMiningRatio(self, _ratio: int) -> None:
+        self._mining_ratio.set(_ratio)
+
+    @external(readonly=True)
+    def getMiningRatio(self) -> int:
+        self._mining_ratio.get()
+
+    @external
+    @only_owner
+    def setLockingRatio(self, _ratio: int) -> None:
+        self._locking_ratio.set(_ratio)
+
+    @external(readonly=True)
+    def getLockingRatio(self) -> int:
+        self._locking_ratio.get()
+
+    @external
+    @only_owner
+    def setLiquidationRatio(self, _ratio: int) -> None:
+        self._liquidation_ratio.set(_ratio)
+
+    @external(readonly=True)
+    def getLiquidationRatio(self) -> int:
+        self._liquidation_ratio.get()
+
+    @external
+    @only_owner
+    def setOriginationFee(self, _fee: int) -> None:
+        self._origination_fee.set(_fee)
+
+    @external(readonly=True)
+    def getOriginationFee(self) -> int:
+        self._origination_fee.get()
+
+    @external
+    @only_owner
+    def setRedemptionFee(self, _fee: int) -> None:
+        self._redemption_fee.set(_fee)
+
+    @external(readonly=True)
+    def getRedemptionFee(self) -> int:
+        self._redemption_fee.get()
+
+    @external
+    @only_owner
+    def setRedeemMinimum(self, _minimum: int) -> None:
+        self._redeem_minimum.set(_minimum)
+
+    @external(readonly=True)
+    def getRedeemMinimum(self) -> int:
+        self._redeem_minimum.get()
+
+    @external
+    def setTimeOffset(self, _delta_time: int) -> None:
+        if self.msg.sender != self._governance.get():
+            revert("The time_offset can only be set by the Governance SCORE.")
+        self._time_offset.set(_delta_time)
+
+    @external(readonly=True)
+    def getTimeOffset(self) -> int:
+        self._time_offset.get()
+
+#-------------------------------------------------------------------------------
+#   EVENT LOGS
+#-------------------------------------------------------------------------------
+
+    @eventlog(indexed=3)
+    def Transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
+        pass
+
+    @eventlog(indexed=2)
+    def FundTransfer(self, destination: Address, amount: int, note: str):
+        pass
+
+    @eventlog(indexed=2)
+    def TokenTransfer(self, recipient: Address, amount: int, note: str):
+        pass
 
     @eventlog(indexed=3)
     def AssetAdded(self, account: Address, symbol: str, is_collateral: bool):
         pass
 
     @eventlog(indexed=2)
-    def TokenTransfer(self, recipient: Address, amount: int, note: str):
+    def CollateralReceived(self, account: Address, symbol: str):
         pass
 
     @eventlog(indexed=3)
@@ -581,5 +808,13 @@ class Loans(IconScoreBase):
         pass
 
     @eventlog(indexed=2)
+    def OraclePriceUpdate(self, symbol: str, rate: int, note: str):
+        pass
+
+    @eventlog(indexed=2)
     def PositionStanding(self, address: Address, standing: str, ratio: str, note: str):
+        pass
+
+    @eventlog(indexed=1)
+    def Diagnostic(self, symbol: str, amount: int, note: str):
         pass
