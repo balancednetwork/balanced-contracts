@@ -1,3 +1,18 @@
+# -*- coding: utf-8 -*-
+
+# Copyright 2020 ICONation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 from iconservice import *
 from .id_factory import *
@@ -28,20 +43,18 @@ class _NodeDB:
     _UNINITIALIZED = 0
     _INITIALIZED = 1
 
-    def __init__(self, var_key: str, db: IconScoreDatabase):
+    def __init__(self, var_key: str, db: IconScoreDatabase, value1_type: type, value2_type: type):
         self._name = var_key + _NodeDB._NAME
         self._init = VarDB(f'{self._name}_init', db, int)
-        self._value = VarDB(f'{self._name}_value', db, int)
-        self._key = VarDB(f'{self._name}_key', db, Address)
-        self._block_height = VarDB(f'{self._name}_block_height',db,int)
+        self._value1 = VarDB(f'{self._name}_value1', db, value1_type)
+        self._value2 = VarDB(f'{self._name}_value2', db, value2_type)
         self._next = VarDB(f'{self._name}_next', db, int)
         self._prev = VarDB(f'{self._name}_prev', db, int)
         self._db = db
 
     def delete(self) -> None:
-        self._value.remove()
-        self._key.remove()
-        self._block_height.remove()
+        self._value1.remove()
+        self._value2.remove()
         self._prev.remove()
         self._next.remove()
         self._init.remove()
@@ -49,26 +62,19 @@ class _NodeDB:
     def exists(self) -> bool:
         return self._init.get() != _NodeDB._UNINITIALIZED
 
-    def get_value(self):
-        return self._value.get()
+    def get_value1(self):
+        return self._value1.get()
 
-    def get_key(self):
-        return self._key.get()
+    def get_value2(self):
+        return self._value2.get()
 
-    def get_block_height(self):
-        return self._block_height.get()
-
-    def set_value(self, _value : int) -> None:
+    def set_value1(self, value) -> None:
         self._init.set(_NodeDB._INITIALIZED)
-        self._value.set(_value)
+        self._value1.set(value)
 
-    def set_key(self, _key : Address) -> None:
+    def set_value2(self, value) -> None:
         self._init.set(_NodeDB._INITIALIZED)
-        self._key.set(_key)
-
-    def set_block_height(self, _block_height : int) -> None:
-        self._init.set(_NodeDB._INITIALIZED)
-        self._block_height.set(_block_height)
+        self._value2.set(value)
 
     def get_next(self) -> int:
         return self._next.get()
@@ -92,11 +98,13 @@ class LinkedListDB:
 
     _NAME = '_LINKED_LISTDB'
 
-    def __init__(self, var_key: str, db: IconScoreDatabase):
+    def __init__(self, var_key: str, db: IconScoreDatabase, value1_type: type, value2_type: type):
         self._name = var_key + LinkedListDB._NAME
         self._head_id = VarDB(f'{self._name}_head_id', db, int)
         self._tail_id = VarDB(f'{self._name}_tail_id', db, int)
         self._length = VarDB(f'{self._name}_length', db, int)
+        self._value1_type = value1_type
+        self._value2_type = value2_type
         self._db = db
 
     def delete(self) -> None:
@@ -116,19 +124,20 @@ class LinkedListDB:
             return iter(())
 
         node = self._get_node(cur_id)
-        yield cur_id, node.get_value(),node.get_key(),node.get_block_height()
+        yield (cur_id, node.get_value1(), node.get_value2())
         tail_id = self._tail_id.get()
+
         # Iterate until tail
         while cur_id != tail_id:
             cur_id = node.get_next()
             node = self._get_node(cur_id)
-            yield cur_id, node.get_value(), node.get_key(),node.get_block_height()
+            yield (cur_id, node.get_value1(), node.get_value2())
             tail_id = self._tail_id.get()
 
     def _node(self, node_id) -> _NodeDB:
-        return _NodeDB(str(node_id) + self._name, self._db)
+        return _NodeDB(str(node_id) + self._name, self._db, self._value1_type, self._value2_type)
 
-    def _create_node(self, key: Address, value: int, block_height: int, node_id: int = None) -> tuple:
+    def _create_node(self, value1, value2, node_id: int = None) -> tuple:
         if node_id is None:
             node_id = IdFactory(self._name + '_nodedb', self._db).get_uid()
 
@@ -138,9 +147,8 @@ class LinkedListDB:
         if node.exists():
             raise LinkedNodeAlreadyExists(self._name, node_id)
 
-        node.set_value(value)
-        node.set_key(key)
-        node.set_block_height(block_height)
+        node.set_value1(value1)
+        node.set_value2(value2)
         return (node_id, node)
 
     def _get_node(self, node_id: int) -> _NodeDB:
@@ -161,25 +169,29 @@ class LinkedListDB:
             raise EmptyLinkedListException(self._name)
         return self._get_node(head_id)
 
-    def node_value(self, cur_id: int):
-        """ Returns the value of a given node id """
-        return self._get_node(cur_id).get_value()
+    def node_value1(self, cur_id: int):
+        """ Returns the first value of a given node id """
+        return self._get_node(cur_id).get_value1()
+    
+    def node_value2(self, cur_id: int):
+        """ Returns the second value of a given node id """
+        return self._get_node(cur_id).get_value2()
 
-    def node_key(self,cur_id: int):
-        """ Returns the value of a given node id """
-        return self._get_node(cur_id).get_key()
-
-    def node_block_height(self,cur_id: int):
-        """ Returns the value of a given node id """
-        return self._get_node(cur_id).get_block_height()
-
-    def head_value(self):
+    def head_value1(self):
         """ Returns the value of the head of the linkedlist """
-        return self.node_value(self._head_id.get())
+        return self.node_value1(self._head_id.get())
 
-    def tail_value(self):
+    def head_value2(self):
+        """ Returns the value of the head of the linkedlist """
+        return self.node_value2(self._head_id.get())
+
+    def tail_value1(self):
         """ Returns the value of the tail of the linkedlist """
-        return self.node_value(self._tail_id.get())
+        return self.node_value1(self._tail_id.get())
+
+    def tail_value2(self):
+        """ Returns the value of the tail of the linkedlist """
+        return self.node_value2(self._tail_id.get())
 
     def next(self, cur_id: int) -> int:
         """ Get the next node id from a given node
@@ -224,9 +236,10 @@ class LinkedListDB:
         self._head_id.remove()
         self._length.set(0)
 
-    def append(self,key : Address, value : int,block_height: int, node_id: int = None) -> int:
+    def append(self, value1, value2, node_id: int = None) -> int:
         """ Append an element at the end of the linkedlist """
-        cur_id, cur = self._create_node(key, value,block_height, node_id)
+        cur_id, cur = self._create_node(value1, value2, node_id)
+
         if self._length.get() == 0:
             # Empty LinkedList
             self._head_id.set(cur_id)
@@ -243,9 +256,9 @@ class LinkedListDB:
 
         return cur_id
 
-    def prepend(self, value, node_id: int = None) -> int:
+    def prepend(self, value1, value2, node_id: int = None) -> int:
         """ Prepend an element at the beginning of the linkedlist """
-        cur_id, cur = self._create_node(value, node_id)
+        cur_id, cur = self._create_node(value1, value2, node_id)
 
         if self._length.get() == 0:
             # Empty LinkedList
@@ -263,13 +276,13 @@ class LinkedListDB:
 
         return cur_id
 
-    def append_after(self, value, after_id: int, node_id: int = None) -> int:
+    def append_after(self, value1, value2, after_id: int, node_id: int = None) -> int:
         """ Append an element after an existing item of the linkedlist """
         if after_id == self._tail_id.get():
-            return self.append(value, node_id)
+            return self.append(value1, value2, node_id)
 
         after = self._get_node(after_id)
-        cur_id, cur = self._create_node(value, node_id)
+        cur_id, cur = self._create_node(value1, value2, node_id)
 
         afternext_id = after.get_next()
         afternext = self._get_node(afternext_id)
@@ -286,13 +299,13 @@ class LinkedListDB:
         self._length.set(self._length.get() + 1)
         return cur_id
 
-    def prepend_before(self, value, before_id: int, node_id: int = None) -> int:
+    def prepend_before(self, value1, value2, before_id: int, node_id: int = None) -> int:
         """ Append an element before an existing item of the linkedlist """
         if before_id == self._head_id.get():
-            return self.prepend(value, node_id)
+            return self.prepend(value1, value2, node_id)
 
         before = self._get_node(before_id)
-        cur_id, cur = self._create_node(value, node_id)
+        cur_id, cur = self._create_node(value1, value2, node_id)
 
         beforeprev_id = before.get_prev()
         beforeprev = self._get_node(beforeprev_id)
@@ -517,35 +530,3 @@ class LinkedListDB:
                 break
 
         return result
-
-
-class UIDLinkedListDB(LinkedListDB):
-    """
-        UIDLinkedListDB is a linked list of unique IDs.
-        The linkedlist node ID is equal to the value of the UID provided,
-        so the developer needs to make sure the UID provided is globally unique to the application.
-        Consequently, the concept of node ID is merged with the UID provided
-        from a developper point of view, which simplifies the usage of the linkedlist.
-    """
-    _NAME = 'UID_LINKED_LIST_DB'
-
-    def __init__(self, address: Address, db: IconScoreDatabase):
-        name = f'{str(address)}_{UIDLinkedListDB._NAME}'
-        super().__init__(name, db, int)
-        self._name = name
-
-    def append(self, uid: int, _: int = None) -> None:
-        super().append(uid, uid)
-
-    def prepend(self, uid: int, _: int = None) -> None:
-        super().prepend(uid, uid)
-
-    def append_after(self, value: int, after_id: int, _: int = None) -> None:
-        super().append_after(value, after_id, value)
-
-    def prepend_before(self, value: int, before_id: int, _: int = None) -> None:
-        super().prepend_before(value, before_id, value)
-
-    def __iter__(self):
-        for node_id, uid in super().__iter__():
-            yield uid

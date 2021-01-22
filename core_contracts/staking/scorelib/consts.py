@@ -21,4 +21,8 @@ from iconservice import *
 # ================================================
 TAG = 'SCORELib'
 VERSION = '0.1.0'
-ZERO_SCORE_ADDRESS = Address.from_string('cx0000000000000000000000000000000000000000')
+DEFAULT_CAP_VALUE = 2 ** 256 -1
+DEFAULT_DECIMAL_VALUE = 18
+SYSTEM_SCORE = Address.from_string('cx0000000000000000000000000000000000000000')
+
+MAX_ITERATION_LOOP = 100
