@@ -22,7 +22,6 @@ class OracleInterface(InterfaceScore):
 
 class BalanceToken(IRC2Mintable, IRC2Burnable):
     
-    _DEX_ADDRESS = "DEX_address"
     _PRICE_UPDATE_TIME = "price_update_time"
     _LAST_PRICE = "last_price"
     _MIN_INTERVAL = "min_interval"
@@ -50,7 +49,6 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
-        self._DEX_address = VarDB(self._DEX_ADDRESS, db, value_type=Address)
         self._peg = VarDB(self._PEG, db, value_type=str)
         self._oracle_address = VarDB(self._ORACLE_ADDRESS, db, value_type=Address)
         self._oracle_name = VarDB(self._ORACLE_NAME, db, value_type=str)
@@ -104,17 +102,8 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
         self._oracle_name.set(_name)
 
     @external(readonly=True)
-    def getOracle(self, _name: str) -> dict:
-        return {"name": self._oracle_name.set(_name), "address": str(self._oracle_address.get())}
-
-    @external
-    @only_owner
-    def setDEXAddress(self, _address: Address) -> None:
-        self._DEX_address.set(_address)
-
-    @external(readonly=True)
-    def getDEXAddress(self) -> Address:
-        return self._DEX_address.get()
+    def getOracle(self) -> dict:
+        return {"name": self._oracle_name.get(), "address": str(self._oracle_address.get())}
 
     @external
     @only_owner
@@ -374,10 +363,6 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
     # --------------------------------------------------------------------------
     # EVENTS
     # --------------------------------------------------------------------------
-
-    @eventlog(indexed=3)
-    def DEXPrice(self, market: str, price: int, time: int):
-        pass
 
     @eventlog(indexed=3)
     def OraclePriceUpdateFailed(self, market: str, oracle_name: str, oracle_address: Address, msg: str):
