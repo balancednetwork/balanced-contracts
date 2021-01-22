@@ -11,3 +11,5 @@ class Status:
 
 
 MAX_LOOP = 100
+INITIAL_PRICE_ESTIMATE = 10**17
+MIN_UPDATE_TIME = 2000000 # 2 seconds
