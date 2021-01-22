@@ -121,6 +121,8 @@ class Rewards(IconScoreBase):
         if self._token_holdings[self.msg.sender]:
             token_contract = self.create_interface_score(self._token_address.get(), TokenInterface)
             token_contract.transfer(self.msg.sender, self._token_holdings[self.msg.sender])
+            self._token_holdings[self.msg.sender] = 0
+
 
     def _get_day(self) -> int:
         today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS 
