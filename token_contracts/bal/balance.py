@@ -109,11 +109,11 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
 
     @external
     @only_owner
-    def set_DEX_address(self, _address: Address) -> None:
+    def setDEXAddress(self, _address: Address) -> None:
         self._DEX_address.set(_address)
 
     @external(readonly=True)
-    def get_DEX_address(self) -> Address:
+    def getDEXAddress(self) -> Address:
         return self._DEX_address.get()
 
     @external
@@ -160,7 +160,7 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
             self.OraclePriceUpdateFailed(base + quote, self._oracle_name.get(), oracle_address, f'Exception: {e}')
 
     @external(readonly=True)
-    def details_balanceOf(self, _owner: Address) -> dict:
+    def detailsBalanceOf(self, _owner: Address) -> dict:
         if self._staked_balances[_owner][Status.UNSTAKING_PERIOD] < self.now():
             curr_unstaked: int = self._staked_balances[_owner][Status.UNSTAKING]
         else:
@@ -191,33 +191,33 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
         )
 
     @external(readonly=True)
-    def unstaked_balanceOf(self, _owner: Address) -> int:
-        detail_balance = self.details_balanceOf(_owner)
+    def unstakedBalanceOf(self, _owner: Address) -> int:
+        detail_balance = self.detailsBalanceOf(_owner)
         return detail_balance["Unstaking balance"]
 
     @external(readonly=True)
-    def staked_balanceOf(self, _owner: Address) -> int:
+    def stakedBalanceOf(self, _owner: Address) -> int:
         return self._staked_balances[_owner][Status.STAKED]
 
     @external(readonly=True)
-    def available_balanceOf(self, _owner: Address) -> int:
-        detail_balance = self.details_balanceOf(_owner)
+    def availableBalanceOf(self, _owner: Address) -> int:
+        detail_balance = self.detailsBalanceOf(_owner)
         return detail_balance["Available balance"]
 
     @external(readonly=True)
-    def get_staking_enabled(self) -> bool:
+    def getStakingEnabled(self) -> bool:
         return self._staking_enabled.get()
 
     @external(readonly=True)
-    def total_staked_balance(self) -> int:
+    def totalStakedBalance(self) -> int:
         return self._total_staked_balance.get()
 
     @external(readonly=True)
-    def get_minimum_stake(self) -> int:
+    def getMinimumStake(self) -> int:
         return self._minimum_stake.get()
 
     @external(readonly=True)
-    def get_unstaking_period(self) -> int:
+    def getUnstakingPeriod(self) -> int:
         time_in_microseconds = self._unstaking_period.get()
         time_in_days = time_in_microseconds // DAY_TO_MICROSECOND
         return time_in_days
@@ -233,7 +233,7 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
 
     @external
     @only_owner
-    def toggle_staking_enabled(self) -> None:
+    def toggleStakingEnabled(self) -> None:
         self._staking_enabled.set(not self._staking_enabled.get())
 
     def _make_available(self, _from: Address):
@@ -276,7 +276,7 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
 
     @external
     @only_owner
-    def set_minimum_stake(self, _amount: int) -> None:
+    def setMinimumStake(self, _amount: int) -> None:
         if _amount < 0:
             revert(f"{TAG}: Amount cannot be less than zero")
 
@@ -285,7 +285,7 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
 
     @external
     @only_owner
-    def set_unstaking_period(self, _time: int) -> None:
+    def setUnstakingPeriod(self, _time: int) -> None:
         if _time < 0:
             revert(f"{TAG}: Time cannot be negative")
         total_time = _time * DAY_TO_MICROSECOND
@@ -293,11 +293,11 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
 
     @external
     @only_owner
-    def set_dividends_score(self, _score: Address) -> None:
+    def setDividendsScore(self, _score: Address) -> None:
         self._dividends_score.set(_score)
 
     @external(readonly=True)
-    def get_dividends_score(self) -> Address:
+    def getDividendsScore(self) -> Address:
         return self._dividends_score.get()
 
     def dividends_only(self):
@@ -305,7 +305,7 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
             revert(f"{TAG}: This method can only be called by the dividends distribution contract")
 
     @external
-    def get_stake_updates(self) -> dict:
+    def getStakeUpdates(self) -> dict:
         self.dividends_only()
         self.staking_enabled_only()
 
@@ -321,13 +321,13 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
 
         end = min(start + MAX_LOOP, length_list)
         detailed_stake_balances = {
-            str(stake_changes[i]): self.staked_balanceOf(stake_changes[i]) for i in range(start, end)
+            str(stake_changes[i]): self.stakedBalanceOf(stake_changes[i]) for i in range(start, end)
         }
         self._index_update_stake.set(end)
         return detailed_stake_balances
 
     @external
-    def clear_yesterdays_stake_changes(self) -> bool:
+    def clearYesterdaysStakeChanges(self) -> bool:
         self.dividends_only()
         self.staking_enabled_only()
 
@@ -345,7 +345,7 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
         return not len(yesterdays_changes) > 0
 
     @external
-    def switch_stake_update_db(self) -> None:
+    def switchStakeUpdateDB(self) -> None:
         self.dividends_only()
         self.staking_enabled_only()
 
