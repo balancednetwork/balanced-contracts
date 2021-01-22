@@ -5,14 +5,13 @@ from .utils.checks import *
 
 TAG = 'BALN'
 
-MIN_UPDATE_TIME = 2000000 # 2 seconds
-
 TOKEN_NAME = 'BalanceToken'
 SYMBOL_NAME = 'BALN'
 DEFAULT_PEG = 'BALN'
 DEFAULT_ORACLE_ADDRESS = 'cx31bb0d42d9667fd6acab1bbebcfa3b916f04a3f3'
 DEFAULT_ORACLE_NAME = 'BalancedDEX'
-BALN_PRICE_ESTIMATE = 10**17
+INITIAL_PRICE_ESTIMATE = 10**17
+MIN_UPDATE_TIME = 2000000 # 2 seconds
 
 # An interface to the Balanced DEX
 class OracleInterface(InterfaceScore):
@@ -44,7 +43,8 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
         self._peg.set(DEFAULT_PEG)
         self._oracle_address.set(Address.from_string(DEFAULT_ORACLE_ADDRESS))
         self._oracle_name.set(DEFAULT_ORACLE_NAME)
-        self._last_price.set(BALN_PRICE_ESTIMATE)
+        self._last_price.set(INITIAL_PRICE_ESTIMATE)
+        self._min_interval.set(MIN_UPDATE_TIME)
 
     def on_update(self) -> None:
         super().on_update()
@@ -78,7 +78,7 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
         Returns the price of the asset in loop. Makes a call to the oracle if
         the last recorded price is not recent enough.
         """
-        if self.now() - self._price_update_time.get() > MIN_UPDATE_TIME:
+        if self.now() - self._price_update_time.get() > self._min_interval.get():
             self.update_asset_value()
         return self._last_price.get()
 
@@ -103,8 +103,8 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
             self._last_price.set(priceData['rate'])
             self._price_update_time.set(self.now())
         except BaseException as e:
-            self.OraclePriceUpdateFailed(base + quote, self.oracle_name.get(), oracle_address, f'Exception: {e}')
-        self.OraclePrice(base + quote, self.oracle_name.get(), oracle_address, priceData['rate'])
+            self.OraclePriceUpdateFailed(base + quote, self._oracle_name.get(), oracle_address, f'Exception: {e}')
+        self.OraclePrice(base + quote, self._oracle_name.get(), oracle_address, priceData['rate'])
 
     # ------------------------------------------------------------------------------------------------------------------
     # EVENTS

@@ -1,7 +1,6 @@
 from iconservice import *
 from ..scorelib.id_factory import IdFactory
 from ..utils.consts import *
-from ..utils.events import *
 from .assets import AssetsDB
 from .replay_log import ReplayLogDB, ReplayEvent
 from .snapshots import SnapshotDB, Snapshot
@@ -38,7 +37,7 @@ class Position(object):
         self.assets[day][key] = value
 
     def get_standing(self) -> int:
-        return self.standing.get()
+        return self.standing[self.snaps[-1]]
 
     def collateral_value(self, _day: int = -1) -> int:
         """
@@ -50,17 +49,13 @@ class Position(object):
         id = self.get_snapshot_id(_day)
         if id == -1:
             return 0
-        collateral = 0
-        for symbol in self.asset_db.collateral:
-            asset = self.asset_db[symbol]
-            if asset.active.get():
-                amount = self.__getitem__(symbol)
-                if id == self.snaps_db[-1]:
-                    price = asset.priceInLoop()
-                else:
-                    price = self.snaps_db[id].prices[symbol]
-                collateral += amount * price
-        return collateral // EXA
+        asset = self.asset_db['sICX']
+        amount = self.__getitem__('sICX')
+        if id == self.snaps[-1]:
+            price = asset.priceInLoop()
+        else:
+            price = self.snaps_db[id].prices['sICX']
+        return amount * price // EXA
 
     def get_snapshot_id(self, _day: int = -1) -> int:
         """
@@ -73,8 +68,8 @@ class Position(object):
         :return: Index to the snapshot database.
         :rtype: int
         """
-        if _snap < 0:
-            return self.snaps[_snap]
+        if _day < 0:
+            return self.snaps[_day]
         low = 0
         high = len(self.snaps)
 
@@ -248,21 +243,23 @@ class PositionsDB:
 
     def add_nonzero(self, _owner: Address) -> None:
         id = self.addressID[_owner]
+        snap = self._loans.getDay()
         if id > self._id_factory.get_last_uid() or id < 1:
             revert(f'That key does not exist yet. (add_nonzero)')
-        if _owner in self._snapshot_db.remove_from_nonzero:
-            self._remove(id, self._snapshot_db.remove_from_nonzero)
+        if _owner in self._snapshot_db[snap].remove_from_nonzero:
+            self._remove(id, self._snapshot_db[snap].remove_from_nonzero)
         else:
-            self._snapshot_db.add_to_nonzero.put(id)
+            self._snapshot_db[snap].add_to_nonzero.put(id)
 
     def remove_nonzero(self, _owner: Address) -> None:
         id = self.addressID[_owner]
+        snap = self._loans.getDay()
         if id > self._id_factory.get_last_uid() or id < 1:
             revert(f'That key does not exist yet. (remove_nonzero)')
-        if _owner in self._snapshot_db.add_to_nonzero:
-            self._remove(id, self._snapshot_db.add_to_nonzero)
+        if _owner in self._snapshot_db[snap].add_to_nonzero:
+            self._remove(id, self._snapshot_db[snap].add_to_nonzero)
         else:
-            self._snapshot_db.remove_from_nonzero.put(id)
+            self._snapshot_db[snap].remove_from_nonzero.put(id)
 
     def _remove(self, item: int, array: ArrayDB) -> None:
         top = self.array.pop()
@@ -283,16 +280,17 @@ class PositionsDB:
             revert(f'A position already exists for that address.')
         id = self._id_factory.get_uid()
         self.addressID[_address] = id
+        snap_id = self._snapshot_db._indexes[-1]
         _new_pos = self.__getitem__(id)
         _new_pos.created.set(self._loans.now())
         _new_pos.address.set(_address)
-        _new_pos.replay_index.set(len(self._event_log))
-        _new_pos.assets[0]['sICX'] = 0
-        _new_pos.assets[1]['sICX'] = 0
+        _new_pos.replay_index[snap_id] = len(self._event_log)
+        _new_pos.assets[snap_id]['sICX'] = 0
         _new_pos.id.set(id)
+        _new_pos.snaps.put(self._loans.getDay())
         return _new_pos
 
-    def takeSnapshot(self, _day: int) -> None:
+    def _take_snapshot(self, _day: int) -> None:
         """
         Captures necessary data for the current snapshot in the SnapshotDB.
         """
@@ -331,7 +329,7 @@ class PositionsDB:
             pos = self.__getitem__(account_id)
             # all retirement events that happened before the snapshot must be
             # applied to the position before calculating its value.
-            pos_rp_id = pos.replay_index.get()
+            pos_rp_id = pos.replay_index[id]
             snap_rp_id = snapshot.replay_index.get()
             if pos_rp_id < snap_rp_id:
                 for rp_id in range(snap_rp_id, pos_rp_id + 1):

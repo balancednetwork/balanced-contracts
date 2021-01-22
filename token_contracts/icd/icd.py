@@ -5,13 +5,13 @@ from .utils.checks import *
 
 TAG = 'ICD'
 
-MIN_UPDATE_TIME = 30000000 # 30 seconds
-
 TOKEN_NAME = 'ICONDollar'
 SYMBOL_NAME = 'ICD'
 DEFAULT_PEG = 'USD'
 DEFAULT_ORACLE_ADDRESS = 'cx61a36e5d10412e03c907a507d1e8c6c3856d9964'
 DEFAULT_ORACLE_NAME = 'BandChain'
+INITIAL_PRICE_ESTIMATE = 125 * 10**16
+MIN_UPDATE_TIME = 30000000 # 30 seconds
 
 # An interface to the Band Price Oracle
 class OracleInterface(InterfaceScore):
@@ -43,6 +43,8 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
         self._peg.set(DEFAULT_PEG)
         self._oracle_address.set(Address.from_string(DEFAULT_ORACLE_ADDRESS))
         self._oracle_name.set(DEFAULT_ORACLE_NAME)
+        self._last_price.set(INITIAL_PRICE_ESTIMATE)
+        self._min_interval.set(MIN_UPDATE_TIME)
 
     def on_update(self) -> None:
         super().on_update()
@@ -76,7 +78,7 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
         Returns the price of the asset in loop. Makes a call to the oracle if
         the last recorded price is not recent enough.
         """
-        if self.now() - self._price_update_time.get() > MIN_UPDATE_TIME:
+        if self.now() - self._price_update_time.get() > self._min_interval.get():
             self.update_asset_value()
         return self._last_price.get()
 
@@ -101,8 +103,8 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
             self._last_price.set(priceData['rate'])
             self._price_update_time.set(self.now())
         except BaseException as e:
-            self.OraclePriceUpdateFailed(base + quote, self.oracle_name.get(), oracle_address, f'Exception: {e}')
-        self.OraclePrice(base + quote, self.oracle_name.get(), oracle_address, priceData['rate'])
+            self.OraclePriceUpdateFailed(base + quote, self._oracle_name.get(), oracle_address, f'Exception: {e}')
+        self.OraclePrice(base + quote, self._oracle_name.get(), oracle_address, priceData['rate'])
 
     # ------------------------------------------------------------------------------------------------------------------
     # EVENTS

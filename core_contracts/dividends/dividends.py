@@ -69,6 +69,8 @@ class Dividends(IconScoreBase):
             balance = token.balanceOf(self.address)
             if balance > 0:
                 balances[symbol] = balance
+        balance = self.icx.get_balance(self.address)
+        balances['ICX'] = balance
         return balances
 
     @external

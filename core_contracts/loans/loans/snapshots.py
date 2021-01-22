@@ -60,8 +60,10 @@ class SnapshotDB:
         self._items = {}
 
     def __getitem__(self, _day: int) -> Snapshot:
-        index = get_snapshot_id(_day)
-        if _day in range(self._loans._launch_day.get(), self._loans.getDay()):
+        index = self.get_snapshot_id(_day)
+        if _day < 0:
+            _day = index
+        if index in range(self._indexes[0], self._loans.getDay() + 1):
             if _day not in self._items:
                 sub_db = self._db.get_sub_db(b'|'.join([SNAP_DB_PREFIX, str(index).encode()]))
                 self._items[_day] = Snapshot(sub_db, self._loans)
@@ -73,7 +75,7 @@ class SnapshotDB:
         revert('illegal access')
 
     def __len__(self) -> int:
-        return self._loans.getDay() - self._loans._launch_day.get()
+        return self._indexes[-1] - self._indexes[0]
 
     def get_snapshot_id(self, _day: int) -> int:
         """
@@ -107,6 +109,6 @@ class SnapshotDB:
         else:
             return self._indexes[low - 1]
 
-    def new_snapshot(_day: int) -> Snapshot:
+    def new_snapshot(self, _day: int) -> Snapshot:
         self._indexes.put(_day)
         return self.__getitem__(_day)

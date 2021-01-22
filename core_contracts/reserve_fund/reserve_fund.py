@@ -138,9 +138,9 @@ class ReserveFund(IconScoreBase):
         elif self.msg.sender == self._sicx_token.get():
             self._sicx.set(self._sicx.get() + _value)
         else:
-            revert(f'The Reserve Fund can only accept BALN or sICX tokens.',
-                   f'Deposit not accepted from {str(self.msg.sender)}',
-                   f'Only accepted from BALN = {str(self._baln_token.get())}',
+            revert(f'The Reserve Fund can only accept BALN or sICX tokens. '
+                   f'Deposit not accepted from {str(self.msg.sender) }'
+                   f'Only accepted from BALN = {str(self._baln_token.get()) }'
                    f'Or sICX = {str(self._sicx_token.get())}')
 
     def _send_token(self, _token_address: Address, _to: Address, _amount: int, msg: str) -> None:
