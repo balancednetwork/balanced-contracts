@@ -14,6 +14,7 @@ from iconservice import *
 from .utils.checks import *
 from .utils.consts import *
 
+
 class stakingInterface(InterfaceScore):
     @interface
     def getTodayRate(self):
@@ -29,6 +30,7 @@ class DEX(IconScoreBase):
     _FUNDED_ADDRESSES = 'funded_addresses'
     _ICX_QUEUE_TOTAL = 'icx_queue_total'
     _SICX_ADDRESS = 'sicx_address'
+    _ICD_ADDRESS = 'icd_address'
     _STAKING_ADDRESS = 'staking_address'
     _DIVIDENDS_ADDRESS = 'dividends_address'
     _NAMED_MARKETS = 'named_markets'
@@ -115,8 +117,8 @@ class DEX(IconScoreBase):
         # deposit[TokenAddress][UserAddress] = intValue
         self.deposit = DictDB('deposit', db, value_type=int, depth=2)
 
-        # Pool Id
-        # pools[token1Address][token2Address] = nonce 1 to n
+        # PoolId
+        # poolId[token1Address][token2Address] = nonce 1 to n
         self.poolId = DictDB('poolId', db, value_type=int, depth=2)
 
         # Top Nonce count == n = (1,n) pools
@@ -279,19 +281,20 @@ class DEX(IconScoreBase):
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes):
         # if user sends some irc token to score
-        params = json_loads(_data.decode('utf-8'))
+        Logger.info("called token fallback", self._TAG)
+        unpacked_data = json_loads(_data.decode('utf-8'))
         _fromToken = self.msg.sender
-        if params["method"] == "_deposit":
+        if unpacked_data["method"] == "_deposit":
             self.deposit[_fromToken][_from] += _value
             self.Deposit(_fromToken, _from, _value)
-        elif params["method"] == "_swap_icx":
+        elif unpacked_data["method"] == "_swap_icx":
             if _fromToken == self._sICX_address.get():
                 self.sicx_convert(_from, _value)
-        elif params["method"] == "_swap":
-            self.exchange(_fromToken, params["toToken"], _from, _from, _value)
-        elif params["method"] == "_transfer":
-            self.exchange(_fromToken, params["toToken"], _from, Address.from_string(
-                params["to"]), _value)
+        elif unpacked_data["method"] == "_swap":
+            self.exchange(_fromToken, Address.from_string(unpacked_data["params"]["toToken"]), _from, _from, _value)
+        elif unpacked_data["method"] == "_transfer":
+            self.exchange(_fromToken, unpacked_data["params"]["toToken"], _from, Address.from_string(
+                unpacked_data["params"]["to"]), _value)
         else:
             revert("Fallback directly not allowed")
 
@@ -327,7 +330,7 @@ class DEX(IconScoreBase):
 
     @external(readonly=True)
     def getPoolId(self, _token1Address: Address, _token2Address: Address) -> int:
-        return self.pools[_token1Address][_token2Address]
+        return self.poolId[_token1Address][_token2Address]
 
     @external(readonly=True)
     def getNonce(self) -> int:
@@ -511,7 +514,19 @@ class DEX(IconScoreBase):
         fees = int(_value * (self.fees.get() / 1000))
         original_value = _value
         _value -= fees
+        Logger.info('From Token: ' + str(_fromToken), self._TAG)
+        Logger.info('To Token: ' + str(_toToken), self._TAG)
         _pid = self.poolId[_fromToken][_toToken]
+        Logger.info('Pool ID: ' + str(self.getPoolId(_fromToken, _toToken)), self._TAG)
+        Logger.info('Inv Pool ID: ' + str(self.getPoolId(_toToken, _fromToken)), self._TAG)
+        pool1base = self.getPoolBase(1)
+        pool1quote = self.getPoolQuote(1)
+        Logger.info('Pool 1 base: ' + str(pool1base) + ' pool 1 quote: ' + str(pool1quote), self._TAG)
+        Logger.info('Matches quote: ' + str(pool1quote == _fromToken) + ' matches base: ' + str(pool1base == _fromToken), self._TAG)
+        Logger.info('Matches quote: ' + str(pool1quote == _toToken) + ' matches base: ' + str(pool1base == _toToken), self._TAG)
+        if _pid == 0:
+            revert("Pool does not exist")
+        Logger.info("PID: " + str(_pid), self._TAG)
         old_price = self.getPrice(_pid)
         if not self.active[_pid]:
             revert("Pool is not active")
@@ -523,8 +538,6 @@ class DEX(IconScoreBase):
         if original_value / send_amt < (old_price * 975) / 1000:
             revert("Maximum Slippage exceeded")
 
-        if _toToken == ICX_WALLET_ADDRESS:
-            self.icx.transfer(self.msg.sender, send_amt)
         else:
             token_score = self.create_interface_score(_toToken, TokenInterface)
             token_score.transfer(self.msg.sender, send_amt)
@@ -533,7 +546,8 @@ class DEX(IconScoreBase):
         self.Swap(_fromToken, _toToken, _sender, _receiver, _value, send_amt)
 
     def _get_sicx_rate(self) -> int:
-        staking_score = self.create_interface_score(self._staking_address.get(), stakingInterface)
+        staking_score = self.create_interface_score(
+            self._staking_address.get(), stakingInterface)
         return staking_score.getTodayRate()
 
     @external
@@ -719,14 +733,6 @@ class DEX(IconScoreBase):
             revert("only owner can set admins")
         self.active[_pid] = _permission
 
-    ####################################
-    # User
-    @payable
-    @external
-    def swap(self, _token: Address):
-        self.exchange(ICX_WALLET_ADDRESS, _token, self.msg.sender,
-                      self.msg.sender, self.msg.value)
-
     @external
     def withdraw(self, _token: Address, _value: int):
         if _value > self.deposit[_token][self.msg.sender]:
@@ -762,30 +768,40 @@ class DEX(IconScoreBase):
         self._updateTotalSupplySnapshot(_pid)
 
     @external
-    def add(self, _fromToken: Address, _toToken: Address, _fromValue: int, _toValue: int):
+    def add(self, _baseToken: Address, _quoteToken: Address, _baseValue: int, _quoteValue: int):
+        """
+        Adds liquidity to a pool for trading, or creates a new pool. Rules:
+        - The quote coin of the pool must be one of the allowed quote currencies.
+        - Tokens must be deposited in the pool's ratio.
+        - If ratio is incorrect, it is advisable to call `swap` first.
+        """
         _owner = self.msg.sender
-        _pid = self.poolId[_fromToken][_toToken]
-        if _fromToken == _toToken:
-            revert("Invalid token addresses input")
+        _pid = self.poolId[_baseToken][_quoteToken]
+        if _baseToken == _quoteToken:
+            revert("Pool must contain two token contracts")
+        if not _baseValue:
+            revert("Please send initial value for first currency")
+        if not _quoteValue:
+            revert("Please send initial value for second currency")
         if _pid == 0:
-            self.poolId[_fromToken][_toToken] = self.nonce.get()
-            self.poolId[_toToken][_fromToken] = self.nonce.get()
+            self.poolId[_baseToken][_quoteToken] = self.nonce.get()
+            self.poolId[_quoteToken][_baseToken] = self.nonce.get()
             _pid = self.nonce.get()
             liquidity = DEFAULT_INITAL_LP
             self.nonce.set(self.nonce.get() + 1)
-            self.active[_pid] = False
-            self.poolBase[_pid] = _fromToken
-            self.poolQuote[_pid] = _toToken
+            self.active[_pid] = True
+            self.poolBase[_pid] = _baseToken
+            self.poolQuote[_pid] = _quoteToken
         else:
             token1price = self.getPrice(_pid)
-            if not int(_fromValue * (token1price / 10**10)) == _toValue:
+            if not int(_baseValue * (token1price / 10**10)) == _quoteValue:
                 revert('disproportionate amount')
             liquidity = int(self.total[_pid] * (self.poolTotal[_pid]
-                                                [_fromToken] + _fromValue) / self.poolTotal[_pid][_fromToken])
-        self.poolTotal[_pid][_fromToken] += _fromValue
-        self.poolTotal[_pid][_toToken] += _toValue
-        self.deposit[_fromToken][self.msg.sender] -= _fromValue
-        self.deposit[_toToken][self.msg.sender] -= _toValue
+                                                [_baseToken] + _baseValue) / self.poolTotal[_pid][_baseToken])
+        self.poolTotal[_pid][_baseToken] += _baseValue
+        self.poolTotal[_pid][_quoteToken] += _quoteValue
+        self.deposit[_baseToken][self.msg.sender] -= _baseValue
+        self.deposit[_quoteToken][self.msg.sender] -= _quoteValue
         self.balance[_pid][_owner] += liquidity
         self.total[_pid] += liquidity
         self.Add(_pid, _owner, liquidity)
