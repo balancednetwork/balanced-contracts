@@ -14,6 +14,11 @@ from iconservice import *
 from .utils.checks import *
 from .utils.consts import *
 
+class stakingInterface(InterfaceScore):
+    @interface
+    def getTodayRate(self):
+        pass
+
 
 class DEX(IconScoreBase):
 
@@ -195,7 +200,7 @@ class DEX(IconScoreBase):
         self._admin.set(_admin)
 
     @external(readonly=True)
-    def get_sICX_address(self) -> Address:
+    def getSicxAddress(self) -> Address:
         return self._sICX_address.get()
 
     @only_owner
@@ -203,23 +208,23 @@ class DEX(IconScoreBase):
     def set_sICX_address(self, _address: Address) -> None:
         self._sICX_address.set(_address)
 
-    @external(readonly=True)
-    def get_staking_address(self) -> Address:
-        return self._sICX_address.get()
-
     @only_owner
     @external
     def set_dividends_address(self, _address: Address) -> None:
         self._dividends_address.set(_address)
 
     @external(readonly=True)
-    def get_dividends_address(self) -> Address:
+    def getDividendsAddress(self) -> Address:
         return self._dividends_address.get()
 
     @only_owner
     @external
     def set_staking_address(self, _address: Address) -> None:
-        self._sICX_address.set(_address)
+        self._staking_address.set(_address)
+
+    @external(readonly=True)
+    def getStakingAddress(self) -> Address:
+        return self._staking_address.get()
 
     @payable
     def fallback(self):
@@ -249,7 +254,7 @@ class DEX(IconScoreBase):
         self._updateTotalSupplySnapshot(0)
 
     @external
-    def cancel_sicxicx_order(self):
+    def cancelSicxicxOrder(self):
         """
         Cancels user's order in the SICXICX queue.
         Cannot be called within 1 day of the withdraw lock time.
@@ -527,6 +532,10 @@ class DEX(IconScoreBase):
         self.poolTotal[_pid][_toToken] = new_token2
         self.Swap(_fromToken, _toToken, _sender, _receiver, _value, send_amt)
 
+    def _get_sicx_rate(self) -> int:
+        staking_score = self.create_interface_score(self._staking_address.get(), stakingInterface)
+        return staking_score.getTodayRate()
+
     @external
     def sicx_convert(self, _sender: Address, _value: int):
         """
@@ -534,8 +543,7 @@ class DEX(IconScoreBase):
         Gets orders from SICXICX queue by price time precedence.
         """
         remaining_sicx = _value
-        # TODO - Switch `conversion_factor` with SICX units
-        conversion_factor = 1000000000000000000
+        conversion_factor = self._get_sicx_rate()
 
         sicx_score = self.create_interface_score(
             self._sICX_address.get(), TokenInterface)
