@@ -127,7 +127,7 @@ class DEX(IconScoreBase):
         # Linked Addresses
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._sICX_address = VarDB(self._SICX_ADDRESS, db, value_type=Address)
-        self._staking_address = VarDB(
+        self._staking = VarDB(
             self._STAKING_ADDRESS, db, value_type=Address)
         self._dividends = VarDB(
             self._DIVIDENDS_ADDRESS, db, value_type=Address)
@@ -224,97 +224,178 @@ class DEX(IconScoreBase):
 
     @external(readonly=True)
     def getAdmin(self) -> Address:
+        """
+        Gets the current admin address. This user can call using the
+        `@only_admin` decorator.
+        """
         return self._admin.get()
 
     @only_owner
     @external
     def setAdmin(self, _admin: Address) -> None:
+        """
+        :param _address: The new admin address to set.
+        Can make calls with the `@only_admin` decorator.
+        Should be called before DEX use.
+        """
         self._admin.set(_admin)
 
     @external(readonly=True)
-    def getSicxAddress(self) -> Address:
+    def getSicx(self) -> Address:
+        """
+        Gets the address of the Sicx contract.
+        """
         return self._sICX_address.get()
 
     @only_owner
     @external
-    def set_sICX_address(self, _address: Address) -> None:
+    def setSicx(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new SICX address. Should be called before DEX use.
+        """
         self._sICX_address.set(_address)
 
     @only_owner
     @external
-    def set_dividends_address(self, _address: Address) -> None:
+    def setDividends(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new Dividends address. Should be called before DEX use.
+        """
         self._dividends.set(_address)
 
     @external(readonly=True)
-    def getDividendsAddress(self) -> Address:
+    def getDividends(self) -> Address:
+        """
+        Gets the address of the Dividends contract.
+        """
         return self._dividends.get()
 
     @only_owner
     @external
-    def set_staking_address(self, _address: Address) -> None:
-        self._staking_address.set(_address)
+    def setStaking(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new Staking contract address. Should be called before dex use.
+        """
+        self._staking.set(_address)
 
     @external(readonly=True)
-    def getStakingAddress(self) -> Address:
-        return self._staking_address.get()
-
-    @external(readonly=True)
-    def getStakingAddress(self) -> Address:
-        return self._staking_address.get()
+    def getStaking(self) -> Address:
+        """
+        Gets the address of the Staking contract.
+        """
+        return self._staking.get()
 
     @only_owner
     @external
     def setGovernance(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new Governance contract address. Should be called before dex use.
+        """
         self._governance.set(_address)
 
     @external
     def getGovernance(self) -> Address:
+        """
+        Gets the address of the Governance contract.
+        """
         return self._governance.get()
 
     @only_owner
     @external
     def setRewards(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new Rewards contract address. Should be called before dex use.
+        """
         self._rewards.set(_address)
 
     @external
     def getRewards(self) -> Address:
+        """
+        Gets the address of the Rewards contract.
+        """
         return self._rewards.get()
 
     @only_owner
     @external
     def setMarketName(self, _pid: int, _name: str) -> None:
+        """
+        :param _pid: Pool ID to map to the name
+        :param _name: Name to associate
+        Links a pool ID to a name, so users can look up platform-defined
+        markets more easily.
+        """
         self.named_markets[_name] = _pid
 
     @only_governance
     @external
     def turnDexOn(self) -> None:
+        """
+        Called by the Governance contract to trigger the DEX to activate.
+        """
         self._dex_on.set(True)
 
     @external(readonly=True)
     def getDexOn(self) -> bool:
+        """
+        Returns `True` if the DEX is currently active. Users cannot trade
+        if the DEX is not yet active.
+        """
         return self._dex_on.get()
 
     @external
     def getDay(self) -> int:
+        """
+        Returns the current day (floored). Used for snapshotting,
+        paying rewards, and paying dividends.
+        """
         return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
 
     @only_governance
     @external
     def setTimeOffset(self, _delta_time: int) -> None:
+        """
+        :param _delta_time: us timestamp offset from epoch.
+        Sets the time offset from the governance contract. Used in
+        internal timekeeping.
+        """
         if self.msg.sender != self._governance.get():
             revert("The time_offset can only be set by the Governance SCORE.")
         self._time_offset.set(_delta_time)
 
     @external(readonly=True)
     def getTimeOffset(self) -> int:
+        """
+        Returns current us timestamp offset.
+        """
         self._time_offset.get()
 
     @payable
     def fallback(self):
         """
-        If someone sends ICX directly to the SCORE, it goes to the SICXICX swap queue.
-        Repeat orders bump back your spot in line.
+        Payable method called by sending ICX directly into the SCORE.
+        This places it on the SICXICX swap queue, which is a one-sided
+        orderbook to transact ICX for SICX.
+
+        All orders are transacted at the SICXICX price as defined by
+        the staking contract. Users selling SICX will pay a 1% fee,
+        split 0.7% to the buyer and 0.3% to balanced token holders.
+
+        SICX buyers (ICX sellers calling this payable method) receive
+        time precedence in the queue based on the time that their order
+        was submitted. A user may have a single order in the queue at
+        one time. Sending additional ICX will increase the order size,
+        and shift it to the back of the queue.
+
+        Each time an order is placed or increased, it cannot be changed
+        for 24 hours. Order placement updates the snapshots of the queue.
         """
+        # TODO(galen): Call _take_new_day_snapshot() and _update_distributions() here
+
         order_id = self.icxQueueOrderId[self.msg.sender]
         if order_id:
             # First, modify our order
@@ -333,15 +414,18 @@ class DEX(IconScoreBase):
         self.icxWithdrawLock[self.msg.sender] = self.now()
         if self.msg.sender not in self.funded_addresses:
             self.funded_addresses.add(self.msg.sender)
-        self._updateAccountSnapshot(self.msg.sender, 0)
-        self._updateTotalSupplySnapshot(0)
+        self._update_account_snapshot(self.msg.sender, 0)
+        self._update_total_supply_snapshot(0)
 
     @external
     def cancelSicxicxOrder(self):
         """
         Cancels user's order in the SICXICX queue.
-        Cannot be called within 1 day of the withdraw lock time.
+        Cannot be called within 24h of the last place/modify time.
+
+        Order cancellation updates the snapshots of the queue.
         """
+        # TODO(galen): take new snap and update distributions here
         if not self.icxQueueOrderId[self.msg.sender]:
             revert("No open order in SICXICX queue")
 
@@ -358,9 +442,30 @@ class DEX(IconScoreBase):
         self.icxQueue.remove(order_id)
         self.icx.transfer(self.msg.sender, withdraw_amount)
         del self.icxQueueOrderId[self.msg.sender]
+        #TODO(gedanziger): Update account/total supply snaps back down.
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes):
+        """
+        :param _from: The address calling `transfer` on the other contract
+        :param _value: Amount of token transferred
+        :param _data: Data called by the transfer, json object expected. 
+
+        This is invoked when a token is transferred to this score.
+        It expects a JSON object with the following format:
+        ```
+        {"method": "METHOD_NAME", "params":{...}}
+        ```
+
+        Token transfers to this contract are rejected unless any of the
+        following methods are passed in the object:
+
+        1) `_deposit` - Calls the `_deposit()` function
+        2) `_swap_icx` - Calls the `_swap_icx()` function
+        3) `_swap` - Calls the `_swap()` function
+
+        All calls to this function update snapshots and process dividends.
+        """
         # if user sends some irc token to score
         Logger.info("called token fallback", self._TAG)
 
@@ -375,7 +480,7 @@ class DEX(IconScoreBase):
             self.Deposit(_fromToken, _from, _value)
         elif unpacked_data["method"] == "_swap_icx":
             if _fromToken == self._sICX_address.get():
-                self.sicx_convert(_from, _value)
+                self._swap_icx(_from, _value)
         elif unpacked_data["method"] == "_swap":
             self.exchange(_fromToken, Address.from_string(unpacked_data["params"]["toToken"]), _from, _from, _value)
         elif unpacked_data["method"] == "_transfer":
@@ -387,18 +492,32 @@ class DEX(IconScoreBase):
     @external
     def precompute(self, snap: int, batch_size: int) -> bool:
         """
-        Required by the rewards score data source API, but unneeded.
-        Returns true to match the required workflow.
+        Required by the rewards score data source API, but unused.
+        Returns `True` to match the required workflow.
         """
         return True
 
     @external
     def transfer(self, _to: Address, _value: int, _id: int, _data: bytes = None):
+        """
+        Used to transfer LP tokens from sender to another address.
+        Calls the internal method `_transfer()` with a default
+        `_data` if none is submitted.
+
+        :param _to: Address to transfer to
+        :param _value: Amount of units to transfer
+        :param _id: Pool ID of token to transfer
+        :param _data: data to include with transfer
+        """
         if _data is None:
             _data = b'None'
         self._transfer(self.msg.sender, _to, _value, _data)
 
     def _transfer(self, _from: Address, _to: Address, _value: int, _id: int, _data: bytes):
+        """
+        Used to transfer LP IRC-31 tokens from one address to another.
+        Invoked by `transfer(...)`.
+        """
         if _value < 0:
             revert("Transferring value cannot be less than 0")
         if self.balance[_id][_from] < _value:
@@ -412,7 +531,7 @@ class DEX(IconScoreBase):
 
         self.TransferSingle(self.msg.sender, _from, _to, _id, _value)
 
-        self._updateAccountSnapshot(self.msg.sender, _id)
+        self._update_account_snapshot(self.msg.sender, _id)
 
         # TODO: Implement token fallback for multitoken score
 
@@ -420,18 +539,42 @@ class DEX(IconScoreBase):
     # Read
     @external(readonly=True)
     def getDeposit(self, _tokenAddress: Address, _user: Address) -> int:
+        """
+        Returns the amount of tokens of address `_tokenAddress` that a 
+        user with Address `_user` has on deposit. Tokens currently
+        committed to a LP pool are excluded.
+
+        :param _tokenAddress: IIC2 token to check balance of
+        :param _user: User address to check balance of
+        """
         return self.deposit[_tokenAddress][_user]
 
     @external(readonly=True)
     def getPoolId(self, _token1Address: Address, _token2Address: Address) -> int:
+        """
+        Returns the pool ID mapped to this token pair. The following holds:
+        ```
+        getPoolId(A, B) == getPoolID(B,A)
+        ```
+        """
         return self.poolId[_token1Address][_token2Address]
 
     @external(readonly=True)
     def getNonce(self) -> int:
+        """
+        Returns the current nonce nonce of liquidity provider pools.
+        This is a monotonically increasing value.
+        """
         return self.nonce.get()
 
     @external(readonly=True)
     def getNamedPools(self) -> list:
+        """
+        Returns a list of all named pools in the contract, set by the admin.
+        These pools are used by:
+        1) The `rewards` score when calling `getDataBatch(...)`
+        2) Users who want to lookup a pool id using `lookupPid(...)`
+        """
         rv = []
         for pool in self.named_markets.keys():
             rv.append(pool)
@@ -569,7 +712,7 @@ class DEX(IconScoreBase):
         if _to not in self.funded_addresses:
             self.funded_addresses.add(_to)
 
-        self._updateAccountSnapshot(_from, _id)
+        self._update_account_snapshot(_from, _id)
 
         # TODO: Implement onIRC31Received function
 
@@ -598,7 +741,7 @@ class DEX(IconScoreBase):
         Requires that the _staking_address property is set via the contract admin.
         """
         staking_score = self.create_interface_score(
-            self._staking_address.get(), stakingInterface)
+            self._staking.get(), stakingInterface)
         return staking_score.getTodayRate()
 
     ####################################
@@ -641,11 +784,10 @@ class DEX(IconScoreBase):
 
     def _get_sicx_rate(self) -> int:
         staking_score = self.create_interface_score(
-            self._staking_address.get(), stakingInterface)
+            self._staking.get(), stakingInterface)
         return staking_score.getTodayRate()
 
-    @external
-    def sicx_convert(self, _sender: Address, _value: int):
+    def _swap_icx(self, _sender: Address, _value: int):
         """
         Perform an instant conversion from SICX to ICX.
         Gets orders from SICXICX queue by price time precedence.
@@ -715,7 +857,7 @@ class DEX(IconScoreBase):
             dividends = self.create_interface_score(self._dividends.get(), Dividends)
             self._dividends_done.set(dividends.distribute())
 
-    def _updateAccountSnapshot(self, _account: Address, _id: int) -> None:
+    def _update_account_snapshot(self, _account: Address, _id: int) -> None:
         """
         Updates a user's balance snapshot
         :param _account: Address to update
@@ -739,7 +881,7 @@ class DEX(IconScoreBase):
             self._account_balance_snapshot[_id][_account]['values'][length -
                                                                     1] = current_value
 
-    def _updateTotalSupplySnapshot(self, _id: int) -> None:
+    def _update_total_supply_snapshot(self, _id: int) -> None:
         """
         Updates a an asset's total supply snapshot
         :param _id: pool id to update
@@ -865,8 +1007,8 @@ class DEX(IconScoreBase):
         self.balance[_pid][self.msg.sender] -= _value
         self.total[_pid] -= _value
         self.Remove(_pid, self.msg.sender, _value)
-        self._updateAccountSnapshot(self.msg.sender, _pid)
-        self._updateTotalSupplySnapshot(_pid)
+        self._update_account_snapshot(self.msg.sender, _pid)
+        self._update_total_supply_snapshot(_pid)
 
     @external
     def add(self, _baseToken: Address, _quoteToken: Address, _baseValue: int, _quoteValue: int):
@@ -909,5 +1051,5 @@ class DEX(IconScoreBase):
         self.withdrawLock[self.msg.sender][_pid] = self.now()
         if self.msg.sender not in self.funded_addresses:
             self.funded_addresses.add(self.msg.sender)
-        self._updateAccountSnapshot(_owner, _pid)
-        self._updateTotalSupplySnapshot(_pid)
+        self._update_account_snapshot(_owner, _pid)
+        self._update_total_supply_snapshot(_pid)
