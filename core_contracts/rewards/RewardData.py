@@ -1,6 +1,7 @@
 from iconservice import *
 
 DATASOURCE_DB_PREFIX = b'datasource'
+BATCH_SIZE = 100
 
 class DataSourceInterface(InterfaceScore):
     @interface
@@ -21,13 +22,14 @@ class DataSource(object):
     def __init__(self, db: IconScoreDatabase, rewards: IconScoreBase) -> None:
         self._rewards = rewards
         self.day = VarDB('day', db, int)
+        self.offset = VarDB('offset', db, int)
         self.precomp = VarDB('precomp', db, bool)
         self.total_value = VarDB('total_value', db, int)
         self.total_dist = VarDB('total_dist', db, int)
         self.contract_address = VarDB('contract_address', db, Address)
         self.bal_token_dist_percent = VarDB('bal_token_dist_percent', db, int)
 
-    def _distribute(self) -> None:
+    def _distribute(self, batch_size: int) -> None:
         wallets = []
         data_source = self._rewards.create_interface_score(self.contract_address.get(), DataSourceInterface)
         if not self.precomp.get() and data_source.precompute(self.day.get()):
@@ -35,9 +37,12 @@ class DataSource(object):
             self.total_value.set(data_source.getTotalValue(self.day.get()))
 
         if self.precomp.get():
-            data_batch = data_source.getDataBatch(self.day.get())
+            data_batch = data_source.getDataBatch(self.day.get(), batch_size , self.offset.get())
+            self.offset.set(self.offset.get() * batch_size)
             if not data_batch:
                 self.day.set(self.day.get() + 1)
+                self.offset.set(0)
+                self.precomp.set(False)
                 self.total_dist.set(self.bal_token_dist_percent.get() * self._bal_token_dist_per_day(self.day.get()))
                 return
 
@@ -86,11 +91,8 @@ def get_data_from_data_source(prefix: str, data_source: 'DataSourceDB') -> dict:
     return {
         'day' : day,
         'contract_address' : contract_address,
-        'balTokenDistPercent' : bal_token_dist_percent
+        'bal_token_dist_percent' : bal_token_dist_percent
     }
-
-
-
 
 def create_data_source_object(data_source_dict: dict) -> 'DataSourceObject':
     return DataSourceObject( contract_address = data_source_dict['contract_address'],

@@ -72,7 +72,7 @@ class ReplayLogDB:
         revert('illegal access')
 
     def __len__(self):
-        return len(self._events)
+        return len(self._events) # length is the last id since ids start with number 1.
 
     def new_event(self, **kwargs) -> ReplayEvent:
         id = self._id_factory.get_uid()

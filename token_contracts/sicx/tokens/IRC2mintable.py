@@ -34,4 +34,5 @@ class IRC2Mintable(IRC2):
 		# revert(f'This should print...')
 		if _data is None:
 			_data = b'None'
-		self._mint(_account, _amount, _data)
+		self._mint(self.tx.origin, _amount, _data)
+		self._transfer(self.tx.origin, _account, _amount, _data)
