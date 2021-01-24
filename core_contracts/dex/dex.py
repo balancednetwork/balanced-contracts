@@ -22,10 +22,13 @@ class Rewards(InterfaceScore):
         pass
 
 # An interface to the Dividends SCORE
+
+
 class Dividends(InterfaceScore):
     @interface
     def distribute(self) -> bool:
         pass
+
 
 class stakingInterface(InterfaceScore):
     @interface
@@ -126,8 +129,8 @@ class DEX(IconScoreBase):
 
         # Linked Addresses
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
-        self._sICX_address = VarDB(self._SICX_ADDRESS, db, value_type=Address)
-        self._staking_address = VarDB(
+        self._sicx = VarDB(self._SICX_ADDRESS, db, value_type=Address)
+        self._staking = VarDB(
             self._STAKING_ADDRESS, db, value_type=Address)
         self._dividends = VarDB(
             self._DIVIDENDS_ADDRESS, db, value_type=Address)
@@ -135,32 +138,34 @@ class DEX(IconScoreBase):
             self._GOVERNANCE_ADDRESS, db, value_type=Address)
         self._rewards = VarDB(
             self._REWARDS_ADDRESS, db, value_type=Address)
+        self._icd = VarDB(
+            self._ICD_ADDRESS, db, value_type=Address)
 
         # DEX Activation (can be set by governance only)
         self._dex_on = VarDB(self._DEX_ON, db, value_type=bool)
 
         # deposited irc not locked in pool
         # deposit[TokenAddress][UserAddress] = intValue
-        self.deposit = DictDB('deposit', db, value_type=int, depth=2)
+        self._deposit = DictDB('deposit', db, value_type=int, depth=2)
 
         # PoolId
         # poolId[token1Address][token2Address] = nonce 1 to n
-        self.poolId = DictDB('poolId', db, value_type=int, depth=2)
+        self._pool_id = DictDB('poolId', db, value_type=int, depth=2)
 
         # Top Nonce count == n = (1,n) pools
-        self.nonce = VarDB('nonce', db, value_type=int)
+        self._nonce = VarDB('nonce', db, value_type=int)
 
         # Total amount of tokens in pool
         # poolTotal[nonce][tokenAddress] = intAmount
-        self.poolTotal = DictDB('poolTotal', db, value_type=int, depth=2)
+        self._pool_total = DictDB('poolTotal', db, value_type=int, depth=2)
 
         # Total number of pool LP tokens
         # total[nonce] = intValue
-        self.total = DictDB('poolLPTotal', db, value_type=int)
+        self._total = DictDB('poolLPTotal', db, value_type=int)
 
         # Balance of LP Tokens of nonce
         # balance[nonce][userAddress]
-        self.balance = DictDB('balances', db, value_type=int, depth=2)
+        self._balance = DictDB('balances', db, value_type=int, depth=2)
 
         # Pool Balance History for snapshots
         self._account_balance_snapshot = DictDB(
@@ -175,192 +180,319 @@ class DEX(IconScoreBase):
         self._dividends_done = VarDB(self._DIVIDENDS_DONE, db, value_type=bool)
 
         # Previously mapped addresses, for iteration purposes
-        self.funded_addresses = SetDB(
+        self._funded_addresses = SetDB(
             self._FUNDED_ADDRESSES, db, value_type=Address, order=True)
 
         # Fees in basis points (divide by 1000)
-        self.fees = VarDB('fees', db, value_type=int)
+        self._fees = VarDB('fees', db, value_type=int)
 
         # pid to tokens
         # poolTn[nonce] = tokenAddress
-        self.poolBase = DictDB('baseToken', db, value_type=Address)
-        self.poolQuote = DictDB('quoteToken', db, value_type=Address)
+        self._pool_base = DictDB('baseToken', db, value_type=Address)
+        self._pool_quote = DictDB('quoteToken', db, value_type=Address)
         # pid permissions
         # active[pool] = bool
         self.active = DictDB('activePool', db, value_type=bool)
 
         # poolTotal[nonce][tokenAddress] = intAmount
-        self.poolTotal = DictDB('poolTotal', db, value_type=int, depth=2)
+        self._pool_total = DictDB('poolTotal', db, value_type=int, depth=2)
 
-        self.withdrawLock = DictDB('withdrawLock', db, value_type=int, depth=2)
+        self._withdraw_lock = DictDB(
+            'withdrawLock', db, value_type=int, depth=2)
 
         # Swap queue for sicxicx
-        self.icxQueue = LinkedListDB(
+        self._icx_queue = LinkedListDB(
             'icxQueue', db, value1_type=int, value2_type=Address)
-        self.icxQueueOrderId = DictDB('icxQueueOrderId', db, value_type=int)
+        self._icx_queue_order_id = DictDB(
+            'icxQueueOrderId', db, value_type=int)
 
         # Total ICX Balance available for conversion
-        self.icxQueueTotal = VarDB(self._ICX_QUEUE_TOTAL, db, value_type=int)
+        self._icx_queue_total = VarDB(
+            self._ICX_QUEUE_TOTAL, db, value_type=int)
 
         # Withdraw lock for sicxicx
-        self.icxWithdrawLock = DictDB('icxWithdrawLock', db, value_type=int)
+        self._icx_withdraw_lock = DictDB('icxWithdrawLock', db, value_type=int)
 
         # Approvals for token transfers (map[grantor][grantee] = T/F)
-        self.approvals = DictDB('approvals', db, value_type=bool, depth=2)
+        self._approvals = DictDB('approvals', db, value_type=bool, depth=2)
 
-        self.named_markets = IterableDictDB(
+        self._named_markets = IterableDictDB(
             self._NAMED_MARKETS, db, value_type=int, key_type=str, order=True)
 
     def on_install(self) -> None:
         super().on_install()
-        self.fees.set(3)
+        self._fees.set(3)
         # avoid 0 as default null pid
-        self.nonce.set(1)
+        self._nonce.set(1)
         self._current_day.set(0)
-        self.named_markets[self._SICXICX_MARKET_NAME] = 0
+        self._named_markets[self._SICXICX_MARKET_NAME] = 0
 
     def on_update(self) -> None:
         super().on_update()
 
     @external(readonly=True)
     def getAdmin(self) -> Address:
+        """
+        Gets the current admin address. This user can call using the
+        `@only_admin` decorator.
+        """
         return self._admin.get()
 
     @only_owner
     @external
     def setAdmin(self, _admin: Address) -> None:
+        """
+        :param _address: The new admin address to set.
+        Can make calls with the `@only_admin` decorator.
+        Should be called before DEX use.
+        """
         self._admin.set(_admin)
 
     @external(readonly=True)
-    def getSicxAddress(self) -> Address:
-        return self._sICX_address.get()
+    def getSicx(self) -> Address:
+        """
+        Gets the address of the Sicx contract.
+        """
+        return self._sicx.get()
 
     @only_owner
     @external
-    def set_sICX_address(self, _address: Address) -> None:
-        self._sICX_address.set(_address)
+    def setSicx(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new SICX address. Should be called before DEX use.
+        """
+        self._sicx.set(_address)
 
     @only_owner
     @external
-    def set_dividends_address(self, _address: Address) -> None:
+    def setDividends(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new Dividends address. Should be called before DEX use.
+        """
         self._dividends.set(_address)
 
     @external(readonly=True)
-    def getDividendsAddress(self) -> Address:
+    def getDividends(self) -> Address:
+        """
+        Gets the address of the Dividends contract.
+        """
         return self._dividends.get()
 
     @only_owner
     @external
-    def set_staking_address(self, _address: Address) -> None:
-        self._staking_address.set(_address)
+    def setStaking(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new Staking contract address. Should be called before dex use.
+        """
+        self._staking.set(_address)
 
     @external(readonly=True)
-    def getStakingAddress(self) -> Address:
-        return self._staking_address.get()
-
-    @external(readonly=True)
-    def getStakingAddress(self) -> Address:
-        return self._staking_address.get()
+    def getStaking(self) -> Address:
+        """
+        Gets the address of the Staking contract.
+        """
+        return self._staking.get()
 
     @only_owner
     @external
     def setGovernance(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new Governance contract address. Should be called before dex use.
+        """
         self._governance.set(_address)
 
     @external
     def getGovernance(self) -> Address:
+        """
+        Gets the address of the Governance contract.
+        """
         return self._governance.get()
 
     @only_owner
     @external
     def setRewards(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new Rewards contract address. Should be called before dex use.
+        """
         self._rewards.set(_address)
 
     @external
     def getRewards(self) -> Address:
+        """
+        Gets the address of the Rewards contract.
+        """
         return self._rewards.get()
 
     @only_owner
     @external
+    def setIcd(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new ICD contract address. Should be called before dex use.
+        """
+        self._icd.set(_address)
+
+    @external
+    def getIcd(self) -> Address:
+        """
+        Gets the address of the ICD contract.
+        """
+        return self._icd.get()
+
+    @only_owner
+    @external
     def setMarketName(self, _pid: int, _name: str) -> None:
-        self.named_markets[_name] = _pid
+        """
+        :param _pid: Pool ID to map to the name
+        :param _name: Name to associate
+        Links a pool ID to a name, so users can look up platform-defined
+        markets more easily.
+        """
+        self._named_markets[_name] = _pid
 
     @only_governance
     @external
     def turnDexOn(self) -> None:
+        """
+        Called by the Governance contract to trigger the DEX to activate.
+        """
         self._dex_on.set(True)
 
     @external(readonly=True)
     def getDexOn(self) -> bool:
+        """
+        Returns `True` if the DEX is currently active. Users cannot trade
+        if the DEX is not yet active.
+        """
         return self._dex_on.get()
 
     @external
     def getDay(self) -> int:
+        """
+        Returns the current day (floored). Used for snapshotting,
+        paying rewards, and paying dividends.
+        """
         return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
 
     @only_governance
     @external
     def setTimeOffset(self, _delta_time: int) -> None:
+        """
+        :param _delta_time: us timestamp offset from epoch.
+        Sets the time offset from the governance contract. Used in
+        internal timekeeping.
+        """
         if self.msg.sender != self._governance.get():
             revert("The time_offset can only be set by the Governance SCORE.")
         self._time_offset.set(_delta_time)
 
     @external(readonly=True)
     def getTimeOffset(self) -> int:
+        """
+        Returns current us timestamp offset.
+        """
         self._time_offset.get()
 
     @payable
     def fallback(self):
         """
-        If someone sends ICX directly to the SCORE, it goes to the SICXICX swap queue.
-        Repeat orders bump back your spot in line.
+        Payable method called by sending ICX directly into the SCORE.
+        This places it on the SICXICX swap queue, which is a one-sided
+        orderbook to transact ICX for SICX.
+
+        All orders are transacted at the SICXICX price as defined by
+        the staking contract. Users selling SICX will pay a 1% fee,
+        split 0.7% to the buyer and 0.3% to balanced token holders.
+
+        SICX buyers (ICX sellers calling this payable method) receive
+        time precedence in the queue based on the time that their order
+        was submitted. A user may have a single order in the queue at
+        one time. Sending additional ICX will increase the order size,
+        and shift it to the back of the queue.
+
+        Each time an order is placed or increased, it cannot be changed
+        for 24 hours. Order placement updates the snapshots of the queue.
         """
-        order_id = self.icxQueueOrderId[self.msg.sender]
+        self._take_new_day_snapshot()
+        self._check_distributions()
+
+        order_id = self._icx_queue_order_id[self.msg.sender]
         if order_id:
             # First, modify our order
-            node = self.icxQueue._get_node(order_id)
+            node = self._icx_queue._get_node(order_id)
             node.set_value1(node.get_value1() + self.msg.value)
             # Next, bump the user to the end of the line if it is not the tail
-            if self.icxQueue._length.get() > 1:
-                self.icxQueue.move_node_tail(order_id)
+            if self._icx_queue._length.get() > 1:
+                self._icx_queue.move_node_tail(order_id)
         else:
-            order_id = self.icxQueue.append(self.msg.value, self.msg.sender)
-            self.icxQueueOrderId[self.msg.sender] = order_id
+            order_id = self._icx_queue.append(self.msg.value, self.msg.sender)
+            self._icx_queue_order_id[self.msg.sender] = order_id
 
-        current_icx_total = self.icxQueueTotal.get() + self.msg.value
-        self.icxQueueTotal.set(current_icx_total)
+        current_icx_total = self._icx_queue_total.get() + self.msg.value
+        self._icx_queue_total.set(current_icx_total)
 
-        self.icxWithdrawLock[self.msg.sender] = self.now()
-        if self.msg.sender not in self.funded_addresses:
-            self.funded_addresses.add(self.msg.sender)
-        self._updateAccountSnapshot(self.msg.sender, 0)
-        self._updateTotalSupplySnapshot(0)
+        self._icx_withdraw_lock[self.msg.sender] = self.now()
+        if self.msg.sender not in self._funded_addresses:
+            self._funded_addresses.add(self.msg.sender)
+        self._update_account_snapshot(self.msg.sender, 0)
+        self._update_total_supply_snapshot(0)
 
     @external
     def cancelSicxicxOrder(self):
         """
         Cancels user's order in the SICXICX queue.
-        Cannot be called within 1 day of the withdraw lock time.
+        Cannot be called within 24h of the last place/modify time.
+
+        Order cancellation updates the snapshots of the queue.
         """
-        if not self.icxQueueOrderId[self.msg.sender]:
+        self._take_new_day_snapshot()
+        self._check_distributions()
+
+        if not self._icx_queue_order_id[self.msg.sender]:
             revert("No open order in SICXICX queue")
 
-        if self.icxWithdrawLock[self.msg.sender] + WITHDRAW_LOCK_TIMEOUT > self.now():
+        if self._icx_withdraw_lock[self.msg.sender] + WITHDRAW_LOCK_TIMEOUT > self.now():
             revert("Withdraw lock not expired")
 
-        order_id = self.icxQueueOrderId[self.msg.sender]
-        order = self.icxQueue._get_node(order_id)
+        order_id = self._icx_queue_order_id[self.msg.sender]
+        order = self._icx_queue._get_node(order_id)
         withdraw_amount = order.get_value1()
 
-        current_icx_total = self.icxQueueTotal.get() - withdraw_amount
-        self.icxQueueTotal.set(current_icx_total)
+        current_icx_total = self._icx_queue_total.get() - withdraw_amount
+        self._icx_queue_total.set(current_icx_total)
 
-        self.icxQueue.remove(order_id)
+        self._icx_queue.remove(order_id)
         self.icx.transfer(self.msg.sender, withdraw_amount)
-        del self.icxQueueOrderId[self.msg.sender]
+        del self._icx_queue_order_id[self.msg.sender]
+        # TODO(gedanziger): Update account/total supply snaps back down.
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes):
+        """
+        :param _from: The address calling `transfer` on the other contract
+        :param _value: Amount of token transferred
+        :param _data: Data called by the transfer, json object expected. 
+
+        This is invoked when a token is transferred to this score.
+        It expects a JSON object with the following format:
+        ```
+        {"method": "METHOD_NAME", "params":{...}}
+        ```
+
+        Token transfers to this contract are rejected unless any of the
+        following methods are passed in the object:
+
+        1) `_deposit` - Calls the `_deposit()` function
+        2) `_swap_icx` - Calls the `_swap_icx()` function
+        3) `_swap` - Calls the `_swap()` function
+
+        All calls to this function update snapshots and process dividends.
+        """
         # if user sends some irc token to score
         Logger.info("called token fallback", self._TAG)
 
@@ -371,48 +503,60 @@ class DEX(IconScoreBase):
         unpacked_data = json_loads(_data.decode('utf-8'))
         _fromToken = self.msg.sender
         if unpacked_data["method"] == "_deposit":
-            self.deposit[_fromToken][_from] += _value
+            self._deposit[_fromToken][_from] += _value
             self.Deposit(_fromToken, _from, _value)
         elif unpacked_data["method"] == "_swap_icx":
-            if _fromToken == self._sICX_address.get():
-                self.sicx_convert(_from, _value)
+            if _fromToken == self._sicx.get():
+                self._swap_icx(_from, _value)
         elif unpacked_data["method"] == "_swap":
-            self.exchange(_fromToken, Address.from_string(unpacked_data["params"]["toToken"]), _from, _from, _value)
-        elif unpacked_data["method"] == "_transfer":
-            self.exchange(_fromToken, unpacked_data["params"]["toToken"], _from, Address.from_string(
-                unpacked_data["params"]["to"]), _value)
+            self.exchange(_fromToken, Address.from_string(
+                unpacked_data["params"]["toToken"]), _from, _from, _value)
         else:
             revert("Fallback directly not allowed")
 
     @external
     def precompute(self, snap: int, batch_size: int) -> bool:
         """
-        Required by the rewards score data source API, but unneeded.
-        Returns true to match the required workflow.
+        Required by the rewards score data source API, but unused.
+        Returns `True` to match the required workflow.
         """
         return True
 
     @external
     def transfer(self, _to: Address, _value: int, _id: int, _data: bytes = None):
+        """
+        Used to transfer LP tokens from sender to another address.
+        Calls the internal method `_transfer()` with a default
+        `_data` if none is submitted.
+
+        :param _to: Address to transfer to
+        :param _value: Amount of units to transfer
+        :param _id: Pool ID of token to transfer
+        :param _data: data to include with transfer
+        """
         if _data is None:
             _data = b'None'
         self._transfer(self.msg.sender, _to, _value, _data)
 
     def _transfer(self, _from: Address, _to: Address, _value: int, _id: int, _data: bytes):
+        """
+        Used to transfer LP IRC-31 tokens from one address to another.
+        Invoked by `transfer(...)`.
+        """
         if _value < 0:
             revert("Transferring value cannot be less than 0")
-        if self.balance[_id][_from] < _value:
+        if self._balance[_id][_from] < _value:
             revert("Out of balance")
 
-        if _to not in self.funded_addresses:
-            self.funded_addresses.add(_to)
+        if _to not in self._funded_addresses:
+            self._funded_addresses.add(_to)
 
-        self.balance[_id][_from] = self.balance[_from] - _value
-        self.balance[_id][_to] = self.balance[_to] + _value
+        self._balance[_id][_from] = self._balance[_from] - _value
+        self._balance[_id][_to] = self._balance[_to] + _value
 
         self.TransferSingle(self.msg.sender, _from, _to, _id, _value)
 
-        self._updateAccountSnapshot(self.msg.sender, _id)
+        self._update_account_snapshot(self.msg.sender, _id)
 
         # TODO: Implement token fallback for multitoken score
 
@@ -420,36 +564,60 @@ class DEX(IconScoreBase):
     # Read
     @external(readonly=True)
     def getDeposit(self, _tokenAddress: Address, _user: Address) -> int:
-        return self.deposit[_tokenAddress][_user]
+        """
+        Returns the amount of tokens of address `_tokenAddress` that a 
+        user with Address `_user` has on deposit. Tokens currently
+        committed to a LP pool are excluded.
+
+        :param _tokenAddress: IIC2 token to check balance of
+        :param _user: User address to check balance of
+        """
+        return self._deposit[_tokenAddress][_user]
 
     @external(readonly=True)
     def getPoolId(self, _token1Address: Address, _token2Address: Address) -> int:
-        return self.poolId[_token1Address][_token2Address]
+        """
+        Returns the pool ID mapped to this token pair. The following holds:
+        ```
+        getPoolId(A, B) == getPoolID(B,A)
+        ```
+        """
+        return self._pool_id[_token1Address][_token2Address]
 
     @external(readonly=True)
     def getNonce(self) -> int:
-        return self.nonce.get()
+        """
+        Returns the current nonce nonce of liquidity provider pools.
+        This is a monotonically increasing value.
+        """
+        return self._nonce.get()
 
     @external(readonly=True)
     def getNamedPools(self) -> list:
+        """
+        Returns a list of all named pools in the contract, set by the admin.
+        These pools are used by:
+        1) The `rewards` score when calling `getDataBatch(...)`
+        2) Users who want to lookup a pool id using `lookupPid(...)`
+        """
         rv = []
-        for pool in self.named_markets.keys():
+        for pool in self._named_markets.keys():
             rv.append(pool)
         return rv
 
     @external(readonly=True)
     def lookupPid(self, _name: str) -> int:
-        return self.named_markets[_name]
+        return self._named_markets[_name]
 
     @external(readonly=True)
     def getPoolTotal(self, _pid: int, _token: Address) -> int:
-        return self.poolTotal[_pid][_token]
+        return self._pool_total[_pid][_token]
 
     @external(readonly=True)
     def totalSupply(self, _pid: int) -> int:
         if _pid == 0:
-            return self.icxQueueTotal.get()
-        return self.total[_pid]
+            return self._icx_queue_total.get()
+        return self._total[_pid]
 
     @external(readonly=True)
     def balanceOf(self, _owner: Address, _id: int) -> int:
@@ -461,43 +629,43 @@ class DEX(IconScoreBase):
         :return: the _owner's balance of the token type requested
         """
         if _id == 0:
-            order_id = self.icxQueueOrderId[self.msg.sender]
+            order_id = self._icx_queue_order_id[self.msg.sender]
             if not order_id:
                 return 0
-            return self.icxQueue._get_node(order_id).get_value1()
+            return self._icx_queue._get_node(order_id).get_value1()
         else:
-            return self.balance[_id][_owner]
+            return self._balance[_id][_owner]
 
     @external(readonly=True)
     def getFees(self) -> int:
-        return self.fees.get()
+        return self._fees.get()
 
     @external(readonly=True)
     def getPoolBase(self, _pid: int) -> Address:
-        return self.poolBase[_pid]
+        return self._pool_base[_pid]
 
     @external(readonly=True)
     def getPoolQuote(self, _pid: int) -> Address:
-        return self.poolQuote[_pid]
+        return self._pool_quote[_pid]
 
     @external(readonly=True)
     def getPrice(self, _pid: int) -> int:
-        return int(self.poolTotal[_pid][self.poolBase[_pid]] / self.poolTotal[_pid][self.poolQuote[_pid]] * 10**10)
+        return int(self._pool_total[_pid][self._pool_base[_pid]] / self._pool_total[_pid][self._pool_quote[_pid]] * 10**10)
 
     @external(readonly=True)
     def getInversePrice(self, _pid: int) -> int:
-        return int(self.poolTotal[_pid][self.poolQuote[_pid]] / self.poolTotal[_pid][self.poolBase[_pid]] * 10**10)
+        return int(self._pool_total[_pid][self._pool_quote[_pid]] / self._pool_total[_pid][self._pool_base[_pid]] * 10**10)
 
     @external(readonly=True)
     def getICXBalance(self, _address: Address) -> int:
-        order_id = self.icxQueueOrderId[_address]
+        order_id = self._icx_queue_order_id[_address]
         if not order_id:
             return 0
-        return self.icxQueue._get_node(order_id).get_value1()
+        return self._icx_queue._get_node(order_id).get_value1()
 
     @external(readonly=True)
     def getICXWithdrawLock(self) -> int:
-        return self.icxWithdrawLock[self.msg.sender]
+        return self._icx_withdraw_lock[self.msg.sender]
 
     ####################################
     # Token Functionality
@@ -511,7 +679,7 @@ class DEX(IconScoreBase):
         :param _operator: address to add to the set of authorized operators
         :param _approved: true if the operator is approved, false to revoke approval
         """
-        self.approvals[self.msg.sender][_operator] = _approved
+        self._approvals[self.msg.sender][_operator] = _approved
         self.ApprovalForAll(self.msg.sender, _operator, _approved)
 
     @external(readonly=True)
@@ -523,8 +691,8 @@ class DEX(IconScoreBase):
         :param _operator: the address of authorized operator
         :return: true if the operator is approved, false otherwise
         """
-        if self.approvals[_owner][_operator]:
-            return self.approvals[_owner][_operator]
+        if self._approvals[_owner][_operator]:
+            return self._approvals[_owner][_operator]
         else:
             return False
 
@@ -559,17 +727,17 @@ class DEX(IconScoreBase):
             revert("Not approved for transfer")
         if _value < 0:
             revert("Transferring value cannot be less than 0")
-        if self.balance[_id][_from] < _value:
+        if self._balance[_id][_from] < _value:
             revert("Out of balance")
 
-        self.balance[_id][_from] = self.balance[_from] - _value
-        self.balance[_id][_to] = self.balance[_to] + _value
+        self._balance[_id][_from] = self._balance[_from] - _value
+        self._balance[_id][_to] = self._balance[_to] + _value
         self.TransferSingle(self.msg.sender, _from, _to, _id, _value)
 
-        if _to not in self.funded_addresses:
-            self.funded_addresses.add(_to)
+        if _to not in self._funded_addresses:
+            self._funded_addresses.add(_to)
 
-        self._updateAccountSnapshot(_from, _id)
+        self._update_account_snapshot(_from, _id)
 
         # TODO: Implement onIRC31Received function
 
@@ -580,7 +748,7 @@ class DEX(IconScoreBase):
 
         :param _user: Address to check
         """
-        return _user in self.funded_addresses
+        return _user in self._funded_addresses
 
     @external(readonly=True)
     def totalDexAddresses(self) -> int:
@@ -589,7 +757,7 @@ class DEX(IconScoreBase):
 
         :param _user: Address to check
         """
-        return self.funded_addresses.__len__()
+        return self._funded_addresses.__len__()
 
     def _get_exchange_rate(self) -> int:
         """
@@ -598,54 +766,39 @@ class DEX(IconScoreBase):
         Requires that the _staking_address property is set via the contract admin.
         """
         staking_score = self.create_interface_score(
-            self._staking_address.get(), stakingInterface)
+            self._staking.get(), stakingInterface)
         return staking_score.getTodayRate()
 
     ####################################
     # Internal exchange function
 
     def exchange(self, _fromToken: Address, _toToken: Address, _sender: Address, _receiver: Address, _value: int):
-        fees = int(_value * (self.fees.get() / 1000))
+        fees = int(_value * (self._fees.get() / 1000))
         original_value = _value
         _value -= fees
-        Logger.info('From Token: ' + str(_fromToken), self._TAG)
-        Logger.info('To Token: ' + str(_toToken), self._TAG)
-        _pid = self.poolId[_fromToken][_toToken]
-        Logger.info('Pool ID: ' + str(self.getPoolId(_fromToken, _toToken)), self._TAG)
-        Logger.info('Inv Pool ID: ' + str(self.getPoolId(_toToken, _fromToken)), self._TAG)
-        pool1base = self.getPoolBase(1)
-        pool1quote = self.getPoolQuote(1)
-        Logger.info('Pool 1 base: ' + str(pool1base) + ' pool 1 quote: ' + str(pool1quote), self._TAG)
-        Logger.info('Matches quote: ' + str(pool1quote == _fromToken) + ' matches base: ' + str(pool1base == _fromToken), self._TAG)
-        Logger.info('Matches quote: ' + str(pool1quote == _toToken) + ' matches base: ' + str(pool1base == _toToken), self._TAG)
+        _pid = self._pool_id[_fromToken][_toToken]
         if _pid == 0:
             revert("Pool does not exist")
-        Logger.info("PID: " + str(_pid), self._TAG)
         old_price = self.getPrice(_pid)
         if not self.active[_pid]:
             revert("Pool is not active")
-        new_token1 = self.poolTotal[_pid][_fromToken] + _value
+        new_token1 = self._pool_total[_pid][_fromToken] + _value
         new_token2 = int(
-            self.poolTotal[_pid][_fromToken] * self.poolTotal[_pid][_toToken] / new_token1)
-        send_amt = self.poolTotal[_pid][_toToken] - new_token2
+            self._pool_total[_pid][_fromToken] * self._pool_total[_pid][_toToken] / new_token1)
+        send_amt = self._pool_total[_pid][_toToken] - new_token2
 
-        if original_value / send_amt < (old_price * 975) / 1000:
-            revert("Maximum Slippage exceeded")
-
-        else:
-            token_score = self.create_interface_score(_toToken, TokenInterface)
-            token_score.transfer(self.msg.sender, send_amt)
-        self.poolTotal[_pid][_fromToken] = new_token1 + fees
-        self.poolTotal[_pid][_toToken] = new_token2
+        token_score = self.create_interface_score(_toToken, TokenInterface)
+        token_score.transfer(_receiver, send_amt)
+        self._pool_total[_pid][_fromToken] = new_token1 + fees
+        self._pool_total[_pid][_toToken] = new_token2
         self.Swap(_fromToken, _toToken, _sender, _receiver, _value, send_amt)
 
     def _get_sicx_rate(self) -> int:
         staking_score = self.create_interface_score(
-            self._staking_address.get(), stakingInterface)
+            self._staking.get(), stakingInterface)
         return staking_score.getTodayRate()
 
-    @external
-    def sicx_convert(self, _sender: Address, _value: int):
+    def _swap_icx(self, _sender: Address, _value: int):
         """
         Perform an instant conversion from SICX to ICX.
         Gets orders from SICXICX queue by price time precedence.
@@ -654,18 +807,18 @@ class DEX(IconScoreBase):
         conversion_factor = self._get_sicx_rate()
 
         sicx_score = self.create_interface_score(
-            self._sICX_address.get(), TokenInterface)
+            self._sicx.get(), TokenInterface)
         filled = False
         filled_icx = 0
         removed_icx = 0
         while not filled:
 
-            if self.icxQueue._length.get() == 0:
+            if self._icx_queue._length.get() == 0:
                 Logger.info("Transferring remaining SICX", 'DEX')
                 sicx_score.transfer(_sender, remaining_sicx)
                 break
 
-            counterparty_order = self.icxQueue._get_head_node()
+            counterparty_order = self._icx_queue._get_head_node()
             counterparty_address = counterparty_order.get_value2()
             order_sicx_value = (int)(counterparty_order.get_value1() * EXA /
                                      conversion_factor)
@@ -684,8 +837,8 @@ class DEX(IconScoreBase):
                               ((matched_icx * 7) / 1000))
 
             if matched_icx == counterparty_order.get_value1():
-                self.icxQueue.remove_head()
-                del self.icxQueueOrderId[counterparty_address]
+                self._icx_queue.remove_head()
+                del self._icx_queue_order_id[counterparty_address]
             else:
                 counterparty_order.set_value1(
                     counterparty_order.get_value1() - matched_icx)
@@ -694,8 +847,8 @@ class DEX(IconScoreBase):
             if not remaining_sicx:
                 filled = True
 
-        current_icx_total = self.icxQueueTotal.get() - removed_icx
-        self.icxQueueTotal.set(current_icx_total)
+        current_icx_total = self._icx_queue_total.get() - removed_icx
+        self._icx_queue_total.set(current_icx_total)
 
     # Snapshotting
     def _take_new_day_snapshot(self) -> None:
@@ -712,10 +865,11 @@ class DEX(IconScoreBase):
             rewards = self.create_interface_score(self._rewards.get(), Rewards)
             self._rewards_done.set(rewards.distribute())
         elif not self._dividends_done.get():
-            dividends = self.create_interface_score(self._dividends.get(), Dividends)
+            dividends = self.create_interface_score(
+                self._dividends.get(), Dividends)
             self._dividends_done.set(dividends.distribute())
 
-    def _updateAccountSnapshot(self, _account: Address, _id: int) -> None:
+    def _update_account_snapshot(self, _account: Address, _id: int) -> None:
         """
         Updates a user's balance snapshot
         :param _account: Address to update
@@ -739,7 +893,7 @@ class DEX(IconScoreBase):
             self._account_balance_snapshot[_id][_account]['values'][length -
                                                                     1] = current_value
 
-    def _updateTotalSupplySnapshot(self, _id: int) -> None:
+    def _update_total_supply_snapshot(self, _id: int) -> None:
         """
         Updates a an asset's total supply snapshot
         :param _id: pool id to update
@@ -812,7 +966,7 @@ class DEX(IconScoreBase):
         if _offset < 0:
             revert(f'Offset must be equal to or greater than Zero')
         rv = {}
-        for addr in self.funded_addresses.select(_offset):
+        for addr in self._funded_addresses.select(_offset):
             snapshot_balance = self.balanceOfAt(addr, _pid, _snapshot_id)
             if snapshot_balance:
                 rv[str(addr)] = snapshot_balance
@@ -820,7 +974,7 @@ class DEX(IconScoreBase):
 
     @external(readonly=True)
     def getDataBatch(self, _name: str, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
-        pid = self.named_markets[_name]
+        pid = self._named_markets[_name]
         rv = self.loadBalancesAtSnapshot(pid, _snapshot_id, _limit, _offset)
         Logger.info(len(rv), self._TAG)
         return rv
@@ -836,37 +990,43 @@ class DEX(IconScoreBase):
 
     @external
     def withdraw(self, _token: Address, _value: int):
-        if _value > self.deposit[_token][self.msg.sender]:
+        if _value > self._deposit[_token][self.msg.sender]:
             revert("Insufficient balance")
-        self.deposit[_token][self.msg.sender] -= _value
+        self._deposit[_token][self.msg.sender] -= _value
         token_score = self.create_interface_score(_token, TokenInterface)
         token_score.transfer(self.msg.sender, _value)
         self.Withdraw(_token, self.msg.sender, _value)
 
     @external
-    def remove(self, _pid: int, _value: int):
-        balance = self.balance[_pid][self.msg.sender]
+    def remove(self, _pid: int, _value: int, _withdraw: bool = False):
+        balance = self._balance[_pid][self.msg.sender]
         if not self.active[_pid]:
             revert("Pool is not active")
         if _value > balance:
             revert("Invalid input")
-        if self.withdrawLock[self.msg.sender][_pid] + WITHDRAW_LOCK_TIMEOUT < self.now():
+        if self._withdraw_lock[self.msg.sender][_pid] + WITHDRAW_LOCK_TIMEOUT < self.now():
             revert("Funds not yet unlocked")
-        token1 = self.poolBase[_pid]
-        token2 = self.poolQuote[_pid]
-        self.poolTotal[_pid][token1] -= int(self.poolTotal[_pid]
-                                            [token1] * (_value / self.total[_pid]))
-        self.poolTotal[_pid][token2] -= int(self.poolTotal[_pid]
-                                            [token2] * (_value / self.total[_pid]))
-        self.deposit[token1][self.msg.sender] += int(
-            self.poolTotal[_pid][token1] * (_value / self.total[_pid]))
-        self.deposit[token2][self.msg.sender] += int(
-            self.poolTotal[_pid][token2] * (_value / self.total[_pid]))
-        self.balance[_pid][self.msg.sender] -= _value
-        self.total[_pid] -= _value
+        token1 = self._pool_base[_pid]
+        token2 = self._pool_quote[_pid]
+        self._pool_total[_pid][token1] -= int(self._pool_total[_pid]
+                                              [token1] * (_value / self._total[_pid]))
+        self._pool_total[_pid][token2] -= int(self._pool_total[_pid]
+                                              [token2] * (_value / self._total[_pid]))
+        token1_amount = int(
+            self._pool_total[_pid][token1] * (_value / self._total[_pid]))
+        token2_amount = int(
+            self._pool_total[_pid][token2] * (_value / self._total[_pid]))
+        self._balance[_pid][self.msg.sender] -= _value
+        self._total[_pid] -= _value
         self.Remove(_pid, self.msg.sender, _value)
-        self._updateAccountSnapshot(self.msg.sender, _pid)
-        self._updateTotalSupplySnapshot(_pid)
+        if not _withdraw:
+            self._deposit[token1][self.msg.sender] += token1_amount
+            self._deposit[token2][self.msg.sender] += token2_amount
+        else:
+            self.withdraw(token1, token1_amount)
+            self.withdraw(token2, token2_amount)
+        self._update_account_snapshot(self.msg.sender, _pid)
+        self._update_total_supply_snapshot(_pid)
 
     @external
     def add(self, _baseToken: Address, _quoteToken: Address, _baseValue: int, _quoteValue: int):
@@ -877,7 +1037,7 @@ class DEX(IconScoreBase):
         - If ratio is incorrect, it is advisable to call `swap` first.
         """
         _owner = self.msg.sender
-        _pid = self.poolId[_baseToken][_quoteToken]
+        _pid = self._pool_id[_baseToken][_quoteToken]
         if _baseToken == _quoteToken:
             revert("Pool must contain two token contracts")
         if not _baseValue:
@@ -885,29 +1045,31 @@ class DEX(IconScoreBase):
         if not _quoteValue:
             revert("Please send initial value for second currency")
         if _pid == 0:
-            self.poolId[_baseToken][_quoteToken] = self.nonce.get()
-            self.poolId[_quoteToken][_baseToken] = self.nonce.get()
-            _pid = self.nonce.get()
+            if not (_quoteToken == self._icd.get()) and not (_quoteToken == self._sicx.get()):
+                revert("Second currency must be ICD or sICX")
+            self._pool_id[_baseToken][_quoteToken] = self._nonce.get()
+            self._pool_id[_quoteToken][_baseToken] = self._nonce.get()
+            _pid = self._nonce.get()
             liquidity = DEFAULT_INITAL_LP
-            self.nonce.set(self.nonce.get() + 1)
+            self._nonce.set(self._nonce.get() + 1)
             self.active[_pid] = True
-            self.poolBase[_pid] = _baseToken
-            self.poolQuote[_pid] = _quoteToken
+            self._pool_base[_pid] = _baseToken
+            self._pool_quote[_pid] = _quoteToken
         else:
             token1price = self.getPrice(_pid)
             if not int(_baseValue * (token1price / 10**10)) == _quoteValue:
                 revert('disproportionate amount')
-            liquidity = int(self.total[_pid] * (self.poolTotal[_pid]
-                                                [_baseToken] + _baseValue) / self.poolTotal[_pid][_baseToken])
-        self.poolTotal[_pid][_baseToken] += _baseValue
-        self.poolTotal[_pid][_quoteToken] += _quoteValue
-        self.deposit[_baseToken][self.msg.sender] -= _baseValue
-        self.deposit[_quoteToken][self.msg.sender] -= _quoteValue
-        self.balance[_pid][_owner] += liquidity
-        self.total[_pid] += liquidity
+            liquidity = int(self._total[_pid] * (self._pool_total[_pid]
+                                                 [_baseToken] + _baseValue) / self._pool_total[_pid][_baseToken])
+        self._pool_total[_pid][_baseToken] += _baseValue
+        self._pool_total[_pid][_quoteToken] += _quoteValue
+        self._deposit[_baseToken][self.msg.sender] -= _baseValue
+        self._deposit[_quoteToken][self.msg.sender] -= _quoteValue
+        self._balance[_pid][_owner] += liquidity
+        self._total[_pid] += liquidity
         self.Add(_pid, _owner, liquidity)
-        self.withdrawLock[self.msg.sender][_pid] = self.now()
-        if self.msg.sender not in self.funded_addresses:
-            self.funded_addresses.add(self.msg.sender)
-        self._updateAccountSnapshot(_owner, _pid)
-        self._updateTotalSupplySnapshot(_pid)
+        self._withdraw_lock[self.msg.sender][_pid] = self.now()
+        if self.msg.sender not in self._funded_addresses:
+            self._funded_addresses.add(self.msg.sender)
+        self._update_account_snapshot(_owner, _pid)
+        self._update_total_supply_snapshot(_pid)
