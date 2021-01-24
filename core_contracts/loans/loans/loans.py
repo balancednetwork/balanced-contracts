@@ -10,10 +10,18 @@ TAG = 'BalancedLoans'
 # For testing only
 TEST_ADDRESS = Address.from_string('hx3f01840a599da07b0f620eeae7aa9c574169a4be')
 
+
 # An interface to the Emergency Reserve Fund
 class ReserveFund(InterfaceScore):
     @interface
     def redeem(self, _to: Address, _amount: int, sicx_rate: int) -> int:
+        pass
+
+
+# An interface to the Staking Management SCORE
+class Staking(InterfaceScore):
+    @interface
+    def addCollateral(self, _to: Address = None, _data: bytes = None) -> int:
         pass
 
 
@@ -49,6 +57,7 @@ class Loans(IconScoreBase):
     _DIVIDENDS = 'dividends'
     _RESERVE = 'reserve'
     _REWARDS = 'rewards'
+    _STAKING = 'staking'
     _ADMIN = 'admin'
     _REPLAY_BATCH_SIZE = 'replay_batch_size'
     _GLOBAL_INDEX = 'global_index'
@@ -74,6 +83,7 @@ class Loans(IconScoreBase):
         self._dividends = VarDB(self._DIVIDENDS, db, value_type=Address)
         self._reserve = VarDB(self._RESERVE, db, value_type=Address)
         self._rewards = VarDB(self._REWARDS, db, value_type=Address)
+        self._staking = VarDB(self._STAKING, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._replay_batch_size = VarDB(self._REPLAY_BATCH_SIZE, db, value_type=int)
         self._global_index = VarDB(self._GLOBAL_INDEX, db, value_type=int)
@@ -300,6 +310,16 @@ class Loans(IconScoreBase):
             dividends = self.create_interface_score(self._dividends.get(), Dividends)
             self._dividends_done.set(dividends.distribute())
 
+    @payable
+    @external
+    def addCollateral(self, _data1: bytes, _data2: bytes) -> int:
+        """
+        Sends ICX to the addCollateral method on the staking SCORE
+        """
+        sender = str(self.msg.sender).encode("utf-8")
+        staking = self.create_interface_score(self._staking.get(), Staking)
+        staking.icx(self.msg.value).addCollateral(self.address, _data1 + sender + _data2)
+
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
@@ -329,7 +349,7 @@ class Loans(IconScoreBase):
         if set(d.keys()) != set(["method", "params"]):
             revert('Invalid parameters.')
         if d["method"] == "_deposit_and_borrow":
-            self._deposit_and_borrow(_from, _value, **d['params'])
+            self._deposit_and_borrow(_value, **d['params'])
         elif d["method"] == "_repay_loan":
             self._repay_loan(_from, _value)
         elif d["method"] == "_retire_asset":
@@ -337,7 +357,7 @@ class Loans(IconScoreBase):
         else:
             revert(f'No valid method called, data: {_data}')
 
-    def _deposit_and_borrow(self, _from: Address, _value: int, _asset: str = '',
+    def _deposit_and_borrow(self, _value: int, _sender: Address, _asset: str = '',
                             _amount: int = 0) -> None:
         """
         If the received token type is sICX it will be added to the account of
@@ -346,8 +366,8 @@ class Loans(IconScoreBase):
         _amount of _asset will be returned to the originating address if
         there is sufficient collateral present.
 
-        :param _from: Address of the token sender.
-        :type _from: :class:`iconservice.base.address.Address`
+        :param _sender: Address of the token sender.
+        :type _sender: str
         :param _value: Number of tokens sent.
         :type _value: int
         :param _asset: Symbol of asset to borrow.
@@ -357,6 +377,7 @@ class Loans(IconScoreBase):
         """
         if self.msg.sender != self._assets['sICX'].asset_address.get():
             revert(f'sICX is the only type of collateral accepted.')
+        _from = Address.from_string(_sender)
         if not self._positions._exists(_from):
             pos = self._positions.get_pos(_from)
             standing = Standing.ZERO
@@ -731,6 +752,15 @@ class Loans(IconScoreBase):
     @external(readonly=True)
     def getRewards(self) -> Address:
         return self._rewards.get()
+
+    @external
+    @only_owner
+    def setStaking(self, _address: Address) -> None:
+        self._staking.set(_address)
+
+    @external(readonly=True)
+    def getStaking(self) -> Address:
+        return self._staking.get()
 
     @external
     @only_owner
