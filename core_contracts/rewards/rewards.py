@@ -7,7 +7,7 @@ TAG = 'Rewards'
 
 
 class DistPercentDict(TypedDict):
-    data_source_name : str
+    recipient_name : str
     bal_token_dist_percent: int
 
 
@@ -26,12 +26,23 @@ class Rewards(IconScoreBase):
         self._batch_size = VarDB('batch_size', db, value_type = int)
         self._baln_holdings = DictDB('baln_holdings', db, value_type = int)
         self._baln_address = VarDB('baln_address', db, value_type = Address)
-        self._data_source_names = ArrayDB('data_source_names', db, value_type = str)
+        self._bwt_address = VarDB('bwt_address', db, value_type = Address)
+        self._reserve_fund = VarDB('reserve_fund', db, value_type = Address)
+        self._recipient_split = DictDB('recipient_split', db, value_type = int)
+        self._recipients = ArrayDB('recipients', db, value_type = str)
+        self._platform_recipients = {'Worker Tokens': self._bwt_address,
+                                     'Reserve Fund': self._reserve_fund}
+        self._total_dist = VarDB('total_dist', db, int)
+        self._platform_day = VarDB('platform_day', db, value_type = int)
         self._data_source_db = DataSourceDB(db,self)
 
     def on_install(self) -> None:
         super().on_install()
         self._batch_size.set(DEFAULT_BATCH_SIZE)
+        self._recipient_split['Worker Tokens'] = 0
+        self._recipients.put('Worker Tokens')
+        self._recipient_split['Reserve Fund'] = 0
+        self._recipients.put('Reserve Fund')
 
     def on_update(self) -> None:
         super().on_update()
@@ -42,38 +53,66 @@ class Rewards(IconScoreBase):
 
     # Methods to update the states of a data_source_name object
     @external
-    def updateBalTokenDistPercentage(self, _data_source_dict_list : List[DistPercentDict]):
-        if len(_data_source_dict_list) != len(self._data_source_names):
-            revert(f"Data sources length mismatched!")
+    def updateBalTokenDistPercentage(self, _recipient_list : List[DistPercentDict]) -> None:
+        """
+        This method provides a means to adjust the allocation of rewards tokens.
+        To maintain consistency a change to these percentages will only be
+        accepted if they sum to 100%, with 100% represented by the value 10**18.
+
+        :param _recipient_list: List of dicts containing the allocation spec.
+        :type _recipient_list: List[TypedDict]
+        """
+        if len(_recipient_list) != len(self._recipients):
+            revert(f"Recipient lists lengths mismatched!")
         total_percentage = 0
-        for data_source_dict in _data_source_dict_list:
-            if data_source_dict['data_source_name'] not in self._data_source_names:
-                revert(f"Data source {data_source_dict['data_source_name']} doesn't exists")
-            self._data_source_db[data_source_dict['data_source_name']].bal_token_dist_percent.set(data_source_dict['bal_token_dist_percent'])
-            total_percentage += data_source_dict['bal_token_dist_percent']
+        for recipient in _recipient_list:
+            if recipient['recipient_name'] not in self._recipients:
+                revert(f"Recipient {recipient['recipient_name']} doesn't exist")
+            self._data_source_db[recipient['recipient_name']].bal_token_dist_percent.set(recipient['bal_token_dist_percent'])
+            total_percentage += recipient['bal_token_dist_percent']
 
         if total_percentage != 10**18:
-            revert(f"Total percentage doesn't sum upto 100")
+            revert(f"Total percentage doesn't sum up to 100")
 
     @external(readonly=True)
     def getDataSourceNames(self) -> list:
+        """
+        Returns a list of the data source names.
+
+        :return: list of data source names
+        :rtype list
+        """
         data_source_names = []
-        for data_source_name in self._data_source_names:
+        for data_source_name in self._data_source_db._names:
             data_source_names.append(data_source_name)
         return data_source_names
 
     @external
-    def addNewDataSource(self, _data_source_name: str, _contract_address: Address):
+    def addNewDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
+        """
+        Sources for data on which to base incentive rewards are added with this
+        method. Data source contracts must provide an API of precompute(),
+        totalValue() and getDataBatch(). Newly added data sources will start
+        with zero share (0%) of the rewards token distribution. The intention
+        is to allow for the addition of new incentivized markets on the DEX.
+
+        :param _data_source_name: Identifying name for the data source.
+        :type _data_source_name: str
+        :param _contract_address: Address of the data source.
+        :type _contract_address: :class:`iconservice.base.address.Address`
+        """
         data_source_dict = {'contract_address': _contract_address, 'bal_token_dist_percent': 0}
         data_source_obj = create_data_source_object(data_source_dict)
-        if _data_source_name not in self._data_source_names:
-            self._data_source_names.put(_data_source_name)
+        if _data_source_name not in self._data_source_db._names and _data_source_name not in self._recipients:
+            self._data_source_db._names.put(_data_source_name)
+            self._recipients.put(_data_source_name)
+            self._recipient_split[_data_source_name] = 0
         add_data_to_data_source(_data_source_name, self._data_source_db, data_source_obj)
 
-    @external(readonly = True)
+    @external(readonly=True)
     def getDataSources(self, _data_source_name: str) -> dict:
         response = {}
-        if _data_source_name in self._data_source_names:
+        if _data_source_name in self._data_source_db._names:
             response = get_data_from_data_source(_data_source_name, self._data_source_db)
         return response
 
@@ -82,8 +121,24 @@ class Rewards(IconScoreBase):
 
     @external
     def distribute(self) -> bool:
+        if self._platform_day.get() < self._get_day():
+            if self._total_dist.get() == 0:
+                distribution = self._bal_token_dist_per_day(self._platform_day.get())
+                baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
+                baln_token.mint(distribution)
+                self._total_dist.set(distribution)
+                shares = EXA
+                remaining = distribution
+                split = self._recipient_split[name]
+                for name in self._recipients:
+                    if name not in self._data_source_db._names:
+                        share = self._recipient_split[name] * remaining // shares
+                        remaining -= share
+                        shares -= split
+                        baln_token.transfer(self._platform_recipients[name].get(), share)
+                self._total_dist.set(remaining)
         distribution_complete = True
-        for data_source_name in self._data_source_names:
+        for data_source_name in self._data_source_db._names:
             data_source = self.getDataSources(data_source_name)
             if data_source['day'] < self._get_day():
                 self._reward_distribution(data_source_name, self._batch_size.get())
@@ -101,6 +156,13 @@ class Rewards(IconScoreBase):
         today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS
         return today
 
+    def _bal_token_dist_per_day(self, _day: int) -> int:
+        if _day < 60:
+            return 10**23
+        else:
+            index = _day - 59
+            return max(((995 ** index) * 10**23) // (1000 ** index), 1250 * 10**18)
+
 
 #-------------------------------------------------------------------------------
 #   SETTERS AND GETTERS
@@ -113,31 +175,40 @@ class Rewards(IconScoreBase):
 
     @external(readonly=True)
     def getGovernance(self) -> Address:
-        self._governance.get()
+        return self._governance.get()
 
     @external
     @only_owner
     def setBalnAddress(self, _address: Address) -> None:
         self._baln_address.set(_address)
 
-    @external(readonly = True)
+    @external(readonly=True)
     def getBalnAddress() -> Address:
-        self._baln_address.get()
+        return self._baln_address.get()
+
+    @external
+    @only_owner
+    def setBwtAddress(self, _address: Address) -> None:
+        self._bwt_address.set(_address)
+
+    @external(readonly=True)
+    def getBwtAddress() -> Address:
+        return self._bwt_address.get()
 
     @external
     @only_owner
     def setBatchSize(self, _batch_size: int) -> None:
         self._batch_size.set(_batch_size)
 
-    @external(readonly = True)
+    @external(readonly=True)
     def getBatchSize() -> int:
-        self._batch_size.get()
+        return self._batch_size.get()
 
     @external
     @only_governance
     def setTimeOffset(self, _timestamp: int) -> None:
         self._start_timestamp.set(_timestamp)
 
-    @external(readonly = True)
+    @external(readonly=True)
     def getTimeOffset() -> int:
-        self._start_timestamp.get()
+        return self._start_timestamp.get()

@@ -14,6 +14,10 @@ class TokenInterface(InterfaceScore):
         pass
 
     @interface
+    def balanceOf(self) -> int:
+        pass
+
+    @interface
     def priceInLoop(self) -> int:
         pass
 

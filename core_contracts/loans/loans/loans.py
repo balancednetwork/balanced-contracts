@@ -694,7 +694,7 @@ class Loans(IconScoreBase):
 
     @external
     def getAdmin(self) -> Address:
-        self._admin.get()
+        return self._admin.get()
 
     @external
     @only_owner
@@ -703,7 +703,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getGovernance(self) -> Address:
-        self._governance.get()
+        return self._governance.get()
 
     @external
     @only_owner
@@ -712,7 +712,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getDividends(self) -> Address:
-        self._dividends.get()
+        return self._dividends.get()
 
     @external
     @only_owner
@@ -721,7 +721,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getReserve(self) -> Address:
-        self._reserve.get()
+        return self._reserve.get()
 
     @external
     @only_owner
@@ -730,7 +730,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getRewards(self) -> Address:
-        self._rewards.get()
+        return self._rewards.get()
 
     @external
     @only_owner
@@ -739,7 +739,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getReplayBatchSize(self) -> int:
-        self._replay_batch_size.get()
+        return self._replay_batch_size.get()
 
     @external
     @only_owner
@@ -748,7 +748,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getMiningRatio(self) -> int:
-        self._mining_ratio.get()
+        return self._mining_ratio.get()
 
     @external
     @only_owner
@@ -757,7 +757,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getLockingRatio(self) -> int:
-        self._locking_ratio.get()
+        return self._locking_ratio.get()
 
     @external
     @only_owner
@@ -766,7 +766,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getLiquidationRatio(self) -> int:
-        self._liquidation_ratio.get()
+        return self._liquidation_ratio.get()
 
     @external
     @only_owner
@@ -775,7 +775,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getOriginationFee(self) -> int:
-        self._origination_fee.get()
+        return self._origination_fee.get()
 
     @external
     @only_owner
@@ -784,7 +784,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getRedemptionFee(self) -> int:
-        self._redemption_fee.get()
+        return self._redemption_fee.get()
 
     @external
     @only_owner
@@ -793,7 +793,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getRedeemMinimum(self) -> int:
-        self._redeem_minimum.get()
+        return self._redeem_minimum.get()
 
     @external
     @only_governance
@@ -802,7 +802,25 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getTimeOffset(self) -> int:
-        self._time_offset.get()
+        return self._time_offset.get()
+
+    @external(readonly=True)
+    def getParameters(self) -> dict:
+        return {
+                "admin": self._admin.get(),
+                "governance": self._governance.get(),
+                "dividends": self._dividends.get(),
+                "reserve_fund": self._reserve.get(),
+                "rewards": self._rewards.get(),
+                "replay batch size": self._replay_batch_size.get(),
+                "mining ratio": self._mining_ratio.get(),
+                "locking ratio": self._locking_ratio.get(),
+                "liquidation ratio": self._liquidation_ratio.get(),
+                "origination fee": self._origination_fee.get(),
+                "redemption fee": self._redemption_fee.get(),
+                "redeem minimum": self._redeem_minimum.get(),
+                "time offset": self._time_offset.get()
+                }
 
 #-------------------------------------------------------------------------------
 #   EVENT LOGS

@@ -25,11 +25,13 @@ class DataSource(object):
         self.offset = VarDB('offset', db, int)
         self.precomp = VarDB('precomp', db, bool)
         self.total_value = VarDB('total_value', db, int)
-        self.total_dist = VarDB('total_dist', db, int)
         self.contract_address = VarDB('contract_address', db, Address)
         self.bal_token_dist_percent = VarDB('bal_token_dist_percent', db, int)
 
     def _distribute(self, batch_size: int) -> None:
+        """
+        
+        """
         wallets = []
         data_source = self._rewards.create_interface_score(self.contract_address.get(), DataSourceInterface)
         if not self.precomp.get() and data_source.precompute(self.day.get(), batch_size):
@@ -43,21 +45,13 @@ class DataSource(object):
                 self.day.set(self.day.get() + 1)
                 self.offset.set(0)
                 self.precomp.set(False)
-                self.total_dist.set(self.bal_token_dist_percent.get() * self._bal_token_dist_per_day(self.day.get()) // EXA)
                 return
 
             for address in data_batch:
-                token_share = ( self.total_dist.get() * data_batch[address]) // self.total_value.get()
-                self.total_dist.set(self.total_dist.get() - token_share)
+                token_share = ( self._rewards.total_dist.get() * data_batch[address]) // self.total_value.get()
+                self._rewards.total_dist.set(self._rewards.total_dist.get() - token_share)
                 self.total_value.set(self.total_value.get()  - data_batch[address])
-                self._rewards._token_holdings[address] = token_share
-
-    def _bal_token_dist_per_day(self, _day: int) -> int:
-        if _day < 60:
-            return 10**23
-        else:
-            index = _day - 59
-            return max(((995 ** index) * 10**23) // (1000 ** index), 1250 * 10**18)
+                self._rewards._token_holdings[address] += token_share
 
 
 class DataSourceDB:
@@ -67,6 +61,7 @@ class DataSourceDB:
     def __init__(self, db: IconScoreDatabase, rewards: IconScoreBase):
         self._db = db
         self._rewards = rewards
+        self._names = ArrayDB('names', db, value_type = str)
         self._items = {}
 
     def __getitem__(self, data_source_name: str) -> DataSource:
@@ -80,6 +75,8 @@ class DataSourceDB:
     def __setitem__(self, key, value):
         revert('illegal access')
 
+    def __len__(self) -> int:
+        return len(self._names)
 
 def add_data_to_data_source(prefix: str, data_source: 'DataSourceDB', data_source_obj: 'DataSourceObject'):
     data_source[prefix].contract_address.set(data_source_obj.contract_address)
