@@ -9,18 +9,31 @@ from .scorelib.id_factory import *
 from .scorelib.linked_list import *
 from .scorelib.bag import *
 from .scorelib.set import *
+from .scorelib.iterable_dict import *
 from iconservice import *
 from .utils.checks import *
 from .utils.consts import *
 
+class stakingInterface(InterfaceScore):
+    @interface
+    def getTodayRate(self):
+        pass
+
 
 class DEX(IconScoreBase):
 
+    _TAG = 'DEX'
     _ACCOUNT_BALANCE_SNAPSHOT = 'account_balance_snapshot'
     _TOTAL_SUPPLY_SNAPSHOT = 'total_supply_snapshot'
     _CURRENT_SNAPSHOT_ID = 'current_snapshot_id'
     _FUNDED_ADDRESSES = 'funded_addresses'
     _ICX_QUEUE_TOTAL = 'icx_queue_total'
+    _SICX_ADDRESS = 'sicx_address'
+    _STAKING_ADDRESS = 'staking_address'
+    _DIVIDENDS_ADDRESS = 'dividends_address'
+    _NAMED_MARKETS = 'named_markets'
+    _ADMIN = 'admin'
+    _SICXICX_MARKET_NAME = 'SICXICX'
 
     ####################################
     # Events
@@ -39,6 +52,9 @@ class DEX(IconScoreBase):
 
     @eventlog(indexed=2)
     def Withdraw(self, _token: Address, _owner: Address, _value: int): pass
+
+    @eventlog(indexed=2)
+    def Dividends(self, _token: Address, _value: int): pass
 
     @eventlog(indexed=3)
     def TransferSingle(self, _operator: Address, _from: Address, _to: Address, _id: int, _value: int):
@@ -88,7 +104,12 @@ class DEX(IconScoreBase):
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
 
-        self._sICX_address = VarDB('sICX_address', db, value_type=Address)
+        self._admin = VarDB(self._ADMIN, db, value_type=Address)
+        self._sICX_address = VarDB(self._SICX_ADDRESS, db, value_type=Address)
+        self._staking_address = VarDB(
+            self._STAKING_ADDRESS, db, value_type=Address)
+        self._dividends_address = VarDB(
+            self._DIVIDENDS_ADDRESS, db, value_type=Address)
 
         # deposited irc not locked in pool
         # deposit[TokenAddress][UserAddress] = intValue
@@ -152,28 +173,58 @@ class DEX(IconScoreBase):
         # Withdraw lock for sicxicx
         self.icxWithdrawLock = DictDB('icxWithdrawLock', db, value_type=int)
 
-        # Balanced Token Holder Rewards (map: token address => value)
-        self.rewards = DictDB('rewards', db, value_type=int)
-
         # Approvals for token transfers (map[grantor][grantee] = T/F)
         self.approvals = DictDB('approvals', db, value_type=bool, depth=2)
+
+        self.named_markets = IterableDictDB(
+            self._NAMED_MARKETS, db, value_type=int, key_type=str, order=True)
 
     def on_install(self) -> None:
         super().on_install()
         self.fees.set(3)
         # avoid 0 as default null pid
         self.nonce.set(1)
+        self._current_snapshot_id.set(0)
+        self.named_markets[self._SICXICX_MARKET_NAME] = 0
 
     def on_update(self) -> None:
         super().on_update()
 
     @external(readonly=True)
-    def get_sICX_address(self) -> Address:
+    def getAdmin(self) -> Address:
+        return self._admin.get()
+
+    @only_owner
+    @external
+    def setAdmin(self, _admin: Address) -> None:
+        self._admin.set(_admin)
+
+    @external(readonly=True)
+    def getSicxAddress(self) -> Address:
         return self._sICX_address.get()
 
+    @only_owner
     @external
     def set_sICX_address(self, _address: Address) -> None:
         self._sICX_address.set(_address)
+
+    @only_owner
+    @external
+    def set_dividends_address(self, _address: Address) -> None:
+        self._dividends_address.set(_address)
+
+    @external(readonly=True)
+    def getDividendsAddress(self) -> Address:
+        return self._dividends_address.get()
+
+    @only_owner
+    @external
+    def set_staking_address(self, _address: Address) -> None:
+        self._staking_address.set(_address)
+
+    @external(readonly=True)
+    def getStakingAddress(self) -> Address:
+        return self._staking_address.get()
 
     @payable
     def fallback(self):
@@ -192,7 +243,7 @@ class DEX(IconScoreBase):
         else:
             order_id = self.icxQueue.append(self.msg.value, self.msg.sender)
             self.icxQueueOrderId[self.msg.sender] = order_id
-        
+
         current_icx_total = self.icxQueueTotal.get() + self.msg.value
         self.icxQueueTotal.set(current_icx_total)
 
@@ -203,7 +254,7 @@ class DEX(IconScoreBase):
         self._updateTotalSupplySnapshot(0)
 
     @external
-    def cancel_sicxicx_order(self):
+    def cancelSicxicxOrder(self):
         """
         Cancels user's order in the SICXICX queue.
         Cannot be called within 1 day of the withdraw lock time.
@@ -234,8 +285,8 @@ class DEX(IconScoreBase):
             self.deposit[_fromToken][_from] += _value
             self.Deposit(_fromToken, _from, _value)
         elif params["method"] == "_swap_icx":
-            if _fromToken == self._sICX_address:
-                self.sicx_convert(self.msg._sender, _value)
+            if _fromToken == self._sICX_address.get():
+                self.sicx_convert(_from, _value)
         elif params["method"] == "_swap":
             self.exchange(_fromToken, params["toToken"], _from, _from, _value)
         elif params["method"] == "_transfer":
@@ -283,6 +334,17 @@ class DEX(IconScoreBase):
         return self.nonce.get()
 
     @external(readonly=True)
+    def getNamedPools(self) -> list:
+        rv = []
+        for pool in self.named_markets.keys():
+            rv.append(pool)
+        return rv
+
+    @external(readonly=True)
+    def lookupPid(self, _name: str) -> int:
+        return self.named_markets[_name]
+
+    @external(readonly=True)
     def getPoolTotal(self, _pid: int, _token: Address) -> int:
         return self.poolTotal[_pid][_token]
 
@@ -310,23 +372,6 @@ class DEX(IconScoreBase):
             return self.balance[_id][_owner]
 
     @external(readonly=True)
-    def balanceOfBatch(self, _owners: List[Address], _ids: List[int]) -> List[int]:
-        """
-        Returns the balance of multiple owner/id pairs.
-
-        :param _owners: the addresses of the token holders
-        :param _ids: IDs of the token/pools
-        :return: the list of balance (i.e. balance for each owner/id pair)
-        """
-        return_balances = []
-        for addr in _owners:
-            return_balances[addr] = []
-            for pid in _ids:
-                return_balances[addr].append(self.balance[pid][addr])
-
-        return return_balances
-
-    @external(readonly=True)
     def getFees(self) -> int:
         return self.fees.get()
 
@@ -347,8 +392,8 @@ class DEX(IconScoreBase):
         return int(self.poolTotal[_pid][self.poolQuote[_pid]] / self.poolTotal[_pid][self.poolBase[_pid]] * 10**10)
 
     @external(readonly=True)
-    def getICXBalance(self) -> int:
-        order_id = self.icxQueueOrderId[self.msg.sender]
+    def getICXBalance(self, _address: Address) -> int:
+        order_id = self.icxQueueOrderId[_address]
         if not order_id:
             return 0
         return self.icxQueue._get_node(order_id).get_value1()
@@ -449,6 +494,15 @@ class DEX(IconScoreBase):
         """
         return self.funded_addresses.__len__()
 
+    def _get_exchange_rate(self) -> int:
+        """
+        Internal function for use in SICXICX pools.
+        Gets the current exchange rate (expressed in units 1 = 1e18).
+        Requires that the _staking_address property is set via the contract admin.
+        """
+        staking_score = self.create_interface_score(
+            self._staking_address.get(), stakingInterface)
+        return staking_score.getTodayRate()
 
     ####################################
     # Internal exchange function
@@ -466,7 +520,7 @@ class DEX(IconScoreBase):
             self.poolTotal[_pid][_fromToken] * self.poolTotal[_pid][_toToken] / new_token1)
         send_amt = self.poolTotal[_pid][_toToken] - new_token2
 
-        if original_value / send_amt < old_price * 97.5:
+        if original_value / send_amt < (old_price * 975) / 1000:
             revert("Maximum Slippage exceeded")
 
         if _toToken == ICX_WALLET_ADDRESS:
@@ -478,6 +532,10 @@ class DEX(IconScoreBase):
         self.poolTotal[_pid][_toToken] = new_token2
         self.Swap(_fromToken, _toToken, _sender, _receiver, _value, send_amt)
 
+    def _get_sicx_rate(self) -> int:
+        staking_score = self.create_interface_score(self._staking_address.get(), stakingInterface)
+        return staking_score.getTodayRate()
+
     @external
     def sicx_convert(self, _sender: Address, _value: int):
         """
@@ -485,38 +543,41 @@ class DEX(IconScoreBase):
         Gets orders from SICXICX queue by price time precedence.
         """
         remaining_sicx = _value
-        # TODO - Switch `conversion_factor` with SICX units
-        conversion_factor = 1000000000000000000
+        conversion_factor = self._get_sicx_rate()
 
         sicx_score = self.create_interface_score(
-            self._sICX_address, TokenInterface)
+            self._sICX_address.get(), TokenInterface)
         filled = False
         filled_icx = 0
         removed_icx = 0
         while not filled:
 
             if self.icxQueue._length.get() == 0:
-                sicx_score.transfer(self.msg.sender, remaining_sicx)
+                Logger.info("Transferring remaining SICX", 'DEX')
+                sicx_score.transfer(_sender, remaining_sicx)
                 break
 
             counterparty_order = self.icxQueue._get_head_node()
             counterparty_address = counterparty_order.get_value2()
-            order_sicx_value = counterparty_order.get_value1() * SICX_UNITS / \
-                conversion_factor
-
+            order_sicx_value = (int)(counterparty_order.get_value1() * EXA /
+                                     conversion_factor)
             # Perform match. Matched amount is up to order size
             matched_sicx = min(order_sicx_value, remaining_sicx)
-            matched_icx = matched_sicx * conversion_factor / SICX_UNITS
-            filled_icx += matched_icx * .99
+            matched_icx = (int)(matched_sicx * conversion_factor / EXA)
+            filled_icx += (int)((matched_icx * 99) / 100)
             removed_icx += matched_icx
-            self.rewards[SCORE_ZERO_ADDRESS] += matched_icx * 0.003
+
+            dividends_contribution = (int)((matched_icx * 3) / 1000)
+            self.icx.transfer(self._dividends_address.get(),
+                              dividends_contribution)
 
             sicx_score.transfer(counterparty_address, matched_sicx)
-            self.icx.transfer(counterparty_address, matched_icx * .007)
+            self.icx.transfer(counterparty_address, (int)
+                              ((matched_icx * 7) / 1000))
 
             if matched_icx == counterparty_order.get_value1():
                 self.icxQueue.remove_head()
-                self.icxQueueOrderId[counterparty_address] = None
+                del self.icxQueueOrderId[counterparty_address]
             else:
                 counterparty_order.set_value1(
                     counterparty_order.get_value1() - matched_icx)
@@ -524,12 +585,12 @@ class DEX(IconScoreBase):
             remaining_sicx -= matched_sicx
             if not remaining_sicx:
                 filled = True
-                
+
         current_icx_total = self.icxQueueTotal.get() - removed_icx
         self.icxQueueTotal.set(current_icx_total)
 
-
     # Snapshotting
+
     @external
     def snapshot(self) -> None:
         self._snapshot()
@@ -628,20 +689,25 @@ class DEX(IconScoreBase):
             return self._total_supply_snapshot[_id]['values'][low - 1]
 
     @external(readonly=True)
-    def loadBalancesAtSnapshot(self, _pid: int, _snapshot_id: int, _offset: int=0) -> int:
+    def loadBalancesAtSnapshot(self, _pid: int, _snapshot_id: int, _limit: int,  _offset: int = 0) -> dict:
         if _snapshot_id < 0:
             revert(f'Snapshot id is equal to or greater then Zero')
         if _pid < 0:
             revert(f'Pool id must be equal to or greater than Zero')
         if _offset < 0:
             revert(f'Offset must be equal to or greater than Zero')
-        
-        rv = []
+        rv = {}
         for addr in self.funded_addresses.select(_offset):
             snapshot_balance = self.balanceOfAt(addr, _pid, _snapshot_id)
             if snapshot_balance:
-                rv.append(snapshot_balance)
-        
+                rv[str(addr)] = snapshot_balance
+        return rv
+
+    @external(readonly=True)
+    def getDataBatch(self, _name: str, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
+        pid = self.named_markets[_name]
+        rv = self.loadBalancesAtSnapshot(pid, _snapshot_id, _limit, _offset)
+        Logger.info(len(rv), self._TAG)
         return rv
 
     ####################################
