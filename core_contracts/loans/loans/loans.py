@@ -126,17 +126,14 @@ class Loans(IconScoreBase):
         return "BalancedLoans"
 
     @external
+    @only_governance
     def turnLoansOn(self) -> None:
-        if self.msg.sender != self._governance.get():
-            revert("Loans can only be turned on by the Governance SCORE.")
         self._loans_on.set(True)
         self._positions._snapshot_db.new_snapshot(self.getDay())
 
     @external
+    @only_governance
     def toggleLoansOn(self) -> None:
-        if self.msg.sender != self._governance.get():
-            revert("The Loans active status can only be controlled through the"
-                   "Governance SCORE.")
         self._loans_on.set(not self._loans_on.get())
 
     @external
@@ -801,9 +798,8 @@ class Loans(IconScoreBase):
         self._redeem_minimum.get()
 
     @external
+    @only_governance
     def setTimeOffset(self, _delta_time: int) -> None:
-        if self.msg.sender != self._governance.get():
-            revert("The time_offset can only be set by the Governance SCORE.")
         self._time_offset.set(_delta_time)
 
     @external(readonly=True)

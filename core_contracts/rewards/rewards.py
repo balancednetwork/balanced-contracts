@@ -1,4 +1,6 @@
 from iconservice import *
+from ..utils.checks import *
+from ..utils.consts import *
 from .RewardData import *
 
 TAG = 'Rewards'
@@ -18,10 +20,11 @@ class Rewards(IconScoreBase):
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
+        self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
         self._start_timestamp = VarDB('start_timestamp', db, value_type = int)
         self._batch_size = VarDB('batch_size', db, value_type = int)
-        self._token_holdings = DictDB('token_holdings', db, value_type = int)
-        self._token_address = VarDB('token_address', db, value_type = Address)
+        self._baln_holdings = DictDB('baln_holdings', db, value_type = int)
+        self._baln_address = VarDB('baln_address', db, value_type = Address)
         self._data_source_names = ArrayDB('data_source_names', db, value_type = str)
         self._data_source_db = DataSourceDB(db,self)
 
@@ -34,36 +37,6 @@ class Rewards(IconScoreBase):
     @external(readonly = True)
     def name(self) -> str:
         return "Rewards"
-
-    @external
-    def setTokenAddress(self, _address: Address) -> None:
-        if self.msg.sender != self.owner:
-            revert(f"Only owner can set the token address")
-        self._token_address.set(_address)
-
-    @external(readonly = True)
-    def getTokenAddress() -> Address:
-        self._token_address.get()
-
-    @external
-    def setBatchSize(self, _batch_size: int) -> None:
-        if self.msg.sender != self.owner:
-            revert(f"Only owner can set the token address")
-        self._batch_size.set(_batch_size)
-
-    @external(readonly = True)
-    def getBatchSize() -> int:
-        self._batch_size.get()
-
-    @external
-    def setStartTimestamp(self, _timestamp: int) -> None:
-        if self.msg.sender != self.owner:
-            revert(f"Only owner can set the token address")
-        self._start_timestamp.set(_timestamp)
-
-    @external(readonly = True)
-    def getStartTimestamp() -> int:
-        self._start_timestamp.get()
 
     # Methods to update the states of a data_source_name object
     @external
@@ -118,12 +91,52 @@ class Rewards(IconScoreBase):
 
     @external
     def claimRewards(self) -> None:
-        if self._token_holdings[self.msg.sender]:
-            token_contract = self.create_interface_score(self._token_address.get(), TokenInterface)
-            token_contract.transfer(self.msg.sender, self._token_holdings[self.msg.sender])
-            self._token_holdings[self.msg.sender] = 0
+        if self._baln_holdings[self.msg.sender]:
+            baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
+            baln_token.transfer(self.msg.sender, self._baln_holdings[self.msg.sender])
+            self._baln_holdings[self.msg.sender] = 0
 
 
     def _get_day(self) -> int:
         today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS
         return today
+
+#-------------------------------------------------------------------------------
+#   SETTERS AND GETTERS
+#-------------------------------------------------------------------------------
+
+    @external
+    @only_owner
+    def setGovernance(self, _address: Address) -> None:
+        self._governance.set(_address)
+
+    @external(readonly=True)
+    def getGovernance(self) -> Address:
+        self._governance.get()
+
+    @external
+    @only_owner
+    def setBalnAddress(self, _address: Address) -> None:
+        self._baln_address.set(_address)
+
+    @external(readonly = True)
+    def getBalnAddress() -> Address:
+        self._baln_address.get()
+
+    @external
+    @only_owner
+    def setBatchSize(self, _batch_size: int) -> None:
+        self._batch_size.set(_batch_size)
+
+    @external(readonly = True)
+    def getBatchSize() -> int:
+        self._batch_size.get()
+
+    @external
+    @only_governance
+    def setTimeOffset(self, _timestamp: int) -> None:
+        self._start_timestamp.set(_timestamp)
+
+    @external(readonly = True)
+    def getTimeOffset() -> int:
+        self._start_timestamp.get()

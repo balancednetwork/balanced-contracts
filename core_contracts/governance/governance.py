@@ -2,18 +2,9 @@ from iconservice import *
 from .utils.checks import *
 from .utils.consts import *
 from .scorelib import *
+from .data_ojects import *
 
 TAG = 'Governance'
-
-# An interface to the Loans SCORE
-class LoansInterface(InterfaceScore):
-    @interface
-    def setTimeOffset(self, _time_delta: int) -> None:
-        pass
-
-    @interface
-    def turnLoansOn(self) -> None:
-        pass
 
 
 class Governance(IconScoreBase):
@@ -23,11 +14,17 @@ class Governance(IconScoreBase):
     and parameter values here.
     """
 
+    _ADMIN = 'admin'
+    _LAUNCH_DAY = 'launch_day'
+    _LAUNCHED = 'launched'
+
+
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
+        self.addresses = Addresses(db)
+        self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._launch_day = VarDB('launch_day', db, int)
         self._launched = VarDB('launched', db, bool)
-        self._loans_score = VarDB('loans', db, Address)
 
     def on_install(self) -> None:
         super().on_install()
@@ -44,21 +41,26 @@ class Governance(IconScoreBase):
     @only_owner
     def launchBalanced(self) -> None:
         if not self._launched.get():
-            loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
+            loans = self.create_interface_score(self.addresses.loans.get(), LoansInterface)
+            dex = self.create_interface_score(self.addresses.dex.get(), LoansInterface)
+            rewards = self.create_interface_score(self.addresses.rewards.get(), LoansInterface)
             self.set_launch_day(0)
             self.set_launch_day(self.getDay())
             time_delta = DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get())
             loans.setTimeOffset(time_delta)
             loans.turnLoansOn()
+            dex.setTimeOffset(time_delta)
+            dex.turnDexOn()
+            rewards.setTimeOffset(time_delta)
 
     @external
     @only_owner
-    def setLoansScore(self, _address: Address) -> None:
-        self._loans_score.set(_address)
+    def setAddresses(self, _addresses: BalancedAddresses) -> None:
+        self.addresses.setAddresses(_addresses)
 
     @external(readonly=True)
-    def getLoansScore(self) -> Address:
-        self._loans_score.get()
+    def getAddresses(self) -> dict:
+        self.addresses.getAddresses()
 
     @external
     @only_owner
@@ -94,6 +96,41 @@ class Governance(IconScoreBase):
     @payable
     def fallback(self):
         pass
+
+
+#-------------------------------------------------------------------------------
+# Interfaces
+#-------------------------------------------------------------------------------
+
+# An interface to the Loans SCORE
+class LoansInterface(InterfaceScore):
+    @interface
+    def setTimeOffset(self, _time_delta: int) -> None:
+        pass
+
+    @interface
+    def turnLoansOn(self) -> None:
+        pass
+
+
+# An interface to the Loans SCORE
+class DexInterface(InterfaceScore):
+    @interface
+    def setTimeOffset(self, _time_delta: int) -> None:
+        pass
+
+    @interface
+    def turnDexOn(self) -> None:
+        pass
+
+
+# An interface to the Loans SCORE
+class RewardsInterface(InterfaceScore):
+    @interface
+    def setTimeOffset(self, _time_delta: int) -> None:
+        pass
+
+
 
 #-------------------------------------------------------------------------------
 # EVENT LOGS
