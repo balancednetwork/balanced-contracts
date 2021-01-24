@@ -2,9 +2,23 @@ from iconservice import *
 from .utils.checks import *
 from .utils.consts import *
 from .scorelib import *
-from .data_ojects import *
+from .data_objects import *
 
 TAG = 'Governance'
+
+
+class BalancedAddresses(TypedDict):
+    loans: Address
+    dex: Address
+    staking: Address
+    rewards: Address
+    reserve_fund: Address
+    dividends: Address
+    oracle: Address
+    sicx: Address
+    icd: Address
+    baln: Address
+    bwt: Address
 
 
 class Governance(IconScoreBase):
@@ -41,16 +55,16 @@ class Governance(IconScoreBase):
     @only_owner
     def launchBalanced(self) -> None:
         if not self._launched.get():
-            loans = self.create_interface_score(self.addresses.loans.get(), LoansInterface)
-            dex = self.create_interface_score(self.addresses.dex.get(), LoansInterface)
-            rewards = self.create_interface_score(self.addresses.rewards.get(), LoansInterface)
+            loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
+            dex = self.create_interface_score(self.addresses._dex.get(), LoansInterface)
+            rewards = self.create_interface_score(self.addresses._rewards.get(), LoansInterface)
             self.set_launch_day(0)
             self.set_launch_day(self.getDay())
             time_delta = DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get())
             loans.setTimeOffset(time_delta)
             loans.turnLoansOn()
-            dex.setTimeOffset(time_delta)
-            dex.turnDexOn()
+            # dex.setTimeOffset(time_delta)
+            # dex.turnDexOn()
             rewards.setTimeOffset(time_delta)
 
     @external

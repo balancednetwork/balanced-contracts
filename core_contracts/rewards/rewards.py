@@ -1,26 +1,27 @@
 from iconservice import *
-from ..utils.checks import *
-from ..utils.consts import *
+from .utils.checks import *
+from .utils.consts import *
 from .RewardData import *
 
 TAG = 'Rewards'
 
-DAY_IN_MICROSECONDS = 86400 * 10**6
 
 class DistPercentDict(TypedDict):
     data_source_name : str
     bal_token_dist_percent: int
+
 
 class TokenInterface(InterfaceScore):
     @interface
     def transfer(self, _to: Address, _value: int, _data: bytes = None):
         pass
 
+
 class Rewards(IconScoreBase):
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
-        self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
+        self._governance = VarDB('governance', db, value_type=Address)
         self._start_timestamp = VarDB('start_timestamp', db, value_type = int)
         self._batch_size = VarDB('batch_size', db, value_type = int)
         self._baln_holdings = DictDB('baln_holdings', db, value_type = int)
@@ -30,6 +31,7 @@ class Rewards(IconScoreBase):
 
     def on_install(self) -> None:
         super().on_install()
+        self._batch_size.set(DEFAULT_BATCH_SIZE)
 
     def on_update(self) -> None:
         super().on_update()
@@ -82,12 +84,11 @@ class Rewards(IconScoreBase):
     def distribute(self) -> bool:
         distribution_complete = True
         for data_source_name in self._data_source_names:
-            data_source = self.get_data_sources(data_source_name)
+            data_source = self.getDataSources(data_source_name)
             if data_source[day] < self._get_day():
                 self._reward_distribution(data_source_name, self._batch_size.get())
                 distribution_complete = False
         return distribution_complete
-
 
     @external
     def claimRewards(self) -> None:
@@ -96,10 +97,10 @@ class Rewards(IconScoreBase):
             baln_token.transfer(self.msg.sender, self._baln_holdings[self.msg.sender])
             self._baln_holdings[self.msg.sender] = 0
 
-
     def _get_day(self) -> int:
         today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS
         return today
+
 
 #-------------------------------------------------------------------------------
 #   SETTERS AND GETTERS

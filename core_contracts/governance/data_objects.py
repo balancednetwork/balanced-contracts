@@ -15,7 +15,7 @@ class Addresses(object):
         self._baln = VarDB('baln', db, Address)
         self._bwt = VarDB('bwt', db, Address)
 
-    def setAddresses(self, addresses: BalancedAddresses) -> None:
+    def setAddresses(self, addresses: TypedDict) -> None:
         self._loans.set(addresses['loans'])
         self._dex.set(addresses['dex'])
         self._staking.set(addresses['staking'])
@@ -42,17 +42,3 @@ class Addresses(object):
                 'baln': self._baln.get(),
                 'bwt': self._bwt.get()
                }
-
-
-class BalancedAddresses(TypedDict):
-    loans: Address
-    dex: Address
-    staking: Address
-    rewards: Address
-    reserve_fund: Address
-    dividends: Address
-    oracle: Address
-    sicx: Address
-    icd: Address
-    baln: Address
-    bwt: Address

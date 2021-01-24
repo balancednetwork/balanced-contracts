@@ -235,7 +235,7 @@ class Loans(IconScoreBase):
         self._assets[_symbol].active.set(not self._assets[_symbol].active.get())
 
     @external
-    def precompute(self, snap: int, batch_size: int) -> bool:
+    def precompute(self, _snapshot_id: int, batch_size: int) -> bool:
         """
         prepares the position data snapshot to send to the rewards SCORE.
         """
@@ -244,41 +244,41 @@ class Loans(IconScoreBase):
         if self._take_new_day_snapshot():
             return False
         # Iterate through all positions in the snapshot to bring them up to date.
-        if self._positions._calculate_snapshot(snap, batch_size):
+        if self._positions._calculate_snapshot(_snapshot_id, batch_size):
             return True
         return False
 
     @external
-    def getTotalValue(self, snap: int) -> int:
+    def getTotalValue(self, _snapshot_id: int) -> int:
         """
         Gets total outstanding debt for mining rewards calculation.
         """
         if self.msg.sender != self._rewards.get():
             revert(f'The getTotalValue method may only be invoked by the rewards SCORE.')
-        return self._positions._snapshot_db[snap].total_mining_debt.get()
+        return self._positions._snapshot_db[_snapshot_id].total_mining_debt.get()
 
     @external
-    def getDataCount(self, snap: int) -> int:
+    def getDataCount(self, _snapshot_id: int) -> int:
         """
         Returns the number of records in the snapshot.
         """
         if self.msg.sender != self._rewards.get():
             revert(f'The getDataCount method may only be invoked by the rewards SCORE.')
-        return len(self._positions._snapshot_db[snap].mining)
+        return len(self._positions._snapshot_db[_snapshot_id].mining)
 
     @external
-    def getDataBatch(self, snap: int, batch_start: int, batch_size: int) -> dict:
+    def getDataBatch(self, _name: str, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
         """
         Read position data batch.
         """
         if self.msg.sender != self._rewards.get():
             revert(f'The getDataBatch method may only be invoked by the rewards SCORE.')
         batch = {}
-        mining = self._positions._snapshot_db[snap].mining
-        for i in range(batch_start, batch_start + batch_size):
+        mining = self._positions._snapshot_db[_snapshot_id].mining
+        for i in range(_offset, _offset + _limit):
             address_id = mining[i]
             pos = self._positions[address_id]
-            batch[pos.address] = pos.total_debt[pos.get_snapshot_id(snap)]
+            batch[pos.address] = pos.total_debt[pos.get_snapshot_id(_snapshot_id)]
         return batch
 
     def _take_new_day_snapshot(self) -> bool:
@@ -318,9 +318,7 @@ class Loans(IconScoreBase):
             revert(f'Amount sent must be greater than zero.')
         if self.msg.sender not in self._assets.alist:
             revert(f'The Balanced Loans contract does not accept that token type.')
-        if self._take_new_day_snapshot():
-            pass
-        else:
+        if not self._take_new_day_snapshot():
             self._check_distributions()
         if _from == self._reserve.get():
             return
