@@ -392,16 +392,14 @@ class DEX(IconScoreBase):
         """
         return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
 
-    @only_governance
     @external
+    @only_governance
     def setTimeOffset(self, _delta_time: int) -> None:
         """
-        :param _delta_time: us timestamp offset from epoch.
+        :param _delta_time: is timestamp offset from epoch.
         Sets the time offset from the governance contract. Used in
         internal timekeeping.
         """
-        if self.msg.sender != self._governance.get():
-            revert("The time_offset can only be set by the Governance SCORE.")
         self._time_offset.set(_delta_time)
 
     @external(readonly=True)
@@ -409,7 +407,7 @@ class DEX(IconScoreBase):
         """
         Returns current us timestamp offset.
         """
-        self._time_offset.get()
+        return self._time_offset.get()
 
     @payable
     def fallback(self):
@@ -822,7 +820,7 @@ class DEX(IconScoreBase):
 
         self._pool_total[_pid][_fromToken] = new_token1 + lp_fees
         self._pool_total[_pid][_toToken] = new_token2
-        
+
         # Pay each of the user and the dividends score their share of the tokens
         to_token_score = self.create_interface_score(_toToken, TokenInterface)
         to_token_score.transfer(_receiver, send_amt)

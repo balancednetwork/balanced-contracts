@@ -129,14 +129,17 @@ class Rewards(IconScoreBase):
                 self._total_dist.set(distribution)
                 shares = EXA
                 remaining = distribution
-                split = self._recipient_split[name]
                 for name in self._recipients:
-                    if name not in self._data_source_db._names:
-                        share = self._recipient_split[name] * remaining // shares
-                        remaining -= share
-                        shares -= split
+                    split = self._recipient_split[name]
+                    share =  remaining * split // shares
+                    if name in self._data_source_db._names:
+                        self._data_source_db[name].total_dist.set(share)
+                    else:
                         baln_token.transfer(self._platform_recipients[name].get(), share)
-                self._total_dist.set(remaining)
+                    remaining -= share
+                    shares -= split
+                self._total_dist.set(remaining) # remaining will be == 0 at this point.
+                self._platform_day.set(self._platform_day.get() + 1)
         distribution_complete = True
         for data_source_name in self._data_source_db._names:
             data_source = self.getDataSources(data_source_name)
@@ -183,7 +186,7 @@ class Rewards(IconScoreBase):
         self._baln_address.set(_address)
 
     @external(readonly=True)
-    def getBalnAddress() -> Address:
+    def getBalnAddress(self) -> Address:
         return self._baln_address.get()
 
     @external
@@ -192,7 +195,7 @@ class Rewards(IconScoreBase):
         self._bwt_address.set(_address)
 
     @external(readonly=True)
-    def getBwtAddress() -> Address:
+    def getBwtAddress(self) -> Address:
         return self._bwt_address.get()
 
     @external
@@ -201,7 +204,7 @@ class Rewards(IconScoreBase):
         self._batch_size.set(_batch_size)
 
     @external(readonly=True)
-    def getBatchSize() -> int:
+    def getBatchSize(self) -> int:
         return self._batch_size.get()
 
     @external
@@ -210,5 +213,5 @@ class Rewards(IconScoreBase):
         self._start_timestamp.set(_timestamp)
 
     @external(readonly=True)
-    def getTimeOffset() -> int:
+    def getTimeOffset(self) -> int:
         return self._start_timestamp.get()

@@ -25,12 +25,13 @@ class DataSource(object):
         self.offset = VarDB('offset', db, int)
         self.precomp = VarDB('precomp', db, bool)
         self.total_value = VarDB('total_value', db, int)
+        self.total_dist = VarDB('total_dist', db, int)
         self.contract_address = VarDB('contract_address', db, Address)
         self.bal_token_dist_percent = VarDB('bal_token_dist_percent', db, int)
 
     def _distribute(self, batch_size: int) -> None:
         """
-        
+        The calculation and distribution of rewards proceeds in two stages
         """
         wallets = []
         data_source = self._rewards.create_interface_score(self.contract_address.get(), DataSourceInterface)
@@ -46,12 +47,15 @@ class DataSource(object):
                 self.offset.set(0)
                 self.precomp.set(False)
                 return
-
+            remaining = self.total_dist.get() # Amount remaining of the allocation to this source
+            shares = self.total_value.get() # The sum of all mining done by this data source
             for address in data_batch:
-                token_share = ( self._rewards.total_dist.get() * data_batch[address]) // self.total_value.get()
-                self._rewards.total_dist.set(self._rewards.total_dist.get() - token_share)
-                self.total_value.set(self.total_value.get()  - data_batch[address])
+                token_share =  remaining * data_batch[address] // shares
+                remaining -= token_share
+                shares -= data_batch[address]
                 self._rewards._token_holdings[address] += token_share
+            self.total_dist.set(remaining)
+            self.total_value.set(shares)
 
 
 class DataSourceDB:

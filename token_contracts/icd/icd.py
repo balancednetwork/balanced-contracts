@@ -61,7 +61,7 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
 
     @external(readonly=True)
     def getOracle(self) -> dict:
-        return {"name": self._oracle_name.set(_name), "address": str(self._oracle_address.get())}
+        return {"name": self._oracle_name.get(), "address": str(self._oracle_address.get())}
 
     @external
     @only_owner
@@ -70,7 +70,7 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
 
     @external(readonly=True)
     def getMinInterval(self) -> int:
-        return self._min_interval.get(_interval)
+        return self._min_interval.get()
 
     @external
     def priceInLoop(self) -> int:
