@@ -13,21 +13,21 @@ class TokenInterface(InterfaceScore):
     @interface
     def transfer(self, _to: Address, _value: int, _data: bytes = None):
         pass
-   
+
 class Rewards(IconScoreBase):
-    
+
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self._start_timestamp = VarDB('start_timestamp', db, value_type = int)
         self._batch_size = VarDB('batch_size', db, value_type = int)
         self._token_holdings = DictDB('token_holdings', db, value_type = int)
-        self._token_address = DictDB('token_address', db, value_type = Address)
+        self._token_address = VarDB('token_address', db, value_type = Address)
         self._data_source_names = ArrayDB('data_source_names', db, value_type = str)
         self._data_source_db = DataSourceDB(db,self)
 
     def on_install(self) -> None:
         super().on_install()
-        
+
     def on_update(self) -> None:
         super().on_update()
 
@@ -64,7 +64,7 @@ class Rewards(IconScoreBase):
     @external(readonly = True)
     def getStartTimestamp() -> int:
         self._start_timestamp.get()
-    
+
     # Methods to update the states of a data_source_name object
     @external
     def updateBalTokenDistPercentage(self, _data_source_dict_list : List[DistPercentDict]):
@@ -75,11 +75,11 @@ class Rewards(IconScoreBase):
             if data_source_dict['data_source_name'] not in self._data_source_names:
                 revert(f"Data source {data_source_dict['data_source_name']} doesn't exists")
             self._data_source_db[data_source_dict['data_source_name']].bal_token_dist_percent.set(data_source_dict['bal_token_dist_percent'])
-            total_percentage += data_source_dict['bal_token_dist_percent'] 
+            total_percentage += data_source_dict['bal_token_dist_percent']
 
         if total_percentage != 10**18:
             revert(f"Total percentage doesn't sum upto 100")
-    
+
     @external(readonly=True)
     def getDataSourceNames(self) -> list:
         data_source_names = []
@@ -114,8 +114,8 @@ class Rewards(IconScoreBase):
                 self._reward_distribution(data_source_name, self._batch_size.get())
                 distribution_complete = False
         return distribution_complete
-                
-        
+
+
     @external
     def claimRewards(self) -> None:
         if self._token_holdings[self.msg.sender]:
@@ -125,12 +125,5 @@ class Rewards(IconScoreBase):
 
 
     def _get_day(self) -> int:
-        today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS 
-        return today 
-    
-            
-
-
-    
-
-    
+        today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS
+        return today
