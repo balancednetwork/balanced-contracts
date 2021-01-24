@@ -11,7 +11,7 @@ TAG = 'StakedICXManager'
 
 DENOMINATOR = 1000000000000000000
 
-TOTAL_PREPS = 4
+TOTAL_PREPS = 20
 
 
 # An interface of token to distribute daily rewards
@@ -117,7 +117,7 @@ class Staking(IconScoreBase):
         # array to store top 100 preps
         self._top_preps = ArrayDB(self._TOP_PREPS, db, value_type=Address)
         # initializing the system score
-        self._system = IconScoreBase.create_interface_score(SYSTEM_SCORE, InterfaceSystemScore)
+        self._system = self.create_interface_score(SYSTEM_SCORE, InterfaceSystemScore)
         # initialize the sicx score
         self.sICX_score = self.create_interface_score(self._sICX_address.get(), sICXTokenInterface)
         # initialize the linked list
@@ -240,16 +240,6 @@ class Staking(IconScoreBase):
         for each_prep in prep_address_list:
             self._top_preps.put(each_prep['address'])
 
-    def _get_amount_to_mint(self) -> int:
-        """Returns the amount to be minted to a address"""
-        supply = self._sICX_supply.get()
-        balance = self.getTotalStake()
-        if balance == self.msg.value:
-            amount = self.msg.value
-        else:
-            amount = supply * self.msg.value // (balance - self.msg.value)
-        return amount
-
     def _reset_top_preps(self) -> None:
         """
         Sets the new top 100 prep address in an array db weekly after checking the specific conditions.
@@ -318,11 +308,11 @@ class Staking(IconScoreBase):
         if _data is None:
             _data = b'None'
         if _to is None:
-            _to = self.tx.origin
+            _to = self.msg.sender
         self._perform_checks()
         self._total_stake.set(self._total_stake.get() + self.msg.value)
-        amount = self._get_amount_to_mint()
-        self.sICX_score.mintTo(_to, amount, _data)
+        amount = DENOMINATOR * self.msg.value // self._rate.get()
+        self.sICX_score.mintTo(_to, amount,_data)
         self._stake(self._total_stake.get())
         evenly_distributed_amount, remainder_icx = self._evenly_distrubuted_amount()
         self._delegations(evenly_distributed_amount, remainder_icx)
