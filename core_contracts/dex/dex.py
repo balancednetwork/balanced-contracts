@@ -15,6 +15,18 @@ from .utils.checks import *
 from .utils.consts import *
 
 
+# An interface to the Rewards SCORE
+class Rewards(InterfaceScore):
+    @interface
+    def distribute(self) -> bool:
+        pass
+
+# An interface to the Dividends SCORE
+class Dividends(InterfaceScore):
+    @interface
+    def distribute(self) -> bool:
+        pass
+
 class stakingInterface(InterfaceScore):
     @interface
     def getTodayRate(self):
@@ -26,17 +38,22 @@ class DEX(IconScoreBase):
     _TAG = 'DEX'
     _ACCOUNT_BALANCE_SNAPSHOT = 'account_balance_snapshot'
     _TOTAL_SUPPLY_SNAPSHOT = 'total_supply_snapshot'
-    _CURRENT_SNAPSHOT_ID = 'current_snapshot_id'
     _FUNDED_ADDRESSES = 'funded_addresses'
     _ICX_QUEUE_TOTAL = 'icx_queue_total'
     _SICX_ADDRESS = 'sicx_address'
     _ICD_ADDRESS = 'icd_address'
     _STAKING_ADDRESS = 'staking_address'
     _DIVIDENDS_ADDRESS = 'dividends_address'
+    _REWARDS_ADDRESS = 'rewards_address'
     _GOVERNANCE_ADDRESS = 'governance_address'
     _NAMED_MARKETS = 'named_markets'
     _ADMIN = 'admin'
+    _DEX_ON = 'dex_on'
     _SICXICX_MARKET_NAME = 'SICXICX'
+    _CURRENT_DAY = 'current_day'
+    _TIME_OFFSET = 'time_offset'
+    _REWARDS_DONE = 'rewards_done'
+    _DIVIDENDS_DONE = 'dividends_done'
 
     ####################################
     # Events
@@ -107,14 +124,20 @@ class DEX(IconScoreBase):
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
 
+        # Linked Addresses
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._sICX_address = VarDB(self._SICX_ADDRESS, db, value_type=Address)
         self._staking_address = VarDB(
             self._STAKING_ADDRESS, db, value_type=Address)
-        self._dividends_address = VarDB(
+        self._dividends = VarDB(
             self._DIVIDENDS_ADDRESS, db, value_type=Address)
         self._governance = VarDB(
             self._GOVERNANCE_ADDRESS, db, value_type=Address)
+        self._rewards = VarDB(
+            self._REWARDS_ADDRESS, db, value_type=Address)
+
+        # DEX Activation (can be set by governance only)
+        self._dex_on = VarDB(self._DEX_ON, db, value_type=bool)
 
         # deposited irc not locked in pool
         # deposit[TokenAddress][UserAddress] = intValue
@@ -139,13 +162,17 @@ class DEX(IconScoreBase):
         # balance[nonce][userAddress]
         self.balance = DictDB('balances', db, value_type=int, depth=2)
 
-        # Pool Balance History
+        # Pool Balance History for snapshots
         self._account_balance_snapshot = DictDB(
             self._ACCOUNT_BALANCE_SNAPSHOT, db, value_type=int, depth=4)
         self._total_supply_snapshot = DictDB(
             self._TOTAL_SUPPLY_SNAPSHOT, db, value_type=int, depth=3)
-        self._current_snapshot_id = VarDB(
-            self._CURRENT_SNAPSHOT_ID, db, value_type=int)
+
+        # Rewards/timekeeping logic
+        self._current_day = VarDB(self._CURRENT_DAY, db, value_type=int)
+        self._time_offset = VarDB(self._TIME_OFFSET, db, value_type=int)
+        self._rewards_done = VarDB(self._REWARDS_DONE, db, value_type=bool)
+        self._dividends_done = VarDB(self._DIVIDENDS_DONE, db, value_type=bool)
 
         # Previously mapped addresses, for iteration purposes
         self.funded_addresses = SetDB(
@@ -189,7 +216,7 @@ class DEX(IconScoreBase):
         self.fees.set(3)
         # avoid 0 as default null pid
         self.nonce.set(1)
-        self._current_snapshot_id.set(0)
+        self._current_day.set(0)
         self.named_markets[self._SICXICX_MARKET_NAME] = 0
 
     def on_update(self) -> None:
@@ -216,11 +243,11 @@ class DEX(IconScoreBase):
     @only_owner
     @external
     def set_dividends_address(self, _address: Address) -> None:
-        self._dividends_address.set(_address)
+        self._dividends.set(_address)
 
     @external(readonly=True)
     def getDividendsAddress(self) -> Address:
-        return self._dividends_address.get()
+        return self._dividends.get()
 
     @only_owner
     @external
@@ -246,8 +273,41 @@ class DEX(IconScoreBase):
 
     @only_owner
     @external
+    def setRewards(self, _address: Address) -> None:
+        self._rewards.set(_address)
+
+    @external
+    def getRewards(self) -> Address:
+        return self._rewards.get()
+
+    @only_owner
+    @external
     def setMarketName(self, _pid: int, _name: str) -> None:
         self.named_markets[_name] = _pid
+
+    @only_governance
+    @external
+    def turnDexOn(self) -> None:
+        self._dex_on.set(True)
+
+    @external(readonly=True)
+    def getDexOn(self) -> bool:
+        return self._dex_on.get()
+
+    @external
+    def getDay(self) -> int:
+        return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
+
+    @only_governance
+    @external
+    def setTimeOffset(self, _delta_time: int) -> None:
+        if self.msg.sender != self._governance.get():
+            revert("The time_offset can only be set by the Governance SCORE.")
+        self._time_offset.set(_delta_time)
+
+    @external(readonly=True)
+    def getTimeOffset(self) -> int:
+        self._time_offset.get()
 
     @payable
     def fallback(self):
@@ -303,6 +363,11 @@ class DEX(IconScoreBase):
     def tokenFallback(self, _from: Address, _value: int, _data: bytes):
         # if user sends some irc token to score
         Logger.info("called token fallback", self._TAG)
+
+        # Update snapshots if necessary and notify the rewards score
+        self._take_new_day_snapshot()
+        self._check_distributions()
+
         unpacked_data = json_loads(_data.decode('utf-8'))
         _fromToken = self.msg.sender
         if unpacked_data["method"] == "_deposit":
@@ -318,6 +383,14 @@ class DEX(IconScoreBase):
                 unpacked_data["params"]["to"]), _value)
         else:
             revert("Fallback directly not allowed")
+
+    @external
+    def precompute(self, snap: int, batch_size: int) -> bool:
+        """
+        Required by the rewards score data source API, but unneeded.
+        Returns true to match the required workflow.
+        """
+        return True
 
     @external
     def transfer(self, _to: Address, _value: int, _id: int, _data: bytes = None):
@@ -603,7 +676,7 @@ class DEX(IconScoreBase):
             removed_icx += matched_icx
 
             dividends_contribution = (int)((matched_icx * 3) / 1000)
-            self.icx.transfer(self._dividends_address.get(),
+            self.icx.transfer(self._dividends.get(),
                               dividends_contribution)
 
             sicx_score.transfer(counterparty_address, matched_sicx)
@@ -625,15 +698,22 @@ class DEX(IconScoreBase):
         self.icxQueueTotal.set(current_icx_total)
 
     # Snapshotting
+    def _take_new_day_snapshot(self) -> None:
+        day = self.getDay()
+        if day > self._current_day.get():
+            self._current_day.set(day)
+            self.Snapshot(day)
+            self._rewards_done.set(False)
+            if day % 7 == 0:
+                self._dividends_done.set(False)
 
-    @external
-    def snapshot(self) -> None:
-        self._snapshot()
-
-    def _snapshot(self) -> None:
-        current_id = self._current_snapshot_id.get() + 1
-        self._current_snapshot_id.set(current_id)
-        self.Snapshot(current_id)
+    def _check_distributions(self) -> None:
+        if not self._rewards_done.get():
+            rewards = self.create_interface_score(self._rewards.get(), Rewards)
+            self._rewards_done.set(rewards.distribute())
+        elif not self._dividends_done.get():
+            dividends = self.create_interface_score(self._dividends.get(), Dividends)
+            self._dividends_done.set(dividends.distribute())
 
     def _updateAccountSnapshot(self, _account: Address, _id: int) -> None:
         """
@@ -641,7 +721,7 @@ class DEX(IconScoreBase):
         :param _account: Address to update
         :param _id: pool id to update
         """
-        current_id = self._current_snapshot_id.get()
+        current_id = self._current_day.get()
         current_value = self.balanceOf(_account, _id)
         length = self._account_balance_snapshot[_id][_account]['length'][0]
         if length == 0:
@@ -664,7 +744,7 @@ class DEX(IconScoreBase):
         Updates a an asset's total supply snapshot
         :param _id: pool id to update
         """
-        current_id = self._current_snapshot_id.get()
+        current_id = self._current_day.get()
         current_value = self.totalSupply(_id)
         length = self._total_supply_snapshot[_id]['length'][0]
         if length == 0:
