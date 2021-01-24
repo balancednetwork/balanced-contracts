@@ -33,6 +33,7 @@ class DEX(IconScoreBase):
     _ICD_ADDRESS = 'icd_address'
     _STAKING_ADDRESS = 'staking_address'
     _DIVIDENDS_ADDRESS = 'dividends_address'
+    _GOVERNANCE_ADDRESS = 'governance_address'
     _NAMED_MARKETS = 'named_markets'
     _ADMIN = 'admin'
     _SICXICX_MARKET_NAME = 'SICXICX'
@@ -112,6 +113,8 @@ class DEX(IconScoreBase):
             self._STAKING_ADDRESS, db, value_type=Address)
         self._dividends_address = VarDB(
             self._DIVIDENDS_ADDRESS, db, value_type=Address)
+        self._governance = VarDB(
+            self._GOVERNANCE_ADDRESS, db, value_type=Address)
 
         # deposited irc not locked in pool
         # deposit[TokenAddress][UserAddress] = intValue
@@ -227,6 +230,24 @@ class DEX(IconScoreBase):
     @external(readonly=True)
     def getStakingAddress(self) -> Address:
         return self._staking_address.get()
+
+    @external(readonly=True)
+    def getStakingAddress(self) -> Address:
+        return self._staking_address.get()
+
+    @only_owner
+    @external
+    def setGovernance(self, _address: Address) -> None:
+        self._governance.set(_address)
+
+    @external
+    def getGovernance(self) -> Address:
+        return self._governance.get()
+
+    @only_owner
+    @external
+    def setMarketName(self, _pid: int, _name: str) -> None:
+        self.named_markets[_name] = _pid
 
     @payable
     def fallback(self):
