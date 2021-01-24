@@ -19,6 +19,10 @@ class LoansInterface(InterfaceScore):
     def getCollateralTokens(self) -> dict:
         pass
 
+    @interface
+    def getAssetTokens(self) -> dict:
+        pass
+
 
 class Dividends(IconScoreBase):
 
@@ -57,7 +61,7 @@ class Dividends(IconScoreBase):
 
     @external(readonly=True)
     def getLoansScore(self) -> Address:
-        self._loans_score.get()
+        return self._loans_score.get()
 
     @external(readonly=True)
     def getBalances(self) -> dict:

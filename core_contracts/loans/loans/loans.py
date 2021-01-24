@@ -126,17 +126,14 @@ class Loans(IconScoreBase):
         return "BalancedLoans"
 
     @external
+    @only_governance
     def turnLoansOn(self) -> None:
-        if self.msg.sender != self._governance.get():
-            revert("Loans can only be turned on by the Governance SCORE.")
         self._loans_on.set(True)
         self._positions._snapshot_db.new_snapshot(self.getDay())
 
     @external
+    @only_governance
     def toggleLoansOn(self) -> None:
-        if self.msg.sender != self._governance.get():
-            revert("The Loans active status can only be controlled through the"
-                   "Governance SCORE.")
         self._loans_on.set(not self._loans_on.get())
 
     @external
@@ -238,7 +235,7 @@ class Loans(IconScoreBase):
         self._assets[_symbol].active.set(not self._assets[_symbol].active.get())
 
     @external
-    def precompute(self, snap: int, batch_size: int) -> bool:
+    def precompute(self, _snapshot_id: int, batch_size: int) -> bool:
         """
         prepares the position data snapshot to send to the rewards SCORE.
         """
@@ -247,41 +244,41 @@ class Loans(IconScoreBase):
         if self._take_new_day_snapshot():
             return False
         # Iterate through all positions in the snapshot to bring them up to date.
-        if self._positions._calculate_snapshot(snap, batch_size):
+        if self._positions._calculate_snapshot(_snapshot_id, batch_size):
             return True
         return False
 
     @external
-    def getTotalValue(self, snap: int) -> int:
+    def getTotalValue(self, _snapshot_id: int) -> int:
         """
         Gets total outstanding debt for mining rewards calculation.
         """
         if self.msg.sender != self._rewards.get():
             revert(f'The getTotalValue method may only be invoked by the rewards SCORE.')
-        return self._positions._snapshot_db[snap].total_mining_debt.get()
+        return self._positions._snapshot_db[_snapshot_id].total_mining_debt.get()
 
     @external
-    def getDataCount(self, snap: int) -> int:
+    def getDataCount(self, _snapshot_id: int) -> int:
         """
         Returns the number of records in the snapshot.
         """
         if self.msg.sender != self._rewards.get():
             revert(f'The getDataCount method may only be invoked by the rewards SCORE.')
-        return len(self._positions._snapshot_db[snap].mining)
+        return len(self._positions._snapshot_db[_snapshot_id].mining)
 
     @external
-    def getDataBatch(self, snap: int, batch_start: int, batch_size: int) -> dict:
+    def getDataBatch(self, _name: str, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
         """
         Read position data batch.
         """
         if self.msg.sender != self._rewards.get():
             revert(f'The getDataBatch method may only be invoked by the rewards SCORE.')
         batch = {}
-        mining = self._positions._snapshot_db[snap].mining
-        for i in range(batch_start, batch_start + batch_size):
+        mining = self._positions._snapshot_db[_snapshot_id].mining
+        for i in range(_offset, _offset + _limit):
             address_id = mining[i]
             pos = self._positions[address_id]
-            batch[pos.address] = pos.total_debt[pos.get_snapshot_id(snap)]
+            batch[pos.address] = pos.total_debt[pos.get_snapshot_id(_snapshot_id)]
         return batch
 
     def _take_new_day_snapshot(self) -> bool:
@@ -321,9 +318,7 @@ class Loans(IconScoreBase):
             revert(f'Amount sent must be greater than zero.')
         if self.msg.sender not in self._assets.alist:
             revert(f'The Balanced Loans contract does not accept that token type.')
-        if self._take_new_day_snapshot():
-            pass
-        else:
+        if not self._take_new_day_snapshot():
             self._check_distributions()
         if _from == self._reserve.get():
             return
@@ -699,7 +694,7 @@ class Loans(IconScoreBase):
 
     @external
     def getAdmin(self) -> Address:
-        self._admin.get()
+        return self._admin.get()
 
     @external
     @only_owner
@@ -708,7 +703,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getGovernance(self) -> Address:
-        self._governance.get()
+        return self._governance.get()
 
     @external
     @only_owner
@@ -717,7 +712,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getDividends(self) -> Address:
-        self._dividends.get()
+        return self._dividends.get()
 
     @external
     @only_owner
@@ -726,7 +721,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getReserve(self) -> Address:
-        self._reserve.get()
+        return self._reserve.get()
 
     @external
     @only_owner
@@ -735,7 +730,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getRewards(self) -> Address:
-        self._rewards.get()
+        return self._rewards.get()
 
     @external
     @only_owner
@@ -744,7 +739,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getReplayBatchSize(self) -> int:
-        self._replay_batch_size.get()
+        return self._replay_batch_size.get()
 
     @external
     @only_owner
@@ -753,7 +748,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getMiningRatio(self) -> int:
-        self._mining_ratio.get()
+        return self._mining_ratio.get()
 
     @external
     @only_owner
@@ -762,7 +757,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getLockingRatio(self) -> int:
-        self._locking_ratio.get()
+        return self._locking_ratio.get()
 
     @external
     @only_owner
@@ -771,7 +766,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getLiquidationRatio(self) -> int:
-        self._liquidation_ratio.get()
+        return self._liquidation_ratio.get()
 
     @external
     @only_owner
@@ -780,7 +775,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getOriginationFee(self) -> int:
-        self._origination_fee.get()
+        return self._origination_fee.get()
 
     @external
     @only_owner
@@ -789,7 +784,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getRedemptionFee(self) -> int:
-        self._redemption_fee.get()
+        return self._redemption_fee.get()
 
     @external
     @only_owner
@@ -798,17 +793,34 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getRedeemMinimum(self) -> int:
-        self._redeem_minimum.get()
+        return self._redeem_minimum.get()
 
     @external
+    @only_governance
     def setTimeOffset(self, _delta_time: int) -> None:
-        if self.msg.sender != self._governance.get():
-            revert("The time_offset can only be set by the Governance SCORE.")
         self._time_offset.set(_delta_time)
 
     @external(readonly=True)
     def getTimeOffset(self) -> int:
-        self._time_offset.get()
+        return self._time_offset.get()
+
+    @external(readonly=True)
+    def getParameters(self) -> dict:
+        return {
+                "admin": self._admin.get(),
+                "governance": self._governance.get(),
+                "dividends": self._dividends.get(),
+                "reserve_fund": self._reserve.get(),
+                "rewards": self._rewards.get(),
+                "replay batch size": self._replay_batch_size.get(),
+                "mining ratio": self._mining_ratio.get(),
+                "locking ratio": self._locking_ratio.get(),
+                "liquidation ratio": self._liquidation_ratio.get(),
+                "origination fee": self._origination_fee.get(),
+                "redemption fee": self._redemption_fee.get(),
+                "redeem minimum": self._redeem_minimum.get(),
+                "time offset": self._time_offset.get()
+                }
 
 #-------------------------------------------------------------------------------
 #   EVENT LOGS
