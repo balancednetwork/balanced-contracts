@@ -57,12 +57,17 @@ class DEX(IconScoreBase):
     _TIME_OFFSET = 'time_offset'
     _REWARDS_DONE = 'rewards_done'
     _DIVIDENDS_DONE = 'dividends_done'
+    _NAME = 'BalancedDex'
 
     ####################################
     # Events
     @eventlog(indexed=2)
     def Swap(self, _fromToken: Address, _toToken: Address, _sender: Address,
              _receiver: Address, _fromValue: int, _toValue: int): pass
+
+    @eventlog(indexed=3)
+    def MarketAdded(self, _pid: int, _baseToken: Address,
+                    _quoteToken: Address, _baseValue: int, _quoteValue: int): pass
 
     @eventlog(indexed=2)
     def Add(self, _pid: int, _owner: Address, _value: int): pass
@@ -75,9 +80,6 @@ class DEX(IconScoreBase):
 
     @eventlog(indexed=2)
     def Withdraw(self, _token: Address, _owner: Address, _value: int): pass
-
-    @eventlog(indexed=2)
-    def Dividends(self, _token: Address, _value: int): pass
 
     @eventlog(indexed=3)
     def TransferSingle(self, _operator: Address, _from: Address, _to: Address, _id: int, _value: int):
@@ -183,8 +185,12 @@ class DEX(IconScoreBase):
         self._funded_addresses = SetDB(
             self._FUNDED_ADDRESSES, db, value_type=Address, order=True)
 
-        # Fees in basis points (divide by 1000)
-        self._fees = VarDB('fees', db, value_type=int)
+        # All fees are divided by `FEE_SCALE` in consts
+        self._pool_lp_fee = VarDB('pool_lp_fee', db, value_type=int)
+        self._pool_baln_fee = VarDB('pool_baln_fee', db, value_type=int)
+        self._icx_conversion_fee = VarDB(
+            'icx_conversion_fee', db, value_type=int)
+        self._icx_baln_fee = VarDB('icx_baln_fee', db, value_type=int)
 
         # pid to tokens
         # poolTn[nonce] = tokenAddress
@@ -221,7 +227,10 @@ class DEX(IconScoreBase):
 
     def on_install(self) -> None:
         super().on_install()
-        self._fees.set(3)
+        self._pool_lp_fee.set(15)
+        self._pool_baln_fee.set(15)
+        self._icx_conversion_fee.set(70)
+        self._icx_baln_fee.set(30)
         # avoid 0 as default null pid
         self._nonce.set(1)
         self._current_day.set(0)
@@ -229,6 +238,10 @@ class DEX(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+
+    @external(readonly=True)
+    def name(self) -> str:
+        return self._NAME
 
     @external(readonly=True)
     def getAdmin(self) -> Address:
@@ -476,7 +489,7 @@ class DEX(IconScoreBase):
         """
         :param _from: The address calling `transfer` on the other contract
         :param _value: Amount of token transferred
-        :param _data: Data called by the transfer, json object expected. 
+        :param _data: Data called by the transfer, json object expected.
 
         This is invoked when a token is transferred to this score.
         It expects a JSON object with the following format:
@@ -565,7 +578,7 @@ class DEX(IconScoreBase):
     @external(readonly=True)
     def getDeposit(self, _tokenAddress: Address, _user: Address) -> int:
         """
-        Returns the amount of tokens of address `_tokenAddress` that a 
+        Returns the amount of tokens of address `_tokenAddress` that a
         user with Address `_user` has on deposit. Tokens currently
         committed to a LP pool are excluded.
 
@@ -637,8 +650,26 @@ class DEX(IconScoreBase):
             return self._balance[_id][_owner]
 
     @external(readonly=True)
-    def getFees(self) -> int:
-        return self._fees.get()
+    def getFees(self) -> dict:
+        """
+        Gets fees on the balanced platform. There are presently 4 fees:
+        - `icx_conversion_fee` - This goes to the ICX holder in SICXICX
+        - `icx_baln_fee` - This is the fee on SICXICX trades that goes to BALN holders
+        - `pool_lp_fee` - This is the fee on pool fees that go to the LPs
+        - `pool_baln_fee` -  This is the fee on pool trades that goes BALN holders
+
+        All fees are divided by the `FEE_SCALE` constant
+        """
+        fees = {}
+        fees['icx_total'] = self._icx_baln_fee.get() + \
+            self._icx_conversion_fee.get()
+        fees['pool_total'] = self._pool_baln_fee.get() + \
+            self._pool_lp_fee.get()
+        fees['pool_lp_fee'] = self._pool_lp_fee.get()
+        fees['pool_baln_fee'] = self._pool_baln_fee.get()
+        fees['icx_conversion_fee'] = self._icx_conversion_fee.get()
+        fees['icx_baln_fee'] = self._icx_baln_fee.get()
+        return fees
 
     @external(readonly=True)
     def getPoolBase(self, _pid: int) -> Address:
@@ -773,7 +804,9 @@ class DEX(IconScoreBase):
     # Internal exchange function
 
     def exchange(self, _fromToken: Address, _toToken: Address, _sender: Address, _receiver: Address, _value: int):
-        fees = int(_value * (self._fees.get() / 1000))
+        lp_fees = (_value * self._pool_lp_fee.get()) // FEE_SCALE
+        baln_fees = (_value * self._pool_baln_fee.get()) // FEE_SCALE
+        fees = lp_fees + baln_fees
         original_value = _value
         _value -= fees
         _pid = self._pool_id[_fromToken][_toToken]
@@ -787,10 +820,14 @@ class DEX(IconScoreBase):
             self._pool_total[_pid][_fromToken] * self._pool_total[_pid][_toToken] / new_token1)
         send_amt = self._pool_total[_pid][_toToken] - new_token2
 
-        token_score = self.create_interface_score(_toToken, TokenInterface)
-        token_score.transfer(_receiver, send_amt)
-        self._pool_total[_pid][_fromToken] = new_token1 + fees
+        self._pool_total[_pid][_fromToken] = new_token1 + lp_fees
         self._pool_total[_pid][_toToken] = new_token2
+        
+        # Pay each of the user and the dividends score their share of the tokens
+        to_token_score = self.create_interface_score(_toToken, TokenInterface)
+        to_token_score.transfer(_receiver, send_amt)
+        from_token_score = self.create_interface_score(_fromToken, TokenInterface)
+        from_token_score.transfer(self._dividends.get(), send_amt)
         self.Swap(_fromToken, _toToken, _sender, _receiver, _value, send_amt)
 
     def _get_sicx_rate(self) -> int:
@@ -811,6 +848,10 @@ class DEX(IconScoreBase):
         filled = False
         filled_icx = 0
         removed_icx = 0
+
+        fee_ratio = FEE_SCALE - \
+            (self._icx_baln_fee.get() + self._icx_conversion_fee.get())
+
         while not filled:
 
             if self._icx_queue._length.get() == 0:
@@ -820,21 +861,22 @@ class DEX(IconScoreBase):
 
             counterparty_order = self._icx_queue._get_head_node()
             counterparty_address = counterparty_order.get_value2()
-            order_sicx_value = (int)(counterparty_order.get_value1() * EXA /
+            order_sicx_value = (int)(counterparty_order.get_value1() * EXA //
                                      conversion_factor)
             # Perform match. Matched amount is up to order size
             matched_sicx = min(order_sicx_value, remaining_sicx)
-            matched_icx = (int)(matched_sicx * conversion_factor / EXA)
-            filled_icx += (int)((matched_icx * 99) / 100)
+            matched_icx = (int)(matched_sicx * conversion_factor // EXA)
+            filled_icx += (int)((matched_icx * fee_ratio) // FEE_SCALE)
             removed_icx += matched_icx
 
-            dividends_contribution = (int)((matched_icx * 3) / 1000)
+            dividends_contribution = (int)(
+                (matched_icx * self._icx_baln_fee.get()) // FEE_SCALE)
             self.icx.transfer(self._dividends.get(),
                               dividends_contribution)
 
             sicx_score.transfer(counterparty_address, matched_sicx)
             self.icx.transfer(counterparty_address, (int)
-                              ((matched_icx * 7) / 1000))
+                              ((matched_icx * self._icx_conversion_fee.get()) // FEE_SCALE))
 
             if matched_icx == counterparty_order.get_value1():
                 self._icx_queue.remove_head()
@@ -983,13 +1025,28 @@ class DEX(IconScoreBase):
     # Owner permission for new pools
 
     @external
+    @only_governance
     def permit(self, _pid: int, _permission: bool):
-        if self.msg.sender != self.owner:
-            revert("only owner can set admins")
+        """
+        :param _pid: Pool ID to manage trading enabled/disabled on
+        :param _permission: True = trading enabled, False = disabled
+
+        This function is used to enable or disable trading on a particular pair.
+        It should be used by the governance score. If a situation arises such
+        as an actively fraudulent market being listed, the community could
+        choose to cancel it here.
+        """
         self.active[_pid] = _permission
 
     @external
     def withdraw(self, _token: Address, _value: int):
+        """
+        :param _token: Address of the token the user wishes to withdraw
+        :param _value: Amount of token the users wishes to withdraw
+
+        This function is used to withdraw funds deposited to the DEX, but
+        not currently committed to a pool.
+        """
         if _value > self._deposit[_token][self.msg.sender]:
             revert("Insufficient balance")
         self._deposit[_token][self.msg.sender] -= _value
@@ -999,6 +1056,14 @@ class DEX(IconScoreBase):
 
     @external
     def remove(self, _pid: int, _value: int, _withdraw: bool = False):
+        """
+        :param _pid: The pool ID the user wishes to stop contributing to
+        :param _value: Amount of LP tokens the user wishes to withdraw
+        :param _withdraw: Switch for withdrawing directly to wallet or contract
+
+        This method can withdraw up to a user's holdings in a pool, but it cannot
+        be called if the user has not passed their withdrawal lock time period.
+        """
         balance = self._balance[_pid][self.msg.sender]
         if not self.active[_pid]:
             revert("Pool is not active")
@@ -1055,6 +1120,8 @@ class DEX(IconScoreBase):
             self.active[_pid] = True
             self._pool_base[_pid] = _baseToken
             self._pool_quote[_pid] = _quoteToken
+            self.MarketAdded(_pid, _baseToken, _quoteToken,
+                             _baseValue, _quoteValue)
         else:
             token1price = self.getPrice(_pid)
             if not int(_baseValue * (token1price / 10**10)) == _quoteValue:
