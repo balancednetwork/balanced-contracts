@@ -21,9 +21,24 @@ POSITION_DB_PREFIX = b'position'
 
 
 class Standing:
-    LIQUIDATE = 0
-    LOCKED = 1
-    NOT_MINING = 2
-    MINING = 3
-    UNDETERMINED = 4
-    STANDINGS = ['Liquidate', 'Locked', 'Not Mining', 'Mining', 'Undetermined']
+    INDETERMINATE = 0
+    ZERO = 1
+    LIQUIDATE = 2
+    LOCKED = 3
+    NOT_MINING = 4
+    MINING = 5
+    NO_DEBT = 6
+    STANDINGS = ['Indeterminate', 'Zero', 'Liquidate', 'Locked',
+                 'Not Mining', 'Mining', 'No Debt']
+
+
+class Outcome:
+    NO_SUCCESS = 0
+    SUCCESS = 1
+    OUTCOMES = ['No Success', 'Success']
+
+
+class Complete:
+    NOT_DONE = 0
+    DONE = 1
+    COMPLETE = ['Not done', 'Done']
