@@ -74,7 +74,7 @@ class Governance(IconScoreBase):
 
     @external(readonly=True)
     def getAddresses(self) -> dict:
-        self.addresses.getAddresses()
+        return self.addresses.getAddresses()
 
     @external
     @only_owner

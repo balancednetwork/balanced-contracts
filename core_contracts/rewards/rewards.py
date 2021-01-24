@@ -85,7 +85,7 @@ class Rewards(IconScoreBase):
         distribution_complete = True
         for data_source_name in self._data_source_names:
             data_source = self.getDataSources(data_source_name)
-            if data_source[day] < self._get_day():
+            if data_source['day'] < self._get_day():
                 self._reward_distribution(data_source_name, self._batch_size.get())
                 distribution_complete = False
         return distribution_complete

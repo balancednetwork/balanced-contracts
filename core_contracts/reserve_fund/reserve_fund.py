@@ -6,6 +6,7 @@ TAG = 'ReserveFund'
 
 UNITS_PER_TOKEN = 1000000000000000000
 
+
 # An interface of token
 class TokenInterface(InterfaceScore):
     @interface
@@ -14,6 +15,13 @@ class TokenInterface(InterfaceScore):
 
     @interface
     def priceInLoop(self) -> int:
+        pass
+
+
+# An interface to the Loans SCORE
+class LoansInterface(InterfaceScore):
+    @interface
+    def getCollateralTokens(self) -> dict:
         pass
 
 
@@ -67,7 +75,7 @@ class ReserveFund(IconScoreBase):
 
     @external(readonly=True)
     def getLoansScore(self) -> Address:
-        self._loans_score.get()
+        return self._loans_score.get()
 
     @external
     @only_owner
@@ -76,7 +84,7 @@ class ReserveFund(IconScoreBase):
 
     @external(readonly=True)
     def getBalnToken(self) -> Address:
-        self._baln_token.get()
+        return self._baln_token.get()
 
     @external
     @only_owner
@@ -85,7 +93,7 @@ class ReserveFund(IconScoreBase):
 
     @external(readonly=True)
     def getSicxToken(self) -> Address:
-        self._sicx_token.get()
+        return self._sicx_token.get()
 
     @external(readonly=True)
     def getBalances(self) -> dict:
