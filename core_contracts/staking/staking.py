@@ -317,6 +317,7 @@ class Staking(IconScoreBase):
         evenly_distributed_amount, remainder_icx = self._evenly_distrubuted_amount()
         self._delegations(evenly_distributed_amount, remainder_icx)
         self._sICX_supply.set(self._sICX_supply.get() + amount)
+        self.TokenTransfer(_to, amount, f'{amount / DENOMINATOR} sICX minted to {_to}')
         return amount
 
     def _claim_iscore(self) -> None:
