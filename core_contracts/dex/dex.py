@@ -482,7 +482,8 @@ class DEX(IconScoreBase):
         self._icx_queue.remove(order_id)
         self.icx.transfer(self.msg.sender, withdraw_amount)
         del self._icx_queue_order_id[self.msg.sender]
-        # TODO(gedanziger): Update account/total supply snaps back down.
+        self._update_account_snapshot(self.msg.sender, 0)
+        self._update_total_supply_snapshot(0)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes):
