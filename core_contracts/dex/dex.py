@@ -777,8 +777,6 @@ class DEX(IconScoreBase):
         original_value = _value
         _value -= fees
         _pid = self._pool_id[_fromToken][_toToken]
-        pool1base = self.getPoolBase(1)
-        pool1quote = self.getPoolQuote(1)
         if _pid == 0:
             revert("Pool does not exist")
         old_price = self.getPrice(_pid)
@@ -789,12 +787,8 @@ class DEX(IconScoreBase):
             self._pool_total[_pid][_fromToken] * self._pool_total[_pid][_toToken] / new_token1)
         send_amt = self._pool_total[_pid][_toToken] - new_token2
 
-        if original_value / send_amt < (old_price * 975) / 1000:
-            revert("Maximum Slippage exceeded")
-
-        else:
-            token_score = self.create_interface_score(_toToken, TokenInterface)
-            token_score.transfer(self.msg.sender, send_amt)
+        token_score = self.create_interface_score(_toToken, TokenInterface)
+        token_score.transfer(_receiver, send_amt)
         self._pool_total[_pid][_fromToken] = new_token1 + fees
         self._pool_total[_pid][_toToken] = new_token2
         self.Swap(_fromToken, _toToken, _sender, _receiver, _value, send_amt)
@@ -1004,7 +998,7 @@ class DEX(IconScoreBase):
         self.Withdraw(_token, self.msg.sender, _value)
 
     @external
-    def remove(self, _pid: int, _value: int):
+    def remove(self, _pid: int, _value: int, _withdraw: bool = False):
         balance = self._balance[_pid][self.msg.sender]
         if not self.active[_pid]:
             revert("Pool is not active")
@@ -1018,13 +1012,19 @@ class DEX(IconScoreBase):
                                               [token1] * (_value / self._total[_pid]))
         self._pool_total[_pid][token2] -= int(self._pool_total[_pid]
                                               [token2] * (_value / self._total[_pid]))
-        self._deposit[token1][self.msg.sender] += int(
+        token1_amount = int(
             self._pool_total[_pid][token1] * (_value / self._total[_pid]))
-        self._deposit[token2][self.msg.sender] += int(
+        token2_amount = int(
             self._pool_total[_pid][token2] * (_value / self._total[_pid]))
         self._balance[_pid][self.msg.sender] -= _value
         self._total[_pid] -= _value
         self.Remove(_pid, self.msg.sender, _value)
+        if not _withdraw:
+            self._deposit[token1][self.msg.sender] += token1_amount
+            self._deposit[token2][self.msg.sender] += token2_amount
+        else:
+            self.withdraw(token1, token1_amount)
+            self.withdraw(token2, token2_amount)
         self._update_account_snapshot(self.msg.sender, _pid)
         self._update_total_supply_snapshot(_pid)
 
