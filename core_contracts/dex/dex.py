@@ -22,10 +22,13 @@ class Rewards(InterfaceScore):
         pass
 
 # An interface to the Dividends SCORE
+
+
 class Dividends(InterfaceScore):
     @interface
     def distribute(self) -> bool:
         pass
+
 
 class stakingInterface(InterfaceScore):
     @interface
@@ -126,7 +129,7 @@ class DEX(IconScoreBase):
 
         # Linked Addresses
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
-        self._sICX_address = VarDB(self._SICX_ADDRESS, db, value_type=Address)
+        self._sicx = VarDB(self._SICX_ADDRESS, db, value_type=Address)
         self._staking = VarDB(
             self._STAKING_ADDRESS, db, value_type=Address)
         self._dividends = VarDB(
@@ -135,6 +138,8 @@ class DEX(IconScoreBase):
             self._GOVERNANCE_ADDRESS, db, value_type=Address)
         self._rewards = VarDB(
             self._REWARDS_ADDRESS, db, value_type=Address)
+        self._icd = VarDB(
+            self._ICD_ADDRESS, db, value_type=Address)
 
         # DEX Activation (can be set by governance only)
         self._dex_on = VarDB(self._DEX_ON, db, value_type=bool)
@@ -192,15 +197,18 @@ class DEX(IconScoreBase):
         # poolTotal[nonce][tokenAddress] = intAmount
         self._pool_total = DictDB('poolTotal', db, value_type=int, depth=2)
 
-        self._withdraw_lock = DictDB('withdrawLock', db, value_type=int, depth=2)
+        self._withdraw_lock = DictDB(
+            'withdrawLock', db, value_type=int, depth=2)
 
         # Swap queue for sicxicx
         self._icx_queue = LinkedListDB(
             'icxQueue', db, value1_type=int, value2_type=Address)
-        self._icx_queue_order_id = DictDB('icxQueueOrderId', db, value_type=int)
+        self._icx_queue_order_id = DictDB(
+            'icxQueueOrderId', db, value_type=int)
 
         # Total ICX Balance available for conversion
-        self._icx_queue_total = VarDB(self._ICX_QUEUE_TOTAL, db, value_type=int)
+        self._icx_queue_total = VarDB(
+            self._ICX_QUEUE_TOTAL, db, value_type=int)
 
         # Withdraw lock for sicxicx
         self._icx_withdraw_lock = DictDB('icxWithdrawLock', db, value_type=int)
@@ -245,7 +253,7 @@ class DEX(IconScoreBase):
         """
         Gets the address of the Sicx contract.
         """
-        return self._sICX_address.get()
+        return self._sicx.get()
 
     @only_owner
     @external
@@ -254,7 +262,7 @@ class DEX(IconScoreBase):
         :param _address: New contract address to set.
         Sets new SICX address. Should be called before DEX use.
         """
-        self._sICX_address.set(_address)
+        self._sicx.set(_address)
 
     @only_owner
     @external
@@ -319,6 +327,22 @@ class DEX(IconScoreBase):
         Gets the address of the Rewards contract.
         """
         return self._rewards.get()
+
+    @only_owner
+    @external
+    def setIcd(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new ICD contract address. Should be called before dex use.
+        """
+        self._icd.set(_address)
+
+    @external
+    def getIcd(self) -> Address:
+        """
+        Gets the address of the ICD contract.
+        """
+        return self._icd.get()
 
     @only_owner
     @external
@@ -394,7 +418,8 @@ class DEX(IconScoreBase):
         Each time an order is placed or increased, it cannot be changed
         for 24 hours. Order placement updates the snapshots of the queue.
         """
-        # TODO(galen): Call _take_new_day_snapshot() and _update_distributions() here
+        self._take_new_day_snapshot()
+        self._check_distributions()
 
         order_id = self._icx_queue_order_id[self.msg.sender]
         if order_id:
@@ -425,7 +450,9 @@ class DEX(IconScoreBase):
 
         Order cancellation updates the snapshots of the queue.
         """
-        # TODO(galen): take new snap and update distributions here
+        self._take_new_day_snapshot()
+        self._check_distributions()
+
         if not self._icx_queue_order_id[self.msg.sender]:
             revert("No open order in SICXICX queue")
 
@@ -442,7 +469,7 @@ class DEX(IconScoreBase):
         self._icx_queue.remove(order_id)
         self.icx.transfer(self.msg.sender, withdraw_amount)
         del self._icx_queue_order_id[self.msg.sender]
-        #TODO(gedanziger): Update account/total supply snaps back down.
+        # TODO(gedanziger): Update account/total supply snaps back down.
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes):
@@ -479,13 +506,11 @@ class DEX(IconScoreBase):
             self._deposit[_fromToken][_from] += _value
             self.Deposit(_fromToken, _from, _value)
         elif unpacked_data["method"] == "_swap_icx":
-            if _fromToken == self._sICX_address.get():
+            if _fromToken == self._sicx.get():
                 self._swap_icx(_from, _value)
         elif unpacked_data["method"] == "_swap":
-            self.exchange(_fromToken, Address.from_string(unpacked_data["params"]["toToken"]), _from, _from, _value)
-        elif unpacked_data["method"] == "_transfer":
-            self.exchange(_fromToken, unpacked_data["params"]["toToken"], _from, Address.from_string(
-                unpacked_data["params"]["to"]), _value)
+            self.exchange(_fromToken, Address.from_string(
+                unpacked_data["params"]["toToken"]), _from, _from, _value)
         else:
             revert("Fallback directly not allowed")
 
@@ -751,19 +776,11 @@ class DEX(IconScoreBase):
         fees = int(_value * (self._fees.get() / 1000))
         original_value = _value
         _value -= fees
-        Logger.info('From Token: ' + str(_fromToken), self._TAG)
-        Logger.info('To Token: ' + str(_toToken), self._TAG)
         _pid = self._pool_id[_fromToken][_toToken]
-        Logger.info('Pool ID: ' + str(self.getPoolId(_fromToken, _toToken)), self._TAG)
-        Logger.info('Inv Pool ID: ' + str(self.getPoolId(_toToken, _fromToken)), self._TAG)
         pool1base = self.getPoolBase(1)
         pool1quote = self.getPoolQuote(1)
-        Logger.info('Pool 1 base: ' + str(pool1base) + ' pool 1 quote: ' + str(pool1quote), self._TAG)
-        Logger.info('Matches quote: ' + str(pool1quote == _fromToken) + ' matches base: ' + str(pool1base == _fromToken), self._TAG)
-        Logger.info('Matches quote: ' + str(pool1quote == _toToken) + ' matches base: ' + str(pool1base == _toToken), self._TAG)
         if _pid == 0:
             revert("Pool does not exist")
-        Logger.info("PID: " + str(_pid), self._TAG)
         old_price = self.getPrice(_pid)
         if not self.active[_pid]:
             revert("Pool is not active")
@@ -796,7 +813,7 @@ class DEX(IconScoreBase):
         conversion_factor = self._get_sicx_rate()
 
         sicx_score = self.create_interface_score(
-            self._sICX_address.get(), TokenInterface)
+            self._sicx.get(), TokenInterface)
         filled = False
         filled_icx = 0
         removed_icx = 0
@@ -854,7 +871,8 @@ class DEX(IconScoreBase):
             rewards = self.create_interface_score(self._rewards.get(), Rewards)
             self._rewards_done.set(rewards.distribute())
         elif not self._dividends_done.get():
-            dividends = self.create_interface_score(self._dividends.get(), Dividends)
+            dividends = self.create_interface_score(
+                self._dividends.get(), Dividends)
             self._dividends_done.set(dividends.distribute())
 
     def _update_account_snapshot(self, _account: Address, _id: int) -> None:
@@ -997,9 +1015,9 @@ class DEX(IconScoreBase):
         token1 = self._pool_base[_pid]
         token2 = self._pool_quote[_pid]
         self._pool_total[_pid][token1] -= int(self._pool_total[_pid]
-                                            [token1] * (_value / self._total[_pid]))
+                                              [token1] * (_value / self._total[_pid]))
         self._pool_total[_pid][token2] -= int(self._pool_total[_pid]
-                                            [token2] * (_value / self._total[_pid]))
+                                              [token2] * (_value / self._total[_pid]))
         self._deposit[token1][self.msg.sender] += int(
             self._pool_total[_pid][token1] * (_value / self._total[_pid]))
         self._deposit[token2][self.msg.sender] += int(
@@ -1027,6 +1045,8 @@ class DEX(IconScoreBase):
         if not _quoteValue:
             revert("Please send initial value for second currency")
         if _pid == 0:
+            if not (_quoteToken == self._icd.get()) and not (_quoteToken == self._sicx.get()):
+                revert("Second currency must be ICD or sICX")
             self._pool_id[_baseToken][_quoteToken] = self._nonce.get()
             self._pool_id[_quoteToken][_baseToken] = self._nonce.get()
             _pid = self._nonce.get()
@@ -1040,7 +1060,7 @@ class DEX(IconScoreBase):
             if not int(_baseValue * (token1price / 10**10)) == _quoteValue:
                 revert('disproportionate amount')
             liquidity = int(self._total[_pid] * (self._pool_total[_pid]
-                                                [_baseToken] + _baseValue) / self._pool_total[_pid][_baseToken])
+                                                 [_baseToken] + _baseValue) / self._pool_total[_pid][_baseToken])
         self._pool_total[_pid][_baseToken] += _baseValue
         self._pool_total[_pid][_quoteToken] += _quoteValue
         self._deposit[_baseToken][self.msg.sender] -= _baseValue
