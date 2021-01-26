@@ -416,7 +416,7 @@ class Staking(IconScoreBase):
         """
         to_distribute = 0
         for single_prep in self.getPrepDelegations().keys():
-            if Address.from_string(single_prep) not in top_preps:
+            if Address.from_string(single_prep) not in self._top_preps:
                 to_distribute += self._prep_delegations[str(single_prep)]
         to_evenly_distribute_value = self._distribute_evenly(to_distribute)
         return to_evenly_distribute_value
