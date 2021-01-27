@@ -63,8 +63,8 @@ class Governance(IconScoreBase):
             time_delta = DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get())
             loans.setTimeOffset(time_delta)
             loans.turnLoansOn()
-            # dex.setTimeOffset(time_delta)
-            # dex.turnDexOn()
+            dex.setTimeOffset(time_delta)
+            dex.turnDexOn()
             rewards.setTimeOffset(time_delta)
 
     @external
