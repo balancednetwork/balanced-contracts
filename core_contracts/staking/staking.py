@@ -155,13 +155,6 @@ class Staking(IconScoreBase):
             rate = (self._total_stake.get() + self._daily_reward.get()) * DENOMINATOR // self.sICX_score.totalSupply()
         return rate
 
-    @external
-    def setSicxSupply(self) -> None:
-        """
-        Only necessary for the dummy contract.
-        """
-        self._sICX_supply.set(self.sICX_score.totalSupply())
-
     @external(readonly=True)
     def getSicxAddress(self) -> Address:
         """
