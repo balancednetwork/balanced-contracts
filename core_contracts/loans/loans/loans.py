@@ -146,7 +146,7 @@ class Loans(IconScoreBase):
     def toggleLoansOn(self) -> None:
         self._loans_on.set(not self._loans_on.get())
 
-    @external
+    @external(readonly=True)
     def getLoansOn(self) -> bool:
         return self._loans_on.get()
 
