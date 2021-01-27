@@ -22,6 +22,7 @@ class DataSource(object):
     def __init__(self, db: IconScoreDatabase, rewards: IconScoreBase) -> None:
         self._rewards = rewards
         self.day = VarDB('day', db, int)
+        self.name = VarDB('name', db, int)
         self.offset = VarDB('offset', db, int)
         self.precomp = VarDB('precomp', db, bool)
         self.total_value = VarDB('total_value', db, int)
@@ -40,7 +41,7 @@ class DataSource(object):
             self.total_value.set(data_source.getTotalValue(self.day.get()))
 
         if self.precomp.get():
-            data_batch = data_source.getDataBatch(self.day.get(), self.offset.get(), batch_size)
+            data_batch = data_source.getDataBatch(self.name.get(), self.day.get(), self.offset.get(), batch_size)
             self.offset.set(self.offset.get() + batch_size)
             if not data_batch:
                 self.day.set(self.day.get() + 1)
@@ -70,11 +71,11 @@ class DataSourceDB:
 
     def __getitem__(self, data_source_name: str) -> DataSource:
         prefix = b'|'.join([DATASOURCE_DB_PREFIX, str(data_source_name).encode()])
-        if prefix not in self._items:
+        if data_source_name not in self._items:
             sub_db = self._db.get_sub_db(prefix)
-            self._items[prefix] = DataSource(sub_db, self._rewards)
+            self._items[data_source_name] = DataSource(sub_db, self._rewards)
 
-        return self._items[prefix]
+        return self._items[data_source_name]
 
     def __setitem__(self, key, value):
         revert('illegal access')
@@ -82,14 +83,15 @@ class DataSourceDB:
     def __len__(self) -> int:
         return len(self._names)
 
-def add_data_to_data_source(prefix: str, data_source: 'DataSourceDB', data_source_obj: 'DataSourceObject'):
-    data_source[prefix].contract_address.set(data_source_obj.contract_address)
-    data_source[prefix].bal_token_dist_percent.set(data_source_obj.bal_token_dist_percent)
+def add_data_to_data_source(name: str, data_source: 'DataSourceDB', data_source_obj: 'DataSourceObject'):
+    data_source[name].contract_address.set(data_source_obj.contract_address)
+    data_source[name].bal_token_dist_percent.set(data_source_obj.bal_token_dist_percent)
+    data_source[name].name.set(name)
 
-def get_data_from_data_source(prefix: str, data_source: 'DataSourceDB') -> dict:
-    day = data_source[prefix].day.get()
-    contract_address = data_source[prefix].contract_address.get()
-    bal_token_dist_percent = data_source[prefix].bal_token_dist_percent.get()
+def get_data_from_data_source(name: str, data_source: 'DataSourceDB') -> dict:
+    day = data_source[name].day.get()
+    contract_address = data_source[name].contract_address.get()
+    bal_token_dist_percent = data_source[name].bal_token_dist_percent.get()
 
     return {
         'day' : day,
