@@ -11,7 +11,6 @@ DECIMALS = 6
 
 class WorkerToken(IRC2):
 
-    _GOVERNANCE_ADDRESS = 'governance_address'
     _BALN_TOKEN = 'baln_token'
     _BALN = 'baln'
 
@@ -21,7 +20,6 @@ class WorkerToken(IRC2):
         """
         super().__init__(db)
 
-        self._governance_address = VarDB(self._GOVERNANCE_ADDRESS, db, value_type=Address)
         self._baln_token = VarDB(self._BALN_TOKEN, db, value_type=Address)
         self._baln = VarDB(self._BALN, db, value_type=int)
 
@@ -38,10 +36,8 @@ class WorkerToken(IRC2):
         self._baln_token.get()
 
     @external
+    @only_admin
     def transfer(self, _from: Address, _to: Address, _value: int) -> None:
-        if self.msg.sender != self._governance_address.get():
-            revert(f'BWT can only be transferred according to a vote, and '
-                    'called by the governance contract.')
         super()._transfer(_from, _to, _value, b'None')
 
     @external

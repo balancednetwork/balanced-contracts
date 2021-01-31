@@ -122,7 +122,7 @@ class Loans(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        # Create bad position for testing liquidation. Take out a loan that is too large.
+        # # Create bad position for testing liquidation. Take out a loan that is too large.
         pos = self._positions.get_pos(TEST_ADDRESS)
         # Independently, 782769 * 10**15 =~$299 worth of collateral will be
         # deposited for this position.
@@ -139,7 +139,7 @@ class Loans(IconScoreBase):
     @only_governance
     def turnLoansOn(self) -> None:
         self._loans_on.set(True)
-        self._positions._snapshot_db.new_snapshot(self.getDay())
+        self._positions._snapshot_db.get_todays_snapshot()
 
     @external
     @only_governance
@@ -294,7 +294,7 @@ class Loans(IconScoreBase):
     def _take_new_day_snapshot(self) -> bool:
         day = self.getDay()
         if day > self._current_day.get():
-            self._positions._take_snapshot(day)
+            self._positions._take_snapshot()
             self._current_day.set(day)
             self._rewards_done.set(False)
             if day % 7 == 0:
@@ -316,6 +316,7 @@ class Loans(IconScoreBase):
         """
         Sends ICX to the addCollateral method on the staking SCORE
         """
+        Logger.info(f'In addCollateral. day: {self.getDay()}.', TAG)
         sender = str(self.msg.sender).encode("utf-8")
         staking = self.create_interface_score(self._staking.get(), Staking)
         staking.icx(self.msg.value).addCollateral(self.address, _data1 + sender + _data2)
@@ -338,6 +339,7 @@ class Loans(IconScoreBase):
             revert(f'Amount sent must be greater than zero.')
         if self.msg.sender not in self._assets.alist:
             revert(f'The Balanced Loans contract does not accept that token type.')
+        Logger.info(f'Tokens received. day: {self.getDay()}.', TAG)
         if not self._take_new_day_snapshot():
             self._check_distributions()
         if _from == self._reserve.get():
@@ -357,7 +359,7 @@ class Loans(IconScoreBase):
         else:
             revert(f'No valid method called, data: {_data}')
 
-    def _deposit_and_borrow(self, _value: int, _sender: Address, _asset: str = '',
+    def _deposit_and_borrow(self, _value: int, _sender: str, _asset: str = '',
                             _amount: int = 0) -> None:
         """
         If the received token type is sICX it will be added to the account of
@@ -375,6 +377,7 @@ class Loans(IconScoreBase):
         :param _amount: Size of loan requested.
         :type _amount: int
         """
+        Logger.info(f'Deposit collateral. In _deposit_and_borrow. day: {self.getDay()}.', TAG)
         if self.msg.sender != self._assets['sICX'].asset_address.get():
             revert(f'sICX is the only type of collateral accepted.')
         _from = Address.from_string(_sender)
@@ -384,7 +387,9 @@ class Loans(IconScoreBase):
             pos.standing[self.getDay()] = standing
         else:
             pos = self._positions.get_pos(_from)
+            Logger.info(f'About to get standing. day: {self.getDay()}, snaps[-1]: {pos.snaps[-1]}', TAG)
             standing = pos.get_standing()
+            Logger.info(f'pos.snaps[-1]: {pos.snaps[-1]}, pos.standing[pos.snaps[-1]]: {pos.standing[pos.snaps[-1]]}, pos.get_standing(): {standing}', TAG)
         if standing == Standing.INDETERMINATE:
             revert(f'Position must be up to date with replay of all retirement '
                    f'events before executing this transaction.')
@@ -393,8 +398,8 @@ class Loans(IconScoreBase):
             self._positions.add_nonzero(_from)
         pos['sICX'] += _value
         self.CollateralReceived(_from, 'sICX')
+        pos.update_standing()
         if _asset == '' or _amount == 0:
-            pos.update_standing()
             return
         self.originateLoan(_asset, _amount, _from=_from)
 
@@ -526,7 +531,9 @@ class Loans(IconScoreBase):
             revert(f'No new loans of {_asset} can be originated since '
                    f'it is in a dead market state.')
         pos = self._positions.get_pos(_from)
-        if pos.get_standing() == Standing.INDETERMINATE:
+        standing = pos.get_standing()
+        Logger.info(f'In originateLoan(). pos.snaps[-1]: {pos.snaps[-1]}, pos.standing[pos.snaps[-1]]: {pos.standing[pos.snaps[-1]]}, pos.get_standing(): {standing}', TAG)
+        if standing == Standing.INDETERMINATE:
             revert(f'Position must be up to date with replay of all retirement '
                    f'events before executing this transaction.')
 
@@ -914,4 +921,12 @@ class Loans(IconScoreBase):
 
     @eventlog(indexed=1)
     def Diagnostic(self, symbol: str, amount: int, note: str):
+        pass
+
+    @eventlog(indexed=1)
+    def Snapshot(self, _id: int):
+        """
+        Emitted as a new snapshot is generated.
+        :param _id: ID of the snapshot.
+        """
         pass

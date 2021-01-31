@@ -21,11 +21,11 @@ class OracleInterface(InterfaceScore):
 
 
 class BalanceToken(IRC2Mintable, IRC2Burnable):
-    
+
     _PRICE_UPDATE_TIME = "price_update_time"
     _LAST_PRICE = "last_price"
     _MIN_INTERVAL = "min_interval"
-    
+
     _EVEN_DAY_STAKE_CHANGES = "even_day_stake_changes"
     _ODD_DAY_STAKE_CHANGES = "odd_day_stake_changes"
 
@@ -123,7 +123,7 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
         if self.now() - self._price_update_time.get() > self._min_interval.get():
             self.update_asset_value()
         return self._last_price.get()
-    
+
     @external(readonly=True)
     def lastPriceInLoop(self) -> int:
         """
@@ -358,7 +358,7 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
         self._staked_balances[_from][Status.AVAILABLE] = self._staked_balances[_from][Status.AVAILABLE] - _value
         self._staked_balances[_from][Status.AVAILABLE] = self._staked_balances[_from][Status.AVAILABLE] + _value
 
-        IRC2Mintable.transfer(self, _to, _value, _data)
+        super().transfer(_to, _value, _data)
 
     # --------------------------------------------------------------------------
     # EVENTS

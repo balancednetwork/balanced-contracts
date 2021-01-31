@@ -40,7 +40,7 @@ class Position(object):
         id = self.get_snapshot_id(_snapshot)
         if self.replay_index[id] < self.snaps_db[_snapshot].replay_index.get():
             return Standing.INDETERMINATE
-        return self.standing[self.snaps[id]]
+        return self.standing[id]
 
     def collateral_value(self, _day: int = -1) -> int:
         """
@@ -87,7 +87,7 @@ class Position(object):
             return _day
         elif low == 0:
             return -1
-        elif low == len(self.snaps):
+        elif low == len(self.snaps) and low > 1:
             return self.snaps[-2]
         else:
             return self.snaps[low - 1]
@@ -211,10 +211,16 @@ class Position(object):
                 assets[asset] = amount
 
         position = {
+            'id': self.id.get(),
             'created': self.created.get(),
             'address': str(self.address.get()),
             'assets': assets,
-            'standing': Standing.STANDINGS[self.standing[id]]
+            'last_snap': self.snaps[-1],
+            'this_snap': id,
+            f'replay_index_{id}': self.replay_index[id],
+            f'total_debt_{id}': self.total_debt[id],
+            f'ratio_{id}': self.ratio[id],
+            f'standing_{id}': Standing.STANDINGS[self.standing[id]]
         }
         return position
 
@@ -310,7 +316,7 @@ class PositionsDB:
         _new_pos.snaps.put(self._loans.getDay())
         return _new_pos
 
-    def _take_snapshot(self, _day: int) -> None:
+    def _take_snapshot(self) -> None:
         """
         Captures necessary data for the current snapshot in the SnapshotDB.
         """
@@ -319,8 +325,10 @@ class PositionsDB:
         for symbol in assets.slist:
             if assets[symbol].active.get():
                 snapshot.prices[symbol] = assets[symbol].priceInLoop()
-        snapshot.replay_index.set(self._event_log._events[-1])
-        self._snapshot_db.new_snapshot(_day)
+        snapshot.replay_index.set(len(self._event_log._events))
+        snapshot._snap_time.set(self._loans.now())
+        self._loans.Snapshot(self._snapshot_db._indexes[-1])
+        self._snapshot_db.get_todays_snapshot()
 
     def _calculate_snapshot(self, id: int, batch_size: int) -> bool:
         """

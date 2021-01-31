@@ -11,7 +11,7 @@ TAG = 'StakedICXManager'
 
 DENOMINATOR = 1000000000000000000
 
-TOTAL_PREPS = 10
+TOTAL_PREPS = 4
 
 
 # An interface of token to distribute daily rewards

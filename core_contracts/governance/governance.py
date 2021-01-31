@@ -56,8 +56,8 @@ class Governance(IconScoreBase):
     def launchBalanced(self) -> None:
         if not self._launched.get():
             loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
-            dex = self.create_interface_score(self.addresses._dex.get(), LoansInterface)
-            rewards = self.create_interface_score(self.addresses._rewards.get(), LoansInterface)
+            dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
+            rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
             self.set_launch_day(0)
             self.set_launch_day(self.getDay())
             time_delta = DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get())
@@ -79,7 +79,7 @@ class Governance(IconScoreBase):
     @external
     @only_owner
     def toggleBalancedOn(self) -> None:
-        loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
+        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
         loans.toggleLoansOn()
 
     def set_launch_day(self, _day: int) -> None:

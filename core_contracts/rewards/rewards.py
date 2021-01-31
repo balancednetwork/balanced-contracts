@@ -16,6 +16,10 @@ class TokenInterface(InterfaceScore):
     def transfer(self, _to: Address, _value: int, _data: bytes = None):
         pass
 
+    @interface
+    def mint(self, _amount: int, _data: bytes = None) -> None:
+        pass
+
 
 class Rewards(IconScoreBase):
 
@@ -140,6 +144,7 @@ class Rewards(IconScoreBase):
                     shares -= split
                 self._total_dist.set(remaining) # remaining will be == 0 at this point.
                 self._platform_day.set(self._platform_day.get() + 1)
+                return False
         distribution_complete = True
         for data_source_name in self._data_source_db._names:
             data_source = self.getDataSources(data_source_name)
@@ -165,6 +170,23 @@ class Rewards(IconScoreBase):
         else:
             index = _day - 59
             return max(((995 ** index) * 10**23) // (1000 ** index), 1250 * 10**18)
+
+    @external
+    def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
+        """
+        Used to receive BALN tokens.
+
+        :param _from: Token orgination address.
+        :type _from: :class:`iconservice.base.address.Address`
+        :param _value: Number of tokens sent.
+        :type _value: int
+        :param _data: Unused, ignored.
+        :type _data: bytes
+        """
+        if self.msg.sender != self._baln_address.get():
+            revert(f'The Rewards SCORE can only accept BALN tokens. '
+                   f'Deposit not accepted from {str(self.msg.sender)} '
+                   f'Only accepted from BALN = {str(self._baln_address.get())}')
 
 
 #-------------------------------------------------------------------------------
@@ -197,6 +219,15 @@ class Rewards(IconScoreBase):
     @external(readonly=True)
     def getBwtAddress(self) -> Address:
         return self._bwt_address.get()
+
+    @external
+    @only_owner
+    def setReserveAddress(self, _address: Address) -> None:
+        self._reserve_fund.set(_address)
+
+    @external(readonly=True)
+    def getReserveAddress(self) -> Address:
+        return self._reserve_fund.get()
 
     @external
     @only_owner

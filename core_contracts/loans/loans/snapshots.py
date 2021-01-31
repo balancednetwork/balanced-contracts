@@ -9,6 +9,8 @@ class Snapshot(object):
 
     def __init__(self, db: IconScoreDatabase, loans: IconScoreBase) -> None:
         self._loans = loans
+        # Time of snapshot
+        self._snap_time = VarDB('snap_time', db, int)
         # Total Debt elegible for mining rewards for each asset
         self.total_mining_debt = DictDB('total_mining_debt', db, int)
         # Oracle Price for each asset at snapshot time.
@@ -19,9 +21,9 @@ class Snapshot(object):
         self._precompute_index = VarDB('precompute_index', db, int)
         # List of position ids in the mining state at snapshot time.
         self.mining = ArrayDB('mining', db, int)
-        # List of position ids that move to non-zero collateral.
+        # List of position ids that changed to non-zero collateral status since the last snap.
         self.add_to_nonzero = ArrayDB('nonzero', db, int)
-        # List of position ids that move to a zero collateral status.
+        # List of position ids that changed to a zero collateral status since the last snap.
         self.remove_from_nonzero = ArrayDB('zero', db, int)
 
     def to_dict(self) -> dict:
@@ -38,6 +40,7 @@ class Snapshot(object):
                 total_debt[symbol] = debt
 
         snap = {
+            'snap_time': self._snap_time.get(),
             'total_mining_debt': total_debt,
             'prices': self._loans.asset_db.get_asset_prices(),
             'replay_index': self.replay_index.get(),
@@ -104,11 +107,13 @@ class SnapshotDB:
             return _day
         elif low == 0:
             return -1
-        elif low == len(self._indexes):
+        elif low == len(self._indexes) and low > 1:
             return self._indexes[-2]
         else:
             return self._indexes[low - 1]
 
-    def new_snapshot(self, _day: int) -> Snapshot:
-        self._indexes.put(_day)
-        return self.__getitem__(_day)
+    def get_todays_snapshot(self) -> Snapshot:
+        _day: int = self._loans.getDay()
+        if len(self._indexes) == 0 or _day > self._indexes[-1]:
+            self._indexes.put(_day)
+        return self.__getitem__(self._indexes[-1])
