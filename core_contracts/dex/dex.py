@@ -231,10 +231,12 @@ class DEX(IconScoreBase):
         self._pool_baln_fee.set(15)
         self._icx_conversion_fee.set(70)
         self._icx_baln_fee.set(30)
-        # avoid 0 as default null pid
-        self._nonce.set(1)
+        # 0 = null PID
+        # 1 = SICXICX Swap Queue
+        # 2+ = pools
+        self._nonce.set(2)
         self._current_day.set(0)
-        self._named_markets[self._SICXICX_MARKET_NAME] = 0
+        self._named_markets[self._SICXICX_MARKET_NAME] = 1
 
     def on_update(self) -> None:
         super().on_update()
@@ -627,7 +629,7 @@ class DEX(IconScoreBase):
 
     @external(readonly=True)
     def totalSupply(self, _pid: int) -> int:
-        if _pid == 0:
+        if _pid == 1:
             return self._icx_queue_total.get()
         return self._total[_pid]
 
@@ -640,7 +642,7 @@ class DEX(IconScoreBase):
         :param _id: ID of the token/pool
         :return: the _owner's balance of the token type requested
         """
-        if _id == 0:
+        if _id == 1:
             order_id = self._icx_queue_order_id[self.msg.sender]
             if not order_id:
                 return 0
@@ -680,6 +682,10 @@ class DEX(IconScoreBase):
 
     @external(readonly=True)
     def getPrice(self, _pid: int) -> int:
+        if _pid < 1 or _pid > self._nonce.get():
+            return "Invalid pool id"
+        if _pid == 1:
+            return self._get_sicx_rate()
         return int(self._pool_total[_pid][self._pool_base[_pid]] / self._pool_total[_pid][self._pool_quote[_pid]] * 10**10)
 
     @external(readonly=True)
@@ -825,7 +831,8 @@ class DEX(IconScoreBase):
         # Pay each of the user and the dividends score their share of the tokens
         to_token_score = self.create_interface_score(_toToken, TokenInterface)
         to_token_score.transfer(_receiver, send_amt)
-        from_token_score = self.create_interface_score(_fromToken, TokenInterface)
+        from_token_score = self.create_interface_score(
+            _fromToken, TokenInterface)
         from_token_score.transfer(self._dividends.get(), send_amt)
         self.Swap(_fromToken, _toToken, _sender, _receiver, _value, send_amt)
 
@@ -1083,6 +1090,8 @@ class DEX(IconScoreBase):
         self._balance[_pid][self.msg.sender] -= _value
         self._total[_pid] -= _value
         self.Remove(_pid, self.msg.sender, _value)
+        self.TransferSingle(self.msg.sender, self.msg.sender, Address.from_string(
+            ZERO_SCORE_ADDRESS), _pid, _value)
         if not _withdraw:
             self._deposit[token1][self.msg.sender] += token1_amount
             self._deposit[token2][self.msg.sender] += token2_amount
@@ -1121,6 +1130,7 @@ class DEX(IconScoreBase):
             self._pool_quote[_pid] = _quoteToken
             self.MarketAdded(_pid, _baseToken, _quoteToken,
                              _baseValue, _quoteValue)
+
         else:
             token1price = self.getPrice(_pid)
             if not int(_baseValue * (token1price / 10**10)) == _quoteValue:
@@ -1134,6 +1144,8 @@ class DEX(IconScoreBase):
         self._balance[_pid][_owner] += liquidity
         self._total[_pid] += liquidity
         self.Add(_pid, _owner, liquidity)
+        self.TransferSingle(_owner, Address.from_string(
+            ZERO_SCORE_ADDRESS), _owner, _pid, liquidity)
         self._withdraw_lock[self.msg.sender][_pid] = self.now()
         if self.msg.sender not in self._funded_addresses:
             self._funded_addresses.add(self.msg.sender)
