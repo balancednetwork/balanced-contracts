@@ -70,6 +70,7 @@ class Rewards(IconScoreBase):
             revert(f"Recipient lists lengths mismatched!")
         total_percentage = 0
         for recipient in _recipient_list:
+            self._recipient_split[recipient['recipient_name']] = recipient['bal_token_dist_percent']
             if recipient['recipient_name'] not in self._recipients:
                 revert(f"Recipient {recipient['recipient_name']} doesn't exist")
             self._data_source_db[recipient['recipient_name']].bal_token_dist_percent.set(recipient['bal_token_dist_percent'])
@@ -90,6 +91,32 @@ class Rewards(IconScoreBase):
         for data_source_name in self._data_source_db._names:
             data_source_names.append(data_source_name)
         return data_source_names
+
+    @external(readonly=True)
+    def getRecipients(self) -> list:
+        """
+        Returns a list of the rewards token recipients.
+
+        :return: list of recipient names
+        :rtype list
+        """
+        recipients = []
+        for recipient in self._recipients:
+            recipients.append(recipient)
+        return recipients
+
+    @external(readonly=True)
+    def getRecipientsSplit(self) -> dict:
+        """
+        Returns a dict of the rewards token recipients.
+
+        :return: dict of recipient {names: percent}
+        :rtype dict
+        """
+        recipients = {}
+        for recipient in self._recipients:
+            recipients[recipient] = self._recipient_split[recipient]
+        return recipients
 
     @external
     def addNewDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
