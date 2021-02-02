@@ -259,7 +259,7 @@ class Loans(IconScoreBase):
         return False
 
     @external
-    def getTotalValue(self, _snapshot_id: int) -> int:
+    def getTotalValue(self, _name: str, _snapshot_id: int) -> int:
         """
         Gets total outstanding debt for mining rewards calculation.
         """
