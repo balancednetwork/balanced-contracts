@@ -288,11 +288,11 @@ class PositionsDB:
             self._snapshot_db[snap].remove_from_nonzero.put(id)
 
     def _remove(self, item: int, array: ArrayDB) -> None:
-        top = self.array.pop()
+        top = array.pop()
         if top != item:
-            for i in range(len(self.array)):
-                if self.array[i] == item:
-                    self.array[i] = top
+            for i in range(len(array)):
+                if array[i] == item:
+                    array[i] = top
                     return
 
     def get_pos(self, _owner: Address) -> Position:
