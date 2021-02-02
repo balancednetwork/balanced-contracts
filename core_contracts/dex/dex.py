@@ -21,6 +21,10 @@ class Rewards(InterfaceScore):
     def distribute(self) -> bool:
         pass
 
+    @interface
+    def addNewDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
+        pass
+
 # An interface to the Dividends SCORE
 
 
@@ -369,6 +373,8 @@ class DEX(IconScoreBase):
         markets more easily.
         """
         self._named_markets[_name] = _pid
+        rewards = self.create_interface_score(self._rewards.get(), Rewards)
+        rewards.addNewDataSource(_name, self.address)
 
     @only_governance
     @external
@@ -523,8 +529,15 @@ class DEX(IconScoreBase):
             if _fromToken == self._sicx.get():
                 self._swap_icx(_from, _value)
         elif unpacked_data["method"] == "_swap":
+            max_slippage = 250
+            if "maxSlippage" in unpacked_data["params"]:
+                max_slippage = int(unpacked_data["params"]["maxSlippage"])
+                if max_slippage > MAX_SLIPPAGE:
+                    revert("Slippage cannot exceed 10% (1000 basis points)")
+                if max_slippage <= 0:
+                    revert("Max slippage must be a positive number")
             self.exchange(_fromToken, Address.from_string(
-                unpacked_data["params"]["toToken"]), _from, _from, _value)
+                unpacked_data["params"]["toToken"]), _from, _from, _value, max_slippage)
         else:
             revert("Fallback directly not allowed")
 
@@ -808,7 +821,7 @@ class DEX(IconScoreBase):
     ####################################
     # Internal exchange function
 
-    def exchange(self, _fromToken: Address, _toToken: Address, _sender: Address, _receiver: Address, _value: int):
+    def exchange(self, _fromToken: Address, _toToken: Address, _sender: Address, _receiver: Address, _value: int, _max_slippage: int = 250):
         lp_fees = (_value * self._pool_lp_fee.get()) // FEE_SCALE
         baln_fees = (_value * self._pool_baln_fee.get()) // FEE_SCALE
         fees = lp_fees + baln_fees
@@ -817,7 +830,14 @@ class DEX(IconScoreBase):
         _pid = self._pool_id[_fromToken][_toToken]
         if _pid == 0:
             revert("Pool does not exist")
-        old_price = self.getPrice(_pid)
+        if _pid == 1:
+            revert("Not supported on this API, use the ICX swap API")
+        old_price = 0
+        if _fromToken == self.getPoolQuote(_pid):
+            old_price = self.getInversePrice(_pid)
+        else:
+            old_price = self.getPrice(_pid)
+        Logger.info("old_price: " + str(old_price), self._TAG)
         if not self.active[_pid]:
             revert("Pool is not active")
         new_token1 = self._pool_total[_pid][_fromToken] + _value
@@ -827,6 +847,16 @@ class DEX(IconScoreBase):
 
         self._pool_total[_pid][_fromToken] = new_token1 + lp_fees
         self._pool_total[_pid][_toToken] = new_token2
+
+        send_price = ((10 ** 10) * _value) // send_amt
+
+        max_slippage_price = (old_price * (10000 + _max_slippage)) // 10000
+
+        Logger.info("send price = " + str(send_price) + ", old price = " +
+                    str(old_price) + ", max slippage price = " + str(max_slippage_price), self._TAG)
+
+        if (send_price > max_slippage_price):
+            revert("Passed Maximum slippage")
 
         # Pay each of the user and the dividends score their share of the tokens
         to_token_score = self.create_interface_score(_toToken, TokenInterface)
