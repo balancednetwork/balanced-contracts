@@ -9,7 +9,7 @@ class DataSourceInterface(InterfaceScore):
         pass
 
     @interface
-    def getTotalValue(self, _snapshot_id: int) -> int:
+    def getTotalValue(self, _name: str, _snapshot_id: int) -> int:
         pass
 
     @interface
@@ -22,7 +22,7 @@ class DataSource(object):
     def __init__(self, db: IconScoreDatabase, rewards: IconScoreBase) -> None:
         self._rewards = rewards
         self.day = VarDB('day', db, int)
-        self.name = VarDB('name', db, int)
+        self.name = VarDB('name', db, str)
         self.offset = VarDB('offset', db, int)
         self.precomp = VarDB('precomp', db, bool)
         self.total_value = VarDB('total_value', db, int)
@@ -38,7 +38,7 @@ class DataSource(object):
         data_source = self._rewards.create_interface_score(self.contract_address.get(), DataSourceInterface)
         if not self.precomp.get() and data_source.precompute(self.day.get(), batch_size):
             self.precomp.set(True)
-            self.total_value.set(data_source.getTotalValue(self.day.get()))
+            self.total_value.set(data_source.getTotalValue(self.name.get(), self.day.get()))
 
         if self.precomp.get():
             data_batch = data_source.getDataBatch(self.name.get(), self.day.get(), self.offset.get(), batch_size)
