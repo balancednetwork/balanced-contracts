@@ -8,7 +8,8 @@ from .replay_log import ReplayLogDB
 TAG = 'BalancedLoans'
 
 # For testing only
-TEST_ADDRESS = Address.from_string('hx3f01840a599da07b0f620eeae7aa9c574169a4be')
+# TEST_ADDRESS = Address.from_string('hx3f01840a599da07b0f620eeae7aa9c574169a4be')
+TEST_ADDRESS = Address.from_string('hx7a1824129a8fe803e45a3aae1c0e060399546187')
 
 
 # An interface to the Emergency Reserve Fund
