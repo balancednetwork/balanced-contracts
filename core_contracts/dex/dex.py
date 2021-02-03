@@ -702,6 +702,10 @@ class DEX(IconScoreBase):
         return int(self._pool_total[_pid][self._pool_base[_pid]] / self._pool_total[_pid][self._pool_quote[_pid]] * 10**10)
 
     @external(readonly=True)
+    def getPriceByName(self, _name: str) -> int:
+        return self.getPrice(self._named_markets[_name])
+
+    @external(readonly=True)
     def getInversePrice(self, _pid: int) -> int:
         return int(self._pool_total[_pid][self._pool_quote[_pid]] / self._pool_total[_pid][self._pool_base[_pid]] * 10**10)
 
@@ -1034,6 +1038,10 @@ class DEX(IconScoreBase):
             return 0
         else:
             return self._total_supply_snapshot[_id]['values'][low - 1]
+
+    @external(readonly=True)
+    def getTotalValue(self, _name: str, _snapshot_id: int) -> int:
+        return self.totalSupplyAt(self._named_markets[_name], _snapshot_id)
 
     @external(readonly=True)
     def loadBalancesAtSnapshot(self, _pid: int, _snapshot_id: int, _limit: int,  _offset: int = 0) -> dict:

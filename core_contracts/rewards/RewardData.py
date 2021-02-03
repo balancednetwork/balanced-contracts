@@ -22,7 +22,7 @@ class DataSource(object):
     def __init__(self, db: IconScoreDatabase, rewards: IconScoreBase) -> None:
         self._rewards = rewards
         self.day = VarDB('day', db, int)
-        self.name = VarDB('name', db, int)
+        self.name = VarDB('name', db, str)
         self.offset = VarDB('offset', db, int)
         self.precomp = VarDB('precomp', db, bool)
         self.total_value = VarDB('total_value', db, int)
