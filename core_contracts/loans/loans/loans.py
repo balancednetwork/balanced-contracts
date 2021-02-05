@@ -195,9 +195,9 @@ class Loans(IconScoreBase):
         for symbol in self._assets.slist:
             asset = self._assets[symbol]
             if asset.is_collateral.get() and asset.active.get():
-                supply = asset.totalSupply()
+                held = asset.balanceOf(self.address)
                 price = asset.lastPriceInLoop()
-                total_collateral += supply * price
+                total_collateral += held * price
         return total_collateral // EXA
 
     @external(readonly=True)
@@ -647,7 +647,7 @@ class Loans(IconScoreBase):
             self._send_token('sICX', self.tx.origin, reward, "Liquidation reward of")
             pos['sICX'] = 0
             pos.update_standing()
-            self._positions.remove_nonzero(self.tx.origin)
+            self._positions.remove_nonzero(pos.address.get())
             self.Liquidate(_owner, collateral, f'{collateral} liquidated from {_owner}')
         elif _standing != Standing.INDETERMINATE:
             self.PositionStanding(_owner,

@@ -1,5 +1,19 @@
 from iconservice import *
 
+class BalancedAddresses(TypedDict, total=False):
+    loans: Address
+    dex: Address
+    staking: Address
+    rewards: Address
+    reserve_fund: Address
+    dividends: Address
+    oracle: Address
+    sicx: Address
+    icd: Address
+    baln: Address
+    bwt: Address
+
+
 class Addresses(object):
 
     def __init__(self, db:IconScoreDatabase) -> None:
@@ -16,17 +30,22 @@ class Addresses(object):
         self._bwt = VarDB('bwt', db, Address)
 
     def setAddresses(self, addresses: TypedDict) -> None:
-        self._loans.set(addresses['loans'])
-        self._dex.set(addresses['dex'])
-        self._staking.set(addresses['staking'])
-        self._rewards.set(addresses['rewards'])
-        self._reserve_fund.set(addresses['reserve_fund'])
-        self._dividends.set(addresses['dividends'])
-        self._oracle.set(addresses['oracle'])
-        self._sicx.set(addresses['sicx'])
-        self._icd.set(addresses['icd'])
-        self._baln.set(addresses['baln'])
-        self._bwt.set(addresses['bwt'])
+        """
+        Takes a TypedDict with 1 to 11 addresses and sets them.
+        """
+        set_func: dict = {'loans': self._loans.set,
+                          'dex': self._dex.set,
+                          'staking': self._staking.set,
+                          'rewards': self._rewards.set,
+                          'reserve_fund': self._reserve_fund.set,
+                          'dividends': self._dividends.set,
+                          'oracle': self._oracle.set,
+                          'sicx': self._sicx.set,
+                          'icd': self._icd.set,
+                          'baln': self._baln.set,
+                          'bwt': self._bwt.set}
+        for key in addresses.keys():
+            set_func[key](addresses[key])
 
     def getAddresses(self) -> dict:
         return {

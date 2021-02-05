@@ -7,20 +7,6 @@ from .data_objects import *
 TAG = 'Governance'
 
 
-class BalancedAddresses(TypedDict):
-    loans: Address
-    dex: Address
-    staking: Address
-    rewards: Address
-    reserve_fund: Address
-    dividends: Address
-    oracle: Address
-    sicx: Address
-    icd: Address
-    baln: Address
-    bwt: Address
-
-
 class Governance(IconScoreBase):
     """
     The Governance SCORE will have control of all parameters in BalancedDAO.
@@ -87,7 +73,7 @@ class Governance(IconScoreBase):
 
     @external(readonly=True)
     def getLaunchDay(self) -> int:
-        self._launch_day.get()
+        return self._launch_day.get()
 
     @external
     def getDay(self) -> int:
