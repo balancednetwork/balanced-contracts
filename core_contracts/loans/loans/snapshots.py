@@ -12,7 +12,7 @@ class Snapshot(object):
         # Time of snapshot
         self._snap_time = VarDB('snap_time', db, int)
         # Total Debt elegible for mining rewards for each asset
-        self.total_mining_debt = DictDB('total_mining_debt', db, int)
+        self.total_mining_debt = VarDB('total_mining_debt', db, int)
         # Oracle Price for each asset at snapshot time.
         self.prices = DictDB('prices', db, int)
         # Latest Replay Index at the time of each snapshot
@@ -33,25 +33,16 @@ class Snapshot(object):
         :return: dict of the object data
         :rtype dict
         """
-        total_debt = {}
-        for symbol in self._loans.asset_db.slist:
-            debt = self.total_mining_debt[symbol]
-            if debt > 0:
-                total_debt[symbol] = debt
-
         snap = {
             'snap_time': self._snap_time.get(),
-            'total_mining_debt': total_debt,
-            'prices': self._loans.asset_db.get_asset_prices(),
+            'total_mining_debt': self.total_mining_debt.get(),
+            'prices': self._loans._assets.get_asset_prices(),
             'replay_index': self.replay_index.get(),
-            'mining_count': len(self.mining)
+            'mining_count': len(self.mining),
+            'precompute_index': self._precompute_index.get(),
+            'add_to_nonzero_count': len(self.add_to_nonzero),
+            'remove_from_nonzero_count': len(self.remove_from_nonzero)
         }
-
-        if len(self._precompute_index) > 0:
-            snap['precompute_index'] = self._precompute_index.get()
-            snap['add_to_nonzero_count'] = len(self.add_to_nonzero)
-            snap['remove_from_nonzero_count'] = len(self.remove_from_nonzero)
-
         return snap
 
 class SnapshotDB:

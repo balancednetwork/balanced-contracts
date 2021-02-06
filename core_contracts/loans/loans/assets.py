@@ -183,7 +183,7 @@ class AssetsDB:
         for address in self.alist:
             asset = self._get_asset(str(address))
             if asset.active.get():
-                assets[asset.symbol()] = asset.priceInLoop()
+                assets[asset.symbol()] = asset.lastPriceInLoop()
         return assets
 
     def add_asset(self, _address: Address, is_active: bool = True, is_collateral: bool = False) -> None:
