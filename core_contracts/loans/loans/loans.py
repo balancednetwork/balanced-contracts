@@ -242,7 +242,7 @@ class Loans(IconScoreBase):
 
     @external
     @only_owner
-    def toggleAssetActive(self, _symbol) -> None:
+    def toggleAssetActive(self, _symbol: str) -> None:
         self._assets[_symbol].active.set(not self._assets[_symbol].active.get())
 
     @external
@@ -648,7 +648,7 @@ class Loans(IconScoreBase):
             self._send_token('sICX', self.tx.origin, reward, "Liquidation reward of")
             pos['sICX'] = 0
             pos.update_standing()
-            self._positions.remove_nonzero(self.tx.origin)
+            self._positions.remove_nonzero(pos.address.get())
             self.Liquidate(_owner, collateral, f'{collateral} liquidated from {_owner}')
         elif _standing != Standing.INDETERMINATE:
             self.PositionStanding(_owner,
