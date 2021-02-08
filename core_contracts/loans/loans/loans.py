@@ -92,7 +92,7 @@ class Loans(IconScoreBase):
 
         self._assets = AssetsDB(db, self)
         self._positions = PositionsDB(db, self)
-        self._event_log = ReplayLogDB(db)
+        self._event_log = ReplayLogDB(db, self)
         self._rewards_done = VarDB(self._REWARDS_DONE, db, value_type=bool)
         self._dividends_done = VarDB(self._DIVIDENDS_DONE, db, value_type=bool)
         self._current_day = VarDB(self._CURRENT_DAY, db, value_type=int)
@@ -196,9 +196,9 @@ class Loans(IconScoreBase):
         for symbol in self._assets.slist:
             asset = self._assets[symbol]
             if asset.is_collateral.get() and asset.active.get():
-                supply = asset.totalSupply()
+                held = asset.balanceOf(self.address)
                 price = asset.lastPriceInLoop()
-                total_collateral += supply * price
+                total_collateral += held * price
         return total_collateral // EXA
 
     @external(readonly=True)
@@ -223,12 +223,26 @@ class Loans(IconScoreBase):
         return len(self._assets)
 
     @external(readonly=True)
+    def borrowerCount(self) -> int:
+        """
+        Returns the number of borrowers on Balanced.
+        """
+        return len(self._positions)
+
+    @external(readonly=True)
     def hasDebt(self, _owner: Address) -> bool:
         """
         Returns whether the address holds a debt position.
         """
         pos = self._positions.get_pos(_owner)
         return pos.has_debt()
+
+    @external(readonly=True)
+    def getSnapshot(self, _snap_id: int) -> dict:
+        """
+        Returns a summary of the snapshot for the system.
+        """
+        return self._positions._snapshot_db[_snap_id].to_dict()
 
     @external
     @only_admin
@@ -471,12 +485,12 @@ class Loans(IconScoreBase):
         if redeemed > 0:
             sicx += redeemed * price // sicx_rate
             supply = self._assets[symbol].totalSupply()
-            self._event_log.new_event(symbol=symbol,
-                                      value=redeemed,
-                                      sicx_rate=sicx_rate,
-                                      sicx_returned=sicx,
-                                      asset_supply=supply)
-            self._positions._snapshot_db[-1].replay_index.set(self._event_log._events[-1])
+            event = self._event_log.new_event(symbol=symbol,
+                                              value=redeemed,
+                                              sicx_rate=sicx_rate,
+                                              sicx_returned=sicx,
+                                              asset_supply=supply)
+            self._positions._snapshot_db[-1].replay_index.set(event.index.get())
         self._send_token("sICX", _from, sicx, "Collateral redeemed.")
         self.AssetRedeemed(_from, symbol, _value,
             f'{_value // EXA} {symbol} redeemed on Balanced.')
@@ -677,13 +691,13 @@ class Loans(IconScoreBase):
         snap = pos.get_snapshot_id(_snapshot_id)
 
         index = pos.replay_index[snap]
-        if snap == self.setDat():
+        if snap == self.getDay():
             last_event = len(self._event_log) # length is the last id since ids start with 1.
         else:
             last_event = self._positions._snapshot_db[_snapshot_id].replay_index.get()
         if index < last_event:
             # Iterate over _batch_size unplayed events or fewer.
-            end = min([index + self.replay_batch_size.get(), last_event])
+            end = min([index + self._replay_batch_size.get(), last_event])
             for _ in range(index, end):
                 pos.apply_next_event()
         return end - index, last_event - end

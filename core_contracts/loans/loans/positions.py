@@ -137,17 +137,18 @@ class Position(object):
         """
         Updates the position with the next redemption event if there is one.
         """
-        if self.replay_index.get == len(self._loans._event_log):
+        snap_index = self.snaps[-1]
+        # Check if there are any remaining events to replay.
+        if self.replay_index[snap_index] == len(self._loans._event_log):
             return Outcome.NO_SUCCESS
 
-        event_index = self.replay_index.get + 1
+        event_index = self.replay_index[snap_index] + 1
         _event = self._loans._event_log[event_index]
         symbol = _event.symbol.get()
         remaining_supply = _event.remaining_supply.get()
         remaining_value = _event.remaining_value.get()
         returned_sicx_remaining = _event.returned_sicx_remaining.get()
 
-        snap_index = self.snaps[-1]
         while event_index > self.snaps_db[snap_index].replay_index.get():
             snap_index += 1
         if snap_index != self.snaps[-1]:
@@ -235,7 +236,7 @@ class PositionsDB:
         self._db = db
         self._loans = loans
         self._items = {}
-        self._event_log = ReplayLogDB(db)
+        self._event_log = ReplayLogDB(db, loans)
         self._id_factory = IdFactory(self.IDFACTORY, db)
         self.addressID = DictDB(self.ADDRESSID, db, value_type=int)
         # list of nonzero positions will be brought up to date at the end of each day.
@@ -368,7 +369,7 @@ class PositionsDB:
                 snapshot.mining.put(account_id)
                 batch_mining_debt += pos.total_debt[id]
             index += 1
-        snapshot.total_mining_debt[id] += batch_mining_debt
+        snapshot.total_mining_debt.set(snapshot.total_mining_debt.get() + batch_mining_debt)
         if len(self.nonzero) == index:
             return Complete.DONE
         snapshot._precompute_index.set(index)

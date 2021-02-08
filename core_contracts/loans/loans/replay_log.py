@@ -54,8 +54,9 @@ class ReplayLogDB:
     IDFACTORY = '_idfactory'
     EVENTS = '_events'
 
-    def __init__(self, db: IconScoreDatabase):
+    def __init__(self, db: IconScoreDatabase, loans: IconScoreBase):
         self._db = db
+        self._loans = loans
         self._items = {}
         self._id_factory = IdFactory(self.REPLAY + self.IDFACTORY, db)
         self._events = ArrayDB(self.REPLAY + self.EVENTS, db, value_type=int)
@@ -64,7 +65,7 @@ class ReplayLogDB:
         if id not in self._items:
             if id > self._id_factory.get_last_uid():
                 revert(f'That key does not exist yet. Add new items with the new_event method.')
-            sub_db = self._db.get_sub_db(b'|'.join([REPLAY_DB_PREFIX, id.encode()]))
+            sub_db = self._db.get_sub_db(b'|'.join([REPLAY_DB_PREFIX, str(id).encode()]))
             self._items[id] = ReplayEvent(sub_db)
         return self._items[id]
 
@@ -77,9 +78,9 @@ class ReplayLogDB:
     def new_event(self, **kwargs) -> ReplayEvent:
         id = self._id_factory.get_uid()
         self._events.put(id)
-        _new_event = __get_item__(id)
+        _new_event = self.__getitem__(id)
         _new_event.index.set(id)
-        _new_event.created.set(self.now())
+        _new_event.created.set(self._loans.now())
         _new_event.symbol.set(kwargs.get('symbol'))
         _new_event.value.set(kwargs.get('value'))
         _new_event.remaining_value.set(kwargs.get('value'))
