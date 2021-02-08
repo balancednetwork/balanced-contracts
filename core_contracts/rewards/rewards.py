@@ -164,7 +164,7 @@ class Rewards(IconScoreBase):
                     split = self._recipient_split[name]
                     share =  remaining * split // shares
                     if name in self._data_source_db._names:
-                        self._data_source_db[name].total_dist.set(share)
+                        self._data_source_db[name].total_dist[self._data_source_db[name].day.get()] = share
                     else:
                         baln_token.transfer(self._platform_recipients[name].get(), share)
                     remaining -= share
@@ -173,10 +173,12 @@ class Rewards(IconScoreBase):
                 self._platform_day.set(self._platform_day.get() + 1)
                 return False
         distribution_complete = True
-        for data_source_name in self._data_source_db._names:
-            data_source = self.getDataSources(data_source_name)
+        for name in self._data_source_db._names:
+            data_source = self.getDataSources(name)
             if data_source['day'] < self._get_day():
-                self._reward_distribution(data_source_name, self._batch_size.get())
+                if self._data_source_db[name].dist_percent_dict[data_source['day']] == 0:
+                    self._data_source_db[name].dist_percent_dict[data_source['day']] = self._data_source_db[name].bal_token_dist_percent.get()
+                self._reward_distribution(name, self._batch_size.get())
                 distribution_complete = False
         return distribution_complete
 
