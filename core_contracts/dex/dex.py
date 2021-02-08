@@ -1060,8 +1060,9 @@ class DEX(IconScoreBase):
 
     @external(readonly=True)
     def getDataBatch(self, _name: str, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
-        clamped_offset = min(_offset, self.totalDexAddresses())
-        clamped_limit = min(_limit, clamped_offset - _limit)
+        total = self.totalDexAddresses()
+        clamped_offset = min(_offset, total)
+        clamped_limit = min(_limit, total - clamped_offset)
         pid = self._named_markets[_name]
         rv = self.loadBalancesAtSnapshot(pid, _snapshot_id, clamped_limit, clamped_offset)
         Logger.info(len(rv), self._TAG)
