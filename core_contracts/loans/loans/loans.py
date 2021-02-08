@@ -60,6 +60,7 @@ class Loans(IconScoreBase):
     _STAKING = 'staking'
     _ADMIN = 'admin'
     _REPLAY_BATCH_SIZE = 'replay_batch_size'
+    _SNAP_BATCH_SIZE = 'snap_batch_size'
     _GLOBAL_INDEX = 'global_index'
     _GLOBAL_BATCH_INDEX = 'global_batch_index'
 
@@ -86,6 +87,7 @@ class Loans(IconScoreBase):
         self._staking = VarDB(self._STAKING, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._replay_batch_size = VarDB(self._REPLAY_BATCH_SIZE, db, value_type=int)
+        self._snap_batch_size = VarDB(self._SNAP_BATCH_SIZE, db, value_type=int)
         self._global_index = VarDB(self._GLOBAL_INDEX, db, value_type=int)
         self._global_batch_index = VarDB(self._GLOBAL_BATCH_INDEX, db, value_type=int)
 
@@ -110,6 +112,7 @@ class Loans(IconScoreBase):
         self._loans_on.set(False)
         self._admin.set(self.owner)
         self._replay_batch_size.set(REPLAY_BATCH_SIZE)
+        self._snap_batch_size.set(SNAP_BATCH_SIZE)
         self._rewards_done.set(True)
         self._dividends_done.set(True)
         self._mining_ratio.set(DEFAULT_MINING_RATIO)
@@ -139,7 +142,7 @@ class Loans(IconScoreBase):
     @only_governance
     def turnLoansOn(self) -> None:
         self._loans_on.set(True)
-        self._positions._snapshot_db.get_todays_snapshot()
+        self._positions._snapshot_db.start_new_snapshot()
 
     @external
     @only_governance
@@ -265,8 +268,7 @@ class Loans(IconScoreBase):
         """
         if self.msg.sender != self._rewards.get():
             revert(f'The precompute method may only be invoked by the rewards SCORE.')
-        if self._take_new_day_snapshot():
-            return False
+        self.checkForNewDay()
         # Iterate through all positions in the snapshot to bring them up to date.
         if self._positions._calculate_snapshot(_snapshot_id, batch_size):
             return True
@@ -297,6 +299,7 @@ class Loans(IconScoreBase):
         """
         if self.msg.sender != self._rewards.get():
             revert(f'The getDataBatch method may only be invoked by the rewards SCORE.')
+        self.checkForNewDay()
         batch = {}
         mining = self._positions._snapshot_db[_snapshot_id].mining
         for i in range(_offset, _offset + _limit):
@@ -305,24 +308,26 @@ class Loans(IconScoreBase):
             batch[pos.address] = pos.total_debt[pos.get_snapshot_id(_snapshot_id)]
         return batch
 
-    def _take_new_day_snapshot(self) -> bool:
+    @external
+    def checkForNewDay(self) -> int:
         day = self.getDay()
         if day > self._current_day.get():
             self._positions._take_snapshot()
             self._current_day.set(day)
+        return day
+
+    @external
+    def checkDistributions(self, day: int) -> None:
+        if self._rewards_done.get() and self._dividends_done.get():
             self._rewards_done.set(False)
             if day % 7 == 0:
                 self._dividends_done.set(False)
-            return True
-        return False
-
-    def _check_distributions(self) -> None:
-        if not self._rewards_done.get():
-            rewards = self.create_interface_score(self._rewards.get(), Rewards)
-            self._rewards_done.set(rewards.distribute())
         elif not self._dividends_done.get():
             dividends = self.create_interface_score(self._dividends.get(), Dividends)
             self._dividends_done.set(dividends.distribute())
+        elif not self._rewards_done.get():
+            rewards = self.create_interface_score(self._rewards.get(), Rewards)
+            self._rewards_done.set(rewards.distribute())
 
     @payable
     @external
@@ -354,8 +359,7 @@ class Loans(IconScoreBase):
         if self.msg.sender not in self._assets.alist:
             revert(f'The Balanced Loans contract does not accept that token type.')
         Logger.info(f'Tokens received. day: {self.getDay()}.', TAG)
-        if not self._take_new_day_snapshot():
-            self._check_distributions()
+        self.checkDistributions(self.checkForNewDay())
         if _from == self._reserve.get():
             return
         try:
@@ -403,7 +407,8 @@ class Loans(IconScoreBase):
             pos = self._positions.get_pos(_from)
             Logger.info(f'About to get standing. day: {self.getDay()}, snaps[-1]: {pos.snaps[-1]}', TAG)
             standing = pos.get_standing()
-            Logger.info(f'pos.snaps[-1]: {pos.snaps[-1]}, pos.standing[pos.snaps[-1]]: {pos.standing[pos.snaps[-1]]}, pos.get_standing(): {standing}', TAG)
+            Logger.info(f'pos.snaps[-1]: {pos.snaps[-1]}, pos.standing[pos.snaps[-1]]: '
+                        f'{pos.standing[pos.snaps[-1]]}, pos.get_standing(): {standing}', TAG)
         if standing == Standing.INDETERMINATE:
             revert(f'Position must be up to date with replay of all retirement '
                    f'events before executing this transaction.')
@@ -544,9 +549,12 @@ class Loans(IconScoreBase):
         if self._assets[_asset].dead():
             revert(f'No new loans of {_asset} can be originated since '
                    f'it is in a dead market state.')
+        self.checkDistributions(self.checkForNewDay())
         pos = self._positions.get_pos(_from)
         standing = pos.get_standing()
-        Logger.info(f'In originateLoan(). pos.snaps[-1]: {pos.snaps[-1]}, pos.standing[pos.snaps[-1]]: {pos.standing[pos.snaps[-1]]}, pos.get_standing(): {standing}', TAG)
+        Logger.info(f'In originateLoan(). pos.snaps[-1]: {pos.snaps[-1]}, '
+                    f'pos.standing[pos.snaps[-1]]: {pos.standing[pos.snaps[-1]]}, '
+                    f'pos.get_standing(): {standing}', TAG)
         if standing == Standing.INDETERMINATE:
             revert(f'Position must be up to date with replay of all retirement '
                    f'events before executing this transaction.')
@@ -586,6 +594,7 @@ class Loans(IconScoreBase):
         _from = self.msg.sender
         if not self._positions._exists(_from):
             revert(f'This address does not have a position on Balanced.')
+        self.checkDistributions(self.checkForNewDay())
         pos = self._positions.get_pos(_from)
         if pos.get_standing() == Standing.INDETERMINATE:
             revert(f'Position must be up to date with replay of all retirement '
@@ -619,7 +628,7 @@ class Loans(IconScoreBase):
         """
         if not self._positions._exists(_owner):
             revert(f'This address does not have a position on Balanced.')
-
+        self.checkDistributions(self.checkForNewDay())
         pos = self._positions.get_pos(_owner)
         if pos.replay_index[self.getDay()] < len(self._event_log):
             processed, remaining = self.replay_events(_owner, self.getDay())
@@ -639,7 +648,6 @@ class Loans(IconScoreBase):
         """
         if not self._positions._exists(_owner):
             revert(f'This address does not have a position on Balanced.')
-
         _standing = self.updateStanding(_owner)
         pos = self._positions.get_pos(_owner)
         if _standing == Standing.LIQUIDATE:
