@@ -88,7 +88,7 @@ class Asset(object):
             token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
             token.burn(_amount)
         except BaseException as e:
-            revert(f'Trouble burning {self.get()} tokens. Exception: {e}')
+            revert(f'Trouble burning {self.symbol()} tokens. Exception: {e}')
 
     def priceInLoop(self) -> int:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)

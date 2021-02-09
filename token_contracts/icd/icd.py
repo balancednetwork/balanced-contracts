@@ -72,6 +72,10 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
     def getMinInterval(self) -> int:
         return self._min_interval.get()
 
+    @external(readonly=True)
+    def getPriceUpdateTime(self) -> int:
+        return self._price_update_time.get()
+
     @external
     def priceInLoop(self) -> int:
         """
@@ -102,9 +106,14 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
             priceData = oracle.get_reference_data(base, quote)
             self._last_price.set(priceData['rate'])
             self._price_update_time.set(self.now())
+            self.OraclePrice(base + quote, self._oracle_name.get(), oracle_address, priceData['rate'])
         except BaseException as e:
             self.OraclePriceUpdateFailed(base + quote, self._oracle_name.get(), oracle_address, f'Exception: {e}')
-        self.OraclePrice(base + quote, self._oracle_name.get(), oracle_address, priceData['rate'])
+
+    @external
+    def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
+        if self.msg.sender != self.address:
+            revert(f'Only accepts ICD tokens.')
 
     # ------------------------------------------------------------------------------------------------------------------
     # EVENTS

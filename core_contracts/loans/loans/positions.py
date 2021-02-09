@@ -31,10 +31,23 @@ class Position(object):
             revert(f'{_symbol} is not a supported asset on Balanced.')
 
     def __setitem__(self, key: str, value: int):
+        day = self.snap()
+        self.assets[day][key] = value
+
+    def snap(self) -> int:
         day = self._loans.getDay()
         if self.snaps[-1] != day:
             self.snaps.put(day)
-        self.assets[day][key] = value
+            today = self.snaps[-1]
+            previous = self.snaps[-2]
+            for symbol in self.asset_db.slist:
+                asset = self.asset_db[_symbol]
+                self.assets[today][_symbol] = self.assets[previous][_symbol]
+            self.replay_index[today] = self.replay_index[previous]
+            self.total_debt[today] = self.total_debt[previous]
+            self.ratio[today] = self.ratio[previous]
+            self.standing[today] = self.standing[previous]
+        return day
 
     def get_standing(self, _snapshot: int = -1) -> int:
         id = self.get_snapshot_id(_snapshot)
@@ -72,6 +85,8 @@ class Position(object):
         :rtype: int
         """
         if _day < 0:
+            if _day + len(self.snaps) < 0:
+                revert(f'Snapshot index out of range.')
             return self.snaps[_day]
         low = 0
         high = len(self.snaps)
@@ -92,7 +107,7 @@ class Position(object):
         else:
             return self.snaps[low - 1]
 
-    def has_debt(self, _day: int) -> bool:
+    def has_debt(self, _day: int = -1) -> bool:
         """
         Returns True if the snapshot from _day for the position holds any debt.
 
@@ -130,7 +145,7 @@ class Position(object):
                         price = self.asset_db[symbol].priceInLoop()
                     else:
                         price = self.snaps_db[id].prices[symbol]
-                    asset_value += price * amount // EXA
+                    asset_value += (price * amount) // EXA
         return asset_value
 
     def apply_next_event(self) -> bool:
@@ -212,7 +227,7 @@ class Position(object):
                 assets[asset] = amount
 
         position = {
-            'id': self.id.get(),
+            'pos_id': self.id.get(),
             'created': self.created.get(),
             'address': str(self.address.get()),
             'assets': assets,
@@ -329,7 +344,7 @@ class PositionsDB:
         snapshot.replay_index.set(len(self._event_log._events))
         snapshot._snap_time.set(self._loans.now())
         self._loans.Snapshot(self._snapshot_db._indexes[-1])
-        self._snapshot_db.get_todays_snapshot()
+        self._snapshot_db.start_new_snapshot()
 
     def _calculate_snapshot(self, id: int, batch_size: int) -> bool:
         """
@@ -342,7 +357,7 @@ class PositionsDB:
         remove = len(snapshot.remove_from_nonzero)
         nonzero_deltas = add + remove
         if nonzero_deltas > 0: # Bring the list of all nonzero positions up to date.
-            iter = 500
+            iter = self._loans._snap_batch_size.get()
             for _ in range(min(iter, remove)):
                 self._remove(snapshot.remove_from_nonzero.pop(), self.nonzero)
                 iter -= 1

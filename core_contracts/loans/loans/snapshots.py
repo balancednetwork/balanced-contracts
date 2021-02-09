@@ -11,19 +11,25 @@ class Snapshot(object):
         self._loans = loans
         # Time of snapshot
         self._snap_time = VarDB('snap_time', db, int)
-        # Total Debt elegible for mining rewards for each asset
+        # Total Debt elegible for mining rewards for each asset. Will be calculated
+        # after the snap is complete, in the precompute method.
         self.total_mining_debt = VarDB('total_mining_debt', db, int)
         # Oracle Price for each asset at snapshot time.
         self.prices = DictDB('prices', db, int)
         # Latest Replay Index at the time of each snapshot
         self.replay_index = VarDB('replay_index', db, int)
         # index to track progress through the single precompute pass for each snap.
+        # Starts at zero and counts up to the last index in the mining ArrayDB.
         self._precompute_index = VarDB('precompute_index', db, int)
-        # List of position ids in the mining state at snapshot time.
+        # List of position ids in the mining state at snapshot time. This list
+        # will be compiled in the precompute method as each position in the
+        # nonzero ArrayDB is brought up to date.
         self.mining = ArrayDB('mining', db, int)
         # List of position ids that changed to non-zero collateral status since the last snap.
+        # used to update the nonzero ArrayDB during calls to the precompute method.
         self.add_to_nonzero = ArrayDB('nonzero', db, int)
         # List of position ids that changed to a zero collateral status since the last snap.
+        # used to update the nonzero ArrayDB during calls to the precompute method.
         self.remove_from_nonzero = ArrayDB('zero', db, int)
 
     def to_dict(self) -> dict:
@@ -82,8 +88,8 @@ class SnapshotDB:
         :return: Index to the snapshot database.
         :rtype: int
         """
-        if _day == -1:
-            return self._indexes[-1]
+        if _day < 0:
+            return self._indexes[_day]
         low = 0
         high = len(self._indexes)
 
@@ -99,12 +105,11 @@ class SnapshotDB:
         elif low == 0:
             return -1
         elif low == len(self._indexes) and low > 1:
-            return self._indexes[-2]
-        else:
+            return self._indexes[-2] # The last element in _indexes does not give a
+        else: # completed snapshot and must be referred to explicitly with _day = -1.
             return self._indexes[low - 1]
 
-    def get_todays_snapshot(self) -> Snapshot:
+    def start_new_snapshot(self) -> None:
         _day: int = self._loans.getDay()
-        if len(self._indexes) == 0 or _day > self._indexes[-1]:
-            self._indexes.put(_day)
-        return self.__getitem__(self._indexes[-1])
+        if len(self._indexes) == 0 or _day > self._indexes[-1]: # Ensures that the
+            self._indexes.put(_day) # sequence in _indexes is monotonically increasing.
