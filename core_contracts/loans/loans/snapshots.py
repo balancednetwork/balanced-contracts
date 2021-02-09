@@ -9,8 +9,9 @@ class Snapshot(object):
 
     def __init__(self, db: IconScoreDatabase, loans: IconScoreBase) -> None:
         self._loans = loans
+        self.snap_day = VarDB('snap_day', db, int)
         # Time of snapshot
-        self._snap_time = VarDB('snap_time', db, int)
+        self.snap_time = VarDB('snap_time', db, int)
         # Total Debt elegible for mining rewards for each asset. Will be calculated
         # after the snap is complete, in the precompute method.
         self.total_mining_debt = VarDB('total_mining_debt', db, int)
@@ -20,7 +21,7 @@ class Snapshot(object):
         self.replay_index = VarDB('replay_index', db, int)
         # index to track progress through the single precompute pass for each snap.
         # Starts at zero and counts up to the last index in the mining ArrayDB.
-        self._precompute_index = VarDB('precompute_index', db, int)
+        self.precompute_index = VarDB('precompute_index', db, int)
         # List of position ids in the mining state at snapshot time. This list
         # will be compiled in the precompute method as each position in the
         # nonzero ArrayDB is brought up to date.
@@ -40,12 +41,13 @@ class Snapshot(object):
         :rtype dict
         """
         snap = {
-            'snap_time': self._snap_time.get(),
+            'snap_day': self.snap_day.get(),
+            'snap_time': self.snap_time.get(),
             'total_mining_debt': self.total_mining_debt.get(),
             'prices': self._loans._assets.get_asset_prices(),
             'replay_index': self.replay_index.get(),
             'mining_count': len(self.mining),
-            'precompute_index': self._precompute_index.get(),
+            'precompute_index': self.precompute_index.get(),
             'add_to_nonzero_count': len(self.add_to_nonzero),
             'remove_from_nonzero_count': len(self.remove_from_nonzero)
         }
@@ -113,3 +115,4 @@ class SnapshotDB:
         _day: int = self._loans.getDay()
         if len(self._indexes) == 0 or _day > self._indexes[-1]: # Ensures that the
             self._indexes.put(_day) # sequence in _indexes is monotonically increasing.
+        self.__getitem__(_day).snap_day.set(_day)

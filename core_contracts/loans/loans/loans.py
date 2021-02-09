@@ -142,6 +142,7 @@ class Loans(IconScoreBase):
     @only_governance
     def turnLoansOn(self) -> None:
         self._loans_on.set(True)
+        self._current_day.set(self.getDay())
         self._positions._snapshot_db.start_new_snapshot()
 
     @external
@@ -240,10 +241,14 @@ class Loans(IconScoreBase):
         return pos.has_debt()
 
     @external(readonly=True)
-    def getSnapshot(self, _snap_id: int) -> dict:
+    def getSnapshot(self, _snap_id: int = -1) -> dict:
         """
-        Returns a summary of the snapshot for the system.
+        Returns a summary of the snapshot for the system. Returns an empty dict
+        for snapshot indexes that are out of range.
         """
+        if (_snap_id > self._positions._snapshot_db._indexes[-1] or
+                _snap_id + len(self._positions._snapshot_db._indexes) < 0):
+            return {}
         return self._positions._snapshot_db[_snap_id].to_dict()
 
     @external
@@ -406,9 +411,9 @@ class Loans(IconScoreBase):
         else:
             pos = self._positions.get_pos(_from)
             Logger.info(f'About to get standing. day: {self.getDay()}, snaps[-1]: {pos.snaps[-1]}', TAG)
-            standing = pos.get_standing()
+            standing = pos.get_standing(-1)
             Logger.info(f'pos.snaps[-1]: {pos.snaps[-1]}, pos.standing[pos.snaps[-1]]: '
-                        f'{pos.standing[pos.snaps[-1]]}, pos.get_standing(): {standing}', TAG)
+                        f'{pos.standing[pos.snaps[-1]]}, pos.get_standing(-1): {standing}', TAG)
         if standing == Standing.INDETERMINATE:
             revert(f'Position must be up to date with replay of all retirement '
                    f'events before executing this transaction.')
@@ -438,7 +443,7 @@ class Loans(IconScoreBase):
         if not self._positions._exists(_from):
             revert(f'This address does not have a position on Balanced.')
         pos = self._positions.get_pos(_from)
-        if pos.get_standing() == Standing.INDETERMINATE:
+        if pos.get_standing(-1) == Standing.INDETERMINATE:
             revert(f'Position must be up to date with replay of all retirement '
                    f'events before executing this transaction.')
 
@@ -551,10 +556,10 @@ class Loans(IconScoreBase):
                    f'it is in a dead market state.')
         self.checkDistributions(self.checkForNewDay())
         pos = self._positions.get_pos(_from)
-        standing = pos.get_standing()
+        standing = pos.get_standing(-1)
         Logger.info(f'In originateLoan(). pos.snaps[-1]: {pos.snaps[-1]}, '
                     f'pos.standing[pos.snaps[-1]]: {pos.standing[pos.snaps[-1]]}, '
-                    f'pos.get_standing(): {standing}', TAG)
+                    f'pos.get_standing(-1): {standing}', TAG)
         if standing == Standing.INDETERMINATE:
             revert(f'Position must be up to date with replay of all retirement '
                    f'events before executing this transaction.')
@@ -596,7 +601,7 @@ class Loans(IconScoreBase):
             revert(f'This address does not have a position on Balanced.')
         self.checkDistributions(self.checkForNewDay())
         pos = self._positions.get_pos(_from)
-        if pos.get_standing() == Standing.INDETERMINATE:
+        if pos.get_standing(-1) == Standing.INDETERMINATE:
             revert(f'Position must be up to date with replay of all retirement '
                    f'events before executing this transaction.')
 
@@ -702,9 +707,9 @@ class Loans(IconScoreBase):
             last_event = len(self._event_log) # length is the last id since ids start with 1.
         else:
             last_event = self._positions._snapshot_db[_snapshot_id].replay_index.get()
+        # Iterate over _batch_size unplayed events or fewer.
+        end = min([index + self._replay_batch_size.get(), last_event])
         if index < last_event:
-            # Iterate over _batch_size unplayed events or fewer.
-            end = min([index + self._replay_batch_size.get(), last_event])
             for _ in range(index, end):
                 pos.apply_next_event()
         return end - index, last_event - end
