@@ -31,7 +31,15 @@ class TestLoan(IconIntegrateTestBase):
         # test2 = hx7a1824129a8fe803e45a3aae1c0e060399546187
         private = "0a354424b20a7e3c55c43808d607bddfac85d033e63d7d093cb9f0a26c4ee022"
         self._test2 = KeyWallet.load(bytes.fromhex(private))
-        # self._test2 = KeyWallet.create()
+
+        # test3 =  hx3d7ca00231a5ce61c6b33beae3eb492a647e8c11
+        private_key3 = "329bbab70843831b870b0d27d0e53ad48bee0c09f86443451dc96b84c14f8abb"
+        self._test3 = KeyWallet.load(bytes.fromhex(private_key3))
+
+        # self._test3 = KeyWallet.create()
+        # print("address: ", self._test3.get_address())  # Returns an address
+        # print("private key: ", self._test3.get_private_key())
+
         self.icon_service = IconService(HTTPProvider(self.TEST_HTTP_ENDPOINT_URI_V3))
         # self.icon_service = None
         print(self._test1.get_address())
@@ -61,15 +69,16 @@ class TestLoan(IconIntegrateTestBase):
         # 'bal': 'cx6b9b1b9300f1213cfd4575c45d22b81d32fe2a69',
         # 'bwt': 'cxb8726e735adb91611069a1cb09bab14608c9fc0c'}
 
-        with open('/home/sudeep/contracts-private/custom_contracts_20210203024137.pkl', 'rb') as f:
+        with open('/home/sudeep/contracts-private/contracts_20210205083731.pkl', 'rb') as f:
             self.contracts = pickle.load(f)
         print(self.contracts)
 
-        # self.transferICX()
+        self.transferICX()
         # self._setVariablesAndInterfaces()
 
         self._getAvailableAssets()
         self._getTestAccountPosition()
+        # self._getSICX()
         self._addTestCollateral()
         self._getTestAccountPosition()
 
@@ -260,7 +269,7 @@ class TestLoan(IconIntegrateTestBase):
     def transferICX(self):
         transaction = TransactionBuilder() \
             .from_(self._test1.get_address()) \
-            .to(self._test2.get_address()) \
+            .to(self._test3.get_address()) \
             .value(2000 * ICX) \
             .step_limit(10000000) \
             .nid(3) \
@@ -274,7 +283,6 @@ class TestLoan(IconIntegrateTestBase):
         print("ICX transferred")
 
     def _getAvailableAssets(self):
-    # Generates a call instance using the CallBuilder
         _call = CallBuilder().from_(self._test1.get_address()) \
             .to(self.contracts['loans']['SCORE']) \
             .method("getAvailableAssets") \
@@ -285,13 +293,33 @@ class TestLoan(IconIntegrateTestBase):
         print("assets")
         print(response)
 
+    # Get sicx from staking
+    # def _getSICX(self):
+    #     transaction = CallTransactionBuilder() \
+    #         .from_(self._test1.get_address()) \
+    #         .to(self.contracts['staking']['SCORE']) \
+    #         .value(800 * ICX) \
+    #         .step_limit(10000000) \
+    #         .nid(3) \
+    #         .nonce(100) \
+    #         .method("addCollateral") \
+    #         .params({}) \
+    #         .build()
+    #     signed_transaction = SignedTransaction(transaction, self._test1)
+    #     tx_hash = self.icon_service.send_transaction(signed_transaction)
+    #
+    #     _tx_result = self._get_tx_result(tx_hash)
+    #     print(_tx_result)
+    #     self.assertEqual(1, _tx_result['status'])
+    #     print("sICX transferred")
+
     # Test liquidation for wallet _test2
     def _addTestCollateral(self):
         data1 = "{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"".encode("utf-8")
         data2 = "\", \"_asset\": \"\", \"_amount\": 0}}".encode("utf-8")
         params = {'_data1': data1, '_data2': data2}
         transaction = CallTransactionBuilder() \
-            .from_(self._test2.get_address()) \
+            .from_(self._test3.get_address()) \
             .to(self.contracts['loans']['SCORE']) \
             .value(782769 * ICX // 1000) \
             .step_limit(10000000) \
@@ -300,7 +328,7 @@ class TestLoan(IconIntegrateTestBase):
             .method("addCollateral") \
             .params(params) \
             .build()
-        signed_transaction = SignedTransaction(transaction, self._test2)
+        signed_transaction = SignedTransaction(transaction, self._test3)
         tx_hash = self.icon_service.send_transaction(signed_transaction)
         _tx_result = self._get_tx_result(tx_hash)
         # tx_result = self.process_transaction(signed_transaction)
@@ -309,7 +337,7 @@ class TestLoan(IconIntegrateTestBase):
         print('added collateral to test2 account')
 
     def _getTestAccountPosition(self):
-        params = {'_owner': self._test2.get_address()}
+        params = {'_owner': self._test3.get_address()}
         _call = CallBuilder().from_(self._test1.get_address()) \
             .to(self.contracts['loans']['SCORE']) \
             .method('getAccountPositions') \
@@ -320,9 +348,9 @@ class TestLoan(IconIntegrateTestBase):
         print(result)
 
     def _liquidate(self):
-        params = {'_owner': self._test2.get_address()}
+        params = {'_owner': self._test3.get_address()}
         transaction = CallTransactionBuilder() \
-            .from_(self._test2.get_address()) \
+            .from_(self._test3.get_address()) \
             .to(self.contracts['loans']['SCORE']) \
             .value(0) \
             .step_limit(10000000) \
@@ -331,7 +359,7 @@ class TestLoan(IconIntegrateTestBase):
             .method("liquidate") \
             .params(params) \
             .build()
-        signed_transaction = SignedTransaction(transaction, self._test2)
+        signed_transaction = SignedTransaction(transaction, self._test3)
         tx_hash = self.icon_service.send_transaction(signed_transaction)
         _tx_result = self._get_tx_result(tx_hash)
         # tx_result = self.process_transaction(signed_transaction)
