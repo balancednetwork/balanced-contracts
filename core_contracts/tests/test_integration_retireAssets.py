@@ -48,7 +48,7 @@ class TestLoan(IconIntegrateTestBase):
         #     print('Deploying ' + addr + ' Contract in Testnet')
         #     self.contracts[addr] = self._deploy_score()['scoreAddress']
 
-        with open('/home/sudeep/contracts-private/contracts_20210206120259.pkl', 'rb') as f:
+        with open('/home/sudeep/contracts-private/contracts_20210208131139.pkl', 'rb') as f:
             self.contracts = pickle.load(f)
         print(self.contracts)
 
@@ -60,15 +60,15 @@ class TestLoan(IconIntegrateTestBase):
         self._addCollateral("{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"".encode("utf-8"),
                             "\", \"_asset\": \"ICD\", \"_amount\": 40000000000000000000}}".encode("utf-8"))
         self._getAccountPositions()
-        # self._retireAssets()
+        self._retireAssets()
         # self._updateStanding()
-        # self._getAccountPositions()
+        self._getAccountPositions()
 
         # Test Case 2
         # deposit 800 icx and mint 20 ICD
-        self._addCollateral("{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"".encode("utf-8"),
-                            "\", \"_asset\": \"ICD\", \"_amount\": 20000000000000000000}}".encode("utf-8"))
-        self._getAccountPositions()
+        # self._addCollateral("{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"".encode("utf-8"),
+        #                     "\", \"_asset\": \"ICD\", \"_amount\": 20000000000000000000}}".encode("utf-8"))
+        # self._getAccountPositions()
 
 
     @retry(JSONRPCException, tries=10, delay=1, back_off=2)
@@ -266,7 +266,7 @@ class TestLoan(IconIntegrateTestBase):
         print(response)
 
     def _getAccountPositions(self):
-        params = {'_owner': self._test1.get_address()}
+        params = {'_owner': self._test2.get_address()}
         _call = CallBuilder().from_(self._test1.get_address()) \
             .to(self.contracts['loans']['SCORE']) \
             .method('getAccountPositions') \
@@ -276,11 +276,11 @@ class TestLoan(IconIntegrateTestBase):
         print("position")
         print(result)
 
-    def test_retireAssets(self):
+    def _retireAssets(self):
         #  redeem 20 ICD from the wallet _test2 that do not have positions on Balanced
         params = {'_to': self._test2.get_address(), '_value': 20 * ICX}
         transaction = CallTransactionBuilder() \
-            .from_(self._test2.get_address()) \
+            .from_(self._test1.get_address()) \
             .to(self.contracts['icd']['SCORE']) \
             .value(0) \
             .step_limit(10000000) \
@@ -289,11 +289,11 @@ class TestLoan(IconIntegrateTestBase):
             .method("transfer") \
             .params(params) \
             .build()
-        signed_transaction = SignedTransaction(transaction, self._test2)
+        signed_transaction = SignedTransaction(transaction, self._test1)
         tx_hash = self.icon_service.send_transaction(signed_transaction)
         sleep(2)
         data = "{\"method\": \"_retire_asset\", \"params\": {}}".encode("utf-8")
-        params = {'_to': self.contracts['loans']['SCORE'], '_value': 10 * ICX, '_data': data}
+        params = {'_to': self.contracts['loans']['SCORE'], '_value': 20 * ICX, '_data': data}
         transaction = CallTransactionBuilder() \
             .from_(self._test2.get_address()) \
             .to(self.contracts['icd']['SCORE']) \
@@ -309,16 +309,6 @@ class TestLoan(IconIntegrateTestBase):
         _tx_result = self._get_tx_result(tx_hash)
         print(_tx_result)
         print(" Assets retired")
-
-        # call account position
-        params = {'_owner': self._test2.get_address()}
-        _call = CallBuilder().from_(self._test1.get_address()) \
-            .to(self.contracts['loans']['SCORE']) \
-            .method('getAccountPositions') \
-            .params(params) \
-            .build()
-        result = self.get_tx_result(_call)
-        self.assertEqual(20*ICX, result['assets']['ICD'])
 
     def _updateStanding(self):
         params = {"_owner": self._test1.get_address()}
@@ -338,8 +328,8 @@ class TestLoan(IconIntegrateTestBase):
         print("updateStanding called")
         print(_tx_result)
 
-    def test_TestAccountPosition(self):
-        params = {'_owner': self._test2.get_address()}
+    def _TestAccountPosition(self):
+        params = {'_owner': self._test1.get_address()}
         _call = CallBuilder().from_(self._test1.get_address()) \
             .to(self.contracts['loans']['SCORE']) \
             .method('getAccountPositions') \
