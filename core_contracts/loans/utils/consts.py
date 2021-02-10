@@ -2,7 +2,7 @@ from iconservice import *
 
 EXA = 10**18
 
-U_SECONDS_DAY = 86400 * 10**6  # Microseconds in a day.
+U_SECONDS_DAY = 86400 * 10**6  // 24 # Microseconds in a day.
 MIN_UPDATE_TIME = 30 * 10**6  # 30 seconds
 
 POINTS = 10000
