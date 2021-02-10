@@ -41,8 +41,8 @@ class Position(object):
             today = self.snaps[-1]
             previous = self.snaps[-2]
             for symbol in self.asset_db.slist:
-                asset = self.asset_db[_symbol]
-                self.assets[today][_symbol] = self.assets[previous][_symbol]
+                asset = self.asset_db[symbol]
+                self.assets[today][symbol] = self.assets[previous][symbol]
             self.replay_index[today] = self.replay_index[previous]
             self.total_debt[today] = self.total_debt[previous]
             self.ratio[today] = self.ratio[previous]
@@ -51,7 +51,10 @@ class Position(object):
 
     def get_standing(self, _snapshot: int = -1) -> int:
         id = self.get_snapshot_id(_snapshot)
-        if self.replay_index[id] < self.snaps_db[_snapshot].replay_index.get():
+        snap_db_index = self.snaps_db[_snapshot].replay_index.get()
+        pos_index = self.replay_index[id]
+        # revert(f'id: {id}, pos_index: {pos_index}, snap_db_index: {snap_db_index}')
+        if pos_index < snap_db_index:
             return Standing.INDETERMINATE
         return self.standing[id]
 
@@ -236,7 +239,7 @@ class Position(object):
             f'replay_index_{id}': self.replay_index[id],
             f'total_debt_{id}': self.total_debt[id],
             f'ratio_{id}': self.ratio[id],
-            f'standing_{id}': Standing.STANDINGS[self.standing[id]]
+            f'standing_{id}': Standing.STANDINGS[self.get_standing(id)]
         }
         return position
 
@@ -342,7 +345,7 @@ class PositionsDB:
             if assets[symbol].active.get():
                 snapshot.prices[symbol] = assets[symbol].priceInLoop()
         snapshot.replay_index.set(len(self._event_log._events))
-        snapshot._snap_time.set(self._loans.now())
+        snapshot.snap_time.set(self._loans.now())
         self._loans.Snapshot(self._snapshot_db._indexes[-1])
         self._snapshot_db.start_new_snapshot()
 
@@ -352,7 +355,7 @@ class PositionsDB:
         events and calculate their ratios at the end of the snapshot period.
         """
         snapshot = self._snapshot_db[id]
-        index = snapshot._precompute_index.get()
+        index = snapshot.precompute_index.get()
         add = len(snapshot.add_to_nonzero)
         remove = len(snapshot.remove_from_nonzero)
         nonzero_deltas = add + remove
@@ -387,5 +390,5 @@ class PositionsDB:
         snapshot.total_mining_debt.set(snapshot.total_mining_debt.get() + batch_mining_debt)
         if len(self.nonzero) == index:
             return Complete.DONE
-        snapshot._precompute_index.set(index)
+        snapshot.precompute_index.set(index)
         return Complete.NOT_DONE
