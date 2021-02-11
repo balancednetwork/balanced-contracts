@@ -172,7 +172,7 @@ class Position(object):
         if snap_index != self.snaps[-1]:
             self.snaps.put(snap_index)
             for _symbol in self.asset_db.slist:
-                self.assets[snap_index] = self.assets[self.snaps[-2]]
+                self.assets[snap_index][_symbol] = self.assets[self.snaps[-2]][_symbol]
 
         assets = self.assets[snap_index]
         pos_value = assets[symbol]
@@ -190,7 +190,8 @@ class Position(object):
     def update_standing(self, _day: int = -1) -> int:
         id = self.get_snapshot_id(_day)
         if id == -1:
-            revert(f'Invalid snapshot id.')
+            revert(f'Invalid snapshot id. _day: {_day}, len: {len(self.snaps)}, snaps[-1]: {self.snaps[-1]} '
+                   f'dict: {self.to_dict()}')
         if self.replay_index[id] != self.snaps_db[id].replay_index.get():
             self.standing[id] = Standing.INDETERMINATE
             return Standing.INDETERMINATE
@@ -230,6 +231,7 @@ class Position(object):
                 assets[asset] = amount
 
         position = {
+            'snaps_length': len(self.snaps),
             'pos_id': self.id.get(),
             'created': self.created.get(),
             'address': str(self.address.get()),
@@ -373,22 +375,24 @@ class PositionsDB:
         for _ in range(min(remaining, batch_size)): # Update standing for all nonzero positions.
             account_id = self.nonzero[index]
             pos = self.__getitem__(account_id)
-            # all retirement events that happened before the snapshot must be
-            # applied to the position before calculating its value.
-            pos_rp_id = pos.replay_index[id]
-            snap_rp_id = snapshot.replay_index.get()
-            if pos_rp_id < snap_rp_id:
-                for rp_id in range(snap_rp_id, pos_rp_id + 1):
-                    pos.apply_next_event()
-                standing = pos.update_standing(id)
-            else:
-                standing = pos.update_standing(id)
-            if standing == Standing.MINING:
-                snapshot.mining.put(account_id)
-                batch_mining_debt += pos.total_debt[id]
+            # all retirement events that happened after the position creation,
+            # but before the snapshot must be applied to the position before
+            # calculating its value.
+            if id >= pos.snaps[0]:
+                pos_rp_id = pos.replay_index[id]
+                snap_rp_id = snapshot.replay_index.get()
+                if pos_rp_id < snap_rp_id:
+                    for _ in range(pos_rp_id, snap_rp_id):
+                        pos.apply_next_event()
+                    standing = pos.update_standing(id)
+                else:
+                    standing = pos.update_standing(id)
+                if standing == Standing.MINING:
+                    snapshot.mining.put(account_id)
+                    batch_mining_debt += pos.total_debt[id]
             index += 1
         snapshot.total_mining_debt.set(snapshot.total_mining_debt.get() + batch_mining_debt)
+        snapshot.precompute_index.set(index)
         if len(self.nonzero) == index:
             return Complete.DONE
-        snapshot.precompute_index.set(index)
         return Complete.NOT_DONE
