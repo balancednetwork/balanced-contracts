@@ -35,6 +35,15 @@ class TestLoan(IconIntegrateTestBase):
         # self._test2 = KeyWallet.create()
         self.icon_service = IconService(HTTPProvider(self.TEST_HTTP_ENDPOINT_URI_V3))
         print(self._test1.get_address())
+        print(self.icon_service.get_balance(self._test1.get_address())/10**18)
+
+        # test3 =  hx3d7ca00231a5ce61c6b33beae3eb492a647e8c11
+        private_key3 = "329bbab70843831b870b0d27d0e53ad48bee0c09f86443451dc96b84c14f8abb"
+        self._test3 = KeyWallet.load(bytes.fromhex(private_key3))
+
+        self._test4 = KeyWallet.create()
+        self._test5 = KeyWallet.create()
+        print(self.icon_service.get_balance(self._test4.get_address()) / 10 ** 18)
 
         # deploy SCORE
         # for address in DEPLOY:
@@ -48,21 +57,35 @@ class TestLoan(IconIntegrateTestBase):
         #     print('Deploying ' + addr + ' Contract in Testnet')
         #     self.contracts[addr] = self._deploy_score()['scoreAddress']
 
-        with open('/home/sudeep/contracts-private/contracts_20210208131139.pkl', 'rb') as f:
+        with open('/home/sudeep/contracts-private/contracts_20210209104106.pkl', 'rb') as f:
             self.contracts = pickle.load(f)
         print(self.contracts)
 
         # self._setVariablesAndInterfaces()
-        # self.transferICX()
+        self.transferICX()
+        # self.transferICX(self._test5.get_address())
+        print(self.icon_service.get_balance(self._test4.get_address()) / 10 ** 18)
+
 
         # Test Case 1
         # deposite 800 ICX and mint 40ICD
+        # self._updateStanding(self._test1.get_address())
+        # self._updateStanding(self._test2.get_address())
+        # self._updateStanding(self._test3.get_address())
+
         self._addCollateral("{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"".encode("utf-8"),
                             "\", \"_asset\": \"ICD\", \"_amount\": 40000000000000000000}}".encode("utf-8"))
-        self._getAccountPositions()
+        print(self.icon_service.get_balance(self._test2.get_address()) / 10 ** 18)
+        print(self.icon_service.get_balance(self._test3.get_address()) / 10 ** 18)
+        # self._getAccountPositions(self._test4.get_address())
+        # self._getSnapShot()
         self._retireAssets()
-        # self._updateStanding()
-        self._getAccountPositions()
+        self._updateStanding()
+        self._claimRewards()
+        self._MainupdateStanding()
+        self._balance()
+        # self._getAccountPositions(self._test4.get_address())
+
 
         # Test Case 2
         # deposit 800 icx and mint 20 ICD
@@ -221,7 +244,7 @@ class TestLoan(IconIntegrateTestBase):
     def transferICX(self):
         transaction = TransactionBuilder() \
             .from_(self._test1.get_address()) \
-            .to(self._test2.get_address()) \
+            .to(self._test4.get_address()) \
             .value(1000 * ICX) \
             .step_limit(10000000) \
             .nid(3) \
@@ -237,7 +260,7 @@ class TestLoan(IconIntegrateTestBase):
         # data2 = "\", \"_asset\": \"ICD\", \"_amount\": 40000000000000000000}}".encode("utf-8")
         params = {'_data1': data1, '_data2': data2}
         transaction = CallTransactionBuilder() \
-            .from_(self._test1.get_address()) \
+            .from_(self._test4.get_address()) \
             .to(self.contracts['loans']['SCORE']) \
             .value(800 * ICX) \
             .step_limit(10000000) \
@@ -246,7 +269,7 @@ class TestLoan(IconIntegrateTestBase):
             .method("addCollateral") \
             .params(params) \
             .build()
-        signed_transaction = SignedTransaction(transaction, self._test1)
+        signed_transaction = SignedTransaction(transaction, self._test4)
         tx_hash = self.icon_service.send_transaction(signed_transaction)
         _tx_result = self._get_tx_result(tx_hash)
         print(_tx_result)
@@ -265,8 +288,8 @@ class TestLoan(IconIntegrateTestBase):
         print("assets")
         print(response)
 
-    def _getAccountPositions(self):
-        params = {'_owner': self._test2.get_address()}
+    def _getAccountPositions(self, to):
+        params = {'_owner': to}
         _call = CallBuilder().from_(self._test1.get_address()) \
             .to(self.contracts['loans']['SCORE']) \
             .method('getAccountPositions') \
@@ -276,11 +299,22 @@ class TestLoan(IconIntegrateTestBase):
         print("position")
         print(result)
 
+    def _getSnapShot(self):
+        params = {}
+        _call = CallBuilder().from_(self._test4.get_address()) \
+            .to(self.contracts['loans']['SCORE']) \
+            .method('getSnapshot') \
+            .params(params) \
+            .build()
+        result = self.get_tx_result(_call)
+        print("Sanapshot Called")
+        print(result)
+
     def _retireAssets(self):
         #  redeem 20 ICD from the wallet _test2 that do not have positions on Balanced
-        params = {'_to': self._test2.get_address(), '_value': 20 * ICX}
+        params = {'_to': self._test5.get_address(), '_value': 20 * ICX}
         transaction = CallTransactionBuilder() \
-            .from_(self._test1.get_address()) \
+            .from_(self._test4.get_address()) \
             .to(self.contracts['icd']['SCORE']) \
             .value(0) \
             .step_limit(10000000) \
@@ -289,13 +323,13 @@ class TestLoan(IconIntegrateTestBase):
             .method("transfer") \
             .params(params) \
             .build()
-        signed_transaction = SignedTransaction(transaction, self._test1)
+        signed_transaction = SignedTransaction(transaction, self._test4)
         tx_hash = self.icon_service.send_transaction(signed_transaction)
         sleep(2)
         data = "{\"method\": \"_retire_asset\", \"params\": {}}".encode("utf-8")
-        params = {'_to': self.contracts['loans']['SCORE'], '_value': 20 * ICX, '_data': data}
+        params = {'_to': self.contracts['loans']['SCORE'], '_value': 10 * ICX, '_data': data}
         transaction = CallTransactionBuilder() \
-            .from_(self._test2.get_address()) \
+            .from_(self._test5.get_address()) \
             .to(self.contracts['icd']['SCORE']) \
             .value(0) \
             .step_limit(10000000) \
@@ -304,13 +338,49 @@ class TestLoan(IconIntegrateTestBase):
             .method("transfer") \
             .params(params) \
             .build()
-        signed_transaction = SignedTransaction(transaction, self._test2)
+        signed_transaction = SignedTransaction(transaction, self._test5)
         tx_hash = self.icon_service.send_transaction(signed_transaction)
         _tx_result = self._get_tx_result(tx_hash)
         print(_tx_result)
         print(" Assets retired")
 
     def _updateStanding(self):
+        params = {"_owner": self._test4.get_address()}
+        transaction = CallTransactionBuilder() \
+            .from_(self._test4.get_address()) \
+            .to(self.contracts['loans']['SCORE']) \
+            .value(0) \
+            .step_limit(10000000) \
+            .nid(3) \
+            .nonce(100) \
+            .method("updateStanding") \
+            .params(params) \
+            .build()
+        signed_transaction = SignedTransaction(transaction, self._test4)
+        tx_hash = self.icon_service.send_transaction(signed_transaction)
+        _tx_result = self._get_tx_result(tx_hash)
+        print("updateStanding called")
+        print(_tx_result)
+
+    def _claimRewards(self):
+        params = {}
+        transaction = CallTransactionBuilder() \
+            .from_(self._test4.get_address()) \
+            .to(self.contracts['rewards']['SCORE']) \
+            .value(0) \
+            .step_limit(10000000) \
+            .nid(3) \
+            .nonce(100) \
+            .method("claimRewards") \
+            .params(params) \
+            .build()
+        signed_transaction = SignedTransaction(transaction, self._test4)
+        tx_hash = self.icon_service.send_transaction(signed_transaction)
+        _tx_result = self._get_tx_result(tx_hash)
+        print("claiming rewards")
+        print(_tx_result)
+
+    def _MainupdateStanding(self):
         params = {"_owner": self._test1.get_address()}
         transaction = CallTransactionBuilder() \
             .from_(self._test1.get_address()) \
@@ -325,19 +395,30 @@ class TestLoan(IconIntegrateTestBase):
         signed_transaction = SignedTransaction(transaction, self._test1)
         tx_hash = self.icon_service.send_transaction(signed_transaction)
         _tx_result = self._get_tx_result(tx_hash)
-        print("updateStanding called")
+        print("Main updateStanding called")
         print(_tx_result)
 
-    def _TestAccountPosition(self):
-        params = {'_owner': self._test1.get_address()}
-        _call = CallBuilder().from_(self._test1.get_address()) \
-            .to(self.contracts['loans']['SCORE']) \
-            .method('getAccountPositions') \
+    def _balance(self):
+        params = {'_owner': self._test4.get_address()}
+        call = CallBuilder().from_(self._test1.get_address()) \
+            .to(self.contracts['bal']['SCORE']) \
+            .method('availableBalanceOf') \
             .params(params) \
             .build()
-        result = self.get_tx_result(_call)
-        print("position")
+        result = self.get_tx_result(call)
+        print("Balance ")
         print(result)
+
+    # def _TestAccountPosition(self):
+    #     params = {'_owner': self._test1.get_address()}
+    #     _call = CallBuilder().from_(self._test1.get_address()) \
+    #         .to(self.contracts['loans']['SCORE']) \
+    #         .method('getAccountPositions') \
+    #         .params(params) \
+    #         .build()
+    #     result = self.get_tx_result(_call)
+    #     print("position")
+    #     print(result)
 
     def test_call_name(self):
         # Generates a call instance using the CallBuilder

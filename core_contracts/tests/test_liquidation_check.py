@@ -70,7 +70,7 @@
 #         # 'bal': 'cx6b9b1b9300f1213cfd4575c45d22b81d32fe2a69',
 #         # 'bwt': 'cxb8726e735adb91611069a1cb09bab14608c9fc0c'}
 #
-#         with open('/home/sudeep/contracts-private/contracts_20210208131139.pkl', 'rb') as f:
+#         with open('/home/sudeep/contracts-private/contracts_20210209104106.pkl', 'rb') as f:
 #             self.contracts = pickle.load(f)
 #         print(self.contracts)
 #
