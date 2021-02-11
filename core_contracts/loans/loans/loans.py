@@ -127,13 +127,13 @@ class Loans(IconScoreBase):
     def on_update(self) -> None:
         super().on_update()
         # # Create bad position for testing liquidation. Take out a loan that is too large.
-        pos = self._positions.get_pos(TEST_ADDRESS)
-        # Independently, 782769 * 10**15 =~$299 worth of collateral will be
-        # deposited for this position.
-        icd: int = 2 * 10**20 # $200 ICD debt
-        self._assets['ICD'].mint(TEST_ADDRESS, icd)
-        pos['ICD'] += icd
-        pos.update_standing()
+        # pos = self._positions.get_pos(TEST_ADDRESS)
+        # # Independently, 782769 * 10**15 =~$299 worth of collateral will be
+        # # deposited for this position.
+        # icd: int = 2 * 10**20 # $200 ICD debt
+        # self._assets['ICD'].mint(TEST_ADDRESS, icd)
+        # pos['ICD'] += icd
+        # pos.update_standing()
 
     @external(readonly=True)
     def name(self) -> str:
@@ -211,6 +211,13 @@ class Loans(IconScoreBase):
         Get account positions.
         """
         return self._positions.list_pos(_owner)
+
+    @external(readonly=True)
+    def getPositionByIndex(self, _index: int, _day: int) -> dict:
+        """
+        Get account positions.
+        """
+        return self._positions[_index].to_dict(_day)
 
     @external(readonly=True)
     def getAvailableAssets(self) -> dict:
@@ -636,8 +643,10 @@ class Loans(IconScoreBase):
             revert(f'This address does not have a position on Balanced.')
         self.checkDistributions(self.checkForNewDay())
         pos = self._positions.get_pos(_owner)
-        if pos.replay_index[self.getDay()] < len(self._event_log):
-            processed, remaining = self.replay_events(_owner, self.getDay())
+        day = self.getDay()
+        # revert(f'id: {pos.id.get()}, snaps length: {len(pos.snaps)}, snaps[-1]: {pos.snaps[-1]}, replay_index: {pos.replay_index[day]}, event_log_len: {len(self._event_log)}')
+        if pos.replay_index[day] < len(self._event_log):
+            processed, remaining = self.replay_events(_owner, day)
             if remaining != 0:
                 standing = Standing.STANDING[Standing.INDETERMINATE]
                 self.PositionStanding(_owner, standing, '-', f'Events remaining: {remaining}')
@@ -702,7 +711,6 @@ class Loans(IconScoreBase):
         """
         pos = self._positions.get_pos(_apply_to)
         snap = pos.get_snapshot_id(_snapshot_id)
-
         index = pos.replay_index[snap]
         if snap == self.getDay():
             last_event = len(self._event_log) # length is the last id since ids start with 1.
