@@ -1,6 +1,5 @@
 from iconservice import *
-from .tokens.IRC2mintable import IRC2Mintable
-from .tokens.IRC2burnable import IRC2Burnable
+from .tokens.IRC2 import IRC2
 from .utils.checks import *
 from .utils.consts import *
 
@@ -20,7 +19,7 @@ class OracleInterface(InterfaceScore):
         pass
 
 
-class BalanceToken(IRC2Mintable, IRC2Burnable):
+class BalanceToken(IRC2):
 
     _PRICE_UPDATE_TIME = "price_update_time"
     _LAST_PRICE = "last_price"
@@ -356,9 +355,83 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
             revert(f"{TAG}: Out of available balance. Please check staked and total balance")
 
         self._staked_balances[_from][Status.AVAILABLE] = self._staked_balances[_from][Status.AVAILABLE] - _value
-        self._staked_balances[_from][Status.AVAILABLE] = self._staked_balances[_from][Status.AVAILABLE] + _value
+        self._staked_balances[_to][Status.AVAILABLE] = self._staked_balances[_to][Status.AVAILABLE] + _value
 
         super().transfer(_to, _value, _data)
+
+    @external
+    def mint(self, _amount: int, _data: bytes = None) -> None:
+        """
+        Creates `_amount` number of tokens, and assigns to caller account.
+        Increases the balance of that account and total supply.
+        See {IRC2-_mint}
+
+        :param _amount: Number of tokens to be created at the account.
+        """
+        if _data is None:
+            _data = b'None'
+        self._mint(self.address, _amount, _data)
+
+        _to = self.msg.sender
+        self._check_first_time(_to)
+        self._make_available(_to)
+        self._staked_balances[_to][Status.AVAILABLE] = self._staked_balances[_to][Status.AVAILABLE] + _amount
+
+        super()._transfer(self.address, _to, _amount, _data)
+
+    @external
+    def mintTo(self, _account: Address, _amount: int, _data: bytes = None) -> None:
+        """
+        Creates `_amount` number of tokens, assigns to self, then transfers to `_account`.
+        Increases the balance of that account and total supply.
+        See {IRC2-_mint}
+
+        :param _account: The account at which token is to be created.
+        :param _amount: Number of tokens to be created at the account.
+        """
+        if _data is None:
+            _data = b'None'
+        self._mint(self.address, _amount, _data)
+
+        _to = _account
+        self._check_first_time(_to)
+        self._make_available(_to)
+        self._staked_balances[_to][Status.AVAILABLE] = self._staked_balances[_to][Status.AVAILABLE] + _amount
+
+        super()._transfer(self.address, _to, _amount, _data)
+
+    @external
+    def burn(self, _amount: int) -> None:
+        """
+        Destroys `_amount` number of tokens from the caller account.
+        Decreases the balance of that account and total supply.
+        See {IRC2-_burn}
+
+        :param _amount: Number of tokens to be destroyed.
+        """
+        _data = b'None'
+        _from = self.msg.sender
+        self._staked_balances[_from][Status.AVAILABLE] = self._staked_balances[_from][Status.AVAILABLE] - _value
+        super()._transfer(_from, self.address, _amount, _data)
+
+        self._burn(self.address, _amount)
+
+    @external
+    def burnFrom(self, _account: Address, _amount: int) -> None:
+        """
+        Destroys `_amount` number of tokens from the specified `_account` account.
+        Decreases the balance of that account and total supply.
+        See {IRC2-_burn}
+
+        :param _account: The account at which token is to be destroyed.
+        :param _amount: Number of tokens to be destroyed at the `_account`.
+        """
+        _data = b'None'
+        _from = _account
+        self._staked_balances[_from][Status.AVAILABLE] = self._staked_balances[_from][Status.AVAILABLE] - _value
+        super()._transfer(_from, self.address, _amount, _data)
+
+        self._burn(_from, _amount)
 
     # --------------------------------------------------------------------------
     # EVENTS
