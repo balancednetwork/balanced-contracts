@@ -38,10 +38,14 @@ class Dividends(IconScoreBase):
     def TokenTransfer(self, recipient: Address, amount: int, note: str):
         pass
 
+    _GOVERNANCE = 'governance'
+    _ADMIN = 'admin'
     _LOANS_SCORE = 'loans_score'
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
+        self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
+        self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._loans_score = VarDB(self._LOANS_SCORE, db, value_type=Address)
 
     def on_install(self) -> None:
@@ -56,11 +60,29 @@ class Dividends(IconScoreBase):
 
     @external
     @only_owner
-    def setLoansScore(self, _address: Address) -> None:
+    def setGovernance(self, _address: Address) -> None:
+        self._governance.set(_address)
+
+    @external(readonly=True)
+    def getGovernance(self) -> Address:
+        return self._governance.get()
+
+    @external
+    @only_governance
+    def setAdmin(self, _address: Address) -> None:
+        self._admin.set(_address)
+
+    @external(readonly=True)
+    def getAdmin(self) -> Address:
+        return self._admin.get()
+
+    @external
+    @only_admin
+    def setLoans(self, _address: Address) -> None:
         self._loans_score.set(_address)
 
     @external(readonly=True)
-    def getLoansScore(self) -> Address:
+    def getLoans(self) -> Address:
         return self._loans_score.get()
 
     @external(readonly=True)

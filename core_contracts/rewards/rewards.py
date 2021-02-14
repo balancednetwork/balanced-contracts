@@ -26,12 +26,13 @@ class Rewards(IconScoreBase):
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self._governance = VarDB('governance', db, value_type=Address)
-        self._start_timestamp = VarDB('start_timestamp', db, value_type = int)
-        self._batch_size = VarDB('batch_size', db, value_type = int)
-        self._baln_holdings = DictDB('baln_holdings', db, value_type = int)
+        self._admin = VarDB('admin', db, value_type=Address)
         self._baln_address = VarDB('baln_address', db, value_type = Address)
         self._bwt_address = VarDB('bwt_address', db, value_type = Address)
         self._reserve_fund = VarDB('reserve_fund', db, value_type = Address)
+        self._start_timestamp = VarDB('start_timestamp', db, value_type = int)
+        self._batch_size = VarDB('batch_size', db, value_type = int)
+        self._baln_holdings = DictDB('baln_holdings', db, value_type = int)
         self._recipient_split = DictDB('recipient_split', db, value_type = int)
         self._recipients = ArrayDB('recipients', db, value_type = str)
         self._platform_recipients = {'Worker Tokens': self._bwt_address,
@@ -54,6 +55,13 @@ class Rewards(IconScoreBase):
     @external(readonly = True)
     def name(self) -> str:
         return "Rewards"
+
+    @external(readonly = True)
+    def getBalnHoldings(self, _holders: List[Address]) -> dict:
+        holdings = {}
+        for holder in _holders:
+            holdings[str(holder)] = self._baln_holdings[holder]
+        return holdings
 
     # Methods to update the states of a data_source_name object
     @external
@@ -176,8 +184,10 @@ class Rewards(IconScoreBase):
         for name in self._data_source_db._names:
             data_source = self.getDataSources(name)
             if data_source['day'] < self._get_day():
-                if self._data_source_db[name].dist_percent_dict[data_source['day']] == 0:
-                    self._data_source_db[name].dist_percent_dict[data_source['day']] = self._data_source_db[name].bal_token_dist_percent.get()
+                source = self._data_source_db[name]
+                percent = source.dist_percent_dict
+                if percent[data_source['day']] == 0:
+                    percent[data_source['day']] = source.bal_token_dist_percent.get()
                 self._reward_distribution(name, self._batch_size.get())
                 distribution_complete = False
         return distribution_complete
@@ -232,34 +242,43 @@ class Rewards(IconScoreBase):
         return self._governance.get()
 
     @external
-    @only_owner
-    def setBalnAddress(self, _address: Address) -> None:
+    @only_governance
+    def setAdmin(self, _address: Address) -> None:
+        self._admin.set(_address)
+
+    @external(readonly=True)
+    def getAdmin(self) -> Address:
+        return self._admin.get()
+
+    @external
+    @only_admin
+    def setBaln(self, _address: Address) -> None:
         self._baln_address.set(_address)
 
     @external(readonly=True)
-    def getBalnAddress(self) -> Address:
+    def getBaln(self) -> Address:
         return self._baln_address.get()
 
     @external
-    @only_owner
-    def setBwtAddress(self, _address: Address) -> None:
+    @only_admin
+    def setBwt(self, _address: Address) -> None:
         self._bwt_address.set(_address)
 
     @external(readonly=True)
-    def getBwtAddress(self) -> Address:
+    def getBwt(self) -> Address:
         return self._bwt_address.get()
 
     @external
-    @only_owner
-    def setReserveAddress(self, _address: Address) -> None:
+    @only_admin
+    def setReserve(self, _address: Address) -> None:
         self._reserve_fund.set(_address)
 
     @external(readonly=True)
-    def getReserveAddress(self) -> Address:
+    def getReserve(self) -> Address:
         return self._reserve_fund.get()
 
     @external
-    @only_owner
+    @only_admin
     def setBatchSize(self, _batch_size: int) -> None:
         self._batch_size.set(_batch_size)
 

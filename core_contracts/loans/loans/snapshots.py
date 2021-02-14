@@ -65,10 +65,9 @@ class SnapshotDB:
         index = self.get_snapshot_id(_day)
         if _day < 0:
             _day = index
-        if index in range(self._indexes[0], self._loans.getDay() + 1):
+        if index in range(self._indexes[0], self._indexes[-1] + 1):
             if _day not in self._items:
-                sub_db = self._db.get_sub_db(b'|'.join([SNAP_DB_PREFIX, str(index).encode()]))
-                self._items[_day] = Snapshot(sub_db, self._loans)
+                return self._get_snapshot(_day, index)
         else:
             revert(f'No snapshot exists for {_day}.')
         return self._items[_day]
@@ -78,6 +77,11 @@ class SnapshotDB:
 
     def __len__(self) -> int:
         return self._indexes[-1] - self._indexes[0]
+
+    def _get_snapshot(self, _day: int, _index: int) -> Snapshot:
+        sub_db = self._db.get_sub_db(b'|'.join([SNAP_DB_PREFIX, str(_index).encode()]))
+        self._items[_day] = Snapshot(sub_db, self._loans)
+        return self._items[_day]
 
     def get_snapshot_id(self, _day: int) -> int:
         """
@@ -91,7 +95,10 @@ class SnapshotDB:
         :rtype: int
         """
         if _day < 0:
-            return self._indexes[_day]
+            index = _day + len(self._indexes)
+            if index < 0:
+                revert(f'Snapshot index {_day} out of range.')
+            return self._indexes[index]
         low = 0
         high = len(self._indexes)
 
@@ -112,7 +119,10 @@ class SnapshotDB:
             return self._indexes[low - 1]
 
     def start_new_snapshot(self) -> None:
-        _day: int = self._loans.getDay()
+        _day: int = self._loans._current_day.get()
         if len(self._indexes) == 0 or _day > self._indexes[-1]: # Ensures that the
             self._indexes.put(_day) # sequence in _indexes is monotonically increasing.
-        self.__getitem__(_day).snap_day.set(_day)
+            snapshot = self._get_snapshot(_day, _day)
+            snapshot.snap_day.set(_day)
+        else:
+            revert(f'New snapshot called for a day less than the previous snapshot.')
