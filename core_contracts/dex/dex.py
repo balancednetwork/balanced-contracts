@@ -257,7 +257,7 @@ class DEX(IconScoreBase):
         """
         return self._admin.get()
 
-    @only_owner
+    @only_governance
     @external
     def setAdmin(self, _admin: Address) -> None:
         """
@@ -274,7 +274,7 @@ class DEX(IconScoreBase):
         """
         return self._sicx.get()
 
-    @only_owner
+    @only_admin
     @external
     def setSicx(self, _address: Address) -> None:
         """
@@ -283,7 +283,7 @@ class DEX(IconScoreBase):
         """
         self._sicx.set(_address)
 
-    @only_owner
+    @only_admin
     @external
     def setDividends(self, _address: Address) -> None:
         """
@@ -299,7 +299,7 @@ class DEX(IconScoreBase):
         """
         return self._dividends.get()
 
-    @only_owner
+    @only_admin
     @external
     def setStaking(self, _address: Address) -> None:
         """
@@ -331,7 +331,7 @@ class DEX(IconScoreBase):
         """
         return self._governance.get()
 
-    @only_owner
+    @only_admin
     @external
     def setRewards(self, _address: Address) -> None:
         """
@@ -347,7 +347,7 @@ class DEX(IconScoreBase):
         """
         return self._rewards.get()
 
-    @only_owner
+    @only_admin
     @external
     def setIcd(self, _address: Address) -> None:
         """
