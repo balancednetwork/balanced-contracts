@@ -41,9 +41,13 @@ class TestLoan(IconIntegrateTestBase):
         private_key3 = "329bbab70843831b870b0d27d0e53ad48bee0c09f86443451dc96b84c14f8abb"
         self._test3 = KeyWallet.load(bytes.fromhex(private_key3))
 
-        self._test4 = KeyWallet.create()
-        self._test5 = KeyWallet.create()
-        print(self.icon_service.get_balance(self._test4.get_address()) / 10 ** 18)
+        # test4 = hx61d0e100c3c9e72f08de762ce42214a4bc3142e2
+        private_key4 = "45d7d8ba320c68e231bb617a82f6c80b50ad3804cf029e167e764c9aa186ce82"
+        self._test4 = KeyWallet.load(bytes.fromhex(private_key4))
+
+        # test5 = hx7a8c328bc394fc423197f7b82a264a4d835bfec7
+        private_key5 = "bf76b5c647348e60762cb0c6eb9ddaff6fe17f04a38166e9fbbbbafed38a4646"
+        self._test5 = KeyWallet.load(bytes.fromhex(private_key5))
 
         # deploy SCORE
         # for address in DEPLOY:
@@ -57,34 +61,62 @@ class TestLoan(IconIntegrateTestBase):
         #     print('Deploying ' + addr + ' Contract in Testnet')
         #     self.contracts[addr] = self._deploy_score()['scoreAddress']
 
-        with open('/home/sudeep/contracts-private/contracts_20210209104106.pkl', 'rb') as f:
-            self.contracts = pickle.load(f)
-        print(self.contracts)
+        # with open('/home/sudeep/contracts-private/contracts_20210209104106.pkl', 'rb') as f:
+        #     self.contracts = pickle.load(f)
+        # print(self.contracts)
+
+        self.contracts = {'loans': {'zip': 'core_contracts/loans.zip',
+                          'SCORE': 'cx19540881d5d4b326270e2b425cbf64b55b08a887'},
+                         'staking': {'zip': 'core_contracts/staking.zip',
+                          'SCORE': 'cxdcbbda0da5f0019926f604839f3012122a444eba'},
+                         'dividends': {'zip': 'core_contracts/dividends.zip',
+                          'SCORE': 'cx6bc0b2fe33156f27711479f7f1391b2a1660a0f1'},
+                         'reserve_fund': {'zip': 'core_contracts/reserve_fund.zip',
+                          'SCORE': 'cx4455a7924ed9c3b9e0f038002e21d576b96fd940'},
+                         'rewards': {'zip': 'core_contracts/rewards.zip',
+                          'SCORE': 'cx30419a8b4d166617b358fba75446aa1f641da198'},
+                         'dex': {'zip': 'core_contracts/dex.zip',
+                          'SCORE': 'cxc179136df48f37079c791e04bfc5e195edcf7c28'},
+                         'governance': {'zip': 'core_contracts/governance.zip',
+                          'SCORE': 'cx724edf596490d5fdaaad195ab867d9f1ca8c9043'},
+                         'dummy_oracle': {'zip': 'core_contracts/dummy_oracle.zip',
+                          'SCORE': 'cx0478fad07631c13f58b5527e05397845cb3fb1e9'},
+                         'sicx': {'zip': 'token_contracts/sicx.zip',
+                          'SCORE': 'cxab30b4b3326264550b5f3482828c83aa78844340'},
+                         'icd': {'zip': 'token_contracts/icd.zip',
+                          'SCORE': 'cxbcaaa049b434a20bb970376ec2c0de3965e32ec5'},
+                         'bal': {'zip': 'token_contracts/bal.zip',
+                          'SCORE': 'cx190816cb25d930f85eed49dd449489b2156afbab'},
+                         'bwt': {'zip': 'token_contracts/bwt.zip',
+                          'SCORE': 'cxbd393de223a68647938356a337c8347a68e39f68'}}
 
         # self._setVariablesAndInterfaces()
         self.transferICX()
+        # self.transferICX5()
         # self.transferICX(self._test5.get_address())
         print(self.icon_service.get_balance(self._test4.get_address()) / 10 ** 18)
-
+        print(self.icon_service.get_balance(self._test5.get_address()) / 10 ** 18)
 
         # Test Case 1
         # deposite 800 ICX and mint 40ICD
         # self._updateStanding(self._test1.get_address())
-        # self._updateStanding(self._test2.get_address())
+        # self._updateStanding()
         # self._updateStanding(self._test3.get_address())
+        self._getAccountPositions(self._test4.get_address())
 
         self._addCollateral("{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"".encode("utf-8"),
                             "\", \"_asset\": \"ICD\", \"_amount\": 40000000000000000000}}".encode("utf-8"))
-        print(self.icon_service.get_balance(self._test2.get_address()) / 10 ** 18)
-        print(self.icon_service.get_balance(self._test3.get_address()) / 10 ** 18)
-        # self._getAccountPositions(self._test4.get_address())
+        # print(self.icon_service.get_balance(self._test2.get_address()) / 10 ** 18)
+        # print(self.icon_service.get_balance(self._test3.get_address()) / 10 ** 18)
+        self._getAccountPositions(self._test4.get_address())
         # self._getSnapShot()
         self._retireAssets()
         self._updateStanding()
         self._claimRewards()
         self._MainupdateStanding()
         self._balance()
-        # self._getAccountPositions(self._test4.get_address())
+        self._availableBalanceOf()
+        self._getAccountPositions(self._test4.get_address())
 
 
         # Test Case 2
@@ -255,6 +287,20 @@ class TestLoan(IconIntegrateTestBase):
         print("txHash: ", tx_hash)
         print("ICX transferred")
 
+    def transferICX5(self):
+        transaction = TransactionBuilder() \
+            .from_(self._test1.get_address()) \
+            .to(self._test5.get_address()) \
+            .value(1000 * ICX) \
+            .step_limit(10000000) \
+            .nid(3) \
+            .nonce(100) \
+            .build()
+        signed_transaction = SignedTransaction(transaction, self._test1)
+        tx_hash = self.icon_service.send_transaction(signed_transaction)
+        print("txHash: ", tx_hash)
+        print("ICX transferred")
+
     def _addCollateral(self, data1: bytes, data2: bytes):
         # data1 = "{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"".encode("utf-8")
         # data2 = "\", \"_asset\": \"ICD\", \"_amount\": 40000000000000000000}}".encode("utf-8")
@@ -379,6 +425,17 @@ class TestLoan(IconIntegrateTestBase):
         _tx_result = self._get_tx_result(tx_hash)
         print("claiming rewards")
         print(_tx_result)
+
+    def _availableBalanceOf(self):
+        params = {'_owner': self._test4.get_address()}
+        _call = CallBuilder().from_(self._test1.get_address()) \
+            .to(self.contracts['bal']['SCORE']) \
+            .method('availableBalanceOf') \
+            .params(params) \
+            .build()
+        result = self.get_tx_result(_call)
+        print("BAL Called")
+        print(result)
 
     def _MainupdateStanding(self):
         params = {"_owner": self._test1.get_address()}
