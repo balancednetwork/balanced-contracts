@@ -41,6 +41,7 @@ class BalanceToken(IRC2):
     _TOTAL_STAKED_BALANCE = "total_staked_balance"
 
     _DIVIDENDS_SCORE = "dividends_score"
+    _GOVERNANCE = "governance"
 
     _PEG = "peg"
     _ORACLE_ADDRESS = "oracle_address"
@@ -50,6 +51,7 @@ class BalanceToken(IRC2):
         super().__init__(db)
         self._peg = VarDB(self._PEG, db, value_type=str)
         self._oracle_address = VarDB(self._ORACLE_ADDRESS, db, value_type=Address)
+        self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
         self._oracle_name = VarDB(self._ORACLE_NAME, db, value_type=str)
         self._price_update_time = VarDB(self._PRICE_UPDATE_TIME, db, value_type=int)
         self._last_price = VarDB(self._LAST_PRICE, db, value_type=int)
@@ -95,17 +97,44 @@ class BalanceToken(IRC2):
         return self._peg.get()
 
     @external
-    @only_owner
-    def setOracle(self, _address: Address, _name: str) -> None:
+    @only_governance
+    def setOracle(self, _address: Address) -> None:
         self._oracle_address.set(_address)
-        self._oracle_name.set(_name)
 
     @external(readonly=True)
     def getOracle(self) -> dict:
-        return {"name": self._oracle_name.get(), "address": str(self._oracle_address.get())}
+        return self._oracle_address.get()
+
+    @external
+    @only_governance
+    def setOracleName(self, _name: str) -> None:
+        self._oracle_name.set(_name)
+
+    @external(readonly=True)
+    def getOracleName(self) -> dict:
+        return self._oracle_name.get()
 
     @external
     @only_owner
+    def setGovernance(self, _address: Address) -> None:
+        self._governance.set(_address)
+
+    @external(readonly=True)
+    def getGovernance(self) -> Address:
+        return self._governance.get()
+
+    @external
+    @only_governance
+    def setAdmin(self, _admin: Address) -> None:
+        """
+        Sets the authorized address.
+
+        :param account: The authorized admin address.
+        """
+        return self._admin.set(_admin)
+
+    @external
+    @only_governance
     def setMinInterval(self, _interval: int) -> None:
         self._min_interval.set(_interval)
 
@@ -220,7 +249,7 @@ class BalanceToken(IRC2):
             revert(f"{TAG}: Staking must first be enabled")
 
     @external
-    @only_owner
+    @only_governance
     def toggleStakingEnabled(self) -> None:
         self._staking_enabled.set(not self._staking_enabled.get())
 
@@ -263,7 +292,7 @@ class BalanceToken(IRC2):
         stake_address_changes.put(_from)
 
     @external
-    @only_owner
+    @only_governance
     def setMinimumStake(self, _amount: int) -> None:
         if _amount < 0:
             revert(f"{TAG}: Amount cannot be less than zero")
@@ -272,7 +301,7 @@ class BalanceToken(IRC2):
         self._minimum_stake.set(total_amount)
 
     @external
-    @only_owner
+    @only_governance
     def setUnstakingPeriod(self, _time: int) -> None:
         if _time < 0:
             revert(f"{TAG}: Time cannot be negative")
@@ -280,12 +309,12 @@ class BalanceToken(IRC2):
         self._unstaking_period.set(total_time)
 
     @external
-    @only_owner
-    def setDividendsScore(self, _score: Address) -> None:
+    @only_governance
+    def setDividends(self, _score: Address) -> None:
         self._dividends_score.set(_score)
 
     @external(readonly=True)
-    def getDividendsScore(self) -> Address:
+    def getDividends(self) -> Address:
         return self._dividends_score.get()
 
     def dividends_only(self):

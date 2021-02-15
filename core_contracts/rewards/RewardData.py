@@ -40,10 +40,12 @@ class DataSource(object):
         data_source = self._rewards.create_interface_score(self.contract_address.get(), DataSourceInterface)
         if not self.precomp.get() and data_source.precompute(day, batch_size):
             self.precomp.set(True)
+            # revert(f'About to call getTotalValue from Loans.')
             self.total_value[day] = data_source.getTotalValue(self.name.get(), day)
 
         if self.precomp.get():
-            data_batch = data_source.getDataBatch(self.name.get(), day, self.offset.get(), batch_size)
+            # revert(f'About to call getDataBatch from Loans with offset: {self.offset.get()}.')
+            data_batch = data_source.getDataBatch(self.name.get(), day, batch_size, self.offset.get())
             self.offset.set(self.offset.get() + batch_size)
             if not data_batch:
                 self.day.set(day + 1)
@@ -56,7 +58,7 @@ class DataSource(object):
                 token_share =  remaining * data_batch[address] // shares
                 remaining -= token_share
                 shares -= data_batch[address]
-                self._rewards._token_holdings[address] += token_share
+                self._rewards._baln_holdings[address] += token_share
             self.total_dist[day] = remaining
             self.total_value[day] = shares
 

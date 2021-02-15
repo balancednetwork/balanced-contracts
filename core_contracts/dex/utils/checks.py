@@ -11,6 +11,10 @@ class SenderNotAuthorized(Exception):
 	pass
 
 
+class SenderNotGovernance(Exception):
+	pass
+
+
 class NotAFunctionError(Exception):
 	pass
 
@@ -38,7 +42,6 @@ def only_governance(func):
 
 		return func(self, *args, **kwargs)
 	return __wrapper
-
 
 def only_owner(func):
 	if not isfunction(func):
