@@ -15,10 +15,10 @@ class Position(object):
         self._loans = loans
         self.id = VarDB('id', db, int)
         self.created = VarDB('created', db, int)
+        self.updated = VarDB('updated', db, int)
         self.address = VarDB('address', db, Address)
 
         self.snaps = ArrayDB('snaps', db, int)
-        self.updated = DictDB('updated', db, int)
         self.assets = DictDB('assets', db, int, depth=2)
         self.replay_index = DictDB('replay_index', db, int)
         self.total_debt = DictDB('total_debt', db, int)
@@ -33,30 +33,23 @@ class Position(object):
 
     def __setitem__(self, key: str, value: int):
         day = self._loans._current_day.get()
-        self.snap(day)
+        self.snap()
         self.assets[day][key] = value
 
-    def snap(self, _day: int) -> None:
-        if _day > self.snaps[-1]:
-            self.snaps.put(_day)
+    def snap(self) -> None:
+        day = self._loans._current_day.get()
+        if day > self.snaps[-1]:
+            self.snaps.put(day)
             today = self.snaps[-1]
             previous = self.snaps[-2]
             for symbol in self.asset_db.slist:
                 asset = self.asset_db[symbol]
                 self.assets[today][symbol] = self.assets[previous][symbol]
-            self.updated[today] = self.updated[previous]
             self.replay_index[today] = self.replay_index[previous]
-            self.total_debt[today] = self.total_debt[previous]
-            self.ratio[today] = self.ratio[previous]
-            self.standing[today] = self.standing[previous]
+            self.standing[today] = Standing.INDETERMINATE
 
     def get_standing(self, _snapshot: int = -1) -> int:
         id = self.get_snapshot_id(_snapshot)
-        snap_db_index = self.snaps_db[_snapshot].replay_index.get()
-        pos_index = self.replay_index[id]
-        # revert(f'id: {id}, pos_index: {pos_index}, snap_db_index: {snap_db_index}')
-        if pos_index < snap_db_index:
-            return Standing.INDETERMINATE
         return self.standing[id]
 
     def collateral_value(self, _day: int = -1) -> int:
@@ -139,7 +132,7 @@ class Position(object):
         """
         id = self.get_snapshot_id(_day)
         if id == -1:
-            return 0
+            revert(f'')
         asset_value = 0
         for symbol in self.asset_db.slist:
             if not self.asset_db[symbol].is_collateral.get() and symbol in self.assets[id]:
@@ -171,7 +164,7 @@ class Position(object):
         while event_index > self.snaps_db[snap_index].replay_index.get():
             snap_index += 1
         if snap_index != self.snaps[-1]:
-            self.snap(snap_index)
+            self.snap()
 
         assets = self.assets[snap_index]
         pos_value = assets[symbol]
@@ -188,25 +181,31 @@ class Position(object):
     def update_standing(self, _day: int = -1) -> int:
         id = self.get_snapshot_id(_day)
         if id == -1:
-            revert(f'Invalid snapshot id. _day: {_day}, len: {len(self.snaps)}, snaps[-1]: {self.snaps[-1]} '
-                   f'dict: {self.to_dict()}')
-        if self.replay_index[id] != self.snaps_db[id].replay_index.get():
+            revert(f'Invalid snapshot id.')
+        self.updated.set(self._loans.now())
+        pos_rp_id = self.replay_index[id]
+        if _day == -1:
+            rp_id = len(self._loans._event_log)
+        else:
+            rp_id = self.snaps_db[id].replay_index.get()
+        if pos_rp_id < rp_id:
             self.standing[id] = Standing.INDETERMINATE
             return Standing.INDETERMINATE
         debt = self._total_debt(id)
         self.total_debt[id] = debt
         if debt == 0:
+            self.ratio[id] = 0
             if self.assets[id]['sICX'] == 0:
                 self.standing[id] = Standing.ZERO
             self.standing[id] = Standing.NO_DEBT
             return self.standing[id]
         ratio: int = self.collateral_value(id) * EXA // debt
         self.ratio[id] = ratio
-        if ratio > DEFAULT_MINING_RATIO * EXA // 100:
+        if ratio > DEFAULT_MINING_RATIO * EXA // POINTS:
             self.standing[id] = Standing.MINING
-        elif ratio > DEFAULT_LOCKING_RATIO * EXA // 100:
+        elif ratio > DEFAULT_LOCKING_RATIO * EXA // POINTS:
             self.standing[id] = Standing.NOT_MINING
-        elif ratio > DEFAULT_LIQUIDATION_RATIO * EXA // 100:
+        elif ratio > DEFAULT_LIQUIDATION_RATIO * EXA // POINTS:
             self.standing[id] = Standing.LOCKED
         else:
             self.standing[id] = Standing.LIQUIDATE
@@ -229,17 +228,18 @@ class Position(object):
                 assets[asset] = amount
 
         position = {
-            'snaps_length': len(self.snaps),
             'pos_id': self.id.get(),
             'created': self.created.get(),
+            'updated': self.updated.get(),
             'address': str(self.address.get()),
-            'assets': assets,
+            'snap_id': id,
+            'snaps_length': len(self.snaps),
             'last_snap': self.snaps[-1],
-            'this_snap': id,
-            f'replay_index_{id}': self.replay_index[id],
-            f'total_debt_{id}': self.total_debt[id],
-            f'ratio_{id}': self.ratio[id],
-            f'standing_{id}': Standing.STANDINGS[self.get_standing(id)]
+            'assets': assets,
+            'replay_index': self.replay_index[id],
+            'total_debt': self.total_debt[id],
+            'ratio': self.ratio[id],
+            'standing': Standing.STANDINGS[self.standing[id]]
         }
         return position
 
@@ -326,16 +326,14 @@ class PositionsDB:
         id = self._id_factory.get_uid()
         self.addressID[_address] = id
         now = self._loans.now()
-        snap_id = self._snapshot_db._indexes[-1]
+        snap_id = self._loans._current_day.get()
         _new_pos = self.__getitem__(id)
         _new_pos.id.set(id)
         _new_pos.created.set(now)
         _new_pos.address.set(_address)
         _new_pos.snaps.put(snap_id)
-        _new_pos.updated[snap_id] = now
         _new_pos.assets[snap_id]['sICX'] = 0
         _new_pos.replay_index[snap_id] = len(self._event_log)
-        _new_pos.standing[snap_id] = Standing.ZERO
         return _new_pos
 
     def _take_snapshot(self) -> None:
@@ -344,14 +342,14 @@ class PositionsDB:
         """
         snapshot = self._snapshot_db[-1]
         assets = self._loans._assets
-        rp_index = len(self._event_log._events)
+        rp_index = len(self._event_log)
+        snapshot.replay_index.set(rp_index)
         for symbol in assets.slist:
             if assets[symbol].active.get():
                 snapshot.prices[symbol] = assets[symbol].priceInLoop()
         snapshot.snap_time.set(self._loans.now())
-        self._loans.Snapshot(self._snapshot_db._indexes[-1])
+        self._loans.Snapshot(self._loans._current_day.get())
         self._snapshot_db.start_new_snapshot()
-        self._snapshot_db[-1].replay_index.set(rp_index)
 
     def _calculate_snapshot(self, _day: int, batch_size: int) -> bool:
         """
@@ -389,6 +387,7 @@ class PositionsDB:
         for _ in range(min(remaining, batch_size)): # Update standing for all nonzero positions.
             account_id = self.nonzero[index]
             pos = self.__getitem__(account_id)
+            pos.snap()
             # all retirement events that happened after the position creation,
             # but before the snapshot must be applied to the position before
             # calculating its value.
@@ -398,9 +397,7 @@ class PositionsDB:
                 if pos_rp_id < snap_rp_id:
                     for _ in range(pos_rp_id, snap_rp_id):
                         pos.apply_next_event()
-                    standing = pos.update_standing(id)
-                else:
-                    standing = pos.update_standing(id)
+                standing = pos.update_standing(id)
                 if standing == Standing.MINING:
                     snapshot.mining.put(account_id)
                     batch_mining_debt += pos.total_debt[id]

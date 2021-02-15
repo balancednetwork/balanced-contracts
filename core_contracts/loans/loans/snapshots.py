@@ -45,7 +45,7 @@ class Snapshot(object):
             'snap_time': self.snap_time.get(),
             'total_mining_debt': self.total_mining_debt.get(),
             'prices': self._loans._assets.get_asset_prices(),
-            'replay_index': self.replay_index.get(),
+            'replay_index': len(self._loans._event_log),
             'mining_count': len(self.mining),
             'precompute_index': self.precompute_index.get(),
             'add_to_nonzero_count': len(self.add_to_nonzero),
@@ -65,6 +65,7 @@ class SnapshotDB:
         index = self.get_snapshot_id(_day)
         if _day < 0:
             _day = index
+        # revert(f'current_day: {self._loans._current_day.get()}, index: {index}, _day: {_day}, [{self._indexes[0], self._indexes[-1] + 1}]')
         if index in range(self._indexes[0], self._indexes[-1] + 1):
             if _day not in self._items:
                 return self._get_snapshot(_day, index)

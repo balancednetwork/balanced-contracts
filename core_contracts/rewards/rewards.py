@@ -43,6 +43,7 @@ class Rewards(IconScoreBase):
 
     def on_install(self) -> None:
         super().on_install()
+        self._platform_day.set(1)
         self._batch_size.set(DEFAULT_BATCH_SIZE)
         self._recipient_split['Worker Tokens'] = 0
         self._recipients.put('Worker Tokens')
@@ -63,6 +64,15 @@ class Rewards(IconScoreBase):
             holdings[str(holder)] = self._baln_holdings[holder]
         return holdings
 
+    @external(readonly = True)
+    def distStatus(self) -> dict:
+        status = {}
+        status['platform_day'] = self._platform_day.get()
+        status['source_days'] = {}
+        for source in self._data_source_db._names:
+            status['source_days'][source] = self._data_source_db[source].day.get()
+        return status
+
     # Methods to update the states of a data_source_name object
     @external
     def updateBalTokenDistPercentage(self, _recipient_list : List[DistPercentDict]) -> None:
@@ -81,7 +91,10 @@ class Rewards(IconScoreBase):
             self._recipient_split[recipient['recipient_name']] = recipient['bal_token_dist_percent']
             if recipient['recipient_name'] not in self._recipients:
                 revert(f"Recipient {recipient['recipient_name']} doesn't exist")
-            self._data_source_db[recipient['recipient_name']].bal_token_dist_percent.set(recipient['bal_token_dist_percent'])
+            source = self._data_source_db[recipient['recipient_name']]
+            if source.bal_token_dist_percent.get() == 0:
+                source.day.set(self._get_day())
+            source.bal_token_dist_percent.set(recipient['bal_token_dist_percent'])
             total_percentage += recipient['bal_token_dist_percent']
 
         if total_percentage != 10**18:
@@ -204,10 +217,10 @@ class Rewards(IconScoreBase):
         return today
 
     def _bal_token_dist_per_day(self, _day: int) -> int:
-        if _day < 60:
+        if _day <= 60:
             return 10**23
         else:
-            index = _day - 59
+            index = _day - 60
             return max(((995 ** index) * 10**23) // (1000 ** index), 1250 * 10**18)
 
     @external

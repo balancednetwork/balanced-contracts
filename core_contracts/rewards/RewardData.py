@@ -40,12 +40,13 @@ class DataSource(object):
         data_source = self._rewards.create_interface_score(self.contract_address.get(), DataSourceInterface)
         if not self.precomp.get() and data_source.precompute(day, batch_size):
             self.precomp.set(True)
-            # revert(f'About to call getTotalValue from Loans.')
+            # revert(f'About to get total value for {self.name.get()} on {day}.')
             self.total_value[day] = data_source.getTotalValue(self.name.get(), day)
 
         if self.precomp.get():
-            # revert(f'About to call getDataBatch from Loans with offset: {self.offset.get()}.')
+            # revert(f'About to call getDataBatch from {self.name.get()} with offset: {self.offset.get()}.')
             data_batch = data_source.getDataBatch(self.name.get(), day, batch_size, self.offset.get())
+            # revert(f'Successfully got data batch {data_batch}.')
             self.offset.set(self.offset.get() + batch_size)
             if not data_batch:
                 self.day.set(day + 1)
@@ -54,7 +55,11 @@ class DataSource(object):
                 return
             remaining = self.total_dist[day] # Amount remaining of the allocation to this source
             shares = self.total_value[day] # The sum of all mining done by this data source
+            originalshares = shares
+            batch_sum = sum(data_batch.values())
             for address in data_batch:
+                if shares <= 0:
+                    revert(f'zero or negative divisor for {self.name.get()}, sum: {batch_sum}, total: {shares}, starting: {originalshares}')
                 token_share =  remaining * data_batch[address] // shares
                 remaining -= token_share
                 shares -= data_batch[address]
