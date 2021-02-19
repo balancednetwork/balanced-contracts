@@ -19,7 +19,7 @@ class TokenInterface(InterfaceScore):
         pass
 
     @interface
-    def get_peg(self) -> str:
+    def getPeg(self) -> str:
         pass
 
     @interface
@@ -64,9 +64,9 @@ class Asset(object):
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
         return token.balanceOf(_address)
 
-    def get_peg(self) -> str:
+    def getPeg(self) -> str:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
-        return token.get_peg()
+        return token.getPeg()
 
     def mint(self, _to: Address, _amount: int, _data: bytes = None) -> None:
         """
@@ -123,7 +123,7 @@ class Asset(object):
         asset = {
             'symbol': self.symbol(),
             'address': str(self.asset_address.get()),
-            'peg': self.get_peg(),
+            'peg': self.getPeg(),
             'added': self.added.get(),
             'is_collateral': self.is_collateral.get(),
             'active': self.active.get()
@@ -176,6 +176,14 @@ class AssetsDB:
             if asset.active.get():
                 asset_dict = asset.to_dict()
                 assets[asset_dict['symbol']] = asset_dict
+        return assets
+
+    def get_asset_prices(self) -> dict:
+        assets = {}
+        for address in self.alist:
+            asset = self._get_asset(str(address))
+            if asset.active.get():
+                assets[asset.symbol()] = asset.priceInLoop()
         return assets
 
     def add_asset(self, _address: Address, is_active: bool = True, is_collateral: bool = False) -> None:
