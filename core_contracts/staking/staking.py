@@ -299,7 +299,7 @@ class Staking(IconScoreBase):
 
     @payable
     @external
-    def addCollateral(self, _to: Address = None, _data: bytes = None) -> int:
+    def stakeICX(self, _to: Address = None, _data: bytes = None) -> int:
         """
         stakes and delegates some ICX to top prep
         addresses and receives equivalent of sICX by the user address.
