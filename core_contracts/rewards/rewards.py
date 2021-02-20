@@ -152,7 +152,14 @@ class Rewards(IconScoreBase):
         :type _data_source_name: str
         :param _contract_address: Address of the data source.
         :type _contract_address: :class:`iconservice.base.address.Address`
+
+        May want limit who can call this function. Maybe only governance or DEX
+        should be allowed.
+        We are also expecting the address to be a contract address so we could
+        check if it is a contract.
         """
+        if not _contract_address.is_contract:
+            revert(f'')
         data_source_dict = {'contract_address': _contract_address, 'bal_token_dist_percent': 0}
         data_source_obj = create_data_source_object(data_source_dict)
         if _data_source_name not in self._data_source_db._names and _data_source_name not in self._recipients:
