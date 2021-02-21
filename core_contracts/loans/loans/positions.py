@@ -392,6 +392,8 @@ class PositionsDB:
         """
         snapshot = self._snapshot_db[_day]
         id = snapshot.snap_day.get()
+        if id < _day:
+            return Complete.DONE
         add = len(snapshot.add_to_nonzero)
         remove = len(snapshot.remove_from_nonzero)
         nonzero_deltas = add + remove

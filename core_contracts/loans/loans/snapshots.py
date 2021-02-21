@@ -48,7 +48,7 @@ class Snapshot(object):
             'snap_time': self.snap_time.get(),
             'total_mining_debt': self.total_mining_debt.get(),
             'prices': self._loans._assets.get_asset_prices(),
-            'replay_index': len(self._loans._event_log),
+            'replay_index': self.replay_index.get(),
             'mining_count': len(self.mining),
             'precompute_index': self.precompute_index.get(),
             'add_to_nonzero_count': len(self.add_to_nonzero),

@@ -180,9 +180,10 @@ class Rewards(IconScoreBase):
 
     @external
     def distribute(self) -> bool:
-        if self._platform_day.get() < self._get_day():
+        platform_day = self._platform_day.get()
+        if platform_day < self._get_day():
             if self._total_dist.get() == 0:
-                distribution = self._bal_token_dist_per_day(self._platform_day.get())
+                distribution = self._bal_token_dist_per_day(platform_day)
                 baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
                 baln_token.mint(distribution)
                 self._total_dist.set(distribution)
@@ -192,13 +193,13 @@ class Rewards(IconScoreBase):
                     split = self._recipient_split[name]
                     share =  remaining * split // shares
                     if name in self._data_source_db._names:
-                        self._data_source_db[name].total_dist[self._data_source_db[name].day.get()] = share
+                        self._data_source_db[name].total_dist[platform_day] = share
                     else:
                         baln_token.transfer(self._platform_recipients[name].get(), share)
                     remaining -= share
                     shares -= split
                 self._total_dist.set(remaining) # remaining will be == 0 at this point.
-                self._platform_day.set(self._platform_day.get() + 1)
+                self._platform_day.set(platform_day + 1)
                 return False
         distribution_complete = True
         for name in self._data_source_db._names:

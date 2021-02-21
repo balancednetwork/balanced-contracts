@@ -347,7 +347,7 @@ class Loans(IconScoreBase):
         for i in range(start, end):
             pos_id = snapshot.mining[i]
             pos = self._positions[pos_id]
-            batch[pos.address.get()] = snapshot.pos_state[pos_id]['total_debt']
+            batch[str(pos.address.get())] = snapshot.pos_state[pos_id]['total_debt']
         return batch
 
     @external
