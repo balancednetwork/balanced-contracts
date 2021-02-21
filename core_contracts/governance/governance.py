@@ -1,24 +1,11 @@
 from iconservice import *
+from .scorelib import *
 from .utils.checks import *
 from .utils.consts import *
-from .scorelib import *
+from .interfaces import *
 from .data_objects import *
 
 TAG = 'Governance'
-
-
-class BalancedAddresses(TypedDict):
-    loans: Address
-    dex: Address
-    staking: Address
-    rewards: Address
-    reserve_fund: Address
-    dividends: Address
-    oracle: Address
-    sicx: Address
-    icd: Address
-    baln: Address
-    bwt: Address
 
 
 class Governance(IconScoreBase):
@@ -35,9 +22,10 @@ class Governance(IconScoreBase):
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
-        self.addresses = Addresses(db)
+        self.addresses = Addresses(db, self)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._launch_day = VarDB('launch_day', db, int)
+        self._launch_time = VarDB('launch_time', db, int)
         self._launched = VarDB('launched', db, bool)
 
     def on_install(self) -> None:
@@ -56,11 +44,14 @@ class Governance(IconScoreBase):
     def launchBalanced(self) -> None:
         if not self._launched.get():
             loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
-            dex = self.create_interface_score(self.addresses._dex.get(), LoansInterface)
-            rewards = self.create_interface_score(self.addresses._rewards.get(), LoansInterface)
-            self.set_launch_day(0)
-            self.set_launch_day(self.getDay())
-            time_delta = DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get())
+            dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
+            rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+            self.addresses.setAdmins()
+            self.addresses.setContractAddresses()
+            self._set_launch_day(self.getDay())
+            self._set_launch_time(self.now())
+             # Minimum day value is 1 since 0 is the default value for uninitialized storage.
+            time_delta = DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1)
             loans.setTimeOffset(time_delta)
             loans.turnLoansOn()
             dex.setTimeOffset(time_delta)
@@ -78,21 +69,50 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def setContractAddresses(self) -> None:
+        self.addresses.setContractAddresses()
+
+    @external
+    @only_owner
     def toggleBalancedOn(self) -> None:
-        loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
+        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
         loans.toggleLoansOn()
 
-    def set_launch_day(self, _day: int) -> None:
+    def _set_launch_day(self, _day: int) -> None:
         self._launch_day.set(_day)
 
     @external(readonly=True)
     def getLaunchDay(self) -> int:
-        self._launch_day.get()
+        return self._launch_day.get()
+
+    def _set_launch_time(self, _day: int) -> None:
+        self._launch_time.set(_day)
+
+    @external(readonly=True)
+    def getLaunchTime(self) -> int:
+        return self._launch_time.get()
 
     @external
     def getDay(self) -> int:
         offset = DAY_ZERO + self._launch_day.get()
         return (self.now() - DAY_START) // U_SECONDS_DAY - offset
+
+    @external
+    @only_owner
+    def addAsset(self, _token_address: Address,
+                       _active: bool = True,
+                       _collateral: bool = False) -> None:
+        """
+        Adds a token to the assets dictionary on the Loans contract.
+        """
+        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
+        loans.addAsset(_token_address, _active, _collateral)
+
+    @external
+    @only_owner
+    def toggleAssetActive(self, _symbol) -> None:
+        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
+        loans.toggleAssetActive(_symbol)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
@@ -110,41 +130,6 @@ class Governance(IconScoreBase):
     @payable
     def fallback(self):
         pass
-
-
-#-------------------------------------------------------------------------------
-# Interfaces
-#-------------------------------------------------------------------------------
-
-# An interface to the Loans SCORE
-class LoansInterface(InterfaceScore):
-    @interface
-    def setTimeOffset(self, _time_delta: int) -> None:
-        pass
-
-    @interface
-    def turnLoansOn(self) -> None:
-        pass
-
-
-# An interface to the Loans SCORE
-class DexInterface(InterfaceScore):
-    @interface
-    def setTimeOffset(self, _time_delta: int) -> None:
-        pass
-
-    @interface
-    def turnDexOn(self) -> None:
-        pass
-
-
-# An interface to the Loans SCORE
-class RewardsInterface(InterfaceScore):
-    @interface
-    def setTimeOffset(self, _time_delta: int) -> None:
-        pass
-
-
 
 #-------------------------------------------------------------------------------
 # EVENT LOGS

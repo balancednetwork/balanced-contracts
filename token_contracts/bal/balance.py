@@ -1,6 +1,5 @@
 from iconservice import *
-from .tokens.IRC2mintable import IRC2Mintable
-from .tokens.IRC2burnable import IRC2Burnable
+from .tokens.IRC2 import IRC2
 from .utils.checks import *
 from .utils.consts import *
 
@@ -20,12 +19,12 @@ class OracleInterface(InterfaceScore):
         pass
 
 
-class BalanceToken(IRC2Mintable, IRC2Burnable):
-    
+class BalanceToken(IRC2):
+
     _PRICE_UPDATE_TIME = "price_update_time"
     _LAST_PRICE = "last_price"
     _MIN_INTERVAL = "min_interval"
-    
+
     _EVEN_DAY_STAKE_CHANGES = "even_day_stake_changes"
     _ODD_DAY_STAKE_CHANGES = "odd_day_stake_changes"
 
@@ -42,6 +41,7 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
     _TOTAL_STAKED_BALANCE = "total_staked_balance"
 
     _DIVIDENDS_SCORE = "dividends_score"
+    _GOVERNANCE = "governance"
 
     _PEG = "peg"
     _ORACLE_ADDRESS = "oracle_address"
@@ -51,6 +51,7 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
         super().__init__(db)
         self._peg = VarDB(self._PEG, db, value_type=str)
         self._oracle_address = VarDB(self._ORACLE_ADDRESS, db, value_type=Address)
+        self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
         self._oracle_name = VarDB(self._ORACLE_NAME, db, value_type=str)
         self._price_update_time = VarDB(self._PRICE_UPDATE_TIME, db, value_type=int)
         self._last_price = VarDB(self._LAST_PRICE, db, value_type=int)
@@ -96,17 +97,44 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
         return self._peg.get()
 
     @external
-    @only_owner
-    def setOracle(self, _address: Address, _name: str) -> None:
+    @only_governance
+    def setOracle(self, _address: Address) -> None:
         self._oracle_address.set(_address)
-        self._oracle_name.set(_name)
 
     @external(readonly=True)
     def getOracle(self) -> dict:
-        return {"name": self._oracle_name.get(), "address": str(self._oracle_address.get())}
+        return self._oracle_address.get()
+
+    @external
+    @only_governance
+    def setOracleName(self, _name: str) -> None:
+        self._oracle_name.set(_name)
+
+    @external(readonly=True)
+    def getOracleName(self) -> dict:
+        return self._oracle_name.get()
 
     @external
     @only_owner
+    def setGovernance(self, _address: Address) -> None:
+        self._governance.set(_address)
+
+    @external(readonly=True)
+    def getGovernance(self) -> Address:
+        return self._governance.get()
+
+    @external
+    @only_governance
+    def setAdmin(self, _admin: Address) -> None:
+        """
+        Sets the authorized address.
+
+        :param account: The authorized admin address.
+        """
+        return self._admin.set(_admin)
+
+    @external
+    @only_governance
     def setMinInterval(self, _interval: int) -> None:
         self._min_interval.set(_interval)
 
@@ -123,7 +151,7 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
         if self.now() - self._price_update_time.get() > self._min_interval.get():
             self.update_asset_value()
         return self._last_price.get()
-    
+
     @external(readonly=True)
     def lastPriceInLoop(self) -> int:
         """
@@ -221,7 +249,7 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
             revert(f"{TAG}: Staking must first be enabled")
 
     @external
-    @only_owner
+    @only_governance
     def toggleStakingEnabled(self) -> None:
         self._staking_enabled.set(not self._staking_enabled.get())
 
@@ -264,7 +292,7 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
         stake_address_changes.put(_from)
 
     @external
-    @only_owner
+    @only_governance
     def setMinimumStake(self, _amount: int) -> None:
         if _amount < 0:
             revert(f"{TAG}: Amount cannot be less than zero")
@@ -273,7 +301,7 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
         self._minimum_stake.set(total_amount)
 
     @external
-    @only_owner
+    @only_governance
     def setUnstakingPeriod(self, _time: int) -> None:
         if _time < 0:
             revert(f"{TAG}: Time cannot be negative")
@@ -281,12 +309,12 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
         self._unstaking_period.set(total_time)
 
     @external
-    @only_owner
-    def setDividendsScore(self, _score: Address) -> None:
+    @only_governance
+    def setDividends(self, _score: Address) -> None:
         self._dividends_score.set(_score)
 
     @external(readonly=True)
-    def getDividendsScore(self) -> Address:
+    def getDividends(self) -> Address:
         return self._dividends_score.get()
 
     def dividends_only(self):
@@ -356,9 +384,83 @@ class BalanceToken(IRC2Mintable, IRC2Burnable):
             revert(f"{TAG}: Out of available balance. Please check staked and total balance")
 
         self._staked_balances[_from][Status.AVAILABLE] = self._staked_balances[_from][Status.AVAILABLE] - _value
-        self._staked_balances[_from][Status.AVAILABLE] = self._staked_balances[_from][Status.AVAILABLE] + _value
+        self._staked_balances[_to][Status.AVAILABLE] = self._staked_balances[_to][Status.AVAILABLE] + _value
 
-        IRC2Mintable.transfer(self, _to, _value, _data)
+        super().transfer(_to, _value, _data)
+
+    @external
+    def mint(self, _amount: int, _data: bytes = None) -> None:
+        """
+        Creates `_amount` number of tokens, and assigns to caller account.
+        Increases the balance of that account and total supply.
+        See {IRC2-_mint}
+
+        :param _amount: Number of tokens to be created at the account.
+        """
+        if _data is None:
+            _data = b'None'
+        self._mint(self.address, _amount, _data)
+
+        _to = self.msg.sender
+        self._check_first_time(_to)
+        self._make_available(_to)
+        self._staked_balances[_to][Status.AVAILABLE] = self._staked_balances[_to][Status.AVAILABLE] + _amount
+
+        super()._transfer(self.address, _to, _amount, _data)
+
+    @external
+    def mintTo(self, _account: Address, _amount: int, _data: bytes = None) -> None:
+        """
+        Creates `_amount` number of tokens, assigns to self, then transfers to `_account`.
+        Increases the balance of that account and total supply.
+        See {IRC2-_mint}
+
+        :param _account: The account at which token is to be created.
+        :param _amount: Number of tokens to be created at the account.
+        """
+        if _data is None:
+            _data = b'None'
+        self._mint(self.address, _amount, _data)
+
+        _to = _account
+        self._check_first_time(_to)
+        self._make_available(_to)
+        self._staked_balances[_to][Status.AVAILABLE] = self._staked_balances[_to][Status.AVAILABLE] + _amount
+
+        super()._transfer(self.address, _to, _amount, _data)
+
+    @external
+    def burn(self, _amount: int) -> None:
+        """
+        Destroys `_amount` number of tokens from the caller account.
+        Decreases the balance of that account and total supply.
+        See {IRC2-_burn}
+
+        :param _amount: Number of tokens to be destroyed.
+        """
+        _data = b'None'
+        _from = self.msg.sender
+        self._staked_balances[_from][Status.AVAILABLE] = self._staked_balances[_from][Status.AVAILABLE] - _value
+        super()._transfer(_from, self.address, _amount, _data)
+
+        self._burn(self.address, _amount)
+
+    @external
+    def burnFrom(self, _account: Address, _amount: int) -> None:
+        """
+        Destroys `_amount` number of tokens from the specified `_account` account.
+        Decreases the balance of that account and total supply.
+        See {IRC2-_burn}
+
+        :param _account: The account at which token is to be destroyed.
+        :param _amount: Number of tokens to be destroyed at the `_account`.
+        """
+        _data = b'None'
+        _from = _account
+        self._staked_balances[_from][Status.AVAILABLE] = self._staked_balances[_from][Status.AVAILABLE] - _value
+        super()._transfer(_from, self.address, _amount, _data)
+
+        self._burn(_from, _amount)
 
     # --------------------------------------------------------------------------
     # EVENTS

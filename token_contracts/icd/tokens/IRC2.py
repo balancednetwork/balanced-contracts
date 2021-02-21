@@ -262,8 +262,9 @@ class IRC2(TokenStandard, IconScoreBase):
 
 		self._beforeTokenTransfer(account, 0, amount)
 
+		self._transfer(account, self.address, amount, b'None')
 		self._total_supply.set(self._total_supply.get() - amount)
-		self._balances[account] -= amount
+		self._balances[self.address] -= amount
 
 		# Emits an event log Burn
 		self.Burn(account, amount)

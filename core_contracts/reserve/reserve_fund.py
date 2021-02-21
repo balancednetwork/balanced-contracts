@@ -47,6 +47,8 @@ class ReserveFund(IconScoreBase):
     def RedeemFail(self, _to: Address, _value: int):
         pass
 
+    _GOVERNANCE = 'governance'
+    _ADMIN = 'admin'
     _LOANS_SCORE = 'loans_score'
     _BALN_TOKEN = 'baln_token'
     _SICX_TOKEN = 'sicx_token'
@@ -56,6 +58,8 @@ class ReserveFund(IconScoreBase):
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
+        self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
+        self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._loans_score = VarDB(self._LOANS_SCORE, db, value_type=Address)
         self._baln_token = VarDB(self._BALN_TOKEN, db, value_type=Address)
         self._sicx_token = VarDB(self._SICX_TOKEN, db, value_type=Address)
@@ -74,29 +78,47 @@ class ReserveFund(IconScoreBase):
 
     @external
     @only_owner
-    def setLoansScore(self, _address: Address) -> None:
+    def setGovernance(self, _address: Address) -> None:
+        self._governance.set(_address)
+
+    @external(readonly=True)
+    def getGovernance(self) -> Address:
+        return self._governance.get()
+
+    @external
+    @only_governance
+    def setAdmin(self, _address: Address) -> None:
+        self._admin.set(_address)
+
+    @external(readonly=True)
+    def getAdmin(self) -> Address:
+        return self._admin.get()
+
+    @external
+    @only_admin
+    def setLoans(self, _address: Address) -> None:
         self._loans_score.set(_address)
 
     @external(readonly=True)
-    def getLoansScore(self) -> Address:
+    def getLoans(self) -> Address:
         return self._loans_score.get()
 
     @external
-    @only_owner
-    def setBalnToken(self, _address: Address) -> None:
+    @only_admin
+    def setBaln(self, _address: Address) -> None:
         self._baln_token.set(_address)
 
     @external(readonly=True)
-    def getBalnToken(self) -> Address:
+    def getBaln(self) -> Address:
         return self._baln_token.get()
 
     @external
-    @only_owner
-    def setSicxToken(self, _address: Address) -> None:
+    @only_admin
+    def setSicx(self, _address: Address) -> None:
         self._sicx_token.set(_address)
 
     @external(readonly=True)
-    def getSicxToken(self) -> Address:
+    def getSicx(self) -> Address:
         return self._sicx_token.get()
 
     @external(readonly=True)
