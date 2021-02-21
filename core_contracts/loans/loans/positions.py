@@ -363,7 +363,8 @@ class PositionsDB:
 
     def _take_snapshot(self) -> None:
         """
-        Captures necessary data for the current snapshot in the SnapshotDB.
+        Captures necessary data for the current snapshot in the SnapshotDB,
+        issues a Snapshot eventlog, and starts a new snapshot.
         """
         snapshot = self._snapshot_db[-1]
         assets = self._loans._assets

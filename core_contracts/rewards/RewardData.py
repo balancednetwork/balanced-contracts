@@ -46,7 +46,9 @@ class DataSource(object):
         if self.precomp.get():
             # revert(f'About to call getDataBatch from {self.name.get()} with offset: {self.offset.get()}.')
             data_batch = data_source.getDataBatch(self.name.get(), day, batch_size, self.offset.get())
-            # revert(f'Successfully got data batch {data_batch}.')
+            # revert(f'Successfully got data batch {data_batch} for {self.name.get()} for total: {self.total_dist[day]} '
+            #        f'on day: {day}, with total for the next day being: {self.total_dist[day + 1]} with a total value '
+            #        f'of {self.total_value[day]}.')
             self.offset.set(self.offset.get() + batch_size)
             if not data_batch:
                 self.day.set(day + 1)

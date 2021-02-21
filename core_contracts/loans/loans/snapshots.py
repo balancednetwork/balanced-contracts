@@ -73,10 +73,7 @@ class SnapshotDB:
             if _day not in self._items:
                 return self._get_snapshot(_day, index)
         else:
-            indexes = []
-            for i in self._indexes:
-                indexes.append(i)
-            revert(f'No snapshot exists for {_day}. input_day: {input_day}, indexes: {indexes}, index: {index}.')
+            revert(f'No snapshot exists for {_day}, input_day: {input_day}.')
         return self._items[_day]
 
     def __setitem__(self, key, value):
@@ -129,5 +126,6 @@ class SnapshotDB:
             self._indexes.put(_day) # sequence in _indexes is monotonically increasing.
             snapshot = self._get_snapshot(_day, _day)
             snapshot.snap_day.set(_day)
+            snapshot.replay_index.set(len(self._loans._event_log))
         else:
             revert(f'New snapshot called for a day less than the previous snapshot.')

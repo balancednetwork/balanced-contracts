@@ -58,10 +58,10 @@ class Rewards(IconScoreBase):
         return "Rewards"
 
     @external(readonly = True)
-    def getBalnHoldings(self, _holders: List[Address]) -> dict:
+    def getBalnHoldings(self, _holders: List[str]) -> dict:
         holdings = {}
         for holder in _holders:
-            holdings[str(holder)] = self._baln_holdings[holder]
+            holdings[holder] = self._baln_holdings[holder]
         return holdings
 
     @external(readonly = True)
@@ -215,10 +215,12 @@ class Rewards(IconScoreBase):
 
     @external
     def claimRewards(self) -> None:
-        if self._baln_holdings[self.msg.sender]:
+        address = str(self.msg._sender)
+        amount = self._baln_holdings[str(self.msg._sender)]
+        if amount:
             baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
-            baln_token.transfer(self.msg.sender, self._baln_holdings[self.msg.sender])
-            self._baln_holdings[self.msg.sender] = 0
+            baln_token.transfer(self.msg.sender, amount)
+            self._baln_holdings[address] = 0
 
     def _get_day(self) -> int:
         today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS
