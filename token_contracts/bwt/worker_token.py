@@ -4,10 +4,11 @@ from .utils.checks import *
 
 TAG = 'BWT'
 
-TOKEN_NAME = 'WorkerToken'
+TOKEN_NAME = 'BalancedWorkerToken'
 SYMBOL_NAME = 'BWT'
 INITIAL_SUPPLY = 100
 DECIMALS = 6
+
 
 class WorkerToken(IRC2):
 
@@ -16,17 +17,16 @@ class WorkerToken(IRC2):
     _BALN = 'baln'
 
     def __init__(self, db: IconScoreDatabase) -> None:
-        """
-        Varible Definition
-        """
         super().__init__(db)
-
         self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
         self._baln_token = VarDB(self._BALN_TOKEN, db, value_type=Address)
         self._baln = VarDB(self._BALN, db, value_type=int)
 
     def on_install(self) -> None:
         super().on_install(TOKEN_NAME, SYMBOL_NAME, INITIAL_SUPPLY, DECIMALS)
+
+    def on_update(self) -> None:
+        super().on_update()
 
     @external
     @only_owner
@@ -58,8 +58,10 @@ class WorkerToken(IRC2):
 
     @external
     @only_admin
-    def transfer(self, _from: Address, _to: Address, _value: int) -> None:
-        super()._transfer(_from, _to, _value, b'None')
+    def admin_transfer(self, _from: Address, _to: Address, _value: int, _data: bytes = None):
+        if _data is None:
+            _data = b'None'
+        super()._transfer(_from, _to, _value, _data)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
