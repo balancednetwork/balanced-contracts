@@ -22,6 +22,9 @@ class Snapshot(object):
         # index to track progress through the single precompute pass for each snap.
         # Starts at zero and counts up to the last index in the mining ArrayDB.
         self.precompute_index = VarDB('precompute_index', db, int)
+        # State will contain the most recent calculated state for each position
+        # id with fields for total_debt, ratio, and standing.
+        self.pos_state = DictDB('pos_state', db, int, depth=2)
         # List of position ids in the mining state at snapshot time. This list
         # will be compiled in the precompute method as each position in the
         # nonzero ArrayDB is brought up to date.
@@ -45,7 +48,7 @@ class Snapshot(object):
             'snap_time': self.snap_time.get(),
             'total_mining_debt': self.total_mining_debt.get(),
             'prices': self._loans._assets.get_asset_prices(),
-            'replay_index': self.replay_index.get(),
+            'replay_index': len(self._loans._event_log),
             'mining_count': len(self.mining),
             'precompute_index': self.precompute_index.get(),
             'add_to_nonzero_count': len(self.add_to_nonzero),
@@ -62,6 +65,7 @@ class SnapshotDB:
         self._items = {}
 
     def __getitem__(self, _day: int) -> Snapshot:
+        input_day = _day
         index = self.get_snapshot_id(_day)
         if _day < 0:
             _day = index
@@ -69,7 +73,10 @@ class SnapshotDB:
             if _day not in self._items:
                 return self._get_snapshot(_day, index)
         else:
-            revert(f'No snapshot exists for {_day}.')
+            indexes = []
+            for i in self._indexes:
+                indexes.append(i)
+            revert(f'No snapshot exists for {_day}. input_day: {input_day}, indexes: {indexes}, index: {index}.')
         return self._items[_day]
 
     def __setitem__(self, key, value):
@@ -83,7 +90,7 @@ class SnapshotDB:
         self._items[_day] = Snapshot(sub_db, self._loans)
         return self._items[_day]
 
-    def get_snapshot_id(self, _day: int) -> int:
+    def get_snapshot_id(self, _day: int = -1) -> int:
         """
         Binary serch to return the snapshot id to use for the given day.
         Returns -1 if there was not yet a snapshot on the requested day.
@@ -113,9 +120,7 @@ class SnapshotDB:
             return _day
         elif low == 0:
             return -1
-        elif low == len(self._indexes) and low > 1:
-            return self._indexes[-2] # The last element in _indexes does not give a
-        else: # completed snapshot and must be referred to explicitly with _day = -1.
+        else:
             return self._indexes[low - 1]
 
     def start_new_snapshot(self) -> None:
