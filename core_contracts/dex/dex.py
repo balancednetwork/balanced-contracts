@@ -67,7 +67,7 @@ class DEX(IconScoreBase):
     # Events
     @eventlog(indexed=2)
     def Swap(self, _fromToken: Address, _toToken: Address, _sender: Address,
-             _receiver: Address, _fromValue: int, _toValue: int): pass
+             _receiver: Address, _fromValue: int, _toValue: int, _lpFees: int, _balnFees: int): pass
 
     @eventlog(indexed=3)
     def MarketAdded(self, _pid: int, _baseToken: Address,
@@ -867,8 +867,9 @@ class DEX(IconScoreBase):
         to_token_score.transfer(_receiver, send_amt)
         from_token_score = self.create_interface_score(
             _fromToken, TokenInterface)
-        from_token_score.transfer(self._dividends.get(), send_amt)
-        self.Swap(_fromToken, _toToken, _sender, _receiver, _value, send_amt)
+        from_token_score.transfer(self._dividends.get(), baln_fees)
+        self.Swap(_fromToken, _toToken, _sender,
+                  _receiver, original_value, send_amt, lp_fees, baln_fees)
 
     def _get_sicx_rate(self) -> int:
         staking_score = self.create_interface_score(
@@ -1064,7 +1065,8 @@ class DEX(IconScoreBase):
         clamped_offset = min(_offset, total)
         clamped_limit = min(_limit, total - clamped_offset)
         pid = self._named_markets[_name]
-        rv = self.loadBalancesAtSnapshot(pid, _snapshot_id, clamped_limit, clamped_offset)
+        rv = self.loadBalancesAtSnapshot(
+            pid, _snapshot_id, clamped_limit, clamped_offset)
         Logger.info(len(rv), self._TAG)
         return rv
 
@@ -1158,6 +1160,11 @@ class DEX(IconScoreBase):
             revert("Please send initial value for first currency")
         if not _quoteValue:
             revert("Please send initial value for second currency")
+        if self._deposit[_baseToken][self.msg.sender] < _baseValue:
+            revert("Insufficient base asset funds deposited")
+        if self._deposit[_quoteToken][self.msg.sender] < _quoteValue:
+            revert("insufficient quote asset funds deposited")
+
         if _pid == 0:
             if not (_quoteToken == self._icd.get()) and not (_quoteToken == self._sicx.get()):
                 revert("Second currency must be ICD or sICX")
@@ -1173,11 +1180,12 @@ class DEX(IconScoreBase):
                              _baseValue, _quoteValue)
 
         else:
-            token1price = self.getPrice(_pid)
-            if not int(_baseValue * (token1price / 10**10)) == _quoteValue:
+            expected_quote = int(
+                (_baseValue * self._pool_total[_pid][self._pool_quote[_pid]]) / (self._pool_total[_pid][self._pool_base[_pid]]))
+            if not expected_quote == _quoteValue:
                 revert('disproportionate amount')
-            liquidity = int(self._total[_pid] * (self._pool_total[_pid]
-                                                 [_baseToken] + _baseValue) / self._pool_total[_pid][_baseToken])
+            liquidity = int(
+                (self._total[_pid] * _baseValue) / self._pool_total[_pid][_baseToken])
         self._pool_total[_pid][_baseToken] += _baseValue
         self._pool_total[_pid][_quoteToken] += _quoteValue
         self._deposit[_baseToken][self.msg.sender] -= _baseValue
