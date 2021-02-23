@@ -5,16 +5,16 @@ from ..utils.consts import *
 
 TAG = 'IRC_2'
 
+
 class InsufficientBalanceError(Exception):
 	pass
 
+
 class ZeroValueError(Exception):
 	pass
+
 
 class InvalidNameError(Exception):
-	pass
-
-class ZeroValueError(Exception):
 	pass
 
 
@@ -39,9 +39,6 @@ class IRC2(TokenStandard, IconScoreBase):
 	_ADMIN = 'admin'
 
 	def __init__(self, db: IconScoreDatabase) -> None:
-		"""
-		Varible Definition
-		"""
 		super().__init__(db)
 
 		self._name = VarDB(self._NAME, db, value_type=str)
@@ -51,7 +48,10 @@ class IRC2(TokenStandard, IconScoreBase):
 		self._balances = DictDB(self._BALANCES, db, value_type=int)
 		self._admin = VarDB(self._ADMIN, db, value_type=Address)
 
-	def on_install(self, _tokenName: str, _symbolName: str, _initialSupply: int, _decimals: int = DEFAULT_DECIMAL_VALUE) -> None:
+	def on_install(self, _tokenName: str,
+				   _symbolName: str,
+				   _initialSupply: int,
+				   _decimals: int = DEFAULT_DECIMAL_VALUE) -> None:
 		"""
 		Variable Initialization.
 
@@ -189,11 +189,9 @@ class IRC2(TokenStandard, IconScoreBase):
 		"""
 		if _value < 0 :
 			raise ZeroValueError("Transferring value cannot be less than 0.")
-			return
 
 		if self._balances[_from] < _value :
 			raise InsufficientBalanceError("Insufficient balance.")
-			return
 
 		self._beforeTokenTransfer(_from, _to, _value)
 
@@ -270,16 +268,13 @@ class IRC2(TokenStandard, IconScoreBase):
 
 	def _beforeTokenTransfer(self, _from: Address, _to: Address,_value: int) -> None:
 		"""
-		Called before transfer of tokens.
-		This is an internal function.
-
+		Called before transfer of tokens. This is an internal function.
 		If `_from` and `_to` are both non zero, `_value` number of tokens
 		of `_from` will be transferred to `_to`
 
 		If `_from` is zero `_value` tokens will be minted to `_to`.
 
 		If `_to` is zero `_value` tokens will be destroyed from `_from`.
-
 		Both `_from` and `_to` are never both zero at once.
 		"""
 		pass

@@ -18,12 +18,8 @@ class Position(object):
         self.address = VarDB('address', db, Address)
 
         self.snaps = ArrayDB('snaps', db, int)
-        self.updated = DictDB('updated', db, int)
         self.assets = DictDB('assets', db, int, depth=2)
         self.replay_index = DictDB('replay_index', db, int)
-        self.total_debt = DictDB('total_debt', db, int)
-        self.ratio = DictDB('ratio', db, int)
-        self.standing = DictDB('standing', db, int)
 
     def __getitem__(self, _symbol: str) -> int:
         if _symbol in self.asset_db.slist:
@@ -33,49 +29,38 @@ class Position(object):
 
     def __setitem__(self, key: str, value: int):
         day = self._loans._current_day.get()
-        self.snap(day)
+        self.check_snap()
         self.assets[day][key] = value
 
-    def snap(self, _day: int) -> None:
-        if _day > self.snaps[-1]:
-            self.snaps.put(_day)
-            today = self.snaps[-1]
+    def check_snap(self, _day: int = -1) -> None:
+        """
+        If the specified day is ahead of the last day in the snaps ArrayDB it is
+        added to the snaps array and a new snapshot is initialized.
+
+        :param _day: Day number of the snapshot to be added.
+        :type _day: int
+        """
+        current_day = self._loans._current_day.get()
+        if _day == -1:
+            day = current_day
+        else:
+            day = _day
+        if day > self.snaps[-1] and day <= current_day:
+            self.snaps.put(day)
+            today = day
             previous = self.snaps[-2]
             for symbol in self.asset_db.slist:
                 asset = self.asset_db[symbol]
                 self.assets[today][symbol] = self.assets[previous][symbol]
-            self.updated[today] = self.updated[previous]
             self.replay_index[today] = self.replay_index[previous]
-            self.total_debt[today] = self.total_debt[previous]
-            self.ratio[today] = self.ratio[previous]
-            self.standing[today] = self.standing[previous]
 
-    def get_standing(self, _snapshot: int = -1) -> int:
-        id = self.get_snapshot_id(_snapshot)
-        snap_db_index = self.snaps_db[_snapshot].replay_index.get()
-        pos_index = self.replay_index[id]
-        # revert(f'id: {id}, pos_index: {pos_index}, snap_db_index: {snap_db_index}')
-        if pos_index < snap_db_index:
-            return Standing.INDETERMINATE
-        return self.standing[id]
-
-    def collateral_value(self, _day: int = -1) -> int:
-        """
-        Returns the value of the collateral in loop.
-
-        :return: Value of position collateral in loop.
-        :rtype: int
-        """
+    def last_event_played(self, _day: int = -1) -> int:
         id = self.get_snapshot_id(_day)
-        if id == -1:
-            return 0
-        asset = self.asset_db['sICX']
-        amount = self.assets[id]['sICX']
-        if id == self.snaps[-1]:
-            price = asset.priceInLoop()
-        else:
-            price = self.snaps_db[id].prices['sICX']
-        return amount * price // EXA
+        return self.replay_index[id]
+
+    def get_standing(self, _day: int = -1) -> int:
+        state = self.snaps_db[_day].pos_state[self.id.get()]
+        return state['standing']
 
     def get_snapshot_id(self, _day: int = -1) -> int:
         """
@@ -90,11 +75,11 @@ class Position(object):
         """
         if _day < 0:
             if _day + len(self.snaps) < 0:
-                revert(f'Snapshot index out of range.')
+                return -1
             return self.snaps[_day]
+
         low = 0
         high = len(self.snaps)
-
         while low < high:
             mid = (low + high) // 2
             if self.snaps[mid] > _day:
@@ -106,8 +91,6 @@ class Position(object):
             return _day
         elif low == 0:
             return -1
-        elif low == len(self.snaps) and low > 1:
-            return self.snaps[-2]
         else:
             return self.snaps[low - 1]
 
@@ -129,6 +112,24 @@ class Position(object):
                 return True
         return False
 
+    def _collateral_value(self, _day: int = -1) -> int:
+        """
+        Returns the value of the collateral in loop.
+
+        :return: Value of position collateral in loop.
+        :rtype: int
+        """
+        id = self.get_snapshot_id(_day)
+        if id == -1:
+            return 0
+        asset = self.asset_db['sICX']
+        amount = self.assets[id]['sICX']
+        if _day == -1:
+            price = asset.priceInLoop()
+        else:
+            price = self.snaps_db[_day].prices['sICX']
+        return amount * price // EXA
+
     def _total_debt(self, _day: int = -1) -> int:
         """
         Returns the total value of all outstanding debt in loop. Only valid
@@ -145,72 +146,92 @@ class Position(object):
             if not self.asset_db[symbol].is_collateral.get() and symbol in self.assets[id]:
                 amount = self.assets[id][symbol]
                 if amount > 0:
-                    if id == self.snaps[-1]:
+                    if _day == -1:
                         price = self.asset_db[symbol].priceInLoop()
                     else:
-                        price = self.snaps_db[id].prices[symbol]
+                        price = self.snaps_db[_day].prices[symbol]
                     asset_value += (price * amount) // EXA
         return asset_value
 
     def apply_next_event(self) -> bool:
         """
         Updates the position with the next redemption event if there is one.
+
+        :return: True if an event was applied.
+        :rtype: bool
         """
+        event_log = self._loans._event_log
         snap_index = self.snaps[-1]
         # Check if there are any remaining events to replay.
-        if self.replay_index[snap_index] == len(self._loans._event_log):
+        if self.replay_index[snap_index] == len(event_log):
             return Outcome.NO_SUCCESS
 
-        event_index = self.replay_index[snap_index] + 1
-        _event = self._loans._event_log[event_index]
-        symbol = _event.symbol.get()
-        remaining_supply = _event.remaining_supply.get()
-        remaining_value = _event.remaining_value.get()
-        returned_sicx_remaining = _event.returned_sicx_remaining.get()
+        event_index = self.replay_index[snap_index]
+        event_snap_index = event_log[event_index].snapshot.get()
+        next_event = event_log[event_index + 1]
+        next_event_snap_index = next_event.snapshot.get()
+        # If the snapshot of the next event is larger than that of the current
+        # event add a new snapshot if it is also larger than the latest one.
+        if next_event_snap_index > event_snap_index:
+            self.check_snap(next_event_snap_index)
 
-        while event_index > self.snaps_db[snap_index].replay_index.get():
-            snap_index += 1
-        if snap_index != self.snaps[-1]:
-            self.snap(snap_index)
+        symbol = next_event.symbol.get()
+        remaining_supply = next_event.remaining_supply.get()
+        remaining_value = next_event.remaining_value.get()
+        returned_sicx_remaining = next_event.returned_sicx_remaining.get()
 
-        assets = self.assets[snap_index]
+        assets = self.assets[next_event_snap_index]
         pos_value = assets[symbol]
         redeemed_from_this_pos = remaining_value * pos_value // remaining_supply
         sicx_share = returned_sicx_remaining * pos_value // remaining_supply
-        _event.remaining_supply.set(remaining_supply - pos_value)
-        _event.remaining_value.set(remaining_value - redeemed_from_this_pos)
-        _event.returned_sicx_remaining.set(returned_sicx_remaining - sicx_share)
+        next_event.remaining_supply.set(remaining_supply - pos_value)
+        next_event.remaining_value.set(remaining_value - redeemed_from_this_pos)
+        next_event.returned_sicx_remaining.set(returned_sicx_remaining - sicx_share)
         assets["sICX"] -= sicx_share
         assets[symbol] = pos_value - redeemed_from_this_pos
-        self.replay_index[snap_index] = _event.index.get()
+        self.replay_index[next_event_snap_index] = next_event.index.get()
         return Outcome.SUCCESS
 
     def update_standing(self, _day: int = -1) -> int:
-        id = self.get_snapshot_id(_day)
-        if id == -1:
-            revert(f'Invalid snapshot id. _day: {_day}, len: {len(self.snaps)}, snaps[-1]: {self.snaps[-1]} '
-                   f'dict: {self.to_dict()}')
-        if self.replay_index[id] != self.snaps_db[id].replay_index.get():
-            self.standing[id] = Standing.INDETERMINATE
+        """
+        This method updates the standing for a snapshot. If that snapshot is not
+        up to date with the replay events for that day it will set the standing
+        to Indeterminate and return. If the position is up to date for the with
+        event replays for the snapshot it will calculate the total debt and
+        collateralization ratio and record them in the positon snapshot along
+        with the standing.
+
+        :return: Enum of standing from class Standing.
+        :rtype: int
+        """
+        state = self.snaps_db[_day].pos_state[self.id.get()]
+        pos_rp_id = self.last_event_played(_day)
+        rp_id = self.snaps_db[_day].replay_index.get()
+        if pos_rp_id < rp_id:
+            state['standing'] = Standing.INDETERMINATE
             return Standing.INDETERMINATE
-        debt = self._total_debt(id)
-        self.total_debt[id] = debt
+
+        debt: int = self._total_debt(_day)
+        collateral: int = self._collateral_value(_day)
+        state['total_debt'] = debt
         if debt == 0:
-            if self.assets[id]['sICX'] == 0:
-                self.standing[id] = Standing.ZERO
-            self.standing[id] = Standing.NO_DEBT
-            return self.standing[id]
-        ratio: int = self.collateral_value(id) * EXA // debt
-        self.ratio[id] = ratio
-        if ratio > DEFAULT_MINING_RATIO * EXA // 100:
-            self.standing[id] = Standing.MINING
-        elif ratio > DEFAULT_LOCKING_RATIO * EXA // 100:
-            self.standing[id] = Standing.NOT_MINING
-        elif ratio > DEFAULT_LIQUIDATION_RATIO * EXA // 100:
-            self.standing[id] = Standing.LOCKED
+            state['ratio'] = 0
+            if collateral == 0:
+                state['standing'] = Standing.ZERO
+                return state['standing']
+            state['standing'] = Standing.NO_DEBT
+            return state['standing']
+        ratio: int = collateral * EXA // debt
+        state['ratio'] = ratio
+        if ratio > DEFAULT_MINING_RATIO * EXA // POINTS:
+            state['standing'] = Standing.MINING
+        elif ratio > DEFAULT_LOCKING_RATIO * EXA // POINTS:
+            state['standing'] = Standing.NOT_MINING
+        elif ratio > DEFAULT_LIQUIDATION_RATIO * EXA // POINTS:
+            state['standing'] = Standing.LOCKED
         else:
-            self.standing[id] = Standing.LIQUIDATE
-        return self.standing[id]
+            state['standing'] = Standing.LIQUIDATE
+        return state['standing']
 
     def to_dict(self, _day: int = -1) -> dict:
         """
@@ -220,26 +241,32 @@ class Position(object):
         :rtype dict
         """
         id = self.get_snapshot_id(_day)
-        if id == -1:
-            revert(f'Invalid snapshot id.')
+        if id == -1 or _day > self._loans._current_day.get():
+            return {}
         assets = {}
         for asset in self.asset_db.slist:
             if asset in self.assets[id]:
                 amount = self.assets[id][asset]
                 assets[asset] = amount
 
+        pos_rp_id = self.replay_index[id]
+        sys_rp_id = self.snaps_db[id].replay_index.get()
+        pos_id = self.id.get()
+        state = self.snaps_db[id].pos_state[pos_id]
         position = {
-            'snaps_length': len(self.snaps),
-            'pos_id': self.id.get(),
+            'pos_id': pos_id,
             'created': self.created.get(),
             'address': str(self.address.get()),
-            'assets': assets,
+            'snap_id': id,
+            'snaps_length': len(self.snaps),
             'last_snap': self.snaps[-1],
-            'this_snap': id,
-            f'replay_index_{id}': self.replay_index[id],
-            f'total_debt_{id}': self.total_debt[id],
-            f'ratio_{id}': self.ratio[id],
-            f'standing_{id}': Standing.STANDINGS[self.get_standing(id)]
+            'first day': self.snaps[0],
+            'assets': assets,
+            'replay_index': pos_rp_id,
+            'events_behind': sys_rp_id - pos_rp_id,
+            'total_debt': state['total_debt'],
+            'ratio': state['ratio'],
+            'standing': Standing.STANDINGS[state['standing']]
         }
         return position
 
@@ -288,23 +315,21 @@ class PositionsDB:
 
     def add_nonzero(self, _owner: Address) -> None:
         id = self.addressID[_owner]
-        snap = self._loans._current_day.get()
         if id > self._id_factory.get_last_uid() or id < 1:
             revert(f'That key does not exist yet. (add_nonzero)')
-        if _owner in self._snapshot_db[snap].remove_from_nonzero:
-            self._remove(id, self._snapshot_db[snap].remove_from_nonzero)
+        if _owner in self._snapshot_db[-1].remove_from_nonzero:
+            self._remove(id, self._snapshot_db[-1].remove_from_nonzero)
         else:
-            self._snapshot_db[snap].add_to_nonzero.put(id)
+            self._snapshot_db[-1].add_to_nonzero.put(id)
 
     def remove_nonzero(self, _owner: Address) -> None:
         id = self.addressID[_owner]
-        snap = self._loans._current_day.get()
         if id > self._id_factory.get_last_uid() or id < 1:
             revert(f'That key does not exist yet. (remove_nonzero)')
-        if _owner in self._snapshot_db[snap].add_to_nonzero:
-            self._remove(id, self._snapshot_db[snap].add_to_nonzero)
+        if _owner in self._snapshot_db[-1].add_to_nonzero:
+            self._remove(id, self._snapshot_db[-1].add_to_nonzero)
         else:
-            self._snapshot_db[snap].remove_from_nonzero.put(id)
+            self._snapshot_db[-1].remove_from_nonzero.put(id)
 
     def _remove(self, item: int, array: ArrayDB) -> None:
         top = array.pop()
@@ -326,16 +351,14 @@ class PositionsDB:
         id = self._id_factory.get_uid()
         self.addressID[_address] = id
         now = self._loans.now()
-        snap_id = self._snapshot_db._indexes[-1]
+        snap_id = self._loans._current_day.get()
         _new_pos = self.__getitem__(id)
         _new_pos.id.set(id)
         _new_pos.created.set(now)
         _new_pos.address.set(_address)
         _new_pos.snaps.put(snap_id)
-        _new_pos.updated[snap_id] = now
         _new_pos.assets[snap_id]['sICX'] = 0
         _new_pos.replay_index[snap_id] = len(self._event_log)
-        _new_pos.standing[snap_id] = Standing.ZERO
         return _new_pos
 
     def _take_snapshot(self) -> None:
@@ -344,14 +367,14 @@ class PositionsDB:
         """
         snapshot = self._snapshot_db[-1]
         assets = self._loans._assets
-        rp_index = len(self._event_log._events)
+        rp_index = len(self._event_log)
+        snapshot.replay_index.set(rp_index)
         for symbol in assets.slist:
             if assets[symbol].active.get():
                 snapshot.prices[symbol] = assets[symbol].priceInLoop()
         snapshot.snap_time.set(self._loans.now())
-        self._loans.Snapshot(self._snapshot_db._indexes[-1])
+        self._loans.Snapshot(self._loans._current_day.get())
         self._snapshot_db.start_new_snapshot()
-        self._snapshot_db[-1].replay_index.set(rp_index)
 
     def _calculate_snapshot(self, _day: int, batch_size: int) -> bool:
         """
@@ -369,7 +392,6 @@ class PositionsDB:
         """
         snapshot = self._snapshot_db[_day]
         id = snapshot.snap_day.get()
-        index = snapshot.precompute_index.get() # Tracks where the precompute is over multiple calls.
         add = len(snapshot.add_to_nonzero)
         remove = len(snapshot.remove_from_nonzero)
         nonzero_deltas = add + remove
@@ -384,7 +406,10 @@ class PositionsDB:
                 for _ in range(loops):
                     self.nonzero.put(snapshot.add_to_nonzero.pop())
             return Complete.NOT_DONE
-        remaining = len(self.nonzero) - index
+
+        index = snapshot.precompute_index.get() # Tracks where the precompute is over multiple calls.
+        total_nonzero = len(self.nonzero)
+        remaining = total_nonzero - index
         batch_mining_debt = 0
         for _ in range(min(remaining, batch_size)): # Update standing for all nonzero positions.
             account_id = self.nonzero[index]
@@ -393,20 +418,18 @@ class PositionsDB:
             # but before the snapshot must be applied to the position before
             # calculating its value.
             if id >= pos.snaps[0]:
-                pos_rp_id = pos.replay_index[id]
-                snap_rp_id = snapshot.replay_index.get()
+                pos_rp_id = pos.replay_index[id] # last replay applied to the position for snapshot id
+                snap_rp_id = snapshot.replay_index.get() # last replay for that day from system snapshot.
                 if pos_rp_id < snap_rp_id:
                     for _ in range(pos_rp_id, snap_rp_id):
                         pos.apply_next_event()
-                    standing = pos.update_standing(id)
-                else:
-                    standing = pos.update_standing(id)
+                standing = pos.update_standing(id) # Calculates total_debt, ratio, and standing.
                 if standing == Standing.MINING:
                     snapshot.mining.put(account_id)
-                    batch_mining_debt += pos.total_debt[id]
+                    batch_mining_debt += snapshot.pos_state[account_id]['total_debt']
             index += 1
         snapshot.total_mining_debt.set(snapshot.total_mining_debt.get() + batch_mining_debt)
         snapshot.precompute_index.set(index)
-        if len(self.nonzero) == index:
+        if total_nonzero == index:
             return Complete.DONE
         return Complete.NOT_DONE
