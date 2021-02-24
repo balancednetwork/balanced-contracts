@@ -511,8 +511,9 @@ class Loans(IconScoreBase):
         symbol = asset.symbol()
         bad_debt = asset.bad_debt.get()
         sicx_rate = self._assets['sICX'].priceInLoop()
+        fee = _value * self._redemption_fee.get() // POINTS
+        redeemed = _value - fee
         self._assets[symbol].burn(_value)
-        redeemed = _value
         sicx: int = 0
         if bad_debt > 0:
             bd_value = min(bad_debt, redeemed)
@@ -528,6 +529,7 @@ class Loans(IconScoreBase):
                                               sicx_returned=sicx,
                                               asset_supply=supply)
         self._send_token("sICX", _from, sicx, "Collateral redeemed.")
+        self._send_token(symbol, self._dividends.get(), fee, "Redemption fee.")
         self.AssetRedeemed(_from, symbol, _value,
             f'{_value // EXA} {symbol} redeemed on Balanced.')
 

@@ -215,8 +215,8 @@ class Rewards(IconScoreBase):
 
     @external
     def claimRewards(self) -> None:
-        address = str(self.msg._sender)
-        amount = self._baln_holdings[str(self.msg._sender)]
+        address = str(self.msg.sender)
+        amount = self._baln_holdings[address]
         if amount:
             baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
             baln_token.transfer(self.msg.sender, amount)
