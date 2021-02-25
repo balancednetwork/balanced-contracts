@@ -3,6 +3,11 @@ from .utils.checks import *
 from .utils.consts import *
 
 
+class DistPercentDict(TypedDict):
+    recipient_name : str
+    bal_token_dist_percent: int
+
+
 # An interface to the Loans SCORE
 class LoansInterface(InterfaceScore):
     @interface
@@ -95,6 +100,14 @@ class RewardsInterface(InterfaceScore):
 
     @interface
     def setBwt(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def addNewDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
+        pass
+
+    @interface
+    def updateBalTokenDistPercentage(self, _recipient_list : List[DistPercentDict]) -> None:
         pass
 
 

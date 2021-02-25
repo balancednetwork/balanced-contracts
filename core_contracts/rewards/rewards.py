@@ -75,6 +75,7 @@ class Rewards(IconScoreBase):
 
     # Methods to update the states of a data_source_name object
     @external
+    @only_governance
     def updateBalTokenDistPercentage(self, _recipient_list : List[DistPercentDict]) -> None:
         """
         This method provides a means to adjust the allocation of rewards tokens.
@@ -140,6 +141,7 @@ class Rewards(IconScoreBase):
         return recipients
 
     @external
+    @only_governance
     def addNewDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
         """
         Sources for data on which to base incentive rewards are added with this

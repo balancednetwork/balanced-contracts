@@ -156,6 +156,7 @@ class Loans(IconScoreBase):
     @only_governance
     def turnLoansOn(self) -> None:
         self._loans_on.set(True)
+        self.ContractActive("Loans", "Active")
         self._current_day.set(self.getDay())
         self._positions._snapshot_db.start_new_snapshot()
 
@@ -163,6 +164,7 @@ class Loans(IconScoreBase):
     @only_governance
     def toggleLoansOn(self) -> None:
         self._loans_on.set(not self._loans_on.get())
+        self.ContractActive("Loans", "Active" if self._loans_on.get() else "Inactive")
 
     @external(readonly=True)
     def getLoansOn(self) -> bool:
@@ -305,7 +307,9 @@ class Loans(IconScoreBase):
     @external
     @only_admin
     def toggleAssetActive(self, _symbol) -> None:
-        self._assets[_symbol].active.set(not self._assets[_symbol].active.get())
+        asset = self._assets[_symbol]
+        asset.active.set(not asset.active.get())
+        self.AssetActive(_symbol, "Active" if asset.active.get() else "Inactive")
 
     @external
     def precompute(self, _snapshot_id: int, batch_size: int) -> bool:
@@ -589,6 +593,10 @@ class Loans(IconScoreBase):
         if self._assets[_asset].dead():
             revert(f'No new loans of {_asset} can be originated since '
                    f'it is in a dead market state.')
+        if self._assets[_asset].is_collateral.get():
+            revert(f'Loans of collateral assets are not allowed.')
+        if not self._assets[_asset].active.get():
+            revert(f'Loans of inactive assets are not allowed.')
         if self.msg.sender != self._assets['sICX'].asset_address.get(): # to avoid doubling this call.
             day, new_day = self.checkForNewDay()
             self.checkDistributions(day, new_day)
@@ -687,7 +695,7 @@ class Loans(IconScoreBase):
                                   Standing.STANDINGS[standing],
                                   "Ratio not yet determined.",
                                   "Position not up to date.")
-
+        return standing
 
     @external
     def liquidate(self, _owner: Address) -> None:
@@ -870,6 +878,14 @@ class Loans(IconScoreBase):
 #-------------------------------------------------------------------------------
 #   EVENT LOGS
 #-------------------------------------------------------------------------------
+
+    @eventlog(indexed=1)
+    def ContractActive(self, _contract: str, _state: str):
+        pass
+
+    @eventlog(indexed=1)
+    def AssetActive(self, _asset: str, _state: str):
+        pass
 
     @eventlog(indexed=3)
     def Transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
