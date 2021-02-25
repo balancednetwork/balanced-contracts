@@ -513,7 +513,8 @@ class Loans(IconScoreBase):
         sicx_rate = self._assets['sICX'].priceInLoop()
         fee = _value * self._redemption_fee.get() // POINTS
         redeemed = _value - fee
-        self._assets[symbol].burn(_value)
+        supply = self._assets[symbol].totalSupply()
+        self._assets[symbol].burn(redeemed)
         sicx: int = 0
         if bad_debt > 0:
             bd_value = min(bad_debt, redeemed)
@@ -521,7 +522,6 @@ class Loans(IconScoreBase):
             sicx += self.bd_redeem(_from, asset, bd_value, sicx_rate, price)
         if redeemed > 0:
             sicx += redeemed * price // sicx_rate
-            supply = self._assets[symbol].totalSupply()
             event = self._event_log.new_event(snapshot=self._current_day.get(),
                                               symbol=symbol,
                                               value=redeemed,

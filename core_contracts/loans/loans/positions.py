@@ -175,20 +175,23 @@ class Position(object):
         if next_event_snap_index > event_snap_index:
             self.check_snap(next_event_snap_index)
 
-        symbol = next_event.symbol.get()
-        remaining_supply = next_event.remaining_supply.get()
-        remaining_value = next_event.remaining_value.get()
-        returned_sicx_remaining = next_event.returned_sicx_remaining.get()
-
         assets = self.assets[next_event_snap_index]
+        symbol = next_event.symbol.get()
+        # Note use of dust-free distribution approach.
         pos_value = assets[symbol]
-        redeemed_from_this_pos = remaining_value * pos_value // remaining_supply
-        sicx_share = returned_sicx_remaining * pos_value // remaining_supply
+        remaining_supply = next_event.remaining_supply.get()
         next_event.remaining_supply.set(remaining_supply - pos_value)
+
+        remaining_value = next_event.remaining_value.get()
+        redeemed_from_this_pos = remaining_value * pos_value // remaining_supply
         next_event.remaining_value.set(remaining_value - redeemed_from_this_pos)
+        assets[symbol] = pos_value - redeemed_from_this_pos
+
+        returned_sicx_remaining = next_event.returned_sicx_remaining.get()
+        sicx_share = returned_sicx_remaining * pos_value // remaining_supply
         next_event.returned_sicx_remaining.set(returned_sicx_remaining - sicx_share)
         assets["sICX"] -= sicx_share
-        assets[symbol] = pos_value - redeemed_from_this_pos
+
         self.replay_index[next_event_snap_index] = next_event.index.get()
         return Outcome.SUCCESS
 
