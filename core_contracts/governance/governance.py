@@ -160,10 +160,11 @@ class Governance(IconScoreBase):
         Links a pool ID to a name, so users can look up platform-defined
         markets more easily.
         """
-        dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
+        dex_address = self.addresses._dex.get()
+        dex = self.create_interface_score(dex_address, DexInterface)
         dex.setMarketName(_pid, _name)
         rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
-        rewards.addNewDataSource(_name, self.address)
+        rewards.addNewDataSource(_name, dex_address)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
