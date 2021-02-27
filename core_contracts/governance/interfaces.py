@@ -60,6 +60,14 @@ class DexInterface(InterfaceScore):
         pass
 
     @interface
+    def permit(self, _pid: int, _permission: bool):
+        pass
+
+    @interface
+    def setMarketName(self, _pid: int, _name: str) -> None:
+        pass
+
+    @interface
     def setAdmin(self, _address: Address) -> None:
         pass
 

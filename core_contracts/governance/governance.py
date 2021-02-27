@@ -65,7 +65,8 @@ class Governance(IconScoreBase):
                                asset['active'], asset['collateral'])
             for source in DATA_SOURCES:
                 rewards.addNewDataSource(source['name'],
-                                             self.addresses.getAddresses()[source['address']])
+                                         self.addresses.getAddresses()[source['address']])
+            rewards.updateBalTokenDistPercentage(RECIPIENTS)
             loans.turnLoansOn()
             dex.turnDexOn()
 
@@ -103,7 +104,7 @@ class Governance(IconScoreBase):
     def getLaunchTime(self) -> int:
         return self._launch_time.get()
 
-    @external
+    @external(readonly=True)
     def getDay(self) -> int:
         offset = DAY_ZERO + self._launch_day.get()
         return (self.now() - DAY_START) // U_SECONDS_DAY - offset
@@ -143,6 +144,26 @@ class Governance(IconScoreBase):
         """
         rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
         rewards.updateBalTokenDistPercentage(_recipient_list)
+
+    @external
+    @only_owner
+    def dexPermit(self, _pid: int, _permission: bool):
+        dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
+        dex.permit(_pid, _permission)
+
+    @external
+    @only_owner
+    def setMarketName(self, _pid: int, _name: str) -> None:
+        """
+        :param _pid: Pool ID to map to the name
+        :param _name: Name to associate
+        Links a pool ID to a name, so users can look up platform-defined
+        markets more easily.
+        """
+        dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
+        dex.setMarketName(_pid, _name)
+        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        rewards.addNewDataSource(_name, self.address)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:

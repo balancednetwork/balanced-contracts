@@ -130,13 +130,13 @@ class Loans(IconScoreBase):
         self._locking_ratio.set(DEFAULT_LOCKING_RATIO)
         self._liquidation_ratio.set(DEFAULT_LIQUIDATION_RATIO)
         # # Create bad position for testing liquidation. Take out a loan that is too large.
-        # pos = self._positions.get_pos(TEST_ADDRESS)
-        # # Independently, 782769 * 10**15 =~$299 worth of collateral will be
-        # # deposited for this position.
-        # icd: int = 2 * 10**20 # $200 ICD debt
-        # self._assets['ICD'].mint(TEST_ADDRESS, icd)
-        # pos['ICD'] += icd
-        # pos.update_standing()
+        pos = self._positions.get_pos(TEST_ADDRESS)
+        # Independently, 782769 * 10**15 =~$299 worth of collateral will be
+        # deposited for this position.
+        icd: int = 2 * 10**20 # $200 ICD debt
+        self._assets['ICD'].mint(TEST_ADDRESS, icd)
+        pos['ICD'] += icd
+        pos.update_standing()
 
     @external(readonly=True)
     def name(self) -> str:
@@ -517,7 +517,7 @@ class Loans(IconScoreBase):
         sicx_rate = self._assets['sICX'].priceInLoop()
         fee = _value * self._redemption_fee.get() // POINTS
         redeemed = _value - fee
-        supply = self._assets[symbol].totalSupply()
+        supply = self._assets[symbol].totalSupply() - self._assets[symbol].bad_debt.get()
         self._assets[symbol].burn(redeemed)
         sicx: int = 0
         if bad_debt > 0:
@@ -525,12 +525,13 @@ class Loans(IconScoreBase):
             redeemed -= bd_value
             sicx += self.bd_redeem(_from, asset, bd_value, sicx_rate, price)
         if redeemed > 0:
-            sicx += redeemed * price // sicx_rate
+            sicx_from_lenders = redeemed * price // sicx_rate
+            sicx += sicx_from_lenders
             event = self._event_log.new_event(snapshot=self._current_day.get(),
                                               symbol=symbol,
                                               value=redeemed,
                                               sicx_rate=sicx_rate,
-                                              sicx_returned=sicx,
+                                              sicx_returned=sicx_from_lenders,
                                               asset_supply=supply)
         self._send_token("sICX", _from, sicx, "Collateral redeemed.")
         self._send_token(symbol, self._dividends.get(), fee, "Redemption fee.")

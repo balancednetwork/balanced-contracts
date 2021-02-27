@@ -27,19 +27,19 @@ class Rewards(IconScoreBase):
         super().__init__(db)
         self._governance = VarDB('governance', db, value_type=Address)
         self._admin = VarDB('admin', db, value_type=Address)
-        self._baln_address = VarDB('baln_address', db, value_type = Address)
-        self._bwt_address = VarDB('bwt_address', db, value_type = Address)
-        self._reserve_fund = VarDB('reserve_fund', db, value_type = Address)
-        self._start_timestamp = VarDB('start_timestamp', db, value_type = int)
-        self._batch_size = VarDB('batch_size', db, value_type = int)
-        self._baln_holdings = DictDB('baln_holdings', db, value_type = int)
-        self._recipient_split = DictDB('recipient_split', db, value_type = int)
-        self._recipients = ArrayDB('recipients', db, value_type = str)
+        self._baln_address = VarDB('baln_address', db, value_type=Address)
+        self._bwt_address = VarDB('bwt_address', db, value_type=Address)
+        self._reserve_fund = VarDB('reserve_fund', db, value_type=Address)
+        self._start_timestamp = VarDB('start_timestamp', db, value_type=int)
+        self._batch_size = VarDB('batch_size', db, value_type=int)
+        self._baln_holdings = DictDB('baln_holdings', db, value_type=int)
+        self._recipient_split = DictDB('recipient_split', db, value_type=int)
+        self._recipients = ArrayDB('recipients', db, value_type=str)
         self._platform_recipients = {'Worker Tokens': self._bwt_address,
                                      'Reserve Fund': self._reserve_fund}
-        self._total_dist = VarDB('total_dist', db, int)
-        self._platform_day = VarDB('platform_day', db, value_type = int)
-        self._data_source_db = DataSourceDB(db,self)
+        self._total_dist = VarDB('total_dist', db, value_type=int)
+        self._platform_day = VarDB('platform_day', db, value_type=int)
+        self._data_source_db = DataSourceDB(db, self)
 
     def on_install(self) -> None:
         super().on_install()
@@ -160,6 +160,8 @@ class Rewards(IconScoreBase):
         We are also expecting the address to be a contract address so we could
         check if it is a contract.
         """
+        if _data_source_name in self._data_source_db._names:
+            return
         if not _contract_address.is_contract:
             revert(f'')
         data_source_dict = {'contract_address': _contract_address, 'bal_token_dist_percent': 0}
@@ -209,8 +211,9 @@ class Rewards(IconScoreBase):
             if data_source['day'] < self._get_day():
                 source = self._data_source_db[name]
                 percent = source.dist_percent_dict
-                if percent[data_source['day']] == 0:
-                    percent[data_source['day']] = source.bal_token_dist_percent.get()
+                new_percent = source.bal_token_dist_percent.get()
+                if percent[data_source['day']] != new_percent:
+                    percent[data_source['day']] = new_percent
                 self._reward_distribution(name, self._batch_size.get())
                 distribution_complete = False
         return distribution_complete

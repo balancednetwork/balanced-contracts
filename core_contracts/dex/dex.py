@@ -363,7 +363,7 @@ class DEX(IconScoreBase):
         """
         return self._icd.get()
 
-    @only_owner
+    @only_governance
     @external
     def setMarketName(self, _pid: int, _name: str) -> None:
         """
@@ -373,8 +373,6 @@ class DEX(IconScoreBase):
         markets more easily.
         """
         self._named_markets[_name] = _pid
-        rewards = self.create_interface_score(self._rewards.get(), Rewards)
-        rewards.addNewDataSource(_name, self.address)
 
     @only_governance
     @external
