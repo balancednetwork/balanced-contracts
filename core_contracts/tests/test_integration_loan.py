@@ -307,39 +307,6 @@ class TestLoan(IconIntegrateTestBase):
         print(_tx_result)
         print(" ICX repaid")
 
-    def _retireAssets(self):
-        params = {'_to': self._test2.get_address(), '_value': 20 * ICX}
-        transaction = CallTransactionBuilder() \
-            .from_(self._test2.get_address()) \
-            .to(self.contracts['icd']['SCORE']) \
-            .value(0) \
-            .step_limit(10000000) \
-            .nid(3) \
-            .nonce(100) \
-            .method("transfer") \
-            .params(params) \
-            .build()
-        signed_transaction = SignedTransaction(transaction, self._test2)
-        tx_hash = self.icon_service.send_transaction(signed_transaction)
-        sleep(2)
-        data = "{\"method\": \"_retire_asset\", \"params\": {}}".encode("utf-8")
-        params = {'_to': self.contracts['loans']['SCORE'], '_value': 10 * ICX, '_data': data}
-        transaction = CallTransactionBuilder() \
-            .from_(self._test2.get_address()) \
-            .to(self.contracts['icd']['SCORE']) \
-            .value(0) \
-            .step_limit(10000000) \
-            .nid(3) \
-            .nonce(100) \
-            .method("transfer") \
-            .params(params) \
-            .build()
-        signed_transaction = SignedTransaction(transaction, self._test2)
-        tx_hash = self.icon_service.send_transaction(signed_transaction)
-        _tx_result = self._get_tx_result(tx_hash)
-        print(_tx_result)
-        print(" Assets retired")
-
     def _withdrawCollateral(self):
         params = {'_value': 16 * ICX}
         transaction = CallTransactionBuilder() \
@@ -357,42 +324,6 @@ class TestLoan(IconIntegrateTestBase):
         _tx_result = self._get_tx_result(tx_hash)
         print(_tx_result)
         print(" collateral withdrawn")
-
-    def _liquidate(self):
-        params = {'_owner': self._test2.get_address()}
-        transaction = CallTransactionBuilder() \
-            .from_(self._test1.get_address()) \
-            .to(self.contracts['loans']['SCORE']) \
-            .value(0) \
-            .step_limit(10000000) \
-            .nid(3) \
-            .nonce(100) \
-            .method("liquidate") \
-            .params(params) \
-            .build()
-        signed_transaction = SignedTransaction(transaction, self._test1)
-        tx_hash = self.icon_service.send_transaction(signed_transaction)
-        _tx_result = self._get_tx_result(tx_hash)
-        print("liquidate called")
-        print(_tx_result)
-
-    def _originateLoan(self):
-        params = {"_asset": "ICD", "_amount": 3, "_from": self._test1.get_address()}
-        transaction = CallTransactionBuilder() \
-            .from_(self._test1.get_address()) \
-            .to(self.contracts['loans']['SCORE']) \
-            .value(0) \
-            .step_limit(10000000) \
-            .nid(3) \
-            .nonce(100) \
-            .method("originateLoan") \
-            .params(params) \
-            .build()
-        signed_transaction = SignedTransaction(transaction, self._test1)
-        tx_hash = self.icon_service.send_transaction(signed_transaction)
-        _tx_result = self._get_tx_result(tx_hash)
-        print("3 ICD originated")
-        print(_tx_result)
 
     def _updateStanding(self):
         params = {"_owner": self._test1.get_address()}
@@ -412,54 +343,4 @@ class TestLoan(IconIntegrateTestBase):
         print("updateStanding called")
         print(_tx_result)
 
-    # Test liquidation for wallet _test2
-    # def _addTestCollateral(self):
-    #     data1 = "{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"".encode("utf-8")
-    #     data2 = "\", \"_asset\": \"\", \"_amount\": 0}}".encode("utf-8")
-    #     params = {'_data1': data1, '_data2': data2}
-    #     transaction = CallTransactionBuilder() \
-    #         .from_(self._test2.get_address()) \
-    #         .to(self.contracts['loans']['SCORE']) \
-    #         .value(782769 * ICX //1000) \
-    #         .step_limit(10000000) \
-    #         .nid(3) \
-    #         .nonce(100) \
-    #         .method("addCollateral") \
-    #         .params(params) \
-    #         .build()
-    #     signed_transaction = SignedTransaction(transaction, self._test2)
-    #     tx_hash = self.icon_service.send_transaction(signed_transaction)
-    #     _tx_result = self._get_tx_result(tx_hash)
-    #     print(_tx_result)
-    #     self.assertEqual(1, _tx_result['status'])
-    #     print('added collateral to test2 account')
-    #
-    # def _getTestAccountPosition(self):
-    #     params = {'_owner': self._test2.get_address()}
-    #     _call = CallBuilder().from_(self._test1.get_address()) \
-    #         .to(self.contracts['loans']['SCORE']) \
-    #         .method('getAccountPositions') \
-    #         .params(params) \
-    #         .build()
-    #     result = self.get_tx_result(_call)
-    #     print("test position")
-    #     print(result)
-
-    # def test_withdrawCollateral(self):
-    #     params = {'_value': 5 * ICX}
-    #     transaction = CallTransactionBuilder() \
-    #         .from_(self._test1.get_address()) \
-    #         .to(self.contracts['loans']['SCORE']) \
-    #         .value(0) \
-    #         .step_limit(10000000) \
-    #         .nid(3) \
-    #         .nonce(100) \
-    #         .method("withdrawCollateral") \
-    #         .params(params) \
-    #         .build()
-    #     signed_transaction = SignedTransaction(transaction, self._test1)
-    #     tx_hash = self.icon_service.send_transaction(signed_transaction)
-    #     _tx_result = self._get_tx_result(tx_hash)
-    #     print(_tx_result)
-    #     print("collateral withdrawn")
 
