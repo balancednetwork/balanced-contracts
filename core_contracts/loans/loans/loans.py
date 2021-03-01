@@ -9,7 +9,7 @@ TAG = 'BalancedLoans'
 
 # For testing only
 # TEST_ADDRESS = Address.from_string('hx3f01840a599da07b0f620eeae7aa9c574169a4be')
-TEST_ADDRESS = Address.from_string('hx3d7ca00231a5ce61c6b33beae3eb492a647e8c11')
+TEST_ADDRESS = Address.from_string('hx79741c762362268adc0ba58a073a10311b981149')
 
 
 # An interface to the Emergency Reserve Fund
@@ -130,14 +130,14 @@ class Loans(IconScoreBase):
         self._mining_ratio.set(DEFAULT_MINING_RATIO)
         self._locking_ratio.set(DEFAULT_LOCKING_RATIO)
         self._liquidation_ratio.set(DEFAULT_LIQUIDATION_RATIO)
-        # # Create bad position for testing liquidation. Take out a loan that is too large.
-        # pos = self._positions.get_pos(TEST_ADDRESS)
-        # # Independently, 782769 * 10**15 =~$299 worth of collateral will be
-        # # deposited for this position.
-        # icd: int = 2 * 10**20 # $200 ICD debt
-        # self._assets['ICD'].mint(TEST_ADDRESS, icd)
-        # pos['ICD'] += icd
-        # pos.update_standing()
+        # Create bad position for testing liquidation. Take out a loan that is too large.
+        pos = self._positions.get_pos(TEST_ADDRESS)
+        # Independently, 782769 * 10**15 =~$299 worth of collateral will be
+        # deposited for this position.
+        icd: int = 2 * 10**20 # $200 ICD debt
+        self._assets['ICD'].mint(TEST_ADDRESS, icd)
+        pos['ICD'] += icd
+        pos.update_standing()
 
     @external(readonly=True)
     def name(self) -> str:

@@ -112,10 +112,7 @@ class TestLoan(IconIntegrateTestBase):
         # self._getSnapShot()
         self._retireAssets()
         self._updateStanding()
-        self._claimRewards()
-        self._MainupdateStanding()
-        self._balance()
-        self._availableBalanceOf()
+
         self._getAccountPositions(self._test4.get_address())
 
 
@@ -287,20 +284,6 @@ class TestLoan(IconIntegrateTestBase):
         print("txHash: ", tx_hash)
         print("ICX transferred")
 
-    def transferICX5(self):
-        transaction = TransactionBuilder() \
-            .from_(self._test1.get_address()) \
-            .to(self._test5.get_address()) \
-            .value(1000 * ICX) \
-            .step_limit(10000000) \
-            .nid(3) \
-            .nonce(100) \
-            .build()
-        signed_transaction = SignedTransaction(transaction, self._test1)
-        tx_hash = self.icon_service.send_transaction(signed_transaction)
-        print("txHash: ", tx_hash)
-        print("ICX transferred")
-
     def _addCollateral(self, data1: bytes, data2: bytes):
         # data1 = "{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"".encode("utf-8")
         # data2 = "\", \"_asset\": \"ICD\", \"_amount\": 40000000000000000000}}".encode("utf-8")
@@ -407,64 +390,6 @@ class TestLoan(IconIntegrateTestBase):
         _tx_result = self._get_tx_result(tx_hash)
         print("updateStanding called")
         print(_tx_result)
-
-    def _claimRewards(self):
-        params = {}
-        transaction = CallTransactionBuilder() \
-            .from_(self._test4.get_address()) \
-            .to(self.contracts['rewards']['SCORE']) \
-            .value(0) \
-            .step_limit(10000000) \
-            .nid(3) \
-            .nonce(100) \
-            .method("claimRewards") \
-            .params(params) \
-            .build()
-        signed_transaction = SignedTransaction(transaction, self._test4)
-        tx_hash = self.icon_service.send_transaction(signed_transaction)
-        _tx_result = self._get_tx_result(tx_hash)
-        print("claiming rewards")
-        print(_tx_result)
-
-    def _availableBalanceOf(self):
-        params = {'_owner': self._test4.get_address()}
-        _call = CallBuilder().from_(self._test1.get_address()) \
-            .to(self.contracts['bal']['SCORE']) \
-            .method('availableBalanceOf') \
-            .params(params) \
-            .build()
-        result = self.get_tx_result(_call)
-        print("BAL Called")
-        print(result)
-
-    def _MainupdateStanding(self):
-        params = {"_owner": self._test1.get_address()}
-        transaction = CallTransactionBuilder() \
-            .from_(self._test1.get_address()) \
-            .to(self.contracts['loans']['SCORE']) \
-            .value(0) \
-            .step_limit(10000000) \
-            .nid(3) \
-            .nonce(100) \
-            .method("updateStanding") \
-            .params(params) \
-            .build()
-        signed_transaction = SignedTransaction(transaction, self._test1)
-        tx_hash = self.icon_service.send_transaction(signed_transaction)
-        _tx_result = self._get_tx_result(tx_hash)
-        print("Main updateStanding called")
-        print(_tx_result)
-
-    def _balance(self):
-        params = {'_owner': self._test4.get_address()}
-        call = CallBuilder().from_(self._test1.get_address()) \
-            .to(self.contracts['bal']['SCORE']) \
-            .method('availableBalanceOf') \
-            .params(params) \
-            .build()
-        result = self.get_tx_result(call)
-        print("Balance ")
-        print(result)
 
     # def _TestAccountPosition(self):
     #     params = {'_owner': self._test1.get_address()}
