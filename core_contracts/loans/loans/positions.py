@@ -179,18 +179,19 @@ class Position(object):
         symbol = next_event.symbol.get()
         # Note use of dust-free distribution approach.
         pos_value = assets[symbol]
-        remaining_supply = next_event.remaining_supply.get()
-        next_event.remaining_supply.set(remaining_supply - pos_value)
+        if pos_value != 0:
+            remaining_supply = next_event.remaining_supply.get()
+            next_event.remaining_supply.set(remaining_supply - pos_value)
 
-        remaining_value = next_event.remaining_value.get()
-        redeemed_from_this_pos = remaining_value * pos_value // remaining_supply
-        next_event.remaining_value.set(remaining_value - redeemed_from_this_pos)
-        assets[symbol] = pos_value - redeemed_from_this_pos
+            remaining_value = next_event.remaining_value.get()
+            redeemed_from_this_pos = remaining_value * pos_value // remaining_supply
+            next_event.remaining_value.set(remaining_value - redeemed_from_this_pos)
+            assets[symbol] = pos_value - redeemed_from_this_pos
 
-        returned_sicx_remaining = next_event.returned_sicx_remaining.get()
-        sicx_share = returned_sicx_remaining * pos_value // remaining_supply
-        next_event.returned_sicx_remaining.set(returned_sicx_remaining - sicx_share)
-        assets["sICX"] -= sicx_share
+            returned_sicx_remaining = next_event.returned_sicx_remaining.get()
+            sicx_share = returned_sicx_remaining * pos_value // remaining_supply
+            next_event.returned_sicx_remaining.set(returned_sicx_remaining - sicx_share)
+            assets["sICX"] -= sicx_share
 
         self.replay_index[next_event_snap_index] = next_event.index.get()
         return Outcome.SUCCESS
@@ -253,9 +254,9 @@ class Position(object):
                 assets[asset] = amount
 
         pos_rp_id = self.replay_index[id]
-        sys_rp_id = self.snaps_db[id].replay_index.get()
+        sys_rp_id = self.snaps_db[_day].replay_index.get()
         pos_id = self.id.get()
-        state = self.snaps_db[id].pos_state[pos_id]
+        state = self.snaps_db[_day].pos_state[pos_id]
         position = {
             'pos_id': pos_id,
             'created': self.created.get(),
@@ -293,6 +294,10 @@ class PositionsDB:
         self._snapshot_db = SnapshotDB(db, loans)
 
     def __getitem__(self, id: int) -> Position:
+        if id < 0:
+            id = self._id_factory.get_last_uid() + id + 1
+        if id < 0:
+            revert(f'That is not a valid key.')
         if id not in self._items:
             if id > self._id_factory.get_last_uid():
                 revert(f'That key does not exist yet.')

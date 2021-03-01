@@ -14,6 +14,7 @@ DEFAULT_ORIGINATION_FEE = 100
 DEFAULT_REDEMPTION_FEE = 50
 BAD_DEBT_RETIREMENT_BONUS = 1000
 
+NEW_LOAN_MINIMUM = 10 * EXA # USD
 REDEEM_MINIMUM = 10 * EXA # USD
 REPLAY_BATCH_SIZE = 100
 SNAP_BATCH_SIZE = 400
@@ -31,6 +32,10 @@ class Standing:
     NO_DEBT = 6
     STANDINGS = ['Indeterminate', 'Zero', 'Liquidate', 'Locked',
                  'Not Mining', 'Mining', 'No Debt']
+
+    @staticmethod
+    def __getitem__(_standing: int) -> str:
+        return STANDINGS[_standing]
 
 
 class Outcome:
