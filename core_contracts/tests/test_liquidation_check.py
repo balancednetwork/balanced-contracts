@@ -84,7 +84,10 @@ class TestLoan(IconIntegrateTestBase):
         self._addTestCollateral()
         self._getTestAccountPosition()
 
+        # On updating score, we will mint 200 ICD to the wallet to push it to
+        # liquidation state
         self._score_update()
+
         self._getTestAccountPosition()
 
         self._liquidate()
@@ -295,6 +298,7 @@ class TestLoan(IconIntegrateTestBase):
         print("assets")
         print(response)
 
+    # Updates the position of the wallet
     def _updateStanding(self):
         params = {"_owner": self._test3.get_address()}
         transaction = CallTransactionBuilder() \
@@ -313,7 +317,8 @@ class TestLoan(IconIntegrateTestBase):
         print("updateStanding called")
         print(_tx_result)
 
-    # Test liquidation for wallet _test2
+    # Test liquidation for wallet _test3
+    # Add collateral to wallet _test3 and run test update
     def _addTestCollateral(self):
         data1 = "{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"".encode("utf-8")
         data2 = "\", \"_asset\": \"\", \"_amount\": 0}}".encode("utf-8")
@@ -336,6 +341,7 @@ class TestLoan(IconIntegrateTestBase):
         self.assertEqual(1, _tx_result['status'])
         print('added collateral to test2 account')
 
+    # Returns the account position of the wallet
     def _getTestAccountPosition(self):
         params = {'_owner': self._test3.get_address()}
         _call = CallBuilder().from_(self._test1.get_address()) \
@@ -347,6 +353,7 @@ class TestLoan(IconIntegrateTestBase):
         print("test position")
         print(result)
 
+    # Liquidates the called account _test3
     def _liquidate(self):
         params = {'_owner': self._test3.get_address()}
         transaction = CallTransactionBuilder() \

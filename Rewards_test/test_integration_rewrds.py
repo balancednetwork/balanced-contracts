@@ -182,6 +182,7 @@ class TestLoan(IconIntegrateTestBase):
         print("txHash: ", tx_hash)
         print("ICX transferred")
 
+    # Adds collateral to the wallets
     def _addCollateral(self, data1: bytes, data2: bytes):
         for i in range(0, 6):
             params = {'_data1': data1, '_data2': data2}
@@ -202,6 +203,7 @@ class TestLoan(IconIntegrateTestBase):
             self.assertEqual(1, _tx_result['status'])
             print('added collateral')
 
+    # Updates the position of the wallet
     def _updateStanding(self):
         for i in range(0, 6):
             params = {"_owner": self.wallets[i].get_address()}
@@ -221,6 +223,7 @@ class TestLoan(IconIntegrateTestBase):
             print("updateStanding called")
             print(_tx_result)
 
+    # Returns the BAL holding of the account
     def _getBalnHoldings(self):
         addresses = [wallet.get_address() for wallet in self.wallets]
         params = {'_holders': addresses}
@@ -233,6 +236,7 @@ class TestLoan(IconIntegrateTestBase):
         print("BAL holdings")
         print(result)
 
+    # Claims the rewards of the called wallets and transfers the BAL to each addresses
     def _claimRewards(self):
         for i in range(0, 6):
             params = {}
@@ -252,6 +256,7 @@ class TestLoan(IconIntegrateTestBase):
             print("claiming rewards")
             print(_tx_result)
 
+    # Returns the available BAL of the wallet
     def _availableBalanceOf(self):
         balances = {}
         for wallet in self.wallets[0: 6]:
@@ -267,6 +272,7 @@ class TestLoan(IconIntegrateTestBase):
         print("Available BAL balance")
         print(balances)
 
+    # Returns sicx balance of the wallet
     def _balanceOf(self):
         balances = {}
         for wallet in self.wallets[0: 6]:
@@ -282,6 +288,7 @@ class TestLoan(IconIntegrateTestBase):
         print("Available sicx balance")
         print(balances)
 
+    # Returns the snapshot of the provided snap id
     def getSnapshot(self):
         params = {'_snap_id': 9}
         _call = CallBuilder().from_(self._test1.get_address()) \
@@ -293,6 +300,7 @@ class TestLoan(IconIntegrateTestBase):
         print("snapshot")
         print(result)
 
+    # Calling account position by providing index and day
     def getPositionByIndex(self):
         params = {'_index': 154, "_day": 9}
         _call = CallBuilder().from_(self._test1.get_address()) \
@@ -304,6 +312,7 @@ class TestLoan(IconIntegrateTestBase):
         print("Position index")
         print(result)
 
+    # Returns the account position of the wallet
     def _getAccountPositions(self, to):
         params = {'_owner': to}
         _call = CallBuilder().from_(self._test1.get_address()) \

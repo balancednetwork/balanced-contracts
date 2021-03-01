@@ -12,7 +12,7 @@ from iconsdk.providers.http_provider import HTTPProvider
 from iconsdk.builder.transaction_builder import CallTransactionBuilder, TransactionBuilder, DeployTransactionBuilder
 from iconsdk.wallet.wallet import KeyWallet
 from iconsdk.exception import JSONRPCException
-from repeater import retry
+from .repeater import retry
 
 ICX = 1000000000000000000
 DIR_PATH = os.path.abspath(os.path.dirname(__file__))
@@ -62,7 +62,6 @@ class TestLoan(IconIntegrateTestBase):
         # print("address: ", wallet.get_address())  # Returns an address
         # print("private key: ", wallet.get_private_key())
 
-
         self.contracts = {'loans': {'zip': 'core_contracts/loans.zip',
                                     'SCORE': 'cx3c3fe6eeb1f69601edaf2de000ae1bff62f3dace'},
                           'staking': {'zip': 'core_contracts/staking.zip',
@@ -104,7 +103,7 @@ class TestLoan(IconIntegrateTestBase):
         # self._getTestAccountPosition()
 
         # self._score_update()
-        # self._getTestAccountPosition()
+        self._getTestAccountPosition()
 
         self._liquidate()
 

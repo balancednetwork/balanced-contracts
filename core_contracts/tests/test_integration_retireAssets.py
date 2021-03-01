@@ -284,6 +284,7 @@ class TestLoan(IconIntegrateTestBase):
         print("txHash: ", tx_hash)
         print("ICX transferred")
 
+    # Adds collateral to the wallet _test4
     def _addCollateral(self, data1: bytes, data2: bytes):
         # data1 = "{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"".encode("utf-8")
         # data2 = "\", \"_asset\": \"ICD\", \"_amount\": 40000000000000000000}}".encode("utf-8")
@@ -328,6 +329,7 @@ class TestLoan(IconIntegrateTestBase):
         print("position")
         print(result)
 
+    # Returns the current snapshot details
     def _getSnapShot(self):
         params = {}
         _call = CallBuilder().from_(self._test4.get_address()) \
@@ -339,6 +341,7 @@ class TestLoan(IconIntegrateTestBase):
         print("Sanapshot Called")
         print(result)
 
+    # Retires the amount given as argument in function to the wallet _test5
     def _retireAssets(self):
         #  redeem 20 ICD from the wallet _test2 that do not have positions on Balanced
         params = {'_to': self._test5.get_address(), '_value': 20 * ICX}
@@ -373,6 +376,7 @@ class TestLoan(IconIntegrateTestBase):
         print(_tx_result)
         print(" Assets retired")
 
+    # Updates the position of the wallet
     def _updateStanding(self):
         params = {"_owner": self._test4.get_address()}
         transaction = CallTransactionBuilder() \
