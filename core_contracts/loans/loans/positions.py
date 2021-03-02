@@ -47,12 +47,10 @@ class Position(object):
             day = _day
         if day > self.snaps[-1] and day <= current_day:
             self.snaps.put(day)
-            today = day
             previous = self.snaps[-2]
             for symbol in self.asset_db.slist:
-                asset = self.asset_db[symbol]
-                self.assets[today][symbol] = self.assets[previous][symbol]
-            self.replay_index[today] = self.replay_index[previous]
+                self.assets[day][symbol] = self.assets[previous][symbol]
+            self.replay_index[day] = self.replay_index[previous]
 
     def last_event_played(self, _day: int = -1) -> int:
         id = self.get_snapshot_id(_day)
@@ -296,7 +294,7 @@ class PositionsDB:
     def __getitem__(self, id: int) -> Position:
         if id < 0:
             id = self._id_factory.get_last_uid() + id + 1
-        if id < 0:
+        if id < 1:
             revert(f'That is not a valid key.')
         if id not in self._items:
             if id > self._id_factory.get_last_uid():

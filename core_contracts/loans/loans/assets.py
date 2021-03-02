@@ -99,16 +99,20 @@ class Asset(object):
 
     def dead(self) -> bool:
         """
-        Calculates whether the market is dead and set the dead market flag.
+        Calculates whether the market is dead and set the dead market flag. A
+        dead market is defined as being below the point at which total debt
+        equals the minimum value of collateral backing it.
 
         :return: Dead status
         :rtype: bool
         """
         bad_debt = self.bad_debt.get()
         outstanding = self.totalSupply() - bad_debt
-        net_bad_debt = bad_debt - self.liquidation_pool.get()
+        pool_value = self.liquidation_pool.get() * self.lastPriceInLoop() // self._loans._assets['sICX'].lastPriceInLoop()
+        net_bad_debt = bad_debt - pool_value
         dead = net_bad_debt > outstanding / 2
-        self.dead_market.set(dead)
+        if dead != self.dead_market.get():
+            self.dead_market.set(dead)
         return dead
 
     def to_dict(self) -> dict:

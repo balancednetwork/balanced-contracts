@@ -72,9 +72,9 @@ class SnapshotDB:
         if index in range(self._indexes[0], self._indexes[-1] + 1):
             if _day not in self._items:
                 return self._get_snapshot(_day, index)
+            return self._items[_day]
         else:
             revert(f'No snapshot exists for {_day}, input_day: {input_day}.')
-        return self._items[_day]
 
     def __setitem__(self, key, value):
         revert('illegal access')

@@ -75,6 +75,7 @@ class Loans(IconScoreBase):
     _ORIGINATION_FEE = 'origination_fee'
     _REDEMPTION_FEE = 'redemption_fee'
     _RETIREMENT_BONUS = 'retirement_bonus'
+    _LIQUIDATION_REWARD = 'liquidation_reward'
     _REDEEM_MINIMUM = 'redeem_minimum'
     _NEW_LOAN_MINIMUM = 'new_loan_minimum'
 
@@ -106,6 +107,7 @@ class Loans(IconScoreBase):
         self._origination_fee = VarDB(self._ORIGINATION_FEE, db, value_type=int)
         self._redemption_fee = VarDB(self._REDEMPTION_FEE, db, value_type=int)
         self._retirement_bonus = VarDB(self._RETIREMENT_BONUS, db, value_type=int)
+        self._liquidation_reward = VarDB(self._LIQUIDATION_REWARD, db, value_type=int)
         self._redeem_minimum = VarDB(self._REDEEM_MINIMUM, db, value_type=int)
         self._new_loan_minimum = VarDB(self._NEW_LOAN_MINIMUM, db, value_type=int)
 
@@ -144,6 +146,30 @@ class Loans(IconScoreBase):
         self._assets['ICD'].mint(TEST_ADDRESS, icd)
         pos['ICD'] += icd
         pos.update_standing()
+
+    @external(readonly=True)
+    def checkDebts(self) -> dict:
+        debts = 0
+        for i in range(len(self._positions)):
+            debts += self._positions[i + 1]['ICD']
+        bad_debt = self._assets['ICD'].bad_debt.get()
+        supply = self._assets['ICD'].totalSupply()
+        diff = supply - debts - bad_debt
+        system_checks = {'debts': debts,
+                         'bad_debt': bad_debt,
+                         'supply': supply,
+                         'diff': diff}
+        event_checks = {}
+        remaining = 0
+        for j in range(1, len(self._event_log) + 1):
+            remaining_value = self._event_log[j].remaining_value.get()
+            if remaining_value != 0:
+                remaining += remaining_value
+                event_checks[j] = {'remaining_value': remaining_value,
+                                   'remaining_sicx': self._event_log[j].returned_sicx_remaining.get(),
+                                   'remaining_supply': self._event_log[j].remaining_supply.get()}
+        system_checks['remaining'] = remaining
+        return {'system': system_checks, 'events': event_checks}
 
     @external(readonly=True)
     def name(self) -> str:
@@ -189,8 +215,10 @@ class Loans(IconScoreBase):
         pos = self._positions
         snap = pos._snapshot_db[-1]
         nonzero = len(pos.nonzero) + len(snap.add_to_nonzero) - len(snap.remove_from_nonzero)
-        last_snap = pos._snapshot_db[-2]
-        return nonzero + len(last_snap.add_to_nonzero) - len(last_snap.remove_from_nonzero)
+        if snap.snap_day.get() > 1:
+            last_snap = pos._snapshot_db[-2]
+            nonzero += len(last_snap.add_to_nonzero) - len(last_snap.remove_from_nonzero)
+        return nonzero
 
     @external(readonly=True)
     def getPositionStanding(self, _address: Address, _snapshot: int = -1) -> str:
@@ -740,11 +768,13 @@ class Loans(IconScoreBase):
         pos = self._positions.get_pos(_owner)
         if _standing == Standing.LIQUIDATE:
             collateral = pos['sICX']
-            reward = collateral * LIQUIDATION_REWARD // POINTS
+            reward = collateral * self._liquidation_reward.get() // POINTS
             for_pool = collateral - reward
             total_debt = pos._total_debt()
             for symbol in self._assets.slist:
-                if not self._assets[symbol].is_collateral.get() and pos[symbol] > 0:
+                is_collateral = self._assets[symbol].is_collateral.get()
+                active = self._assets[symbol].active.get()
+                if not is_collateral and active and pos[symbol] > 0:
                     bad_debt = self._assets[symbol].bad_debt.get()
                     self._assets[symbol].bad_debt.set(bad_debt + pos[symbol])
                     symbol_debt = pos[symbol] * self._assets[symbol].priceInLoop() // EXA
@@ -878,6 +908,11 @@ class Loans(IconScoreBase):
 
     @external
     @only_admin
+    def setLiquidationReward(self, _points: int) -> None:
+        self._liquidation_reward.set(_points)
+
+    @external
+    @only_admin
     def setRedeemMinimum(self, _minimum: int) -> None:
         self._redeem_minimum.set(_minimum)
 
@@ -906,6 +941,7 @@ class Loans(IconScoreBase):
                 "liquidation ratio": self._liquidation_ratio.get(),
                 "origination fee": self._origination_fee.get(),
                 "redemption fee": self._redemption_fee.get(),
+                "liquidation reward": self._liquidation_reward.get(),
                 "redeem minimum": self._redeem_minimum.get(),
                 "new loan minimum": self._new_loan_minimum.get(),
                 "time offset": self._time_offset.get()
