@@ -9,7 +9,7 @@ TAG = 'BalancedLoans'
 
 # For testing only
 # TEST_ADDRESS = Address.from_string('hx3f01840a599da07b0f620eeae7aa9c574169a4be')
-TEST_ADDRESS = Address.from_string('hx79741c762362268adc0ba58a073a10311b981149')
+TEST_ADDRESS = Address.from_string('hxc74c59ddea29c68e3190121d5ed1983b50fe821e')
 
 
 # An interface to the Emergency Reserve Fund

@@ -56,11 +56,15 @@ class TestLoan(IconIntegrateTestBase):
         private_key7 = "551b108ce3cb9df598b24caec16849515c9a44f71a1307b28fd215a9b7dddd64"
         self._test7 = KeyWallet.load(bytes.fromhex(private_key7))
 
+        # test8 = hxc74c59ddea29c68e3190121d5ed1983b50fe821e
+        private_key8 = "b0b4bd0d5902f18240db414a7ce91001810c3971c3721e39dddf2b9daa6f7d04"
+        self._test8 = KeyWallet.load(bytes.fromhex(private_key8))
+
         # self.wallets = [self._test1, self._test2, self._test3, self._test4, self._test5, self._test6]
 
-        # wallet = KeyWallet.create()
-        # print("address: ", wallet.get_address())  # Returns an address
-        # print("private key: ", wallet.get_private_key())
+        wallet = KeyWallet.create()
+        print("address: ", wallet.get_address())  # Returns an address
+        print("private key: ", wallet.get_private_key())
 
         self.contracts = {'loans': {'zip': 'core_contracts/loans.zip',
                                     'SCORE': 'cx3c3fe6eeb1f69601edaf2de000ae1bff62f3dace'},
@@ -95,8 +99,9 @@ class TestLoan(IconIntegrateTestBase):
         # self._addCollateral("{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"".encode("utf-8"),
         #                     "\", \"_asset\": \"ICD\", \"_amount\": 20000000000000000000}}".encode("utf-8"))
 
-        self._getAvailableAssets()
-        # self._getTestAccountPosition()
+        # Liquidating a wallet
+        # self._getAvailableAssets()
+        self._getTestAccountPosition()
         self._updateStanding()
         # self._getTestAccountPosition()
         # self._addTestCollateral()
@@ -108,6 +113,12 @@ class TestLoan(IconIntegrateTestBase):
         self._liquidate()
 
         self._getTestAccountPosition()
+
+    # Update loan score to set liduidation pool
+    #     self._score_update()
+
+    #     Retiring assets
+
 
     @retry(JSONRPCException, tries=10, delay=1, back_off=2)
     def _get_tx_result(self, _tx_hash):
@@ -180,7 +191,7 @@ class TestLoan(IconIntegrateTestBase):
     def transferICX(self):
         transaction = TransactionBuilder() \
             .from_(self._test1.get_address()) \
-            .to(self._test7.get_address()) \
+            .to(self._test8.get_address()) \
             .value(3000 * ICX) \
             .step_limit(10000000) \
             .nid(3) \
@@ -205,7 +216,7 @@ class TestLoan(IconIntegrateTestBase):
         print(response)
 
     def _updateStanding(self):
-        params = {"_owner": self._test7.get_address()}
+        params = {"_owner": self._test8.get_address()}
         transaction = CallTransactionBuilder() \
             .from_(self._test1.get_address()) \
             .to(self.contracts['loans']['SCORE']) \
@@ -228,7 +239,7 @@ class TestLoan(IconIntegrateTestBase):
         data2 = "\", \"_asset\": \"\", \"_amount\": 0}}".encode("utf-8")
         params = {'_data1': data1, '_data2': data2}
         transaction = CallTransactionBuilder() \
-            .from_(self._test7.get_address()) \
+            .from_(self._test8.get_address()) \
             .to(self.contracts['loans']['SCORE']) \
             .value(782769 * ICX // 1000) \
             .step_limit(10000000) \
@@ -237,7 +248,7 @@ class TestLoan(IconIntegrateTestBase):
             .method("addCollateral") \
             .params(params) \
             .build()
-        signed_transaction = SignedTransaction(transaction, self._test7)
+        signed_transaction = SignedTransaction(transaction, self._test8)
         tx_hash = self.icon_service.send_transaction(signed_transaction)
         _tx_result = self._get_tx_result(tx_hash)
         # tx_result = self.process_transaction(signed_transaction)
@@ -246,7 +257,7 @@ class TestLoan(IconIntegrateTestBase):
         print('added collateral to test7 account')
 
     def _getTestAccountPosition(self):
-        params = {'_owner': self._test7.get_address()}
+        params = {'_owner': self._test8.get_address()}
         _call = CallBuilder().from_(self._test1.get_address()) \
             .to(self.contracts['loans']['SCORE']) \
             .method('getAccountPositions') \
@@ -257,7 +268,7 @@ class TestLoan(IconIntegrateTestBase):
         print(result)
 
     def _liquidate(self):
-        params = {'_owner': self._test7.get_address()}
+        params = {'_owner': self._test8.get_address()}
         transaction = CallTransactionBuilder() \
             .from_(self._test1.get_address()) \
             .to(self.contracts['loans']['SCORE']) \
