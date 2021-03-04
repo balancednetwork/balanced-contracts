@@ -486,8 +486,8 @@ class Staking(IconScoreBase):
         :params _to: Wallet address where sICX is minted to.
         :params _user_delegations: A list of dictionaries to store the delegation preferences of a user.
         """
-		if _data is None:
-			_data = b'None'
+        if _data is None:
+            _data = b'None'
         if _to is None:
             _to = self.tx.origin
         self._user_icx_deposit[str(_to)] = self._user_icx_deposit[str(_to)] + self.msg.value
