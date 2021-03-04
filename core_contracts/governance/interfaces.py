@@ -91,6 +91,10 @@ class DexInterface(InterfaceScore):
     def setIcd(self, _address: Address) -> None:
         pass
 
+    @interface
+    def setBaln(self, _address: Address) -> None:
+        pass
+
 
 # An interface to the Rewards SCORE
 class RewardsInterface(InterfaceScore):

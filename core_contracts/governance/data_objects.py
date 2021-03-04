@@ -76,7 +76,8 @@ class Addresses(object):
 
     def setContractAddresses(self) -> None:
         """
-        Set the addresses in each SCORE for the other SCOREs.
+        Set the addresses in each SCORE for the other SCOREs. Which addresses
+        are set in which SCOREs is specified in the consts.py file.
         """
         for contract in ADDRESSES:
             score = self._gov.create_interface_score(self[contract], SetAddressesInterface)
