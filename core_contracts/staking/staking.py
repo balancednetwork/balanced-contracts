@@ -185,6 +185,13 @@ class Staking(IconScoreBase):
         return self._sICX_address.get()
 
     @external(readonly=True)
+    def getPrepList(self) -> list:
+        prep_list =[]
+        for address in self._prep_list:
+            prep_list.append(address)
+        return prep_list
+
+    @external(readonly=True)
     def getUnstakingAmount(self) -> int:
         """
         Returns the total amount to be unstaked from the staking contract.
