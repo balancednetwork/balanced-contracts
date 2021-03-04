@@ -14,7 +14,7 @@ TEST_ADDRESS = Address.from_string('hx3f01840a599da07b0f620eeae7aa9c574169a4be')
 # An interface to the Emergency Reserve Fund
 class ReserveFund(InterfaceScore):
     @interface
-    def redeem(self, _to: Address, _amount: int, sicx_rate: int) -> int:
+    def redeem(self, _to: Address, _amount: int, _sicx_rate: int) -> int:
         pass
 
 

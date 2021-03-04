@@ -65,6 +65,10 @@ class Rewards(IconScoreBase):
         return holdings
 
     @external(readonly = True)
+    def getBalnHolding(self, _holder: Address) -> int:
+        return self._baln_holdings[_holder]
+
+    @external(readonly = True)
     def distStatus(self) -> dict:
         status = {}
         status['platform_day'] = self._platform_day.get()
