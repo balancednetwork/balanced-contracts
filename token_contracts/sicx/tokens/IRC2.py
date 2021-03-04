@@ -109,12 +109,6 @@ class IRC2(TokenStandard, IconScoreBase):
 		"""
 		return self._name.get()
 
-	@external
-	def set_admin(self, _address: Address):
-		if self.msg.sender != self.owner:
-			revert('only owner can call the function')
-		self._admin.set(_address)
-
 	@external(readonly=True)
 	def symbol(self) -> str:
 		"""
