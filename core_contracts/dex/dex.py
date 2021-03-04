@@ -49,6 +49,7 @@ class DEX(IconScoreBase):
     _ICX_QUEUE_TOTAL = 'icx_queue_total'
     _SICX_ADDRESS = 'sicx_address'
     _ICD_ADDRESS = 'icd_address'
+    _BALN_ADDRESS = 'baln_address'
     _STAKING_ADDRESS = 'staking_address'
     _DIVIDENDS_ADDRESS = 'dividends_address'
     _REWARDS_ADDRESS = 'rewards_address'
@@ -146,6 +147,8 @@ class DEX(IconScoreBase):
             self._REWARDS_ADDRESS, db, value_type=Address)
         self._icd = VarDB(
             self._ICD_ADDRESS, db, value_type=Address)
+        self._baln = VarDB(
+            self._BALN_ADDRESS, db, value_type=Address)
 
         # DEX Activation (can be set by governance only)
         self._dex_on = VarDB(self._DEX_ON, db, value_type=bool)
@@ -362,6 +365,22 @@ class DEX(IconScoreBase):
         Gets the address of the ICD contract.
         """
         return self._icd.get()
+
+    @only_admin
+    @external
+    def setBaln(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new BALN contract address. Should be called before dex use.
+        """
+        self._baln.set(_address)
+
+    @external
+    def getBaln(self) -> Address:
+        """
+        Gets the address of the BALN contract.
+        """
+        return self._baln.get()
 
     @only_governance
     @external
@@ -692,20 +711,42 @@ class DEX(IconScoreBase):
         return self._pool_quote[_pid]
 
     @external(readonly=True)
-    def getPrice(self, _pid: int) -> int:
+    def getQuotePriceInBase(self, _pid: int) -> int:
+        """
+        e.g. USD/BTC, this is the inverse of the most common way to express price.
+        """
         if _pid < 1 or _pid > self._nonce.get():
             return "Invalid pool id"
         if _pid == 1:
             return self._get_sicx_rate()
-        return int(self._pool_total[_pid][self._pool_base[_pid]] / self._pool_total[_pid][self._pool_quote[_pid]] * 10**10)
+        return (self._pool_total[_pid][self._pool_base[_pid]] * EXA) // self._pool_total[_pid][self._pool_quote[_pid]]
+
+    @external(readonly=True)
+    def getBasePriceInQuote(self, _pid: int) -> int:
+        """
+        e.g. BTC/USD, this is the most common way to express price.
+        """
+        if _pid < 1 or _pid > self._nonce.get():
+            return "Invalid pool id"
+        return (self._pool_total[_pid][self._pool_quote[_pid]] * EXA) // self._pool_total[_pid][self._pool_base[_pid]]
+
+    @external(readonly=True)
+    def getPrice(self, _pid: int) -> int:
+        """
+        This method is an alias to the most common form of price.
+        """
+        return self.getBasePriceInQuote(_pid)
+
+    @external(readonly=True)
+    def getBalnPrice(self, _pid: int) -> int:
+        """
+        This method is an alias to the current price of BALN tokens
+        """
+        return self.getBasePriceInQuote(self._pool_id[self._baln.get()][_token2Address])
 
     @external(readonly=True)
     def getPriceByName(self, _name: str) -> int:
         return self.getPrice(self._named_markets[_name])
-
-    @external(readonly=True)
-    def getInversePrice(self, _pid: int) -> int:
-        return int(self._pool_total[_pid][self._pool_quote[_pid]] / self._pool_total[_pid][self._pool_base[_pid]] * 10**10)
 
     @external(readonly=True)
     def getICXBalance(self, _address: Address) -> int:
@@ -836,9 +877,9 @@ class DEX(IconScoreBase):
             revert("Not supported on this API, use the ICX swap API")
         old_price = 0
         if _fromToken == self.getPoolQuote(_pid):
-            old_price = self.getInversePrice(_pid)
+            old_price = self.getBasePriceInQuote(_pid)
         else:
-            old_price = self.getPrice(_pid)
+            old_price = self.getQuotePriceInBase(_pid)
         Logger.info("old_price: " + str(old_price), self._TAG)
         if not self.active[_pid]:
             revert("Pool is not active")
@@ -850,7 +891,7 @@ class DEX(IconScoreBase):
         self._pool_total[_pid][_fromToken] = new_token1 + lp_fees
         self._pool_total[_pid][_toToken] = new_token2
 
-        send_price = ((10 ** 10) * _value) // send_amt
+        send_price = ((EXA) * _value) // send_amt
 
         max_slippage_price = (old_price * (10000 + _max_slippage)) // 10000
 
