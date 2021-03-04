@@ -21,7 +21,7 @@ class ReserveFund(InterfaceScore):
 # An interface to the Staking Management SCORE
 class Staking(InterfaceScore):
     @interface
-    def addCollateral(self, _to: Address = None, _data: bytes = None) -> int:
+    def stakeICX(self, _to: Address = None, _data: bytes = None) -> int:
         pass
 
 
@@ -432,7 +432,7 @@ class Loans(IconScoreBase):
         """
         sender = str(self.msg.sender).encode("utf-8")
         staking = self.create_interface_score(self._staking.get(), Staking)
-        staking.icx(self.msg.value).addCollateral(self.address, _data1 + sender + _data2)
+        staking.icx(self.msg.value).stakeICX(self.address, _data1 + sender + _data2)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:

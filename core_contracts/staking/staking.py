@@ -478,7 +478,7 @@ class Staking(IconScoreBase):
 
     @payable
     @external
-    def stakeICX(self,_to:Address = None, _user_delegations: List[PrepDelegations] = None) -> None:
+    def stakeICX(self, _to: Address = None, _data: bytes = None, _user_delegations: List[PrepDelegations] = None) -> None:
         """
         Provides delegation preferences as a params
         and stakes and delegates some ICX to different prep
@@ -486,13 +486,15 @@ class Staking(IconScoreBase):
         :params _to: Wallet address where sICX is minted to.
         :params _user_delegations: A list of dictionaries to store the delegation preferences of a user.
         """
-        self._user_icx_deposit[str(_to)] = self._user_icx_deposit[str(_to)] + self.msg.value
+		if _data is None:
+			_data = b'None'
         if _to is None:
             _to = self.tx.origin
+        self._user_icx_deposit[str(_to)] = self._user_icx_deposit[str(_to)] + self.msg.value
         self._perform_checks()
         self._total_stake.set(self._total_stake.get() + self.msg.value)
         amount = DENOMINATOR * self.msg.value // self._rate.get()
-        self.sICX_score.mintTo(_to, amount)
+        self.sICX_score.mintTo(_to, amount, _data)
         previous_address_delegations = self._remove_previous_delegations(_to)
         prep_delegations = self.getPrepDelegations()
         if _user_delegations is not None:
