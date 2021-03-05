@@ -44,7 +44,6 @@ class Asset(object):
     def __init__(self, db: IconScoreDatabase, loans: IconScoreBase) -> None:
         self._loans = loans
         self.added = VarDB('added', db, value_type=int)
-        self.updated = VarDB('updated', db, value_type=int)
         self.asset_address = VarDB('address', db, value_type=Address)
         self.bad_debt = VarDB('bad_debt', db, value_type=int)
         self.liquidation_pool = VarDB('liquidation_pool', db, value_type=int)
@@ -88,7 +87,7 @@ class Asset(object):
             token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
             token.burn(_amount)
         except BaseException as e:
-            revert(f'Trouble burning {self.get()} tokens. Exception: {e}')
+            revert(f'Trouble burning {self.symbol()} tokens. Exception: {e}')
 
     def priceInLoop(self) -> int:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
@@ -100,16 +99,20 @@ class Asset(object):
 
     def dead(self) -> bool:
         """
-        Calculates whether the market is dead and set the dead market flag.
+        Calculates whether the market is dead and set the dead market flag. A
+        dead market is defined as being below the point at which total debt
+        equals the minimum value of collateral backing it.
 
         :return: Dead status
         :rtype: bool
         """
         bad_debt = self.bad_debt.get()
         outstanding = self.totalSupply() - bad_debt
-        net_bad_debt = bad_debt - self.liquidation_pool.get()
+        pool_value = self.liquidation_pool.get() * self.lastPriceInLoop() // self._loans._assets['sICX'].lastPriceInLoop()
+        net_bad_debt = bad_debt - pool_value
         dead = net_bad_debt > outstanding / 2
-        self.dead_market.set(dead)
+        if dead != self.dead_market.get():
+            self.dead_market.set(dead)
         return dead
 
     def to_dict(self) -> dict:
@@ -126,17 +129,11 @@ class Asset(object):
             'peg': self.getPeg(),
             'added': self.added.get(),
             'is_collateral': self.is_collateral.get(),
-            'active': self.active.get()
+            'active': self.active.get(),
+            'bad_debt': self.bad_debt.get(),
+            'liquidation_pool': self.liquidation_pool.get(),
+            'dead_market': self.dead_market.get()
         }
-        if self.updated.get():
-            asset['updated'] = self.updated.get()
-        if self.dead_market.get():
-            asset['dead_market'] = self.dead_market.get()
-        if self.bad_debt.get():
-            asset['bad_debt'] = self.bad_debt.get()
-        if self.liquidation_pool.get():
-            asset['liquidation_pool'] = self.liquidation_pool.get()
-
         return asset
 
 
@@ -183,7 +180,7 @@ class AssetsDB:
         for address in self.alist:
             asset = self._get_asset(str(address))
             if asset.active.get():
-                assets[asset.symbol()] = asset.priceInLoop()
+                assets[asset.symbol()] = asset.lastPriceInLoop()
         return assets
 
     def add_asset(self, _address: Address, is_active: bool = True, is_collateral: bool = False) -> None:

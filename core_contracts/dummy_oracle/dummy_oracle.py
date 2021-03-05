@@ -15,9 +15,9 @@ class DummyOracle(IconScoreBase):
     def name(self) -> str:
         return "FakeBandOracle"
 
-    @external
+    @external(readonly=True)
     def get_reference_data(self, _base: str, _quote: str) -> dict:
-        return {"rate": 2617955725813433531, "last_update_base": 1602202275702605, "last_update_quote": 1602202190000000}
+        return {"rate": 597955725813433531, "last_update_base": 1602202275702605, "last_update_quote": 1602202190000000}
 
     def fallback(self):
         pass

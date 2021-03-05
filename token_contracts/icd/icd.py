@@ -23,6 +23,7 @@ class OracleInterface(InterfaceScore):
 class ICONDollar(IRC2Mintable, IRC2Burnable):
 
     _PEG = 'peg'
+    _GOVERNANCE = 'governance'
     _ORACLE_ADDRESS = 'oracle_address'
     _ORACLE_NAME = 'oracle_name'
     _PRICE_UPDATE_TIME = 'price_update_time'
@@ -32,6 +33,7 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self._peg = VarDB(self._PEG, db, value_type=str)
+        self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
         self._oracle_address = VarDB(self._ORACLE_ADDRESS, db, value_type=Address)
         self._oracle_name = VarDB(self._ORACLE_NAME, db, value_type=str)
         self._price_update_time = VarDB(self._PRICE_UPDATE_TIME, db, value_type=int)
@@ -55,22 +57,53 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
 
     @external
     @only_owner
-    def setOracle(self, _address: Address, _name: str) -> None:
+    def setGovernance(self, _address: Address) -> None:
+        self._governance.set(_address)
+
+    @external(readonly=True)
+    def getGovernance(self) -> Address:
+        return self._governance.get()
+
+    @external
+    @only_governance
+    def setAdmin(self, _admin: Address) -> None:
+        """
+        Sets the authorized address.
+
+        :param account: The authorized admin address.
+        """
+        return self._admin.set(_admin)
+
+    @external
+    @only_governance
+    def setOracle(self, _address: Address) -> None:
         self._oracle_address.set(_address)
-        self._oracle_name.set(_name)
 
     @external(readonly=True)
     def getOracle(self) -> dict:
-        return {"name": self._oracle_name.get(), "address": str(self._oracle_address.get())}
+        return self._oracle_address.get()
 
     @external
-    @only_owner
+    @only_governance
+    def setOracleName(self, _name: str) -> None:
+        self._oracle_name.set(_name)
+
+    @external(readonly=True)
+    def getOracleName(self) -> dict:
+        return self._oracle_name.get()
+
+    @external
+    @only_governance
     def setMinInterval(self, _interval: int) -> None:
         self._min_interval.set(_interval)
 
     @external(readonly=True)
     def getMinInterval(self) -> int:
         return self._min_interval.get()
+
+    @external(readonly=True)
+    def getPriceUpdateTime(self) -> int:
+        return self._price_update_time.get()
 
     @external
     def priceInLoop(self) -> int:
@@ -102,9 +135,14 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
             priceData = oracle.get_reference_data(base, quote)
             self._last_price.set(priceData['rate'])
             self._price_update_time.set(self.now())
+            self.OraclePrice(base + quote, self._oracle_name.get(), oracle_address, priceData['rate'])
         except BaseException as e:
             self.OraclePriceUpdateFailed(base + quote, self._oracle_name.get(), oracle_address, f'Exception: {e}')
-        self.OraclePrice(base + quote, self._oracle_name.get(), oracle_address, priceData['rate'])
+
+    @external
+    def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
+        if self.msg.sender != self.address:
+            revert(f'Only accepts ICD tokens.')
 
     # ------------------------------------------------------------------------------------------------------------------
     # EVENTS

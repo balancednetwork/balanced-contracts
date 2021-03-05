@@ -16,28 +16,34 @@ class TokenInterface(InterfaceScore):
     def transfer(self, _to: Address, _value: int, _data: bytes = None):
         pass
 
+    @interface
+    def mint(self, _amount: int, _data: bytes = None) -> None:
+        pass
+
 
 class Rewards(IconScoreBase):
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self._governance = VarDB('governance', db, value_type=Address)
-        self._start_timestamp = VarDB('start_timestamp', db, value_type = int)
-        self._batch_size = VarDB('batch_size', db, value_type = int)
-        self._baln_holdings = DictDB('baln_holdings', db, value_type = int)
-        self._baln_address = VarDB('baln_address', db, value_type = Address)
-        self._bwt_address = VarDB('bwt_address', db, value_type = Address)
-        self._reserve_fund = VarDB('reserve_fund', db, value_type = Address)
-        self._recipient_split = DictDB('recipient_split', db, value_type = int)
-        self._recipients = ArrayDB('recipients', db, value_type = str)
+        self._admin = VarDB('admin', db, value_type=Address)
+        self._baln_address = VarDB('baln_address', db, value_type=Address)
+        self._bwt_address = VarDB('bwt_address', db, value_type=Address)
+        self._reserve_fund = VarDB('reserve_fund', db, value_type=Address)
+        self._start_timestamp = VarDB('start_timestamp', db, value_type=int)
+        self._batch_size = VarDB('batch_size', db, value_type=int)
+        self._baln_holdings = DictDB('baln_holdings', db, value_type=int)
+        self._recipient_split = DictDB('recipient_split', db, value_type=int)
+        self._recipients = ArrayDB('recipients', db, value_type=str)
         self._platform_recipients = {'Worker Tokens': self._bwt_address,
                                      'Reserve Fund': self._reserve_fund}
-        self._total_dist = VarDB('total_dist', db, int)
-        self._platform_day = VarDB('platform_day', db, value_type = int)
-        self._data_source_db = DataSourceDB(db,self)
+        self._total_dist = VarDB('total_dist', db, value_type=int)
+        self._platform_day = VarDB('platform_day', db, value_type=int)
+        self._data_source_db = DataSourceDB(db, self)
 
     def on_install(self) -> None:
         super().on_install()
+        self._platform_day.set(1)
         self._batch_size.set(DEFAULT_BATCH_SIZE)
         self._recipient_split['Worker Tokens'] = 0
         self._recipients.put('Worker Tokens')
@@ -51,8 +57,29 @@ class Rewards(IconScoreBase):
     def name(self) -> str:
         return "Rewards"
 
+    @external(readonly = True)
+    def getBalnHoldings(self, _holders: List[str]) -> dict:
+        holdings = {}
+        for holder in _holders:
+            holdings[holder] = self._baln_holdings[holder]
+        return holdings
+
+    @external(readonly = True)
+    def getBalnHolding(self, _holder: Address) -> int:
+        return self._baln_holdings[_holder]
+
+    @external(readonly = True)
+    def distStatus(self) -> dict:
+        status = {}
+        status['platform_day'] = self._platform_day.get()
+        status['source_days'] = {}
+        for source in self._data_source_db._names:
+            status['source_days'][source] = self._data_source_db[source].day.get()
+        return status
+
     # Methods to update the states of a data_source_name object
     @external
+    @only_governance
     def updateBalTokenDistPercentage(self, _recipient_list : List[DistPercentDict]) -> None:
         """
         This method provides a means to adjust the allocation of rewards tokens.
@@ -66,9 +93,13 @@ class Rewards(IconScoreBase):
             revert(f"Recipient lists lengths mismatched!")
         total_percentage = 0
         for recipient in _recipient_list:
+            self._recipient_split[recipient['recipient_name']] = recipient['bal_token_dist_percent']
             if recipient['recipient_name'] not in self._recipients:
                 revert(f"Recipient {recipient['recipient_name']} doesn't exist")
-            self._data_source_db[recipient['recipient_name']].bal_token_dist_percent.set(recipient['bal_token_dist_percent'])
+            source = self._data_source_db[recipient['recipient_name']]
+            if source.bal_token_dist_percent.get() == 0:
+                source.day.set(self._get_day())
+            source.bal_token_dist_percent.set(recipient['bal_token_dist_percent'])
             total_percentage += recipient['bal_token_dist_percent']
 
         if total_percentage != 10**18:
@@ -87,7 +118,34 @@ class Rewards(IconScoreBase):
             data_source_names.append(data_source_name)
         return data_source_names
 
+    @external(readonly=True)
+    def getRecipients(self) -> list:
+        """
+        Returns a list of the rewards token recipients.
+
+        :return: list of recipient names
+        :rtype list
+        """
+        recipients = []
+        for recipient in self._recipients:
+            recipients.append(recipient)
+        return recipients
+
+    @external(readonly=True)
+    def getRecipientsSplit(self) -> dict:
+        """
+        Returns a dict of the rewards token recipients.
+
+        :return: dict of recipient {names: percent}
+        :rtype dict
+        """
+        recipients = {}
+        for recipient in self._recipients:
+            recipients[recipient] = self._recipient_split[recipient]
+        return recipients
+
     @external
+    @only_governance
     def addNewDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
         """
         Sources for data on which to base incentive rewards are added with this
@@ -100,7 +158,16 @@ class Rewards(IconScoreBase):
         :type _data_source_name: str
         :param _contract_address: Address of the data source.
         :type _contract_address: :class:`iconservice.base.address.Address`
+
+        May want limit who can call this function. Maybe only governance or DEX
+        should be allowed.
+        We are also expecting the address to be a contract address so we could
+        check if it is a contract.
         """
+        if _data_source_name in self._data_source_db._names:
+            return
+        if not _contract_address.is_contract:
+            revert(f'')
         data_source_dict = {'contract_address': _contract_address, 'bal_token_dist_percent': 0}
         data_source_obj = create_data_source_object(data_source_dict)
         if _data_source_name not in self._data_source_db._names and _data_source_name not in self._recipients:
@@ -121,9 +188,10 @@ class Rewards(IconScoreBase):
 
     @external
     def distribute(self) -> bool:
-        if self._platform_day.get() < self._get_day():
+        platform_day = self._platform_day.get()
+        if platform_day < self._get_day():
             if self._total_dist.get() == 0:
-                distribution = self._bal_token_dist_per_day(self._platform_day.get())
+                distribution = self._bal_token_dist_per_day(platform_day)
                 baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
                 baln_token.mint(distribution)
                 self._total_dist.set(distribution)
@@ -133,38 +201,63 @@ class Rewards(IconScoreBase):
                     split = self._recipient_split[name]
                     share =  remaining * split // shares
                     if name in self._data_source_db._names:
-                        self._data_source_db[name].total_dist.set(share)
+                        self._data_source_db[name].total_dist[platform_day] = share
                     else:
                         baln_token.transfer(self._platform_recipients[name].get(), share)
                     remaining -= share
                     shares -= split
                 self._total_dist.set(remaining) # remaining will be == 0 at this point.
-                self._platform_day.set(self._platform_day.get() + 1)
+                self._platform_day.set(platform_day + 1)
+                return False
         distribution_complete = True
-        for data_source_name in self._data_source_db._names:
-            data_source = self.getDataSources(data_source_name)
+        for name in self._data_source_db._names:
+            data_source = self.getDataSources(name)
             if data_source['day'] < self._get_day():
-                self._reward_distribution(data_source_name, self._batch_size.get())
+                source = self._data_source_db[name]
+                percent = source.dist_percent_dict
+                new_percent = source.bal_token_dist_percent.get()
+                if percent[data_source['day']] != new_percent:
+                    percent[data_source['day']] = new_percent
+                self._reward_distribution(name, self._batch_size.get())
                 distribution_complete = False
         return distribution_complete
 
     @external
     def claimRewards(self) -> None:
-        if self._baln_holdings[self.msg.sender]:
+        address = str(self.msg.sender)
+        amount = self._baln_holdings[address]
+        if amount:
             baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
-            baln_token.transfer(self.msg.sender, self._baln_holdings[self.msg.sender])
-            self._baln_holdings[self.msg.sender] = 0
+            baln_token.transfer(self.msg.sender, amount)
+            self._baln_holdings[address] = 0
 
     def _get_day(self) -> int:
         today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS
         return today
 
     def _bal_token_dist_per_day(self, _day: int) -> int:
-        if _day < 60:
+        if _day <= 60:
             return 10**23
         else:
-            index = _day - 59
+            index = _day - 60
             return max(((995 ** index) * 10**23) // (1000 ** index), 1250 * 10**18)
+
+    @external
+    def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
+        """
+        Used to receive BALN tokens.
+
+        :param _from: Token orgination address.
+        :type _from: :class:`iconservice.base.address.Address`
+        :param _value: Number of tokens sent.
+        :type _value: int
+        :param _data: Unused, ignored.
+        :type _data: bytes
+        """
+        if self.msg.sender != self._baln_address.get():
+            revert(f'The Rewards SCORE can only accept BALN tokens. '
+                   f'Deposit not accepted from {str(self.msg.sender)} '
+                   f'Only accepted from BALN = {str(self._baln_address.get())}')
 
 
 #-------------------------------------------------------------------------------
@@ -181,25 +274,43 @@ class Rewards(IconScoreBase):
         return self._governance.get()
 
     @external
-    @only_owner
-    def setBalnAddress(self, _address: Address) -> None:
+    @only_governance
+    def setAdmin(self, _address: Address) -> None:
+        self._admin.set(_address)
+
+    @external(readonly=True)
+    def getAdmin(self) -> Address:
+        return self._admin.get()
+
+    @external
+    @only_admin
+    def setBaln(self, _address: Address) -> None:
         self._baln_address.set(_address)
 
     @external(readonly=True)
-    def getBalnAddress(self) -> Address:
+    def getBaln(self) -> Address:
         return self._baln_address.get()
 
     @external
-    @only_owner
-    def setBwtAddress(self, _address: Address) -> None:
+    @only_admin
+    def setBwt(self, _address: Address) -> None:
         self._bwt_address.set(_address)
 
     @external(readonly=True)
-    def getBwtAddress(self) -> Address:
+    def getBwt(self) -> Address:
         return self._bwt_address.get()
 
     @external
-    @only_owner
+    @only_admin
+    def setReserve(self, _address: Address) -> None:
+        self._reserve_fund.set(_address)
+
+    @external(readonly=True)
+    def getReserve(self) -> Address:
+        return self._reserve_fund.get()
+
+    @external
+    @only_admin
     def setBatchSize(self, _batch_size: int) -> None:
         self._batch_size.set(_batch_size)
 
