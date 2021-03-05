@@ -5,14 +5,11 @@ from ..utils.consts import *
 
 TAG = 'IRC_2'
 
-
 class InsufficientBalanceError(Exception):
 	pass
 
-
 class ZeroValueError(Exception):
 	pass
-
 
 class InvalidNameError(Exception):
 	pass
@@ -39,6 +36,9 @@ class IRC2(TokenStandard, IconScoreBase):
 	_ADMIN = 'admin'
 
 	def __init__(self, db: IconScoreDatabase) -> None:
+		"""
+		Varible Definition
+		"""
 		super().__init__(db)
 
 		self._name = VarDB(self._NAME, db, value_type=str)
@@ -49,16 +49,16 @@ class IRC2(TokenStandard, IconScoreBase):
 		self._admin = VarDB(self._ADMIN, db, value_type=Address)
 
 	def on_install(self, _tokenName: str,
-				   _symbolName: str,
-				   _initialSupply: int,
-				   _decimals: int = DEFAULT_DECIMAL_VALUE) -> None:
+						 _symbolName: str,
+						 _initialSupply: int = DEFAULT_INITIAL_SUPPLY,
+						 _decimals: int = DEFAULT_DECIMAL_VALUE) -> None:
 		"""
 		Variable Initialization.
 
 		:param _tokenName: The name of the token.
 		:param _symbolName: The symbol of the token.
 		:param _initialSupply: The total number of tokens to initialize with.
-					It is set to total supply in the beginning.
+					It is set to total supply in the beginning, 0 by default.
 		:param _decimals: The number of decimals. Set to 18 by default.
 
 		total_supply is set to `_initialSupply`* 10 ^ decimals.
@@ -189,9 +189,11 @@ class IRC2(TokenStandard, IconScoreBase):
 		"""
 		if _value < 0 :
 			raise ZeroValueError("Transferring value cannot be less than 0.")
+			return
 
 		if self._balances[_from] < _value :
 			raise InsufficientBalanceError("Insufficient balance.")
+			return
 
 		self._beforeTokenTransfer(_from, _to, _value)
 
@@ -260,21 +262,25 @@ class IRC2(TokenStandard, IconScoreBase):
 
 		self._beforeTokenTransfer(account, 0, amount)
 
+		self._transfer(account, self.address, amount, b'None')
 		self._total_supply.set(self._total_supply.get() - amount)
-		self._balances[account] -= amount
+		self._balances[self.address] -= amount
 
 		# Emits an event log Burn
 		self.Burn(account, amount)
 
 	def _beforeTokenTransfer(self, _from: Address, _to: Address,_value: int) -> None:
 		"""
-		Called before transfer of tokens. This is an internal function.
+		Called before transfer of tokens.
+		This is an internal function.
+
 		If `_from` and `_to` are both non zero, `_value` number of tokens
 		of `_from` will be transferred to `_to`
 
 		If `_from` is zero `_value` tokens will be minted to `_to`.
 
 		If `_to` is zero `_value` tokens will be destroyed from `_from`.
+
 		Both `_from` and `_to` are never both zero at once.
 		"""
 		pass

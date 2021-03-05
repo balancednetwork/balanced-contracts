@@ -27,19 +27,19 @@ class Rewards(IconScoreBase):
         super().__init__(db)
         self._governance = VarDB('governance', db, value_type=Address)
         self._admin = VarDB('admin', db, value_type=Address)
-        self._baln_address = VarDB('baln_address', db, value_type = Address)
-        self._bwt_address = VarDB('bwt_address', db, value_type = Address)
-        self._reserve_fund = VarDB('reserve_fund', db, value_type = Address)
-        self._start_timestamp = VarDB('start_timestamp', db, value_type = int)
-        self._batch_size = VarDB('batch_size', db, value_type = int)
-        self._baln_holdings = DictDB('baln_holdings', db, value_type = int)
-        self._recipient_split = DictDB('recipient_split', db, value_type = int)
-        self._recipients = ArrayDB('recipients', db, value_type = str)
+        self._baln_address = VarDB('baln_address', db, value_type=Address)
+        self._bwt_address = VarDB('bwt_address', db, value_type=Address)
+        self._reserve_fund = VarDB('reserve_fund', db, value_type=Address)
+        self._start_timestamp = VarDB('start_timestamp', db, value_type=int)
+        self._batch_size = VarDB('batch_size', db, value_type=int)
+        self._baln_holdings = DictDB('baln_holdings', db, value_type=int)
+        self._recipient_split = DictDB('recipient_split', db, value_type=int)
+        self._recipients = ArrayDB('recipients', db, value_type=str)
         self._platform_recipients = {'Worker Tokens': self._bwt_address,
                                      'Reserve Fund': self._reserve_fund}
-        self._total_dist = VarDB('total_dist', db, int)
-        self._platform_day = VarDB('platform_day', db, value_type = int)
-        self._data_source_db = DataSourceDB(db,self)
+        self._total_dist = VarDB('total_dist', db, value_type=int)
+        self._platform_day = VarDB('platform_day', db, value_type=int)
+        self._data_source_db = DataSourceDB(db, self)
 
     def on_install(self) -> None:
         super().on_install()
@@ -58,11 +58,15 @@ class Rewards(IconScoreBase):
         return "Rewards"
 
     @external(readonly = True)
-    def getBalnHoldings(self, _holders: List[Address]) -> dict:
+    def getBalnHoldings(self, _holders: List[str]) -> dict:
         holdings = {}
         for holder in _holders:
-            holdings[str(holder)] = self._baln_holdings[holder]
+            holdings[holder] = self._baln_holdings[holder]
         return holdings
+
+    @external(readonly = True)
+    def getBalnHolding(self, _holder: Address) -> int:
+        return self._baln_holdings[_holder]
 
     @external(readonly = True)
     def distStatus(self) -> dict:
@@ -75,6 +79,7 @@ class Rewards(IconScoreBase):
 
     # Methods to update the states of a data_source_name object
     @external
+    @only_governance
     def updateBalTokenDistPercentage(self, _recipient_list : List[DistPercentDict]) -> None:
         """
         This method provides a means to adjust the allocation of rewards tokens.
@@ -140,6 +145,7 @@ class Rewards(IconScoreBase):
         return recipients
 
     @external
+    @only_governance
     def addNewDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
         """
         Sources for data on which to base incentive rewards are added with this
@@ -158,6 +164,8 @@ class Rewards(IconScoreBase):
         We are also expecting the address to be a contract address so we could
         check if it is a contract.
         """
+        if _data_source_name in self._data_source_db._names:
+            return
         if not _contract_address.is_contract:
             revert(f'')
         data_source_dict = {'contract_address': _contract_address, 'bal_token_dist_percent': 0}
@@ -180,9 +188,10 @@ class Rewards(IconScoreBase):
 
     @external
     def distribute(self) -> bool:
-        if self._platform_day.get() < self._get_day():
+        platform_day = self._platform_day.get()
+        if platform_day < self._get_day():
             if self._total_dist.get() == 0:
-                distribution = self._bal_token_dist_per_day(self._platform_day.get())
+                distribution = self._bal_token_dist_per_day(platform_day)
                 baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
                 baln_token.mint(distribution)
                 self._total_dist.set(distribution)
@@ -192,13 +201,13 @@ class Rewards(IconScoreBase):
                     split = self._recipient_split[name]
                     share =  remaining * split // shares
                     if name in self._data_source_db._names:
-                        self._data_source_db[name].total_dist[self._data_source_db[name].day.get()] = share
+                        self._data_source_db[name].total_dist[platform_day] = share
                     else:
                         baln_token.transfer(self._platform_recipients[name].get(), share)
                     remaining -= share
                     shares -= split
                 self._total_dist.set(remaining) # remaining will be == 0 at this point.
-                self._platform_day.set(self._platform_day.get() + 1)
+                self._platform_day.set(platform_day + 1)
                 return False
         distribution_complete = True
         for name in self._data_source_db._names:
@@ -206,18 +215,21 @@ class Rewards(IconScoreBase):
             if data_source['day'] < self._get_day():
                 source = self._data_source_db[name]
                 percent = source.dist_percent_dict
-                if percent[data_source['day']] == 0:
-                    percent[data_source['day']] = source.bal_token_dist_percent.get()
+                new_percent = source.bal_token_dist_percent.get()
+                if percent[data_source['day']] != new_percent:
+                    percent[data_source['day']] = new_percent
                 self._reward_distribution(name, self._batch_size.get())
                 distribution_complete = False
         return distribution_complete
 
     @external
     def claimRewards(self) -> None:
-        if self._baln_holdings[self.msg.sender]:
+        address = str(self.msg.sender)
+        amount = self._baln_holdings[address]
+        if amount:
             baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
-            baln_token.transfer(self.msg.sender, self._baln_holdings[self.msg.sender])
-            self._baln_holdings[self.msg.sender] = 0
+            baln_token.transfer(self.msg.sender, amount)
+            self._baln_holdings[address] = 0
 
     def _get_day(self) -> int:
         today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS

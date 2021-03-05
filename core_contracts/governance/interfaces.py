@@ -3,6 +3,11 @@ from .utils.checks import *
 from .utils.consts import *
 
 
+class DistPercentDict(TypedDict):
+    recipient_name : str
+    bal_token_dist_percent: int
+
+
 # An interface to the Loans SCORE
 class LoansInterface(InterfaceScore):
     @interface
@@ -55,6 +60,14 @@ class DexInterface(InterfaceScore):
         pass
 
     @interface
+    def permit(self, _pid: int, _permission: bool):
+        pass
+
+    @interface
+    def setMarketName(self, _pid: int, _name: str) -> None:
+        pass
+
+    @interface
     def setAdmin(self, _address: Address) -> None:
         pass
 
@@ -78,6 +91,10 @@ class DexInterface(InterfaceScore):
     def setIcd(self, _address: Address) -> None:
         pass
 
+    @interface
+    def setBaln(self, _address: Address) -> None:
+        pass
+
 
 # An interface to the Rewards SCORE
 class RewardsInterface(InterfaceScore):
@@ -95,6 +112,14 @@ class RewardsInterface(InterfaceScore):
 
     @interface
     def setBwt(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def addNewDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
+        pass
+
+    @interface
+    def updateBalTokenDistPercentage(self, _recipient_list : List[DistPercentDict]) -> None:
         pass
 
 

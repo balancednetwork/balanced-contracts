@@ -21,6 +21,7 @@ class ReplayEvent(object):
         self.value = VarDB('value', db, int)
         self.remaining_value = VarDB('remaining_value', db, int)
         self.sicx_rate = VarDB('sicx_rate', db, int)
+        self.asset_price = VarDB('asset_price', db, int)
         self.sicx_returned = VarDB('sicx_returned', db, int)
         self.returned_sicx_remaining = VarDB('returned_sicx_remaining', db, int)
         self.asset_supply = VarDB('asset_supply', db, int)
@@ -42,6 +43,7 @@ class ReplayEvent(object):
             'value': self.value.get(),
             'remaining_value': self.remaining_value.get(),
             'sicx_rate': self.sicx_rate.get(),
+            'asset_price': self.asset_price.get(),
             'sicx_returned': self.sicx_returned.get(),
             'returned_sicx_remaining': self.returned_sicx_remaining.get(),
             'asset_supply': self.asset_supply.get(),
@@ -66,6 +68,10 @@ class ReplayLogDB:
         self._events = ArrayDB(self.REPLAY + self.EVENTS, db, value_type=int)
 
     def __getitem__(self, id: int) -> ReplayEvent:
+        if id < 0:
+            id = self._id_factory.get_last_uid() + id + 1
+        if id < 0:
+            revert(f'That is not a valid key.')
         if id not in self._items:
             if id > self._id_factory.get_last_uid():
                 revert(f'That key does not exist yet. Add new items with the new_event method.')
@@ -91,6 +97,7 @@ class ReplayLogDB:
         _new_event.value.set(kwargs.get('value'))
         _new_event.remaining_value.set(kwargs.get('value'))
         _new_event.sicx_rate.set(kwargs.get('sicx_rate'))
+        _new_event.asset_price.set(kwargs.get('asset_price'))
         _new_event.sicx_returned.set(kwargs.get('sicx_returned'))
         _new_event.returned_sicx_remaining.set(kwargs.get('sicx_returned'))
         _new_event.asset_supply.set(kwargs.get('asset_supply'))

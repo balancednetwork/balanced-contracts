@@ -47,12 +47,10 @@ class Position(object):
             day = _day
         if day > self.snaps[-1] and day <= current_day:
             self.snaps.put(day)
-            today = day
             previous = self.snaps[-2]
             for symbol in self.asset_db.slist:
-                asset = self.asset_db[symbol]
-                self.assets[today][symbol] = self.assets[previous][symbol]
-            self.replay_index[today] = self.replay_index[previous]
+                self.assets[day][symbol] = self.assets[previous][symbol]
+            self.replay_index[day] = self.replay_index[previous]
 
     def last_event_played(self, _day: int = -1) -> int:
         id = self.get_snapshot_id(_day)
@@ -175,20 +173,24 @@ class Position(object):
         if next_event_snap_index > event_snap_index:
             self.check_snap(next_event_snap_index)
 
-        symbol = next_event.symbol.get()
-        remaining_supply = next_event.remaining_supply.get()
-        remaining_value = next_event.remaining_value.get()
-        returned_sicx_remaining = next_event.returned_sicx_remaining.get()
-
         assets = self.assets[next_event_snap_index]
+        symbol = next_event.symbol.get()
+        # Note use of dust-free distribution approach.
         pos_value = assets[symbol]
-        redeemed_from_this_pos = remaining_value * pos_value // remaining_supply
-        sicx_share = returned_sicx_remaining * pos_value // remaining_supply
-        next_event.remaining_supply.set(remaining_supply - pos_value)
-        next_event.remaining_value.set(remaining_value - redeemed_from_this_pos)
-        next_event.returned_sicx_remaining.set(returned_sicx_remaining - sicx_share)
-        assets["sICX"] -= sicx_share
-        assets[symbol] = pos_value - redeemed_from_this_pos
+        if pos_value != 0:
+            remaining_supply = next_event.remaining_supply.get()
+            next_event.remaining_supply.set(remaining_supply - pos_value)
+
+            remaining_value = next_event.remaining_value.get()
+            redeemed_from_this_pos = remaining_value * pos_value // remaining_supply
+            next_event.remaining_value.set(remaining_value - redeemed_from_this_pos)
+            assets[symbol] = pos_value - redeemed_from_this_pos
+
+            returned_sicx_remaining = next_event.returned_sicx_remaining.get()
+            sicx_share = returned_sicx_remaining * pos_value // remaining_supply
+            next_event.returned_sicx_remaining.set(returned_sicx_remaining - sicx_share)
+            assets["sICX"] -= sicx_share
+
         self.replay_index[next_event_snap_index] = next_event.index.get()
         return Outcome.SUCCESS
 
@@ -250,9 +252,9 @@ class Position(object):
                 assets[asset] = amount
 
         pos_rp_id = self.replay_index[id]
-        sys_rp_id = self.snaps_db[id].replay_index.get()
+        sys_rp_id = self.snaps_db[_day].replay_index.get()
         pos_id = self.id.get()
-        state = self.snaps_db[id].pos_state[pos_id]
+        state = self.snaps_db[_day].pos_state[pos_id]
         position = {
             'pos_id': pos_id,
             'created': self.created.get(),
@@ -290,6 +292,10 @@ class PositionsDB:
         self._snapshot_db = SnapshotDB(db, loans)
 
     def __getitem__(self, id: int) -> Position:
+        if id < 0:
+            id = self._id_factory.get_last_uid() + id + 1
+        if id < 1:
+            revert(f'That is not a valid key.')
         if id not in self._items:
             if id > self._id_factory.get_last_uid():
                 revert(f'That key does not exist yet.')
@@ -363,7 +369,8 @@ class PositionsDB:
 
     def _take_snapshot(self) -> None:
         """
-        Captures necessary data for the current snapshot in the SnapshotDB.
+        Captures necessary data for the current snapshot in the SnapshotDB,
+        issues a Snapshot eventlog, and starts a new snapshot.
         """
         snapshot = self._snapshot_db[-1]
         assets = self._loans._assets
@@ -392,6 +399,8 @@ class PositionsDB:
         """
         snapshot = self._snapshot_db[_day]
         id = snapshot.snap_day.get()
+        if id < _day:
+            return Complete.DONE
         add = len(snapshot.add_to_nonzero)
         remove = len(snapshot.remove_from_nonzero)
         nonzero_deltas = add + remove

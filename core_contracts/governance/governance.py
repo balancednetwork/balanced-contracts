@@ -8,6 +8,11 @@ from .data_objects import *
 TAG = 'Governance'
 
 
+class DistPercentDict(TypedDict):
+    recipient_name : str
+    bal_token_dist_percent: int
+
+
 class Governance(IconScoreBase):
     """
     The Governance SCORE will have control of all parameters in BalancedDAO.
@@ -53,10 +58,17 @@ class Governance(IconScoreBase):
              # Minimum day value is 1 since 0 is the default value for uninitialized storage.
             time_delta = DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1)
             loans.setTimeOffset(time_delta)
-            loans.turnLoansOn()
             dex.setTimeOffset(time_delta)
-            dex.turnDexOn()
             rewards.setTimeOffset(time_delta)
+            for asset in ASSETS:
+                loans.addAsset(self.addresses.getAddresses()[asset['address']],
+                               asset['active'], asset['collateral'])
+            for source in DATA_SOURCES:
+                rewards.addNewDataSource(source['name'],
+                                         self.addresses.getAddresses()[source['address']])
+            rewards.updateBalTokenDistPercentage(RECIPIENTS)
+            loans.turnLoansOn()
+            dex.turnDexOn()
 
     @external
     @only_owner
@@ -92,7 +104,7 @@ class Governance(IconScoreBase):
     def getLaunchTime(self) -> int:
         return self._launch_time.get()
 
-    @external
+    @external(readonly=True)
     def getDay(self) -> int:
         offset = DAY_ZERO + self._launch_day.get()
         return (self.now() - DAY_START) // U_SECONDS_DAY - offset
@@ -113,6 +125,46 @@ class Governance(IconScoreBase):
     def toggleAssetActive(self, _symbol) -> None:
         loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
         loans.toggleAssetActive(_symbol)
+
+    @external
+    @only_owner
+    def addRewardsDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
+        """
+        Add a new data source to receive BALN tokens. Starts with a default of
+        zero percentage of the distribution.
+        """
+        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        rewards.addRewardsDataSource(_data_source_name, _contract_address)
+
+    @external
+    @only_owner
+    def updateBalTokenDistPercentage(self, _recipient_list : List[DistPercentDict]) -> None:
+        """
+        Assign percentages for distribution to the data sources. Must sum to 100%.
+        """
+        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        rewards.updateBalTokenDistPercentage(_recipient_list)
+
+    @external
+    @only_owner
+    def dexPermit(self, _pid: int, _permission: bool):
+        dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
+        dex.permit(_pid, _permission)
+
+    @external
+    @only_owner
+    def setMarketName(self, _pid: int, _name: str) -> None:
+        """
+        :param _pid: Pool ID to map to the name
+        :param _name: Name to associate
+        Links a pool ID to a name, so users can look up platform-defined
+        markets more easily.
+        """
+        dex_address = self.addresses._dex.get()
+        dex = self.create_interface_score(dex_address, DexInterface)
+        dex.setMarketName(_pid, _name)
+        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        rewards.addNewDataSource(_name, dex_address)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:

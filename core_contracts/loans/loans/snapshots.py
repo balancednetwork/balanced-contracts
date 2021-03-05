@@ -48,7 +48,7 @@ class Snapshot(object):
             'snap_time': self.snap_time.get(),
             'total_mining_debt': self.total_mining_debt.get(),
             'prices': self._loans._assets.get_asset_prices(),
-            'replay_index': len(self._loans._event_log),
+            'replay_index': self.replay_index.get(),
             'mining_count': len(self.mining),
             'precompute_index': self.precompute_index.get(),
             'add_to_nonzero_count': len(self.add_to_nonzero),
@@ -72,12 +72,9 @@ class SnapshotDB:
         if index in range(self._indexes[0], self._indexes[-1] + 1):
             if _day not in self._items:
                 return self._get_snapshot(_day, index)
+            return self._items[_day]
         else:
-            indexes = []
-            for i in self._indexes:
-                indexes.append(i)
-            revert(f'No snapshot exists for {_day}. input_day: {input_day}, indexes: {indexes}, index: {index}.')
-        return self._items[_day]
+            revert(f'No snapshot exists for {_day}, input_day: {input_day}.')
 
     def __setitem__(self, key, value):
         revert('illegal access')
@@ -129,5 +126,6 @@ class SnapshotDB:
             self._indexes.put(_day) # sequence in _indexes is monotonically increasing.
             snapshot = self._get_snapshot(_day, _day)
             snapshot.snap_day.set(_day)
+            snapshot.replay_index.set(len(self._loans._event_log))
         else:
             revert(f'New snapshot called for a day less than the previous snapshot.')

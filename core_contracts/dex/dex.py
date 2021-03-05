@@ -49,6 +49,7 @@ class DEX(IconScoreBase):
     _ICX_QUEUE_TOTAL = 'icx_queue_total'
     _SICX_ADDRESS = 'sicx_address'
     _ICD_ADDRESS = 'icd_address'
+    _BALN_ADDRESS = 'baln_address'
     _STAKING_ADDRESS = 'staking_address'
     _DIVIDENDS_ADDRESS = 'dividends_address'
     _REWARDS_ADDRESS = 'rewards_address'
@@ -67,7 +68,7 @@ class DEX(IconScoreBase):
     # Events
     @eventlog(indexed=2)
     def Swap(self, _fromToken: Address, _toToken: Address, _sender: Address,
-             _receiver: Address, _fromValue: int, _toValue: int): pass
+             _receiver: Address, _fromValue: int, _toValue: int, _lpFees: int, _balnFees: int): pass
 
     @eventlog(indexed=3)
     def MarketAdded(self, _pid: int, _baseToken: Address,
@@ -146,6 +147,8 @@ class DEX(IconScoreBase):
             self._REWARDS_ADDRESS, db, value_type=Address)
         self._icd = VarDB(
             self._ICD_ADDRESS, db, value_type=Address)
+        self._baln = VarDB(
+            self._BALN_ADDRESS, db, value_type=Address)
 
         # DEX Activation (can be set by governance only)
         self._dex_on = VarDB(self._DEX_ON, db, value_type=bool)
@@ -363,7 +366,23 @@ class DEX(IconScoreBase):
         """
         return self._icd.get()
 
-    @only_owner
+    @only_admin
+    @external
+    def setBaln(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new BALN contract address. Should be called before dex use.
+        """
+        self._baln.set(_address)
+
+    @external
+    def getBaln(self) -> Address:
+        """
+        Gets the address of the BALN contract.
+        """
+        return self._baln.get()
+
+    @only_governance
     @external
     def setMarketName(self, _pid: int, _name: str) -> None:
         """
@@ -373,8 +392,6 @@ class DEX(IconScoreBase):
         markets more easily.
         """
         self._named_markets[_name] = _pid
-        rewards = self.create_interface_score(self._rewards.get(), Rewards)
-        rewards.addNewDataSource(_name, self.address)
 
     @only_governance
     @external
@@ -694,20 +711,42 @@ class DEX(IconScoreBase):
         return self._pool_quote[_pid]
 
     @external(readonly=True)
-    def getPrice(self, _pid: int) -> int:
+    def getQuotePriceInBase(self, _pid: int) -> int:
+        """
+        e.g. USD/BTC, this is the inverse of the most common way to express price.
+        """
         if _pid < 1 or _pid > self._nonce.get():
             return "Invalid pool id"
         if _pid == 1:
             return self._get_sicx_rate()
-        return int(self._pool_total[_pid][self._pool_base[_pid]] / self._pool_total[_pid][self._pool_quote[_pid]] * 10**10)
+        return (self._pool_total[_pid][self._pool_base[_pid]] * EXA) // self._pool_total[_pid][self._pool_quote[_pid]]
+
+    @external(readonly=True)
+    def getBasePriceInQuote(self, _pid: int) -> int:
+        """
+        e.g. BTC/USD, this is the most common way to express price.
+        """
+        if _pid < 1 or _pid > self._nonce.get():
+            return "Invalid pool id"
+        return (self._pool_total[_pid][self._pool_quote[_pid]] * EXA) // self._pool_total[_pid][self._pool_base[_pid]]
+
+    @external(readonly=True)
+    def getPrice(self, _pid: int) -> int:
+        """
+        This method is an alias to the most common form of price.
+        """
+        return self.getBasePriceInQuote(_pid)
+
+    @external(readonly=True)
+    def getBalnPrice(self, _pid: int) -> int:
+        """
+        This method is an alias to the current price of BALN tokens
+        """
+        return self.getBasePriceInQuote(self._pool_id[self._baln.get()][_token2Address])
 
     @external(readonly=True)
     def getPriceByName(self, _name: str) -> int:
         return self.getPrice(self._named_markets[_name])
-
-    @external(readonly=True)
-    def getInversePrice(self, _pid: int) -> int:
-        return int(self._pool_total[_pid][self._pool_quote[_pid]] / self._pool_total[_pid][self._pool_base[_pid]] * 10**10)
 
     @external(readonly=True)
     def getICXBalance(self, _address: Address) -> int:
@@ -838,9 +877,9 @@ class DEX(IconScoreBase):
             revert("Not supported on this API, use the ICX swap API")
         old_price = 0
         if _fromToken == self.getPoolQuote(_pid):
-            old_price = self.getInversePrice(_pid)
+            old_price = self.getBasePriceInQuote(_pid)
         else:
-            old_price = self.getPrice(_pid)
+            old_price = self.getQuotePriceInBase(_pid)
         Logger.info("old_price: " + str(old_price), self._TAG)
         if not self.active[_pid]:
             revert("Pool is not active")
@@ -852,7 +891,7 @@ class DEX(IconScoreBase):
         self._pool_total[_pid][_fromToken] = new_token1 + lp_fees
         self._pool_total[_pid][_toToken] = new_token2
 
-        send_price = ((10 ** 10) * _value) // send_amt
+        send_price = ((EXA) * _value) // send_amt
 
         max_slippage_price = (old_price * (10000 + _max_slippage)) // 10000
 
@@ -867,8 +906,9 @@ class DEX(IconScoreBase):
         to_token_score.transfer(_receiver, send_amt)
         from_token_score = self.create_interface_score(
             _fromToken, TokenInterface)
-        from_token_score.transfer(self._dividends.get(), send_amt)
-        self.Swap(_fromToken, _toToken, _sender, _receiver, _value, send_amt)
+        from_token_score.transfer(self._dividends.get(), baln_fees)
+        self.Swap(_fromToken, _toToken, _sender,
+                  _receiver, original_value, send_amt, lp_fees, baln_fees)
 
     def _get_sicx_rate(self) -> int:
         staking_score = self.create_interface_score(
@@ -1064,7 +1104,8 @@ class DEX(IconScoreBase):
         clamped_offset = min(_offset, total)
         clamped_limit = min(_limit, total - clamped_offset)
         pid = self._named_markets[_name]
-        rv = self.loadBalancesAtSnapshot(pid, _snapshot_id, clamped_limit, clamped_offset)
+        rv = self.loadBalancesAtSnapshot(
+            pid, _snapshot_id, clamped_limit, clamped_offset)
         Logger.info(len(rv), self._TAG)
         return rv
 
@@ -1158,6 +1199,11 @@ class DEX(IconScoreBase):
             revert("Please send initial value for first currency")
         if not _quoteValue:
             revert("Please send initial value for second currency")
+        if self._deposit[_baseToken][self.msg.sender] < _baseValue:
+            revert("Insufficient base asset funds deposited")
+        if self._deposit[_quoteToken][self.msg.sender] < _quoteValue:
+            revert("insufficient quote asset funds deposited")
+
         if _pid == 0:
             if not (_quoteToken == self._icd.get()) and not (_quoteToken == self._sicx.get()):
                 revert("Second currency must be ICD or sICX")
@@ -1173,11 +1219,12 @@ class DEX(IconScoreBase):
                              _baseValue, _quoteValue)
 
         else:
-            token1price = self.getPrice(_pid)
-            if not int(_baseValue * (token1price / 10**10)) == _quoteValue:
+            expected_quote = int(
+                (_baseValue * self._pool_total[_pid][self._pool_quote[_pid]]) / (self._pool_total[_pid][self._pool_base[_pid]]))
+            if not expected_quote == _quoteValue:
                 revert('disproportionate amount')
-            liquidity = int(self._total[_pid] * (self._pool_total[_pid]
-                                                 [_baseToken] + _baseValue) / self._pool_total[_pid][_baseToken])
+            liquidity = int(
+                (self._total[_pid] * _baseValue) / self._pool_total[_pid][_baseToken])
         self._pool_total[_pid][_baseToken] += _baseValue
         self._pool_total[_pid][_quoteToken] += _quoteValue
         self._deposit[_baseToken][self.msg.sender] -= _baseValue
