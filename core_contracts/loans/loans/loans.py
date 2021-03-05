@@ -426,13 +426,20 @@ class Loans(IconScoreBase):
 
     @payable
     @external
-    def addCollateral(self, _data1: bytes, _data2: bytes) -> int:
+    def addCollateral(self, _asset: str = '', _amount: int = 0) -> None:
         """
-        Sends ICX to the addCollateral method on the staking SCORE
+        Sends ICX to the addCollateral method on the staking SCORE and specifies
+        an amount and type of asset to borrow.
+
+        :param _asset: Symbol for the pegged asset to borrow.
+        :type _asset: str
+        :param _amount: Amount of asset to borrow.
+        :type _amount: int
         """
-        sender = str(self.msg.sender).encode("utf-8")
+        params = {"_sender": str(self.msg.sender), "_asset": _asset, "_amount": _amount}
+        data = json_dumps({"method": "_deposit_and_borrow", "params": params}).encode("utf-8")
         staking = self.create_interface_score(self._staking.get(), Staking)
-        staking.icx(self.msg.value).stakeICX(self.address, _data1 + sender + _data2)
+        staking.icx(self.msg.value).stakeICX(self.address, data)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:

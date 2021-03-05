@@ -9,7 +9,7 @@ from .scorelib.linked_list import *
 TAG = 'StakedICXManager'
 
 DENOMINATOR = 1000000000000000000
-TOP_PREP_COUNT = 20
+TOP_PREP_COUNT = 4
 
 
 TOTAL_PREPS = 4
