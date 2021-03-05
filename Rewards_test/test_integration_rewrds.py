@@ -1,5 +1,6 @@
 import os
 import pickle
+from shutil import make_archive
 from time import sleep
 
 from tbears.libs.icon_integrate_test import IconIntegrateTestBase, SCORE_INSTALL_ADDRESS
@@ -72,6 +73,17 @@ class TestLoan(IconIntegrateTestBase):
         #     print('Deploying ' + address + ' Contract in Testnet')
         #     self.contracts[address] = self._deploy_score()['scoreAddress']
 
+        # for address in DEPLOY:
+        #     self.SCORE_PROJECT = self.SCORES + "/" + address
+        #     print('Deploying ' + address + ' Contract')
+        #     self.contracts[address] = self._deploy_score()['scoreAddress']
+        #
+        # for addr in TOKEN:
+        #     self.SCORES = os.path.abspath(os.path.join(DIR_PATH, '../token_contracts'))
+        #     self.SCORE_PROJECT = self.SCORES + "/" + addr
+        #     print('Deploying ' + addr + ' Contract ')
+        #     self.contracts[addr] = self._deploy_score()['scoreAddress']
+
         self.contracts = {'loans': {'zip': 'core_contracts/loans.zip',
                                     'SCORE': 'cx3c3fe6eeb1f69601edaf2de000ae1bff62f3dace'},
                           'staking': {'zip': 'core_contracts/staking.zip',
@@ -79,7 +91,7 @@ class TestLoan(IconIntegrateTestBase):
                           'dividends': {'zip': 'core_contracts/dividends.zip',
                                         'SCORE': 'cx354c0ce44e543ebce9478bf0de3621c95473fc90'},
                           'reserve': {'zip': 'core_contracts/reserve.zip',
-                                           'SCORE': 'cx0a478572e443bbfd66a35d124f63a2db9b637483'},
+                                      'SCORE': 'cx0a478572e443bbfd66a35d124f63a2db9b637483'},
                           'rewards': {'zip': 'core_contracts/rewards.zip',
                                       'SCORE': 'cxe6074249f58898af2d6d00859ecb54e3f658ebe5'},
                           'dex': {'zip': 'core_contracts/dex.zip',
@@ -97,6 +109,19 @@ class TestLoan(IconIntegrateTestBase):
                           'bwt': {'zip': 'token_contracts/bwt.zip',
                                   'SCORE': 'cx0c6bb52e5e34ad8848de911be8ae52be38992363'}}
 
+        # deploy = list(self.contracts.keys())[:]
+        # # deploy.remove('dummy_oracle')
+        # # deploy.remove('staking')
+        # # deploy.remove('sicx')
+        # for directory in {"core_contracts", "token_contracts"}:
+        #     with os.scandir(directory) as it:
+        #         for file in it:
+        #             archive_name = directory + "/" + file.name
+        #             if file.is_dir() and file.name in deploy:
+        #                 make_archive(archive_name, "zip", directory, file.name)
+        #                 self.contracts[file.name]['zip'] = archive_name + '.zip'
+        # print(self.contracts)
+
         # self.transferICX()
         # print(self.icon_service.get_balance(self._test2.get_address()) / 10 ** 18)
 
@@ -106,7 +131,7 @@ class TestLoan(IconIntegrateTestBase):
         #                     "\", \"_asset\": \"ICD\", \"_amount\": 20000000000000000000}}".encode("utf-8"))
 
         # self._getAccountPositions(self._test2.get_address())
-        # self._updateStanding()
+        self._updateStanding()
         self._getBalnHoldings()
         self.getSnapshot()
         # self._claimRewards()

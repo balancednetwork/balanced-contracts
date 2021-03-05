@@ -376,7 +376,7 @@ class Loans(IconScoreBase):
 
     @payable
     @external
-    def addCollateral(self, _data1: bytes, _data2: bytes) -> int:
+    def addCollateral(self, _data1: bytes, _data2: bytes) -> None:
         """
         Sends ICX to the addCollateral method on the staking SCORE
         """

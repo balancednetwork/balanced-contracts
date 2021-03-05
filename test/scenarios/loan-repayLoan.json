@@ -1,0 +1,54 @@
+{
+  "title": "Loans: Repay loan ",
+  "description": "Test cases for the repay loan.",
+  "stories": [
+    {
+      "description": "user 1 repays a loan of 10 ICD by calling transfer method to icd score.",
+      "actions": {
+        "prev_sicx_bal" : "500",
+          "prev_icd_bal" : "50",
+          "name": "transfer",
+          "args": {
+            "_to": "self.contracts['loans']['SCORE']",
+            "_value": "10* ICX",
+            "_data": "{\"method\": \"_repay_loan\", \"params\": {}}"
+          },
+          "expected" : "success",
+          "curr_sicx_baln" : "500",
+          "curr_icd_baln" : "40"
+      }
+    },
+    {
+      "description": "user 1 repays a loan of 100 ICD by calling transfer method to icd score.",
+      "actions": {
+        "prev_sicx_bal" : "500",
+          "prev_icd_bal" : "40",
+          "name": "transfer",
+          "args": {
+            "_to": "self.contracts['loans']['SCORE']",
+            "_value": "100* ICX",
+            "_data": "{\"method\": \"_repay_loan\", \"params\": {}}"
+          },
+          "expected" : "success",
+          "curr_sicx_baln" : "500",
+          "curr_icd_baln" : "40"
+      }
+    },
+    {
+      "description": "user 1 repays a loan of 100 ICD by calling transfer method to icd score.",
+      "actions": {
+        "prev_sicx_bal": "500",
+        "prev_icd_bal": "40",
+        "name": "transfer",
+        "args": {
+          "_to": "self.contracts['loans']['SCORE']",
+          "_value": "-10* ICX",
+          "_data": "{\"method\": \"_repay_loan\", \"params\": {}}"
+        },
+        "expected": "success",
+        "curr_sicx_baln": "500",
+        "curr_icd_baln": "40"
+      }
+    }
+  ]
+}

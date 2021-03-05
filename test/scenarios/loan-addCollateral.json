@@ -1,0 +1,54 @@
+{
+  "title": "Loans: Deposit/Borrow ",
+  "description": "Test cases for the addCollateral function.",
+  "stories": [
+    {
+      "description": "User 1 deposits 500 ICX as collateral and borrows 50 ICD loan",
+      "actions": {
+        "prev_sicx_bal": "0",
+        "prev_icd_bal": "0",
+        "name": "addCollateral",
+        "args": {
+          "data1": "{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"",
+          "data2": "\", \"_asset\": \"ICD\", \"_amount\": 50000000000000000000}}"
+        },
+        "expected": "1",
+        "curr_sicx_baln": "500",
+        "curr_icd_baln": "50"
+      }
+    },
+    {
+      "description": "user 2 deposits 10 ICX as collateral and borrows 10 ICD loan.",
+      "actions": {
+        "prev_sicx_bal" : "0",
+          "prev_icd_bal" : "0",
+          "name": "addCollateral",
+          "args": {
+            "data1": "{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"",
+            "data2": "\", \"_asset\": \"ICD\", \"_amount\": 10000000000000000000}}"
+          },
+          "expected" : "0",
+          "revertMessage": "Collateral is insufficient to originate a loan of 10 ICD.",
+          "curr_sicx_baln" : "0",
+          "curr_icd_baln" : "0"
+      }
+    },
+    {
+      "description": "user 2 deposits 10 ICX as collateral and borrows -10 ICD loan.",
+      "actions": {
+        "prev_sicx_bal" : "0",
+          "prev_icd_bal" : "0",
+          "name": "addCollateral",
+          "args": {
+            "data1": "{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"",
+            "data2": "\", \"_asset\": \"ICD\", \"_amount\": -10000000000000000000}}"
+          },
+          "expected" : "0",
+          "revertMessage": "Invalid value",
+          "curr_sicx_baln" : "0",
+          "curr_icd_baln" : "0"
+      }
+    }
+
+  ]
+}
