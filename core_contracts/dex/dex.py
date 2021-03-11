@@ -48,7 +48,7 @@ class DEX(IconScoreBase):
     _FUNDED_ADDRESSES = 'funded_addresses'
     _ICX_QUEUE_TOTAL = 'icx_queue_total'
     _SICX_ADDRESS = 'sicx_address'
-    _ICD_ADDRESS = 'icd_address'
+    _bnUSD_ADDRESS = 'bnUSD_address'
     _BALN_ADDRESS = 'baln_address'
     _STAKING_ADDRESS = 'staking_address'
     _DIVIDENDS_ADDRESS = 'dividends_address'
@@ -145,8 +145,8 @@ class DEX(IconScoreBase):
             self._GOVERNANCE_ADDRESS, db, value_type=Address)
         self._rewards = VarDB(
             self._REWARDS_ADDRESS, db, value_type=Address)
-        self._icd = VarDB(
-            self._ICD_ADDRESS, db, value_type=Address)
+        self._bnUSD = VarDB(
+            self._bnUSD_ADDRESS, db, value_type=Address)
         self._baln = VarDB(
             self._BALN_ADDRESS, db, value_type=Address)
 
@@ -352,19 +352,19 @@ class DEX(IconScoreBase):
 
     @only_admin
     @external
-    def setIcd(self, _address: Address) -> None:
+    def setbnUSD(self, _address: Address) -> None:
         """
         :param _address: New contract address to set.
-        Sets new ICD contract address. Should be called before dex use.
+        Sets new bnUSD contract address. Should be called before dex use.
         """
-        self._icd.set(_address)
+        self._bnUSD.set(_address)
 
     @external
-    def getIcd(self) -> Address:
+    def getbnUSD(self) -> Address:
         """
-        Gets the address of the ICD contract.
+        Gets the address of the bnUSD contract.
         """
-        return self._icd.get()
+        return self._bnUSD.get()
 
     @only_admin
     @external
@@ -1205,8 +1205,8 @@ class DEX(IconScoreBase):
             revert("insufficient quote asset funds deposited")
 
         if _pid == 0:
-            if not (_quoteToken == self._icd.get()) and not (_quoteToken == self._sicx.get()):
-                revert("Second currency must be ICD or sICX")
+            if not (_quoteToken == self._bnUSD.get()) and not (_quoteToken == self._sicx.get()):
+                revert("Second currency must be bnUSD or sICX")
             self._pool_id[_baseToken][_quoteToken] = self._nonce.get()
             self._pool_id[_quoteToken][_baseToken] = self._nonce.get()
             _pid = self._nonce.get()

@@ -11,8 +11,8 @@ class BalancedAddresses(TypedDict, total=False):
     dividends: Address
     oracle: Address
     sicx: Address
-    icd: Address
-    bal: Address
+    bnUSD: Address
+    baln: Address
     bwt: Address
 
 
@@ -29,8 +29,8 @@ class Addresses(object):
         self._dividends = VarDB('dividends', db, Address)
         self._oracle = VarDB('oracle', db, Address)
         self._sicx = VarDB('sicx', db, Address)
-        self._icd = VarDB('icd', db, Address)
-        self._baln = VarDB('bal', db, Address)
+        self._bnUSD = VarDB('bnUSD', db, Address)
+        self._baln = VarDB('baln', db, Address)
         self._bwt = VarDB('bwt', db, Address)
 
     def __getitem__(self, key: str) -> Address:
@@ -53,8 +53,8 @@ class Addresses(object):
                           'dividends': self._dividends.set,
                           'oracle': self._oracle.set,
                           'sicx': self._sicx.set,
-                          'icd': self._icd.set,
-                          'bal': self._baln.set,
+                          'bnUSD': self._bnUSD.set,
+                          'baln': self._baln.set,
                           'bwt': self._bwt.set}
         for key in addresses.keys():
             set_func[key](addresses[key])
@@ -69,8 +69,8 @@ class Addresses(object):
                 'dividends': self._dividends.get(),
                 'oracle': self._oracle.get(),
                 'sicx': self._sicx.get(),
-                'icd': self._icd.get(),
-                'bal': self._baln.get(),
+                'bnUSD': self._bnUSD.get(),
+                'baln': self._baln.get(),
                 'bwt': self._bwt.get()
                }
 
@@ -85,7 +85,7 @@ class Addresses(object):
                            'rewards': score.setRewards, 'dividends': score.setDividends,
                            'staking': score.setStaking, 'reserve': score.setReserve,
                            'oracle': score.setOracle, 'sicx': score.setSicx,
-                           'icd': score.setIcd, 'bal': score.setBaln, 'bwt': score.setBwt}
+                           'bnUSD': score.setbnUSD, 'baln': score.setBaln, 'bwt': score.setBwt}
             for method in ADDRESSES[contract]:
                 try:
                     set_methods[method](self[method])

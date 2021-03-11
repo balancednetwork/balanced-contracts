@@ -228,8 +228,8 @@ class Rewards(IconScoreBase):
         amount = self._baln_holdings[address]
         if amount:
             baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
-            baln_token.transfer(self.msg.sender, amount)
             self._baln_holdings[address] = 0
+            baln_token.transfer(self.msg.sender, amount)
 
     def _get_day(self) -> int:
         today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS

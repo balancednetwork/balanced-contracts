@@ -88,7 +88,7 @@ class DexInterface(InterfaceScore):
         pass
 
     @interface
-    def setIcd(self, _address: Address) -> None:
+    def setbnUSD(self, _address: Address) -> None:
         pass
 
     @interface
@@ -163,7 +163,7 @@ class SetAddressesInterface(InterfaceScore):
         pass
 
     @interface
-    def setIcd(self, _address: Address) -> None:
+    def setbnUSD(self, _address: Address) -> None:
         pass
 
     @interface

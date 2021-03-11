@@ -9,24 +9,24 @@ DAY_START = 61200 * 10**6 // 24 # 17:00 UTC
 
 
 CONTRACTS = ['loans', 'dex', 'staking', 'rewards', 'dividends', 'reserve',
-             'sicx', 'icd', 'bal', 'bwt']
+             'sicx', 'bnUSD', 'baln', 'bwt']
 
 ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve'],
-             'dex': ['rewards', 'dividends', 'staking', 'sicx', 'icd', 'bal'],
-             'rewards': ['reserve', 'bal', 'bwt'],
+             'dex': ['rewards', 'dividends', 'staking', 'sicx', 'bnUSD', 'baln'],
+             'rewards': ['reserve', 'baln', 'bwt'],
              'dividends': ['loans'],
-             'reserve': ['loans', 'bal', 'sicx'],
-             'icd': ['oracle'],
-             'bal': ['dividends'],
-             'bwt': ['bal']}
+             'reserve': ['loans', 'baln', 'sicx'],
+             'bnUSD': ['oracle'],
+             'baln': ['dividends'],
+             'bwt': ['baln']}
 
 ADMIN_ADDRESSES = {'loans': 'governance',
                    'dex': 'governance',
                    'rewards': 'governance',
                    'dividends': 'governance',
                    'reserve': 'governance',
-                   'icd': 'loans',
-                   'bal': 'rewards',
+                   'bnUSD': 'loans',
+                   'baln': 'rewards',
                    'bwt': 'governance'}
 
 #-------------------------------------------------------------------------------
@@ -35,13 +35,13 @@ ADMIN_ADDRESSES = {'loans': 'governance',
 
 DATA_SOURCES = [{'name': 'Loans', 'address': 'loans'},
                 {'name': 'SICXICX', 'address': 'dex'},
-                {'name': 'SICXICD', 'address': 'dex'},
-                {'name': 'BALNICD', 'address': 'dex'}]
+                {'name': 'SICXbnUSD', 'address': 'dex'},
+                {'name': 'BALNbnUSD', 'address': 'dex'}]
 
 RECIPIENTS = [{'recipient_name': 'Loans', 'bal_token_dist_percent': 25 * 10**16},
               {'recipient_name': 'SICXICX', 'bal_token_dist_percent': 10 * 10**16},
-              {'recipient_name': 'SICXICD', 'bal_token_dist_percent': 20 * 10**16},
-              {'recipient_name': 'BALNICD', 'bal_token_dist_percent': 20 * 10**16},
+              {'recipient_name': 'SICXbnUSD', 'bal_token_dist_percent': 20 * 10**16},
+              {'recipient_name': 'BALNbnUSD', 'bal_token_dist_percent': 20 * 10**16},
               {'recipient_name': 'Worker Tokens', 'bal_token_dist_percent': 20 * 10**16},
               {'recipient_name': 'Reserve Fund', 'bal_token_dist_percent': 5 * 10**16}]
 
@@ -50,5 +50,5 @@ RECIPIENTS = [{'recipient_name': 'Loans', 'bal_token_dist_percent': 25 * 10**16}
 #-------------------------------------------------------------------------------
 
 ASSETS = [{'address': 'sicx', 'active': True, 'collateral': True},
-          {'address': 'icd', 'active': True, 'collateral': False},
-          {'address': 'bal', 'active': False, 'collateral': True}]
+          {'address': 'bnUSD', 'active': True, 'collateral': False},
+          {'address': 'baln', 'active': False, 'collateral': True}]
