@@ -1,0 +1,95 @@
+{
+  "title": "Loans: Withdraw Collateral ",
+  "description": "Test cases for the withdrawCollateral function.",
+  "stories": [
+    {
+      "description": "User 1 deposits 500 ICX as collateral and borrows 50 ICD loan",
+      "actions": {
+        "prev_sicx_bal_loan": "0",
+        "prev_icd_debt_bal_loan": "0",
+        "name": "addCollateral",
+        "deposited_icx": "500000000000000000000",
+        "args": {
+          "_asset": "ICD",
+          "_amount": "50000000000000000000"
+        },
+        "expected": "1",
+        "expected_sicx_baln_loan": "500000000000000000000",
+        "expected_icd_debt_baln_loan": "50000000000000000000"
+      }
+    },
+    {
+      "description": "User 1 withdraws 50 ICX from the available collateral",
+      "actions": {
+        "prev_sicx_bal_loan": "500000000000000000000",
+        "prev_icd_debt_bal_loan": "50000000000000000000",
+        "name": "withdrawCollateral",
+        "args": {
+          "_value": "50000000000000000000"
+        },
+        "expected": "1",
+        "expected_sicx_baln_loan": "450000000000000000000",
+        "expected_icd_debt_baln_loan": "50000000000000000000"
+      }
+    },
+    {
+      "description": "User 1 withdraws 291 ICX from the available collateral",
+      "actions": {
+        "prev_sicx_bal_loan": "450000000000000000000",
+        "prev_icd_debt_bal_loan": "50000000000000000000",
+        "name": "withdrawCollateral",
+        "args": {
+          "_value": "291000000000000000000"
+        },
+        "expected": "0",
+        "revertMessage": "cannot withdraw the given collateral amount",
+        "expected_sicx_baln_loan": "450000000000000000000",
+        "expected_icd_debt_baln_loan": "50000000000000000000"
+      }
+    },
+    {
+      "description": "User 1 withdraws 290 ICX from the available collateral",
+      "actions": {
+        "prev_sicx_bal_loan": "450000000000000000000",
+        "prev_icd_debt_bal_loan": "50000000000000000000",
+        "name": "withdrawCollateral",
+        "args": {
+          "_value": "290000000000000000000"
+        },
+        "expected": "1",
+        "expected_sicx_baln_loan": "160000000000000000000",
+        "expected_icd_debt_baln_loan": "50000000000000000000"
+      }
+    },
+    {
+      "description": "User 1 withdraws 450 ICX from the available collateral",
+      "actions": {
+        "prev_sicx_bal_loan": "450000000000000000000",
+        "prev_icd_debt_bal_loan": "50000000000000000000",
+        "name": "withdrawCollateral",
+        "args": {
+          "_value": "450000000000000000000"
+        },
+        "expected": "0",
+        "revertMessage": "since the account has 40 ICD loans ,cannot withdraw whole collateral",
+        "expected_sicx_baln_loan": "450000000000000000000",
+        "expected_icd_debt_baln_loan": "50000000000000000000"
+      }
+    },
+    {
+      "description": "User 1 withdraws -50 ICX from the available collateral",
+      "actions": {
+        "prev_sicx_bal_loan": "450000000000000000000",
+        "prev_icd_debt_bal_loan": "50000000000000000000",
+        "name": "withdrawCollateral",
+        "args": {
+          "_value": "-50000000000000000000"
+        },
+        "expected": "0",
+        "revertMessage": "Invalid value",
+        "expected_sicx_baln_loan": "450000000000000000000",
+        "expected_icd_debt_baln_loan": "50000000000000000000"
+      }
+    }
+  ]
+}

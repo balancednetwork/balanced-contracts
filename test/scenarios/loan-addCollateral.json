@@ -5,48 +5,72 @@
     {
       "description": "User 1 deposits 500 ICX as collateral and borrows 50 ICD loan",
       "actions": {
-        "prev_sicx_bal": "0",
-        "prev_icd_bal": "0",
+        "prev_sicx_bal_loan": "0",
+        "prev_icd_debt_bal_loan": "0",
+        "sender": "user1",
         "name": "addCollateral",
+        "deposited_icx": "500000000000000000000",
         "args": {
-          "data1": "{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"",
-          "data2": "\", \"_asset\": \"ICD\", \"_amount\": 50000000000000000000}}"
+          "_asset": "ICD",
+          "_amount": "50000000000000000000"
         },
         "expected": "1",
-        "curr_sicx_baln": "500",
-        "curr_icd_baln": "50"
+        "expected_sicx_baln_in_loan": "500000000000000000000",
+        "expected_icd_debt_baln_in_wallet": "50000000000000000000"
       }
     },
     {
-      "description": "user 2 deposits 10 ICX as collateral and borrows 10 ICD loan.",
+      "description": "user 2 deposits 500 ICX as collateral and borrows 40 ICD loan.",
       "actions": {
-        "prev_sicx_bal" : "0",
-          "prev_icd_bal" : "0",
-          "name": "addCollateral",
-          "args": {
-            "data1": "{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"",
-            "data2": "\", \"_asset\": \"ICD\", \"_amount\": 10000000000000000000}}"
-          },
-          "expected" : "0",
-          "revertMessage": "Collateral is insufficient to originate a loan of 10 ICD.",
-          "curr_sicx_baln" : "0",
-          "curr_icd_baln" : "0"
+        "prev_sicx_bal_loan": "500000000000000000000",
+        "prev_icd_debt_bal_loan": "50000000000000000000",
+        "sender": "user2",
+        "name": "addCollateral",
+        "deposited_icx": "500000000000000000000",
+        "args": {
+          "_asset": "ICD",
+          "_amount": "40000000000000000000"
+        },
+        "expected" : "0",
+        "revertMessage": "The initial loan of any asset must have a minimum value of 50.0 dollars.",
+        "expected_sicx_baln_loan" : "500000000000000000000",
+        "expected_icd_debt_baln_loan" : "50000000000000000000"
+      }
+    },
+    {
+      "description": "user 2 deposits 100 ICX as collateral and borrows 100 ICD loan.",
+      "actions": {
+        "prev_sicx_bal_loan" : "500000000000000000000",
+        "prev_icd_debt_bal_loan" : "50000000000000000000",
+        "sender": "user2",
+        "name": "addCollateral",
+        "deposited_icx": "100000000000000000000",
+        "args": {
+          "_asset": "ICD",
+          "_amount": "100000000000000000000"
+        },
+        "expected" : "0",
+        "revertMessage": "100.0 collateral is insufficient to originate a loan of 100.0 ICD when max_debt_value = 25.0 and new_debt_value = 60.393528307156785, plus a fee of 1.0 ICD, and an existing loan value of 0.0.",
+        "expected_sicx_baln_loan" : "500000000000000000000",
+        "expected_icd_debt_baln_loan" : "50000000000000000000"
       }
     },
     {
       "description": "user 2 deposits 10 ICX as collateral and borrows -10 ICD loan.",
       "actions": {
-        "prev_sicx_bal" : "0",
-          "prev_icd_bal" : "0",
-          "name": "addCollateral",
-          "args": {
-            "data1": "{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"",
-            "data2": "\", \"_asset\": \"ICD\", \"_amount\": -10000000000000000000}}"
-          },
-          "expected" : "0",
-          "revertMessage": "Invalid value",
-          "curr_sicx_baln" : "0",
-          "curr_icd_baln" : "0"
+        "prev_sicx_bal_loan" : "500000000000000000000",
+        "prev_icd_debt_bal_loan" : "50000000000000000000",
+        "sender": "user2",
+        "name": "addCollateral",
+        "deposited_icx": "10000000000000000000",
+        "args": {
+          "_asset": "ICD",
+        "_amount": "-10000000000000000000"
+        },
+        "expected" : "0",
+        "revertMessage": "The initial loan of any asset must have a minimum value of 50.0 dollars.",
+        "expected_sicx_baln_loan" : "500000000000000000000",
+        "expected_icd_debt_baln_loan" : "50000000000000000000"
       }
     }
 

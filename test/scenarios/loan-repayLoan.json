@@ -3,51 +3,83 @@
   "description": "Test cases for the repay loan.",
   "stories": [
     {
+      "description": "User 1 deposits 500 ICX as collateral and borrows 50 ICD loan",
+      "actions": {
+        "prev_sicx_bal_loan": "0",
+        "prev_icd_debt_bal_loan": "0",
+        "prev_icd_bal_wallet": "0",
+        "sender": "user1",
+        "name": "addCollateral",
+        "deposited_icx": "500000000000000000000",
+        "args": {
+          "_asset": "ICD",
+          "_amount": "50000000000000000000"
+        },
+        "expected": "1",
+        "expected_sicx_baln_loan": "500000000000000000000",
+        "expected_icd_debt_baln_loan": "50000000000000000000",
+        "expected_icd_bal_wallet": "50000000000000000000"
+      }
+    },
+    {
       "description": "user 1 repays a loan of 10 ICD by calling transfer method to icd score.",
       "actions": {
-        "prev_sicx_bal" : "500",
-          "prev_icd_bal" : "50",
-          "name": "transfer",
-          "args": {
-            "_to": "self.contracts['loans']['SCORE']",
-            "_value": "10* ICX",
-            "_data": "{\"method\": \"_repay_loan\", \"params\": {}}"
-          },
-          "expected" : "success",
-          "curr_sicx_baln" : "500",
-          "curr_icd_baln" : "40"
-      }
-    },
-    {
-      "description": "user 1 repays a loan of 100 ICD by calling transfer method to icd score.",
-      "actions": {
-        "prev_sicx_bal" : "500",
-          "prev_icd_bal" : "40",
-          "name": "transfer",
-          "args": {
-            "_to": "self.contracts['loans']['SCORE']",
-            "_value": "100* ICX",
-            "_data": "{\"method\": \"_repay_loan\", \"params\": {}}"
-          },
-          "expected" : "success",
-          "curr_sicx_baln" : "500",
-          "curr_icd_baln" : "40"
-      }
-    },
-    {
-      "description": "user 1 repays a loan of 100 ICD by calling transfer method to icd score.",
-      "actions": {
-        "prev_sicx_bal": "500",
-        "prev_icd_bal": "40",
+        "prev_sicx_bal_loan" : "500000000000000000000",
+        "prev_icd_debt_bal_loan" : "50000000000000000000",
+        "prev_icd_bal_wallet": "50000000000000000000",
+        "sender": "user1",
         "name": "transfer",
         "args": {
           "_to": "self.contracts['loans']['SCORE']",
-          "_value": "-10* ICX",
-          "_data": "{\"method\": \"_repay_loan\", \"params\": {}}"
+          "_value": "10000000000000000000",
+          "method": "_repay_loan",
+          "params": "{}"
         },
-        "expected": "success",
-        "curr_sicx_baln": "500",
-        "curr_icd_baln": "40"
+        "expected" : "1",
+        "expected_sicx_baln_loan" : "500000000000000000000",
+        "expected_icd_debt_baln_loan" : "40000000000000000000",
+        "expected_icd_bal_wallet": "40000000000000000000"
+      }
+    },
+    {
+      "description": "user 1 repays a loan of -10 ICD by calling transfer method to icd score.",
+      "actions": {
+        "prev_sicx_bal_loan": "500000000000000000000",
+        "prev_icd_debt_bal_loan": "0",
+        "prev_icd_bal_wallet": "40000000000000000000",
+        "sender": "user1",
+        "name": "transfer",
+        "args": {
+          "_to": "self.contracts['loans']['SCORE']",
+            "_value": "-10000000000000000000",
+            "method": "_repay_loan",
+            "params": "{}"
+        },
+        "expected": "0",
+        "revertMessage": "Transferring value cannot be less than 0.",
+        "expected_sicx_baln_loan": "500000000000000000000",
+        "expected_icd_debt_baln_loan": "40000000000000000000",
+        "expected_icd_bal_wallet": "40000000000000000000"
+      }
+    },
+    {
+      "description": "user 1 repays a loan of 40 ICD by calling transfer method to icd score.",
+      "actions": {
+        "prev_sicx_bal_loan": "500000000000000000000",
+        "prev_icd_debt_bal_loan": "40000000000000000000",
+        "prev_icd_bal_wallet": "40000000000000000000",
+        "sender": "user1",
+        "name": "transfer",
+        "args": {
+          "_to": "self.contracts['loans']['SCORE']",
+          "_value": "40000000000000000000",
+          "method": "_repay_loan",
+          "params": "{}"
+        },
+        "expected": "1",
+        "expected_sicx_baln_loan": "500000000000000000000",
+        "expected_icd_debt_baln_loan": "0",
+        "expected_icd_bal_wallet": "0"
       }
     }
   ]
