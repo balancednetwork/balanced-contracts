@@ -1184,7 +1184,7 @@ class DEX(IconScoreBase):
         self._update_total_supply_snapshot(_pid)
 
     @external
-    def add(self, _baseToken: Address, _quoteToken: Address, _baseValue: int, _quoteValue: int):
+    def add(self, _baseToken: Address, _quoteToken: Address, _maxBaseValue: int, _quoteValue: int):
         """
         Adds liquidity to a pool for trading, or creates a new pool. Rules:
         - The quote coin of the pool must be one of the allowed quote currencies.
@@ -1195,14 +1195,17 @@ class DEX(IconScoreBase):
         _pid = self._pool_id[_baseToken][_quoteToken]
         if _baseToken == _quoteToken:
             revert("Pool must contain two token contracts")
-        if not _baseValue:
+        if not _maxBaseValue:
             revert("Please send initial value for first currency")
         if not _quoteValue:
             revert("Please send initial value for second currency")
-        if self._deposit[_baseToken][self.msg.sender] < _baseValue:
+        if self._deposit[_baseToken][self.msg.sender] < _maxBaseValue:
             revert("Insufficient base asset funds deposited")
         if self._deposit[_quoteToken][self.msg.sender] < _quoteValue:
             revert("insufficient quote asset funds deposited")
+
+        # By default on new pools, use the maximum sent _maxBaseValue for supplied liquidity
+        base_to_commit = _maxBaseValue
 
         if _pid == 0:
             if not (_quoteToken == self._bnUSD.get()) and not (_quoteToken == self._sicx.get()):
@@ -1216,18 +1219,16 @@ class DEX(IconScoreBase):
             self._pool_base[_pid] = _baseToken
             self._pool_quote[_pid] = _quoteToken
             self.MarketAdded(_pid, _baseToken, _quoteToken,
-                             _baseValue, _quoteValue)
+                             _maxBaseValue, _quoteValue)
 
         else:
-            expected_quote = int(
-                (_baseValue * self._pool_total[_pid][self._pool_quote[_pid]]) / (self._pool_total[_pid][self._pool_base[_pid]]))
-            if not expected_quote == _quoteValue:
-                revert('disproportionate amount')
-            liquidity = int(
-                (self._total[_pid] * _baseValue) / self._pool_total[_pid][_baseToken])
-        self._pool_total[_pid][_baseToken] += _baseValue
+            base_to_commit = (_quoteValue * self._pool_total[_pid][self._pool_base[_pid]]) // (self._pool_total[_pid][self._pool_quote[_pid]])
+            if base_to_commit > _maxBaseValue:
+                revert('Proportionate base amount is {}, but sent {}'.format(base_to_commit, _maxBaseValue))
+            liquidity = (self._total[_pid] * base_to_commit) // self._pool_total[_pid][_baseToken]
+        self._pool_total[_pid][_baseToken] += base_to_commit
         self._pool_total[_pid][_quoteToken] += _quoteValue
-        self._deposit[_baseToken][self.msg.sender] -= _baseValue
+        self._deposit[_baseToken][self.msg.sender] -= base_to_commit
         self._deposit[_quoteToken][self.msg.sender] -= _quoteValue
         self._balance[_pid][_owner] += liquidity
         self._total[_pid] += liquidity
