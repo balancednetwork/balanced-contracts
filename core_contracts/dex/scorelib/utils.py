@@ -1,33 +1,38 @@
-# -*- coding: utf-8 -*-
-
-# Copyright 2020 ICONation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 from iconservice import *
-from .consts import *
+from ..scorelib.consts import *
 
-
-class Utils():
-
+class Utils:
     @staticmethod
-    def enum_names(cls):
-        return [i for i in cls.__dict__.keys() if i[:1] != '_']
+    def remove_from_array(array: ArrayDB, el) -> None:
+        temp = []
+        # find that element and remove it
+        while array:
+            current = array.pop()
+            if current == el:
+                break
+            else:
+                temp.append(current)
+        # append temp back to arrayDB
+        while temp:
+            array.put(temp.pop())
 
-    @staticmethod
-    def enum_values(cls):
-        return [i[1] for i in cls.__dict__.items() if i[0][0] != '_']
+# An interface of token score
+class TokenInterface(InterfaceScore):
+    @interface
+    def transfer(self, _to: Address, _value: int, _data: bytes=None):
+        pass
 
-    @staticmethod
-    def get_enum_name(cls, index):
-        return Utils.enum_names(cls)[index]
+    @interface
+    def decimals(self) -> int :
+        pass
+
+
+# An interface of token score
+class ICONPoolCoreInterface(InterfaceScore):
+    @interface
+    def balanceOf(self, _pid: int, _user: Address) -> int :
+        pass
+
+    @interface
+    def totalSupply(self, _pid: int) -> int:
+        pass

@@ -212,6 +212,8 @@ class IRC2(TokenStandard, IconScoreBase):
 			If the recipient is SCORE,
 			then calls `tokenFallback` to hand over control.
 			"""
+			# revert(f'Yes, about to transfer to {_to}, from {_from}, {_value} sICX. '
+			# 	   f'Forwarding data = {_data.decode("utf-8")}')
 			recipient_score = self.create_interface_score(_to, TokenFallbackInterface)
 			recipient_score.tokenFallback(_from, _value, _data)
 
@@ -268,8 +270,9 @@ class IRC2(TokenStandard, IconScoreBase):
 
 		self._beforeTokenTransfer(account, 0, amount)
 
+		self._transfer(account, self.address, amount, b'None')
 		self._total_supply.set(self._total_supply.get() - amount)
-		self._balances[account] -= amount
+		self._balances[self.address] -= amount
 
 		# Emits an event log Burn
 		self.Burn(account, amount)

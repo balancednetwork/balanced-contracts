@@ -135,7 +135,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-#Test files
-.testscore 
-.teststatedb
+.idea
 
+#Test files
+.testscore
+.teststatedb
