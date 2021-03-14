@@ -486,7 +486,6 @@ class Staking(IconScoreBase):
             _data = b'None'
         if _to is None:
             _to = self.tx.origin
-        self._user_icx_deposit[str(_to)] = self._user_icx_deposit[str(_to)] + self.msg.value
         self._perform_checks()
         self._total_stake.set(self._total_stake.get() + self.msg.value)
         amount = DENOMINATOR * self.msg.value // self._rate.get()
