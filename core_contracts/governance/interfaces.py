@@ -151,6 +151,10 @@ class SetAddressesInterface(InterfaceScore):
         pass
 
     @interface
+    def setDaofund(self, _address: Address) -> None:
+        pass
+
+    @interface
     def setReserve(self, _address: Address) -> None:
         pass
 

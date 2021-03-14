@@ -111,8 +111,9 @@ class Loans(IconScoreBase):
         self._redeem_minimum = VarDB(self._REDEEM_MINIMUM, db, value_type=int)
         self._new_loan_minimum = VarDB(self._NEW_LOAN_MINIMUM, db, value_type=int)
 
-    def on_install(self) -> None:
+    def on_install(self, _governance: Address) -> None:
         super().on_install()
+        self._governance.set(_governance)
         self._loans_on.set(False)
         self._admin.set(self.owner)
         self._replay_batch_size.set(REPLAY_BATCH_SIZE)

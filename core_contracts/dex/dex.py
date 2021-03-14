@@ -232,8 +232,9 @@ class DEX(IconScoreBase):
         self._named_markets = IterableDictDB(
             self._NAMED_MARKETS, db, value_type=int, key_type=str, order=True)
 
-    def on_install(self) -> None:
+    def on_install(self, _governance: Address) -> None:
         super().on_install()
+        self._governance.set(_governance)
         self._pool_lp_fee.set(15)
         self._pool_baln_fee.set(15)
         self._icx_conversion_fee.set(70)

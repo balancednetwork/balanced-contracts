@@ -9,6 +9,7 @@ class BalancedAddresses(TypedDict, total=False):
     rewards: Address
     reserve: Address
     dividends: Address
+    daofund: Address
     oracle: Address
     sicx: Address
     bnUSD: Address
@@ -27,6 +28,7 @@ class Addresses(object):
         self._rewards = VarDB('rewards', db, Address)
         self._reserve = VarDB('reserve', db, Address)
         self._dividends = VarDB('dividends', db, Address)
+        self._daofund = VarDB('daofund', db, Address)
         self._oracle = VarDB('oracle', db, Address)
         self._sicx = VarDB('sicx', db, Address)
         self._bnUSD = VarDB('bnUSD', db, Address)
@@ -51,6 +53,7 @@ class Addresses(object):
                           'rewards': self._rewards.set,
                           'reserve': self._reserve.set,
                           'dividends': self._dividends.set,
+                          'daofund': self._daofund.set,
                           'oracle': self._oracle.set,
                           'sicx': self._sicx.set,
                           'bnUSD': self._bnUSD.set,
@@ -67,6 +70,7 @@ class Addresses(object):
                 'rewards': self._rewards.get(),
                 'reserve': self._reserve.get(),
                 'dividends': self._dividends.get(),
+                'daofund': self._daofund.get(),
                 'oracle': self._oracle.get(),
                 'sicx': self._sicx.get(),
                 'bnUSD': self._bnUSD.get(),
@@ -82,10 +86,11 @@ class Addresses(object):
         for contract in ADDRESSES:
             score = self._gov.create_interface_score(self[contract], SetAddressesInterface)
             set_methods = {'admin': score.setAdmin, 'loans': score.setLoans,
-                           'rewards': score.setRewards, 'dividends': score.setDividends,
-                           'staking': score.setStaking, 'reserve': score.setReserve,
-                           'oracle': score.setOracle, 'sicx': score.setSicx,
-                           'bnUSD': score.setbnUSD, 'baln': score.setBaln, 'bwt': score.setBwt}
+                           'staking': score.setStaking, 'rewards': score.setRewards,
+                           'reserve': score.setReserve, 'dividends': score.setDividends,
+                           'daofund': score.setDaofund, 'oracle': score.setOracle,
+                           'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
+                           'baln': score.setBaln, 'bwt': score.setBwt}
             for method in ADDRESSES[contract]:
                 try:
                     set_methods[method](self[method])

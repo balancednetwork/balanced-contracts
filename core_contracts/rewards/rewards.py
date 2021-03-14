@@ -7,7 +7,7 @@ TAG = 'Rewards'
 
 
 class DistPercentDict(TypedDict):
-    recipient_name : str
+    recipient_name: str
     bal_token_dist_percent: int
 
 
@@ -41,8 +41,9 @@ class Rewards(IconScoreBase):
         self._platform_day = VarDB('platform_day', db, value_type=int)
         self._data_source_db = DataSourceDB(db, self)
 
-    def on_install(self) -> None:
+    def on_install(self, _governance: Address) -> None:
         super().on_install()
+        self._governance.set(_governance)
         self._platform_day.set(1)
         self._batch_size.set(DEFAULT_BATCH_SIZE)
         self._recipient_split['Worker Tokens'] = 0

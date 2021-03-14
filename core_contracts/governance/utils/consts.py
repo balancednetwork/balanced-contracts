@@ -8,13 +8,14 @@ DAY_ZERO = 18647 * 24
 DAY_START = 61200 * 10**6 // 24 # 17:00 UTC
 
 
-CONTRACTS = ['loans', 'dex', 'staking', 'rewards', 'dividends', 'reserve',
-             'sicx', 'bnUSD', 'baln', 'bwt']
+CONTRACTS = ['loans', 'dex', 'staking', 'rewards', 'dividends', 'daofund',
+             'reserve', 'sicx', 'bnUSD', 'baln', 'bwt']
 
 ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve'],
              'dex': ['rewards', 'dividends', 'staking', 'sicx', 'bnUSD', 'baln'],
              'rewards': ['reserve', 'baln', 'bwt'],
-             'dividends': ['loans'],
+             'dividends': ['loans', 'daofund'],
+             'daofund': ['loans'],
              'reserve': ['loans', 'baln', 'sicx'],
              'bnUSD': ['oracle'],
              'baln': ['dividends'],
@@ -24,6 +25,7 @@ ADMIN_ADDRESSES = {'loans': 'governance',
                    'dex': 'governance',
                    'rewards': 'governance',
                    'dividends': 'governance',
+                   'daofund': 'governance',
                    'reserve': 'governance',
                    'bnUSD': 'loans',
                    'baln': 'rewards',

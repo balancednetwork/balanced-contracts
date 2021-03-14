@@ -40,8 +40,9 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
         self._last_price = VarDB(self._LAST_PRICE, db, value_type=int)
         self._min_interval = VarDB(self._MIN_INTERVAL, db, value_type=int)
 
-    def on_install(self) -> None:
+    def on_install(self, _governance: Address) -> None:
         super().on_install(TOKEN_NAME, SYMBOL_NAME)
+        self._governance.set(_governance)
         self._peg.set(DEFAULT_PEG)
         self._oracle_address.set(Address.from_string(DEFAULT_ORACLE_ADDRESS))
         self._oracle_name.set(DEFAULT_ORACLE_NAME)
