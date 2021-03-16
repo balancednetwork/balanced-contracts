@@ -3,10 +3,10 @@ from .tokens.IRC2mintable import IRC2Mintable
 from .tokens.IRC2burnable import IRC2Burnable
 from .utils.checks import *
 
-TAG = 'ICD'
+TAG = 'bnUSD'
 
 TOKEN_NAME = 'ICONDollar'
-SYMBOL_NAME = 'ICD'
+SYMBOL_NAME = 'bnUSD'
 DEFAULT_PEG = 'USD'
 DEFAULT_ORACLE_ADDRESS = 'cx61a36e5d10412e03c907a507d1e8c6c3856d9964'
 DEFAULT_ORACLE_NAME = 'BandChain'
@@ -20,7 +20,7 @@ class OracleInterface(InterfaceScore):
         pass
 
 
-class ICONDollar(IRC2Mintable, IRC2Burnable):
+class BalancedDollar(IRC2Mintable, IRC2Burnable):
 
     _PEG = 'peg'
     _GOVERNANCE = 'governance'
@@ -40,8 +40,9 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
         self._last_price = VarDB(self._LAST_PRICE, db, value_type=int)
         self._min_interval = VarDB(self._MIN_INTERVAL, db, value_type=int)
 
-    def on_install(self) -> None:
+    def on_install(self, _governance: Address) -> None:
         super().on_install(TOKEN_NAME, SYMBOL_NAME)
+        self._governance.set(_governance)
         self._peg.set(DEFAULT_PEG)
         self._oracle_address.set(Address.from_string(DEFAULT_ORACLE_ADDRESS))
         self._oracle_name.set(DEFAULT_ORACLE_NAME)
@@ -142,7 +143,7 @@ class ICONDollar(IRC2Mintable, IRC2Burnable):
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         if self.msg.sender != self.address:
-            revert(f'Only accepts ICD tokens.')
+            revert(f'Only accepts bnUSD tokens.')
 
     # ------------------------------------------------------------------------------------------------------------------
     # EVENTS

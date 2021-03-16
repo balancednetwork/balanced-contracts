@@ -198,7 +198,7 @@ class Position(object):
         """
         This method updates the standing for a snapshot. If that snapshot is not
         up to date with the replay events for that day it will set the standing
-        to Indeterminate and return. If the position is up to date for the with
+        to Indeterminate and return. If the position is up to date with
         event replays for the snapshot it will calculate the total debt and
         collateralization ratio and record them in the positon snapshot along
         with the standing.
@@ -316,7 +316,7 @@ class PositionsDB:
     def list_pos(self, _owner: Address) -> dict:
         id = self.addressID[_owner]
         if id == 0:
-            return "That address has no outstanding loans or deposited collateral."
+            return {"message": "That address has no outstanding loans or deposited collateral."}
         return self.__getitem__(id).to_dict()
 
     def add_nonzero(self, _owner: Address) -> None:

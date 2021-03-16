@@ -5,7 +5,8 @@ EXA = 10**18
 U_SECONDS_DAY = 86400 * 10**6  // 24 # Microseconds in a day.
 MIN_UPDATE_TIME = 30 * 10**6  # 30 seconds
 
-POINTS = 10000 # All percentages expressed in terms of points.
+# All percentages expressed in terms of points.
+POINTS = 10000
 DEFAULT_MINING_RATIO = 50000
 DEFAULT_LOCKING_RATIO = 40000
 DEFAULT_LIQUIDATION_RATIO = 15000
@@ -35,7 +36,7 @@ class Standing:
 
     @staticmethod
     def __getitem__(_standing: int) -> str:
-        return STANDINGS[_standing]
+        return Standing.STANDINGS[_standing]
 
 
 class Outcome:

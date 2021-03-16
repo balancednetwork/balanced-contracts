@@ -7,7 +7,7 @@ TAG = 'Rewards'
 
 
 class DistPercentDict(TypedDict):
-    recipient_name : str
+    recipient_name: str
     bal_token_dist_percent: int
 
 
@@ -41,8 +41,9 @@ class Rewards(IconScoreBase):
         self._platform_day = VarDB('platform_day', db, value_type=int)
         self._data_source_db = DataSourceDB(db, self)
 
-    def on_install(self) -> None:
+    def on_install(self, _governance: Address) -> None:
         super().on_install()
+        self._governance.set(_governance)
         self._platform_day.set(1)
         self._batch_size.set(DEFAULT_BATCH_SIZE)
         self._recipient_split['Worker Tokens'] = 0
@@ -228,8 +229,8 @@ class Rewards(IconScoreBase):
         amount = self._baln_holdings[address]
         if amount:
             baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
-            baln_token.transfer(self.msg.sender, amount)
             self._baln_holdings[address] = 0
+            baln_token.transfer(self.msg.sender, amount)
 
     def _get_day(self) -> int:
         today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS
