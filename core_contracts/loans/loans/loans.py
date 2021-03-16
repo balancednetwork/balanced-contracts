@@ -210,6 +210,18 @@ class Loans(IconScoreBase):
         return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
 
     @external(readonly=True)
+    def checkDeadMarkets(self) -> list:
+        """
+        Checks if any of the assets have changed Dead Market status and updates
+        them accordingly.
+        """
+        dead_markets = []
+        for symbol in self._assets.slist:
+            if self._assets[symbol].dead_market.get():
+                dead_markets.append(symbol)
+        return dead_markets
+
+    @external(readonly=True)
     def getNonzeroPositionCount(self) -> int:
         """
         Returns the total number of nonzero positions.
@@ -411,6 +423,7 @@ class Loans(IconScoreBase):
             new_day = True
             self._current_day.set(day)
             self._positions._take_snapshot()
+            self.check_dead_markets()
         return day, new_day
 
     @external
@@ -548,9 +561,11 @@ class Loans(IconScoreBase):
             refund = _value - repaid
             pos[symbol] = 0
             self._send_token(symbol, _from, refund, "Excess refunded.")
-        self._assets[symbol].burn(repaid)
+        if repaid != 0:
+            self._assets[symbol].burn(repaid)
         self.LoanRepaid(_from, symbol, repaid,
             f'Loan of {repaid / EXA} {symbol} repaid to Balanced.')
+        self.check_dead_markets()
         pos.update_standing()
 
     def _retire_asset(self, _from: Address, _value: int) -> None:
@@ -569,6 +584,7 @@ class Loans(IconScoreBase):
         asset = self._assets._get_asset(str(self.msg.sender))
         symbol = asset.symbol()
         if self._positions._exists(_from):
+            pos = self._positions.get_pos(_from)
             repay = min(pos[symbol], _value)
             if repay > 0:
                 self._repay_loan(_from, repay)
@@ -603,6 +619,7 @@ class Loans(IconScoreBase):
                                               asset_supply=supply)
         self._send_token("sICX", _from, sicx, "Collateral redeemed.")
         self._send_token(symbol, self._dividends.get(), fee, "Redemption fee.")
+        self.check_dead_markets()
         self.AssetRedeemed(_from, symbol, _value,
             f'{_value / EXA} {symbol} redeemed on Balanced at price {price / EXA} ICX/{symbol}.')
 
@@ -805,8 +822,19 @@ class Loans(IconScoreBase):
             pos['sICX'] = 0
             self._send_token('sICX', self.msg.sender, reward, "Liquidation reward of")
             pos.update_standing()
+            self.check_dead_markets()
             self._positions.remove_nonzero(pos.address.get())
             self.Liquidate(_owner, collateral, f'{collateral} liquidated from {_owner}')
+
+    def check_dead_markets(self) -> None:
+        """
+        Checks if any of the assets have changed Dead Market status and updates
+        them accordingly.
+        """
+        dead_markets = []
+        for symbol in self._assets.slist:
+            if self._assets[symbol].dead():
+                dead_markets.append(symbol)
 
     @external
     def replayEvents(self, _apply_to: Address, _snapshot_id: int = -1) -> (int, int):
