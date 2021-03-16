@@ -486,7 +486,6 @@ class Staking(IconScoreBase):
             _data = b'None'
         if _to is None:
             _to = self.tx.origin
-        self._user_icx_deposit[str(_to)] = self._user_icx_deposit[str(_to)] + self.msg.value
         self._perform_checks()
         self._total_stake.set(self._total_stake.get() + self.msg.value)
         amount = DENOMINATOR * self.msg.value // self._rate.get()
@@ -580,8 +579,8 @@ class Staking(IconScoreBase):
             self._daily_reward.set(daily_reward)
             self._total_lifetime_reward.set(self.getLifetimeReward() + daily_reward)
             self._rate.set(self.getRate())
-            self._total_stake.set(self.getTotalStake() + daily_reward)
             totalStake = self._total_stake.get()
+            self._total_stake.set(self.getTotalStake() + daily_reward)
             for single_prep in self.getPrepList():
                 value_in_icx = self._prep_delegations[str(single_prep)]
                 weightage_in_per = ((value_in_icx * DENOMINATOR) // totalStake) * 100
@@ -641,11 +640,20 @@ class Staking(IconScoreBase):
         :params source : to find out the source of the function call.
         """
         delegation_list = []
-        for one in self._top_preps:
+        top_preps = self._top_preps
+        voting_power_check = 0
+        count = 0
+        for one in top_preps:
+            count += 1
             one = Address.from_string(str(one))
+            value_in_icx = self._prep_delegations[str(one)] + evenly_distribute_value
+            voting_power_check += value_in_icx
+            if count == len(top_preps):
+                to_add = self.getTotalStake() - voting_power_check
+                value_in_icx += to_add
             delegation_info: Delegation = {
                 "address": one,
-                "value": self._prep_delegations[str(one)] + evenly_distribute_value
+                "value": value_in_icx
             }
             delegation_list.append(delegation_info)
         self._system.setDelegation(delegation_list)
