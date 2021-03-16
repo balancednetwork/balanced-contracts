@@ -831,10 +831,8 @@ class Loans(IconScoreBase):
         Checks if any of the assets have changed Dead Market status and updates
         them accordingly.
         """
-        dead_markets = []
         for symbol in self._assets.slist:
-            if self._assets[symbol].dead():
-                dead_markets.append(symbol)
+            self._assets[symbol].dead()
 
     @external
     def replayEvents(self, _apply_to: Address, _snapshot_id: int = -1) -> (int, int):
