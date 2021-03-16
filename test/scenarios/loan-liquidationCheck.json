@@ -3,45 +3,127 @@
   "description": "Test cases for checking liquidation function.",
   "stories": [
     {
-      "description": "User 1 deposits 500 ICX as collateral and borrows 50 ICD loan",
+      "description": "User 1 deposits 300 ICX as collateral.",
       "actions": {
         "prev_sicx_bal_loan": "0",
         "prev_icd_debt_bal_loan": "0",
-        "name": "addCollateral",
-        "deposited_icx": "500000000000000000000",
-        "args": {
-          "_asset": "ICD",
-          "_amount": "50000000000000000000"
-        },
-        "expected": "1",
-        "expected_sicx_baln_loan": "500000000000000000000",
-        "expected_icd_debt_baln_loan": "50000000000000000000"
-      }
-    },
-    {
-      "description": "User 3 deposits 500 ICX as collateral.",
-      "actions": {
-        "prev_sicx_bal_loan": "500000000000000000000",
-        "prev_icd_debt_bal_loan": "50000000000000000000",
         "prev_icd_bal_wallet": "0",
+        "sender": "user1",
         "name": "addCollateral",
-        "deposited_icx": "500000000000000000000",
+        "deposited_icx": "782000000000000000000",
         "args": {
-          "_asset": "",
-          "_amount": ""
+          "_asset": " ",
+          "_amount": "0"
         },
         "expected": "1",
-        "expected_sicx_baln_loan": "1000000000000000000000",
-        "expected_icd_debt_baln_loan": "50000000000000000000",
+        "standing": "No Debt",
+        "expected_sicx_baln_loan": "782000000000000000000",
+        "expected_icd_debt_baln_loan": "0",
         "expected_icd_bal_wallet": "0"
       }
     },
     {
-      "description": "Check account standing of user 3 on loan score after depositing collateral, should have standing of 'No debt'.",
+      "description": "Mints 200 amount of ICD to the user 2 address without checking collateralization ratio With the above collateral deposit it will put the position in a standing of Liquidation",
+      "actions": {
+        "prev_sicx_bal_loan": "782000000000000000000",
+        "prev_icd_debt_bal_loan": "0",
+        "prev_icd_bal_wallet": "0",
+        "sender": "user1",
+        "name": "add_bad_test_position",
+        "deposited_icx": "0",
+        "args": {
+          "params": "{}"
+        },
+        "expected": "1",
+        "standing": "Mining",
+        "expected_sicx_baln_loan": "782000000000000000000",
+        "expected_icd_debt_baln_loan": "200000000000000000000",
+        "expected_icd_bal_wallet": "200000000000000000000"
+      }
+    },
+    {
+      "description": "Mints 200 amount of ICD to the user 2 address without checking collateralization ratio With the above collateral deposit it will put the position in a standing of Liquidation",
+      "actions": {
+        "prev_sicx_bal_loan": "782000000000000000000",
+        "prev_icd_debt_bal_loan": "200000000000000000000",
+        "prev_icd_bal_wallet": "200000000000000000000",
+        "sender": "user1",
+        "name": "add_bad_test_position",
+        "deposited_icx": "0",
+        "args": {
+          "params": "{}"
+        },
+        "expected": "1",
+        "standing": "Locked",
+        "expected_sicx_baln_loan": "782000000000000000000",
+        "expected_icd_debt_baln_loan": "400000000000000000000",
+        "expected_icd_bal_wallet": "400000000000000000000"
+      }
+    },
+    {
+      "description": "Mints 200 amount of ICD to the user 2 address without checking collateralization ratio With the above collateral deposit it will put the position in a standing of Liquidation",
+      "actions": {
+        "prev_sicx_bal_loan": "782000000000000000000",
+        "prev_icd_debt_bal_loan": "400000000000000000000",
+        "prev_icd_bal_wallet": "400000000000000000000",
+        "sender": "user1",
+        "name": "add_bad_test_position",
+        "deposited_icx": "0",
+        "args": {
+          "params": "{}"
+        },
+        "expected": "1",
+        "standing": "Locked",
+        "expected_sicx_baln_loan": "782000000000000000000",
+        "expected_icd_debt_baln_loan": "600000000000000000000",
+        "expected_icd_bal_wallet": "600000000000000000000"
+      }
+    },
+    {
+      "description": "Liquidate the user 2 account position calling liquidate method on loans score",
+      "actions": {
+        "prev_sicx_bal_loan": "782000000000000000000",
+        "prev_icd_debt_bal_loan": "400000000000000000000",
+        "prev_icd_bal_wallet": "400000000000000000000",
+        "sender": "user1",
+        "name": "liquidate",
+        "deposited_icx": "0",
+        "args": {
+          "_owner": "self.user1.get_address()"
+        },
+        "expected": "1",
+        "standing": "Liquidate",
+        "expected_sicx_baln_loan": "782000000000000000000",
+        "expected_icd_debt_baln_loan": "400000000000000000000",
+        "expected_icd_bal_wallet": "400000000000000000000"
+      }
+    },
+    {
+      "description": "Check account standing of user 2 on loan score calling liquidate method, Should now have zero balance for sICX and ICD.",
+      "actions": {
+        "prev_sicx_bal_loan": "500000000000000000000",
+        "prev_icd_debt_bal_loan": "200000000000000000000",
+        "prev_icd_bal_wallet": "200000000000000000000",
+        "sender": "user1",
+        "name": "getAccountPositions",
+        "deposited_icx": "0",
+        "args": {
+          "_owner": "self.user3.get_address()"
+        },
+        "expected": "1",
+        "standing": "Should now have zero balance for sICX and ICD",
+        "expected_sicx_baln_loan": "0",
+        "expected_icd_debt_baln_loan": "0",
+        "expected_icd_bal_wallet": "0"
+      }
+    },
+    {
+      "description": "Check account standing of user 2 on loan score after depositing collateral, should have standing of 'No debt'.",
       "actions": {
         "prev_sicx_bal_loan": "1000000000000000000000",
         "prev_icd_debt_bal_loan": "50000000000000000000",
         "prev_icd_bal_wallet": "0",
+        "sender": "user2",
         "name": "getAccountPositions",
         "deposited_icx": "0",
         "args": {
@@ -55,32 +137,16 @@
       }
     },
     {
-      "description": "Mints 200 amount of ICD to the user 3 address without checking collateralization ratio With the above collateral deposit it will put the position in a standing of Liquidation",
-      "actions": {
-        "prev_sicx_bal_loan": "1000000000000000000000",
-        "prev_icd_debt_bal_loan": "50000000000000000000",
-        "prev_icd_bal_wallet": "0",
-        "name": "add_bad_test_position",
-        "deposited_icx": "0",
-        "args": {
-
-        },
-        "expected": "1",
-        "expected_sicx_baln_loan": "1000000000000000000000",
-        "expected_icd_debt_baln_loan": "250000000000000000000",
-        "expected_icd_bal_wallet": "200000000000000000000"
-      }
-    },
-    {
-      "description": "Check account standing of user 3 on loan score after 200 ICD, should have standing of 'Liquidate'.",
+      "description": "Check account standing of user 2 on loan score after 200 ICD, should have standing of 'Liquidate'.",
       "actions": {
         "prev_sicx_bal_loan": "1000000000000000000000",
         "prev_icd_debt_bal_loan": "250000000000000000000",
         "prev_icd_bal_wallet": "200000000000000000000",
+        "sender": "user2",
         "name": "getAccountPositions",
         "deposited_icx": "0",
         "args": {
-          "_owner": "self.user3.get_address()"
+          "_owner": "self.user2.get_address()"
         },
         "expected": "1",
         "standing": "Liquidate",
@@ -88,42 +154,6 @@
         "expected_icd_debt_baln_loan": "250000000000000000000",
         "expected_icd_bal_wallet": "200000000000000000000"
       }
-    },
-    {
-      "description": "Liquidate the user 3 account position calling liquidate method on loans score",
-      "actions": {
-        "prev_sicx_bal_loan": "1000000000000000000000",
-        "prev_icd_debt_bal_loan": "250000000000000000000",
-        "prev_icd_bal_wallet": "200000000000000000000",
-        "name": "liquidate",
-        "deposited_icx": "0",
-        "args": {
-          "_owner": "self.user3.get_address()"
-        },
-        "expected": "1",
-        "expected_sicx_baln_loan": "1000000000000000000000",
-        "expected_icd_debt_baln_loan": "250000000000000000000",
-        "expected_icd_bal_wallet": "200000000000000000000"
-      }
-    },
-    {
-      "description": "Check account standing of user 3 on loan score calling liquidate method, Should now have zero balance for sICX and ICD.",
-      "actions": {
-        "prev_sicx_bal_loan": "1000000000000000000000",
-        "prev_icd_debt_bal_loan": "250000000000000000000",
-        "prev_icd_bal_wallet": "200000000000000000000",
-        "name": "getAccountPositions",
-        "deposited_icx": "0",
-        "args": {
-          "_owner": "self.user3.get_address()"
-        },
-        "expected": "1",
-        "standing": "Should now have zero balance for sICX and ICD",
-        "expected_sicx_baln_loan": "500000000000000000000",
-        "expected_icd_debt_baln_loan": "50000000000000000000",
-        "expected_icd_bal_wallet": "0"
-      }
     }
-
   ]
 }

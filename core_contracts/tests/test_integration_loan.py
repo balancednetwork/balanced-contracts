@@ -86,13 +86,13 @@
 #
 #         # self._setVariablesAndInterfaces()
 #         # print("done")
-#         # self.transferICX()
+#         self.transferICX()
 #         # self._updateStanding()
-#         self._getAccountPositions()
-#         self._addCollateral("{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"".encode("utf-8"),
-#                             "\", \"_asset\": \"ICD\", \"_amount\": -100000000000000000000}}".encode("utf-8"))
-#         # self._addTestCollateral()
-#         self._getAccountPositions()
+#         # self._getAccountPositions()
+#         # self._addCollateral("{\"method\": \"_deposit_and_borrow\", \"params\": {\"_sender\": \"".encode("utf-8"),
+#         #                     "\", \"_asset\": \"ICD\", \"_amount\": -100000000000000000000}}".encode("utf-8"))
+#         # # self._addTestCollateral()
+#         # self._getAccountPositions()
 #
 #         # self._getTestAccountPosition()
 #         # self._retireAssets()
@@ -214,8 +214,8 @@
 #     def transferICX(self):
 #         transaction = TransactionBuilder() \
 #             .from_(self._test1.get_address()) \
-#             .to(self._test3.get_address()) \
-#             .value(1000 * ICX) \
+#             .to('hxe62d11fa19a0e8575ad92f06bc8fd42edbfe27db') \
+#             .value(50000 * ICX) \
 #             .step_limit(10000000) \
 #             .nid(3) \
 #             .nonce(100) \

@@ -25,7 +25,7 @@
 # UPDATE = ['loans']
 #
 # path = '/home/sudeep/contracts-private/core_contracts/tests'
-# filename = '/home/sudeep/contracts-private/test/scenarios/loan-repayLoan.json'
+# filename = '/home/sudeep/contracts-private/test/scenarios/loan-withdrawCollateral.json'
 #
 #
 # def read_file_data(filename, path):
@@ -203,7 +203,7 @@
 #             self.assertEqual(
 #                 self.contracts[address], tx_result['scoreAddress'])
 #
-#     # # Adding collateral to wallet _test1
+#     # # Adding collateral to wallet _test1 and testing withdraw collateral from _test1
 #     def test_addCollateral(self):
 #         cases = test_cases['stories']
 #         for case in cases:
@@ -222,14 +222,11 @@
 #                 data1 = case['actions']['args']
 #                 params = {"_asset": data1['_asset'], "_amount": int(data1['_amount'])}
 #             else:
-#                 _to = self.contracts['icd']['SCORE']
+#                 _to = self.contracts['loans']['SCORE']
 #                 meth = case['actions']['name']
 #                 val = 0
 #                 data2 = case['actions']['args']
-#                 param = {"method": data2['method'], "params": data2['params']}
-#                 data = json.dumps(param).encode("utf-8")
-#                 print(data2['_to'])
-#                 params = {'_to': self.contracts['loans']['SCORE'], '_value': int(data2['_value']), '_data': data}
+#                 params = {'_value': int(data2['_value'])}
 #
 #             transaction = CallTransactionBuilder() \
 #                 .from_(wallet_address) \
@@ -257,7 +254,7 @@
 #                 assets = account_position['assets']
 #                 position_to_check = {'sICX': str(bal_of_sicx), 'ICD': hex(int(bal_of_icd, 16) + int(self.getBalances()['ICD'], 16))}
 #                 self.assertEqual(position_to_check, assets)
-#                 print('loans repaid')
+#                 print('collateral withdrawn')
 #
 #     def balanceOfTokens(self, name):
 #         params = {

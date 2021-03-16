@@ -7,6 +7,7 @@
       "actions": {
         "prev_sicx_bal_loan": "0",
         "prev_icd_debt_bal_loan": "0",
+        "sender": "user1",
         "name": "addCollateral",
         "deposited_icx": "500000000000000000000",
         "args": {
@@ -23,6 +24,7 @@
       "actions": {
         "prev_sicx_bal_loan": "500000000000000000000",
         "prev_icd_debt_bal_loan": "50000000000000000000",
+        "sender": "user1",
         "name": "withdrawCollateral",
         "args": {
           "_value": "50000000000000000000"
@@ -33,61 +35,65 @@
       }
     },
     {
-      "description": "User 1 withdraws 291 ICX from the available collateral",
+      "description": "User 1 withdraws 330 ICX from the available collateral",
       "actions": {
         "prev_sicx_bal_loan": "450000000000000000000",
         "prev_icd_debt_bal_loan": "50000000000000000000",
+        "sender": "user1",
         "name": "withdrawCollateral",
         "args": {
-          "_value": "291000000000000000000"
+          "_value": "330000000000000000000"
         },
         "expected": "0",
-        "revertMessage": "cannot withdraw the given collateral amount",
+        "revertMessage": "Requested withdrawal is more than available collateral. total debt value: 30196764153578393315 ICX remaining collateral value: 120000000000000000000 ICX locking value (max debt): 120787056614313573260 ICX",
         "expected_sicx_baln_loan": "450000000000000000000",
         "expected_icd_debt_baln_loan": "50000000000000000000"
       }
     },
     {
-      "description": "User 1 withdraws 290 ICX from the available collateral",
+      "description": "User 1 withdraws 329 ICX from the available collateral",
       "actions": {
         "prev_sicx_bal_loan": "450000000000000000000",
         "prev_icd_debt_bal_loan": "50000000000000000000",
+        "sender": "user1",
         "name": "withdrawCollateral",
         "args": {
-          "_value": "290000000000000000000"
+          "_value": "329000000000000000000"
         },
         "expected": "1",
-        "expected_sicx_baln_loan": "160000000000000000000",
-        "expected_icd_debt_baln_loan": "50000000000000000000"
-      }
-    },
-    {
-      "description": "User 1 withdraws 450 ICX from the available collateral",
-      "actions": {
-        "prev_sicx_bal_loan": "450000000000000000000",
-        "prev_icd_debt_bal_loan": "50000000000000000000",
-        "name": "withdrawCollateral",
-        "args": {
-          "_value": "450000000000000000000"
-        },
-        "expected": "0",
-        "revertMessage": "since the account has 40 ICD loans ,cannot withdraw whole collateral",
-        "expected_sicx_baln_loan": "450000000000000000000",
+        "expected_sicx_baln_loan": "121000000000000000000",
         "expected_icd_debt_baln_loan": "50000000000000000000"
       }
     },
     {
       "description": "User 1 withdraws -50 ICX from the available collateral",
       "actions": {
-        "prev_sicx_bal_loan": "450000000000000000000",
+        "prev_sicx_bal_loan": "121000000000000000000",
         "prev_icd_debt_bal_loan": "50000000000000000000",
+        "sender": "user1",
         "name": "withdrawCollateral",
         "args": {
           "_value": "-50000000000000000000"
         },
         "expected": "0",
-        "revertMessage": "Invalid value",
-        "expected_sicx_baln_loan": "450000000000000000000",
+        "revertMessage": "-50000000000000000000 sICX not sent to hxe7af5fcfd8dfc67530a01a0e403882687528dfcb. Exception: Transferring value cannot be less than 0.",
+        "expected_sicx_baln_loan": "121000000000000000000",
+        "expected_icd_debt_baln_loan": "50000000000000000000"
+      }
+    },
+    {
+      "description": "User 1 withdraws 121 ICX from the available collateral",
+      "actions": {
+        "prev_sicx_bal_loan": "121000000000000000000",
+        "prev_icd_debt_bal_loan": "50000000000000000000",
+        "sender": "user1",
+        "name": "withdrawCollateral",
+        "args": {
+          "_value": "121000000000000000000"
+        },
+        "expected": "0",
+        "revertMessage": "Requested withdrawal is more than available collateral. total debt value: 30196764153578393315 ICX remaining collateral value: 0 ICX locking value (max debt): 120787056614313573260 ICX",
+        "expected_sicx_baln_loan": "121000000000000000000",
         "expected_icd_debt_baln_loan": "50000000000000000000"
       }
     }
