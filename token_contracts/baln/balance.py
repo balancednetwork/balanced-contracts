@@ -76,8 +76,9 @@ class BalanceToken(IRC2):
 
         self._dividends_score = VarDB(self._DIVIDENDS_SCORE, db, value_type=Address)
 
-    def on_install(self) -> None:
+    def on_install(self, _governance: Address) -> None:
         super().on_install(TOKEN_NAME, SYMBOL_NAME)
+        self._governance.set(_governance)
         self._staking_enabled.set(False)
         self._index_update_stake.set(0)
         self._index_stake_address_changes.set(0)

@@ -22,8 +22,9 @@ class WorkerToken(IRC2):
         self._baln_token = VarDB(self._BALN_TOKEN, db, value_type=Address)
         self._baln = VarDB(self._BALN, db, value_type=int)
 
-    def on_install(self) -> None:
+    def on_install(self, _governance: Address) -> None:
         super().on_install(TOKEN_NAME, SYMBOL_NAME, INITIAL_SUPPLY, DECIMALS)
+        self._governance.set(_governance)
 
     def on_update(self) -> None:
         super().on_update()

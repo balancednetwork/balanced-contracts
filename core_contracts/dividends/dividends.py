@@ -41,15 +41,18 @@ class Dividends(IconScoreBase):
     _GOVERNANCE = 'governance'
     _ADMIN = 'admin'
     _LOANS_SCORE = 'loans_score'
+    _DAOFUND = 'daofund'
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._loans_score = VarDB(self._LOANS_SCORE, db, value_type=Address)
+        self._daofund = VarDB(self._DAOFUND, db, value_type=Address)
 
-    def on_install(self) -> None:
+    def on_install(self, _governance: Address) -> None:
         super().on_install()
+        self._governance.set(_governance)
 
     def on_update(self) -> None:
         super().on_update()
@@ -84,6 +87,15 @@ class Dividends(IconScoreBase):
     @external(readonly=True)
     def getLoans(self) -> Address:
         return self._loans_score.get()
+
+    @external
+    @only_admin
+    def setDaofund(self, _address: Address) -> None:
+        self._daofund.set(_address)
+
+    @external(readonly=True)
+    def getDaofund(self) -> Address:
+        return self._daofund.get()
 
     @external(readonly=True)
     def getBalances(self) -> dict:

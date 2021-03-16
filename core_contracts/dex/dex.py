@@ -48,7 +48,7 @@ class DEX(IconScoreBase):
     _FUNDED_ADDRESSES = 'funded_addresses'
     _ICX_QUEUE_TOTAL = 'icx_queue_total'
     _SICX_ADDRESS = 'sicx_address'
-    _ICD_ADDRESS = 'icd_address'
+    _bnUSD_ADDRESS = 'bnUSD_address'
     _BALN_ADDRESS = 'baln_address'
     _STAKING_ADDRESS = 'staking_address'
     _DIVIDENDS_ADDRESS = 'dividends_address'
@@ -145,8 +145,8 @@ class DEX(IconScoreBase):
             self._GOVERNANCE_ADDRESS, db, value_type=Address)
         self._rewards = VarDB(
             self._REWARDS_ADDRESS, db, value_type=Address)
-        self._icd = VarDB(
-            self._ICD_ADDRESS, db, value_type=Address)
+        self._bnUSD = VarDB(
+            self._bnUSD_ADDRESS, db, value_type=Address)
         self._baln = VarDB(
             self._BALN_ADDRESS, db, value_type=Address)
 
@@ -232,8 +232,9 @@ class DEX(IconScoreBase):
         self._named_markets = IterableDictDB(
             self._NAMED_MARKETS, db, value_type=int, key_type=str, order=True)
 
-    def on_install(self) -> None:
+    def on_install(self, _governance: Address) -> None:
         super().on_install()
+        self._governance.set(_governance)
         self._pool_lp_fee.set(15)
         self._pool_baln_fee.set(15)
         self._icx_conversion_fee.set(70)
@@ -352,19 +353,19 @@ class DEX(IconScoreBase):
 
     @only_admin
     @external
-    def setIcd(self, _address: Address) -> None:
+    def setbnUSD(self, _address: Address) -> None:
         """
         :param _address: New contract address to set.
-        Sets new ICD contract address. Should be called before dex use.
+        Sets new bnUSD contract address. Should be called before dex use.
         """
-        self._icd.set(_address)
+        self._bnUSD.set(_address)
 
     @external
-    def getIcd(self) -> Address:
+    def getbnUSD(self) -> Address:
         """
-        Gets the address of the ICD contract.
+        Gets the address of the bnUSD contract.
         """
-        return self._icd.get()
+        return self._bnUSD.get()
 
     @only_admin
     @external
@@ -1184,7 +1185,7 @@ class DEX(IconScoreBase):
         self._update_total_supply_snapshot(_pid)
 
     @external
-    def add(self, _baseToken: Address, _quoteToken: Address, _baseValue: int, _quoteValue: int):
+    def add(self, _baseToken: Address, _quoteToken: Address, _maxBaseValue: int, _quoteValue: int):
         """
         Adds liquidity to a pool for trading, or creates a new pool. Rules:
         - The quote coin of the pool must be one of the allowed quote currencies.
@@ -1195,18 +1196,21 @@ class DEX(IconScoreBase):
         _pid = self._pool_id[_baseToken][_quoteToken]
         if _baseToken == _quoteToken:
             revert("Pool must contain two token contracts")
-        if not _baseValue:
+        if not _maxBaseValue:
             revert("Please send initial value for first currency")
         if not _quoteValue:
             revert("Please send initial value for second currency")
-        if self._deposit[_baseToken][self.msg.sender] < _baseValue:
+        if self._deposit[_baseToken][self.msg.sender] < _maxBaseValue:
             revert("Insufficient base asset funds deposited")
         if self._deposit[_quoteToken][self.msg.sender] < _quoteValue:
             revert("insufficient quote asset funds deposited")
 
+        # By default on new pools, use the maximum sent _maxBaseValue for supplied liquidity
+        base_to_commit = _maxBaseValue
+
         if _pid == 0:
-            if not (_quoteToken == self._icd.get()) and not (_quoteToken == self._sicx.get()):
-                revert("Second currency must be ICD or sICX")
+            if not (_quoteToken == self._bnUSD.get()) and not (_quoteToken == self._sicx.get()):
+                revert("Second currency must be bnUSD or sICX")
             self._pool_id[_baseToken][_quoteToken] = self._nonce.get()
             self._pool_id[_quoteToken][_baseToken] = self._nonce.get()
             _pid = self._nonce.get()
@@ -1216,18 +1220,16 @@ class DEX(IconScoreBase):
             self._pool_base[_pid] = _baseToken
             self._pool_quote[_pid] = _quoteToken
             self.MarketAdded(_pid, _baseToken, _quoteToken,
-                             _baseValue, _quoteValue)
+                             _maxBaseValue, _quoteValue)
 
         else:
-            expected_quote = int(
-                (_baseValue * self._pool_total[_pid][self._pool_quote[_pid]]) / (self._pool_total[_pid][self._pool_base[_pid]]))
-            if not expected_quote == _quoteValue:
-                revert('disproportionate amount')
-            liquidity = int(
-                (self._total[_pid] * _baseValue) / self._pool_total[_pid][_baseToken])
-        self._pool_total[_pid][_baseToken] += _baseValue
+            base_to_commit = (_quoteValue * self._pool_total[_pid][self._pool_base[_pid]]) // (self._pool_total[_pid][self._pool_quote[_pid]])
+            if base_to_commit > _maxBaseValue:
+                revert('Proportionate base amount is {}, but sent {}'.format(base_to_commit, _maxBaseValue))
+            liquidity = (self._total[_pid] * base_to_commit) // self._pool_total[_pid][_baseToken]
+        self._pool_total[_pid][_baseToken] += base_to_commit
         self._pool_total[_pid][_quoteToken] += _quoteValue
-        self._deposit[_baseToken][self.msg.sender] -= _baseValue
+        self._deposit[_baseToken][self.msg.sender] -= base_to_commit
         self._deposit[_quoteToken][self.msg.sender] -= _quoteValue
         self._balance[_pid][_owner] += liquidity
         self._total[_pid] += liquidity

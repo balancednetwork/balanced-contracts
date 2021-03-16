@@ -25,8 +25,10 @@ class StakedICX(IRC2Mintable, IRC2Burnable):
         self._peg = VarDB(self._PEG, db, value_type=str)
         self._staking_address = VarDB(self._STAKING, db, value_type=Address)
 
-    def on_install(self) -> None:
+    def on_install(self, _admin: Address) -> None:
         super().on_install(TOKEN_NAME, SYMBOL_NAME)
+        self._admin.set(_admin)
+        self._staking_address.set(_admin)
         self._peg.set('sICX')
 
     def on_update(self) -> None:

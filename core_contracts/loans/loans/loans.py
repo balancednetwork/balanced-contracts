@@ -112,8 +112,9 @@ class Loans(IconScoreBase):
         self._redeem_minimum = VarDB(self._REDEEM_MINIMUM, db, value_type=int)
         self._new_loan_minimum = VarDB(self._NEW_LOAN_MINIMUM, db, value_type=int)
 
-    def on_install(self) -> None:
+    def on_install(self, _governance: Address) -> None:
         super().on_install()
+        self._governance.set(_governance)
         self._loans_on.set(False)
         self._admin.set(self.owner)
         self._replay_batch_size.set(REPLAY_BATCH_SIZE)
@@ -125,6 +126,7 @@ class Loans(IconScoreBase):
         self._liquidation_ratio.set(DEFAULT_LIQUIDATION_RATIO)
         self._origination_fee.set(DEFAULT_ORIGINATION_FEE)
         self._redemption_fee.set(DEFAULT_REDEMPTION_FEE)
+        self._liquidation_reward.set(LIQUIDATION_REWARD)
         self._retirement_bonus.set(BAD_DEBT_RETIREMENT_BONUS)
         self._redeem_minimum.set(REDEEM_MINIMUM)
         self._new_loan_minimum.set(NEW_LOAN_MINIMUM)
@@ -144,18 +146,18 @@ class Loans(IconScoreBase):
         pos = self._positions.get_pos(TEST_ADDRESS)
         # Independently, 782769 * 10**15 =~$299 worth of collateral will be
         # deposited for this position.
-        icd: int = 2 * 10**20 # $200 ICD debt
-        self._assets['ICD'].mint(TEST_ADDRESS, icd)
-        pos['ICD'] += icd
+        bnUSD: int = 2 * 10**20 # $200 bnUSD debt
+        self._assets['bnUSD'].mint(TEST_ADDRESS, bnUSD)
+        pos['bnUSD'] += bnUSD
         pos.update_standing()
 
     @external(readonly=True)
     def checkDebts(self) -> dict:
         debts = 0
         for i in range(len(self._positions)):
-            debts += self._positions[i + 1]['ICD']
-        bad_debt = self._assets['ICD'].bad_debt.get()
-        supply = self._assets['ICD'].totalSupply()
+            debts += self._positions[i + 1]['bnUSD']
+        bad_debt = self._assets['bnUSD'].bad_debt.get()
+        supply = self._assets['bnUSD'].totalSupply()
         diff = supply - debts - bad_debt
         system_checks = {'debts': debts,
                          'bad_debt': bad_debt,
@@ -570,13 +572,20 @@ class Loans(IconScoreBase):
         """
         if _value <= 0:
             revert(f'Amount retired must be greater than zero.')
-
         asset = self._assets._get_asset(str(self.msg.sender))
+        symbol = asset.symbol()
+        if self._positions._exists(_from):
+            repay = min(pos[symbol], _value)
+            if repay > 0:
+                self._repay_loan(_from, repay)
+            if repay == _value:
+                return
+            else:
+                _value -= repay
         price = asset.priceInLoop()
         redeem_min = self._redeem_minimum.get()
-        if _value * price // self._assets['ICD'].priceInLoop() < redeem_min:
+        if _value * price // self._assets['bnUSD'].priceInLoop() < redeem_min:
             revert(f'Minimum redeemed asset value is ${redeem_min // EXA}')
-        symbol = asset.symbol()
         bad_debt = asset.bad_debt.get()
         sicx_rate = self._assets['sICX'].priceInLoop()
         fee = _value * self._redemption_fee.get() // POINTS
@@ -677,7 +686,7 @@ class Loans(IconScoreBase):
         # Check for loan minimum
         if pos[_asset] == 0:
             loan_minimum = self._new_loan_minimum.get()
-            dollar_value = new_debt_value * EXA // self._assets['ICD'].priceInLoop()
+            dollar_value = new_debt_value * EXA // self._assets['bnUSD'].priceInLoop()
             if dollar_value < loan_minimum:
                 revert(f'The initial loan of any asset must have a minimum value '
                        f'of {loan_minimum / EXA} dollars.')
@@ -708,6 +717,8 @@ class Loans(IconScoreBase):
         :param _value: Amount of sICX to withdraw.
         :type _value: int
         """
+        if _value <= 0:
+            revert(f'Withdraw amount must be more than zero.')
         _from = self.msg.sender
         if not self._positions._exists(_from):
             revert(f'This address does not have a position on Balanced.')
@@ -750,7 +761,7 @@ class Loans(IconScoreBase):
         if pos.last_event_played() < len(self._event_log):
             processed, remaining = self.replayEvents(_owner)
             if remaining != 0:
-                standing = Standing.STANDING[Standing.INDETERMINATE]
+                standing = Standing.STANDINGS[Standing.INDETERMINATE]
                 self.PositionStanding(_owner, standing, '-', f'Events remaining: {remaining}')
                 return Standing.INDETERMINATE
         standing = pos.update_standing()
@@ -778,8 +789,8 @@ class Loans(IconScoreBase):
         if not self._positions._exists(_owner):
             revert(f'This address does not have a position on Balanced.')
         _standing = self.updateStanding(_owner)
-        pos = self._positions.get_pos(_owner)
         if _standing == Standing.LIQUIDATE:
+            pos = self._positions.get_pos(_owner)
             collateral = pos['sICX']
             reward = collateral * self._liquidation_reward.get() // POINTS
             for_pool = collateral - reward
@@ -797,8 +808,8 @@ class Loans(IconScoreBase):
                     pool = self._assets[symbol].liquidation_pool.get()
                     self._assets[symbol].liquidation_pool.set(pool + share)
                     pos[symbol] = 0
-            self._send_token('sICX', self.msg.sender, reward, "Liquidation reward of")
             pos['sICX'] = 0
+            self._send_token('sICX', self.msg.sender, reward, "Liquidation reward of")
             pos.update_standing()
             self._positions.remove_nonzero(pos.address.get())
             self.Liquidate(_owner, collateral, f'{collateral} liquidated from {_owner}')
