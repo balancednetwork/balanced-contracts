@@ -636,23 +636,23 @@ class Staking(IconScoreBase):
     def _delegations(self, evenly_distribute_value: int) -> None:
         """
         Delegates the ICX to top prep addresses.
-        :params evenly_distribute_value : Amount to be distributed to all the preps evenly.
-        :params source : to find out the source of the function call.
+
+        :param evenly_distribute_value: Share of even distribution to each P-Rep.
         """
         delegation_list = []
-        top_preps = self._top_preps
+        total_preps = len(self._top_preps)
         voting_power_check = 0
         count = 0
-        for one in top_preps:
+        for prep in self._top_preps:
             count += 1
-            one = Address.from_string(str(one))
-            value_in_icx = self._prep_delegations[str(one)] + evenly_distribute_value
+            value_in_icx = self._prep_delegations[str(prep)] + evenly_distribute_value
             voting_power_check += value_in_icx
-            if count == len(top_preps):
-                to_add = self.getTotalStake() - voting_power_check
-                value_in_icx += to_add
+            # If this is the last prep, we add the dust.
+            if count == total_preps:
+                dust = self.getTotalStake() - voting_power_check
+                value_in_icx += dust
             delegation_info: Delegation = {
-                "address": one,
+                "address": prep,
                 "value": value_in_icx
             }
             delegation_list.append(delegation_info)
