@@ -4,12 +4,15 @@ from ..utils.checks import *
 from ..utils.consts import *
 
 TAG = 'IRC_2'
+EOA_ZERO = Address.from_string('hx' + '0' * 40)
 
 class InsufficientBalanceError(Exception):
 	pass
 
+
 class ZeroValueError(Exception):
 	pass
+
 
 class InvalidNameError(Exception):
 	pass
@@ -234,12 +237,13 @@ class IRC2(TokenStandard, IconScoreBase):
 		self._beforeTokenTransfer(0, account, amount)
 
 		self._total_supply.set(self._total_supply.get() + amount)
-		self._balances[self.address] +=  amount
-
-		self._transfer(self.address, account, amount, _data)
+		self._balances[self.address] += amount
 
 		# Emits an event log Mint
 		self.Mint(account, amount, _data)
+
+		# Emits an event log `Transfer`
+		self.Transfer(EOA_ZERO, account, amount, _data)
 
 	@only_admin
 	def _burn(self, account: Address, amount: int) -> None:
@@ -262,12 +266,14 @@ class IRC2(TokenStandard, IconScoreBase):
 
 		self._beforeTokenTransfer(account, 0, amount)
 
-		self._transfer(account, self.address, amount, b'None')
 		self._total_supply.set(self._total_supply.get() - amount)
 		self._balances[self.address] -= amount
 
 		# Emits an event log Burn
 		self.Burn(account, amount)
+
+		# Emits an event log `Transfer`
+		self.Transfer(account, EOA_ZERO, amount, b'None')
 
 	def _beforeTokenTransfer(self, _from: Address, _to: Address,_value: int) -> None:
 		"""

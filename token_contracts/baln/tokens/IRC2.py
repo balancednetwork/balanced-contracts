@@ -4,7 +4,7 @@ from ..utils.checks import *
 from ..utils.consts import *
 
 TAG = 'IRC_2'
-
+EOA_ZERO = Address.from_string('hx' + '0' * 40)
 
 class InsufficientBalanceError(Exception):
 	pass
@@ -237,6 +237,9 @@ class IRC2(TokenStandard, IconScoreBase):
 		# Emits an event log Mint
 		self.Mint(account, amount, _data)
 
+		# Emits an event log `Transfer`
+		self.Transfer(EOA_ZERO, account, amount, _data)
+
 	@only_admin
 	def _burn(self, account: Address, amount: int) -> None:
 		"""
@@ -263,6 +266,9 @@ class IRC2(TokenStandard, IconScoreBase):
 
 		# Emits an event log Burn
 		self.Burn(account, amount)
+
+		# Emits an event log `Transfer`
+		self.Transfer(account, EOA_ZERO, amount, b'None')
 
 	def _beforeTokenTransfer(self, _from: Address, _to: Address, _value: int) -> None:
 		"""

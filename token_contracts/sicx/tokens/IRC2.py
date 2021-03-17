@@ -4,20 +4,25 @@ from ..utils.checks import *
 from ..utils.consts import *
 
 TAG = 'IRC_2'
+EOA_ZERO = Address.from_string('hx' + '0' * 40)
 
 class InsufficientBalanceError(Exception):
 	pass
 
+
 class ZeroValueError(Exception):
 	pass
+
 
 class InvalidNameError(Exception):
 	pass
 
+
 class stakingManagementInterface(InterfaceScore):
 	@interface
-	def transferUpdateDelegations(self,_from:Address,_to:Address,_value:int):
+	def transferUpdateDelegations(self, _from: Address, _to: Address, _value: int):
 		pass
+
 
 # An interface of tokenFallback.
 # Receiving SCORE that has implemented this interface can handle
@@ -175,7 +180,7 @@ class IRC2(TokenStandard, IconScoreBase):
 			_data = b'None'
 		staking_score = self.create_interface_score(self._admin.get(), stakingManagementInterface)
 		if _to != self._admin.get():
-			staking_score.transferUpdateDelegations(self.msg.sender,_to,_value)
+			staking_score.transferUpdateDelegations(self.msg.sender, _to, _value)
 		self._transfer(self.msg.sender, _to, _value, _data)
 
 	def _transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
@@ -227,7 +232,7 @@ class IRC2(TokenStandard, IconScoreBase):
 		Increases the balance of that account and total supply.
 		This is an internal function
 
-		:param account: The account at which token is to be created.
+		:param account: The account at whhich token is to be created.
 		:param amount: Number of tokens to be created at the `account`.
 		:param _data: Any information or message
 
@@ -239,15 +244,17 @@ class IRC2(TokenStandard, IconScoreBase):
 		if amount <= 0:
 			raise ZeroValueError("Invalid Value")
 			pass
+
 		self._beforeTokenTransfer(0, account, amount)
 
 		self._total_supply.set(self._total_supply.get() + amount)
-		self._balances[self.address] +=  amount
-
-		self._transfer(self.address, account, amount, _data)
+		self._balances[self.address] += amount
 
 		# Emits an event log Mint
 		self.Mint(account, amount, _data)
+
+		# Emits an event log `Transfer`
+		self.Transfer(EOA_ZERO, account, amount, _data)
 
 	@only_admin
 	def _burn(self, account: Address, amount: int) -> None:
@@ -270,12 +277,14 @@ class IRC2(TokenStandard, IconScoreBase):
 
 		self._beforeTokenTransfer(account, 0, amount)
 
-		self._transfer(account, self.address, amount, b'None')
 		self._total_supply.set(self._total_supply.get() - amount)
 		self._balances[self.address] -= amount
 
 		# Emits an event log Burn
 		self.Burn(account, amount)
+
+		# Emits an event log `Transfer`
+		self.Transfer(account, EOA_ZERO, amount, b'None')
 
 	def _beforeTokenTransfer(self, _from: Address, _to: Address,_value: int) -> None:
 		"""
