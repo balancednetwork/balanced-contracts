@@ -235,6 +235,7 @@ class Rewards(IconScoreBase):
             baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
             self._baln_holdings[address] = 0
             baln_token.transfer(self.msg.sender, amount)
+            self.RewardsClaimed(address, amount)
 
     def _get_day(self) -> int:
         today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS
@@ -340,3 +341,12 @@ class Rewards(IconScoreBase):
     @external(readonly=True)
     def getTimeOffset(self) -> int:
         return self._start_timestamp.get()
+
+
+#-------------------------------------------------------------------------------
+#   EVENT LOGS
+#-------------------------------------------------------------------------------
+
+    @eventlog(indexed=1)
+    def RewardsClaimed(self, _address: Address, _amount: int):
+        pass
