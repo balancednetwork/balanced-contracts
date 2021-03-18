@@ -678,7 +678,7 @@ class Staking(IconScoreBase):
         self._delegations(self._reset_top_preps())
         self._stake(self._total_stake.get())
         stake_in_network = self._system.getStake(self.address)
-        self._linked_list_var.append(self.msg.sender, amount_to_unstake,
+        self._linked_list_var.append(_to, amount_to_unstake,
                                      stake_in_network['unstakes'][-1]['unstakeBlockHeight'], _to,
                                      self._linked_list_var._tail_id.get() + 1)
         self._sICX_supply.set(self._sICX_supply.get() - _value)
