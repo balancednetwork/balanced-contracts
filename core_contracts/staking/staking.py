@@ -579,8 +579,8 @@ class Staking(IconScoreBase):
             self._daily_reward.set(daily_reward)
             self._total_lifetime_reward.set(self.getLifetimeReward() + daily_reward)
             self._rate.set(self.getRate())
-            self._total_stake.set(self.getTotalStake() + daily_reward)
             totalStake = self._total_stake.get()
+            self._total_stake.set(self.getTotalStake() + daily_reward)
             for single_prep in self.getPrepList():
                 value_in_icx = self._prep_delegations[str(single_prep)]
                 weightage_in_per = ((value_in_icx * DENOMINATOR) // totalStake) * 100
@@ -636,15 +636,24 @@ class Staking(IconScoreBase):
     def _delegations(self, evenly_distribute_value: int) -> None:
         """
         Delegates the ICX to top prep addresses.
-        :params evenly_distribute_value : Amount to be distributed to all the preps evenly.
-        :params source : to find out the source of the function call.
+
+        :param evenly_distribute_value: Share of even distribution to each P-Rep.
         """
         delegation_list = []
-        for one in self._top_preps:
-            one = Address.from_string(str(one))
+        total_preps = len(self._top_preps)
+        voting_power_check = 0
+        count = 0
+        for prep in self._top_preps:
+            count += 1
+            value_in_icx = self._prep_delegations[str(prep)] + evenly_distribute_value
+            voting_power_check += value_in_icx
+            # If this is the last prep, we add the dust.
+            if count == total_preps:
+                dust = self.getTotalStake() - voting_power_check
+                value_in_icx += dust
             delegation_info: Delegation = {
-                "address": one,
-                "value": self._prep_delegations[str(one)] + evenly_distribute_value
+                "address": prep,
+                "value": value_in_icx
             }
             delegation_list.append(delegation_info)
         self._system.setDelegation(delegation_list)
