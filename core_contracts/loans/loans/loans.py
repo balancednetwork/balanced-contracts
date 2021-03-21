@@ -228,8 +228,7 @@ class Loans(IconScoreBase):
     @external(readonly=True)
     def checkDeadMarkets(self) -> list:
         """
-        Checks if any of the assets have changed Dead Market status and updates
-        them accordingly.
+        Returns the symbols for all assets with dead_market status.
         """
         dead_markets = []
         for symbol in self._assets.slist:

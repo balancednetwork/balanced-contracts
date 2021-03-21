@@ -212,18 +212,16 @@ class IRC2(TokenStandard, IconScoreBase):
 		self._balances[_from] -= _value
 		self._balances[_to] += _value
 
+		# Emits an event log `Transfer`
+		self.Transfer(_from, _to, _value, _data)
+
 		if _to.is_contract:
 			"""
 			If the recipient is SCORE,
 			then calls `tokenFallback` to hand over control.
 			"""
-			# revert(f'Yes, about to transfer to {_to}, from {_from}, {_value} sICX. '
-			# 	   f'Forwarding data = {_data.decode("utf-8")}')
 			recipient_score = self.create_interface_score(_to, TokenFallbackInterface)
 			recipient_score.tokenFallback(_from, _value, _data)
-
-		# Emits an event log `Transfer`
-		self.Transfer(_from, _to, _value, _data)
 
 	@only_admin
 	def _mint(self, account: Address, amount: int, _data: bytes) -> None:
@@ -255,6 +253,14 @@ class IRC2(TokenStandard, IconScoreBase):
 
 		# Emits an event log `Transfer`
 		self.Transfer(EOA_ZERO, account, amount, _data)
+
+		if account.is_contract:
+			"""
+			If the recipient is SCORE,
+			then calls `tokenFallback` to hand over control.
+			"""
+			recipient_score = self.create_interface_score(account, TokenFallbackInterface)
+			recipient_score.tokenFallback(EOA_ZERO, amount, _data)
 
 	@only_admin
 	def _burn(self, account: Address, amount: int) -> None:
