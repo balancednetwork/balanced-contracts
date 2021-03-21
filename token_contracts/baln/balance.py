@@ -158,7 +158,12 @@ class BalanceToken(IRC2):
         """
         Returns the latest price of the asset in loop.
         """
-        return self._last_price.get()
+        base = self._peg.get()
+        quote = "ICX"
+        oracle_address = self._oracle_address.get()
+        oracle = self.create_interface_score(oracle_address, OracleInterface)
+        priceData = oracle.get_reference_data(base, quote)
+        return priceData['rate']
 
     def update_asset_value(self) -> None:
         """
@@ -175,7 +180,7 @@ class BalanceToken(IRC2):
             self._price_update_time.set(self.now())
             self.OraclePrice(base + quote, self._oracle_name.get(), oracle_address, priceData['rate'])
         except BaseException as e:
-            self.OraclePriceUpdateFailed(base + quote, self._oracle_name.get(), oracle_address, f'Exception: {e}')
+            revert(f'{base + quote}, {self._oracle_name.get()}, {oracle_address}, Exception: {e}')
 
     @external(readonly=True)
     def detailsBalanceOf(self, _owner: Address) -> dict:

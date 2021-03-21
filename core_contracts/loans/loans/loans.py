@@ -138,6 +138,22 @@ class Loans(IconScoreBase):
         self._locking_ratio.set(DEFAULT_LOCKING_RATIO)
         self._liquidation_ratio.set(DEFAULT_LIQUIDATION_RATIO)
 
+    @payable
+    @external
+    def create_test_position(self, _address: Address, _asset: str, _amount: int) -> None:
+        # Create bad position for testing liquidation. Take out a loan that is too large.
+        # Add ICX collateral via staking contract.
+        params = {"_sender": str(_address), "_asset": "", "_amount": 0}
+        data = json_dumps({"method": "_deposit_and_borrow", "params": params}).encode("utf-8")
+        staking = self.create_interface_score(self._staking.get(), Staking)
+        staking.icx(self.msg.value).stakeICX(self.address, data)
+        pos = self._positions.get_pos(_address)
+        # Mint asset for this position.
+        if _amount > 0:
+            self._assets[_asset].mint(_address, _amount)
+            pos[_asset] += _amount
+        pos.update_standing()
+
     @external
     def add_bad_test_position(self) -> None:
         # # Create bad position for testing liquidation. Take out a loan that is too large.
@@ -560,6 +576,7 @@ class Loans(IconScoreBase):
             repaid = pos[symbol]
             refund = _value - repaid
             pos[symbol] = 0
+            del pos[symbol]
             self._send_token(symbol, _from, refund, "Excess refunded.")
         if repaid != 0:
             self._assets[symbol].burn(repaid)
@@ -819,6 +836,7 @@ class Loans(IconScoreBase):
                     pool = self._assets[symbol].liquidation_pool.get()
                     self._assets[symbol].liquidation_pool.set(pool + share)
                     pos[symbol] = 0
+                    del pos[symbol]
             pos['sICX'] = 0
             self._send_token('sICX', self.msg.sender, reward, "Liquidation reward of")
             pos.update_standing()

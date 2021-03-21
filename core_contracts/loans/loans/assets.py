@@ -1,4 +1,5 @@
 from iconservice import *
+from ..scorelib.id_factory import IdFactory
 
 TAG = 'BalancedAssets'
 
@@ -43,6 +44,7 @@ class Asset(object):
 
     def __init__(self, db: IconScoreDatabase, loans: IconScoreBase) -> None:
         self._loans = loans
+        self.event_id_factory = IdFactory('asset_event_id', db)
         self.added = VarDB('added', db, value_type=int)
         self.asset_address = VarDB('address', db, value_type=Address)
         self.bad_debt = VarDB('bad_debt', db, value_type=int)
@@ -108,12 +110,15 @@ class Asset(object):
         """
         bad_debt = self.bad_debt.get()
         outstanding = self.totalSupply() - bad_debt
-        pool_value = self.liquidation_pool.get() * self.lastPriceInLoop() // self._loans._assets['sICX'].lastPriceInLoop()
+        pool_value = self.liquidation_pool.get() * self.priceInLoop() // self._loans._assets['sICX'].priceInLoop()
         net_bad_debt = bad_debt - pool_value
         dead = net_bad_debt > outstanding / 2
         if dead != self.dead_market.get():
             self.dead_market.set(dead)
         return dead
+
+    def get_last_event(self):
+        return self._id_factory.get_last_uid()
 
     def to_dict(self) -> dict:
         """
