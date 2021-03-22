@@ -1153,6 +1153,10 @@ class DEX(IconScoreBase):
         This method can withdraw up to a user's holdings in a pool, but it cannot
         be called if the user has not passed their withdrawal lock time period.
         """
+
+        self._take_new_day_snapshot()
+        self._check_distributions()
+
         balance = self._balance[_pid][self.msg.sender]
         if not self.active[_pid]:
             revert("Pool is not active")
@@ -1192,6 +1196,10 @@ class DEX(IconScoreBase):
         - Tokens must be deposited in the pool's ratio.
         - If ratio is incorrect, it is advisable to call `swap` first.
         """
+
+        self._take_new_day_snapshot()
+        self._check_distributions()
+
         _owner = self.msg.sender
         _pid = self._pool_id[_baseToken][_quoteToken]
         if _baseToken == _quoteToken:
