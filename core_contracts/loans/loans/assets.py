@@ -108,6 +108,8 @@ class Asset(object):
         :return: Dead status
         :rtype: bool
         """
+        if self.is_collateral.get() or not self.active.get():
+            return False
         bad_debt = self.bad_debt.get()
         outstanding = self.totalSupply() - bad_debt
         pool_value = self.liquidation_pool.get() * self.priceInLoop() // self._loans._assets['sICX'].priceInLoop()

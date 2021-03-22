@@ -108,6 +108,15 @@ class BalanceToken(IRC2):
 
     @external
     @only_governance
+    def setDex(self, _address: Address) -> None:
+        self._oracle_address.set(_address)
+
+    @external(readonly=True)
+    def getDex(self) -> dict:
+        return self._oracle_address.get()
+
+    @external
+    @only_governance
     def setOracleName(self, _name: str) -> None:
         self._oracle_name.set(_name)
 
@@ -159,7 +168,7 @@ class BalanceToken(IRC2):
         Returns the latest price of the asset in loop.
         """
         base = self._peg.get()
-        quote = "ICX"
+        quote = "bnUSD"
         oracle_address = self._oracle_address.get()
         oracle = self.create_interface_score(oracle_address, OracleInterface)
         priceData = oracle.get_reference_data(base, quote)
@@ -171,7 +180,7 @@ class BalanceToken(IRC2):
         value in loop.
         """
         base = self._peg.get()
-        quote = "ICX"
+        quote = "bnUSD"
         oracle_address = self._oracle_address.get()
         try:
             oracle = self.create_interface_score(oracle_address, OracleInterface)

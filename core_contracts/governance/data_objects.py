@@ -90,7 +90,7 @@ class Addresses(object):
                            'reserve': score.setReserve, 'dividends': score.setDividends,
                            'daofund': score.setDaofund, 'oracle': score.setOracle,
                            'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
-                           'baln': score.setBaln, 'bwt': score.setBwt}
+                           'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex}
             for method in ADDRESSES[contract]:
                 try:
                     set_methods[method](self[method])
