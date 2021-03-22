@@ -9,10 +9,10 @@ from .scorelib.linked_list import *
 TAG = 'StakedICXManager'
 
 DENOMINATOR = 1000000000000000000
-TOP_PREP_COUNT = 4
+TOP_PREP_COUNT = 20
 
 
-TOTAL_PREPS = 4
+TOTAL_PREPS = 20
 
 
 # An interface of token to distribute daily rewards
@@ -476,16 +476,16 @@ class Staking(IconScoreBase):
     @external
     def stakeICX(self, _to: Address = None, _data: bytes = None) -> None:
         """
-        Provides delegation preferences as a params
-        and stakes and delegates some ICX to different prep
-        addresses and receives equivalent of sICX by the user address.
+        Adds received ICX to the pool then mints an equivalent value of sICX to
+        the recipient address, _to.
+
         :params _to: Wallet address where sICX is minted to.
-        :params _user_delegations: A list of dictionaries to store the delegation preferences of a user.
+        :params _data: Data forwarded with the minted sICX.
         """
         if _data is None:
             _data = b'None'
         if _to is None:
-            _to = self.tx.origin
+            _to = self.msg.sender
         self._perform_checks()
         self._total_stake.set(self._total_stake.get() + self.msg.value)
         amount = DENOMINATOR * self.msg.value // self._rate.get()
@@ -599,7 +599,7 @@ class Staking(IconScoreBase):
         user and redelegates in the network.
         :params _user_delegations: A list of dictionaries to store the delegation preferences of a user.
         """
-        _to = self.tx.origin
+        _to = self.msg.sender
         self._perform_checks()
         previous_address_delegations = self._remove_previous_delegations(_to)
         prep_delegations = self.getPrepDelegations()
@@ -651,6 +651,7 @@ class Staking(IconScoreBase):
             if count == total_preps:
                 dust = self.getTotalStake() - voting_power_check
                 value_in_icx += dust
+                self._prep_delegations[str(prep)]  += dust
             delegation_info: Delegation = {
                 "address": prep,
                 "value": value_in_icx
@@ -678,7 +679,7 @@ class Staking(IconScoreBase):
         self._delegations(self._reset_top_preps())
         self._stake(self._total_stake.get())
         stake_in_network = self._system.getStake(self.address)
-        self._linked_list_var.append(self.tx.origin, amount_to_unstake,
+        self._linked_list_var.append(_to, amount_to_unstake,
                                      stake_in_network['unstakes'][-1]['unstakeBlockHeight'], _to,
                                      self._linked_list_var._tail_id.get() + 1)
         self._sICX_supply.set(self._sICX_supply.get() - _value)

@@ -99,7 +99,6 @@ class DAOfund(IconScoreBase):
         balances = {}
         for symbol in assets:
             balances[symbol] = self._fund[symbol]
-        balance = self.icx.get_balance(self.address)
         balances['ICX'] = self._fund['ICX']
         return balances
 
@@ -117,10 +116,7 @@ class DAOfund(IconScoreBase):
         """
         for asset in _amounts:
             if self._fund[asset['symbol']] < asset['amount']:
-                self.InsufficientFunds(_recipient, asset['symbol'],
-                                       f'Insufficient balance of asset '
-                                       f'{asset["symbol"]} in DAOfund.')
-                return False
+                revert(f'Insufficient balance of asset {asset["symbol"]} in DAOfund.')
             self._awards[_recipient][asset['symbol']] += asset['amount']
             self._fund[asset['symbol']] -= asset['amount']
         return True
@@ -139,9 +135,12 @@ class DAOfund(IconScoreBase):
             if amount > 0:
                 self._send_token(symbol, Address.from_string(assets[symbol]), self.msg.sender,
                                  disbursement[symbol], 'Balanced DAOfund disbursement')
+                disbursement[symbol] = 0
         amount = disbursement['ICX']
         if amount > 0:
             self._send_ICX(self.msg.sender, amount, 'Balanced DAOfund disbursement')
+            disbursement['ICX'] = 0
+
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
@@ -156,8 +155,12 @@ class DAOfund(IconScoreBase):
         """
         loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
         assets = loans.getAssetTokens()
-        if str(self.msg.sender) not in assets.values():
-            revert(f'The DAOfund can only accept tokens that are among the Balanced Assets.')
+        address = str(self.msg.sender)
+        for symbol in assets:
+            if assets[symbol] == address:
+                self._fund[symbol] += _value
+                return
+        revert(f'The DAOfund can only accept tokens that are among the Balanced Assets.')
 
     def _send_ICX(self, _to: Address, amount: int, msg: str) -> None:
         """
