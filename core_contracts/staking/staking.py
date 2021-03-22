@@ -9,10 +9,10 @@ from .scorelib.linked_list import *
 TAG = 'StakedICXManager'
 
 DENOMINATOR = 1000000000000000000
-TOP_PREP_COUNT = 4
+TOP_PREP_COUNT = 20
 
 
-TOTAL_PREPS = 4
+TOTAL_PREPS = 20
 
 
 # An interface of token to distribute daily rewards
@@ -651,6 +651,7 @@ class Staking(IconScoreBase):
             if count == total_preps:
                 dust = self.getTotalStake() - voting_power_check
                 value_in_icx += dust
+                self._prep_delegations[str(prep)]  += dust
             delegation_info: Delegation = {
                 "address": prep,
                 "value": value_in_icx
