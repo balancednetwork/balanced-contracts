@@ -210,9 +210,6 @@ class DEX(IconScoreBase):
         # poolTotal[nonce][tokenAddress] = intAmount
         self._pool_total = DictDB('poolTotal', db, value_type=int, depth=2)
 
-        self._withdraw_lock = DictDB(
-            'withdrawLock', db, value_type=int, depth=2)
-
         # Swap queue for sicxicx
         self._icx_queue = LinkedListDB(
             'icxQueue', db, value1_type=int, value2_type=Address)
@@ -222,9 +219,6 @@ class DEX(IconScoreBase):
         # Total ICX Balance available for conversion
         self._icx_queue_total = VarDB(
             self._ICX_QUEUE_TOTAL, db, value_type=int)
-
-        # Withdraw lock for sicxicx
-        self._icx_withdraw_lock = DictDB('icxWithdrawLock', db, value_type=int)
 
         # Approvals for token transfers (map[grantor][grantee] = T/F)
         self._approvals = DictDB('approvals', db, value_type=bool, depth=2)
@@ -473,7 +467,6 @@ class DEX(IconScoreBase):
         current_icx_total = self._icx_queue_total.get() + self.msg.value
         self._icx_queue_total.set(current_icx_total)
 
-        self._icx_withdraw_lock[self.msg.sender] = self.now()
         if self.msg.sender not in self._funded_addresses:
             self._funded_addresses.add(self.msg.sender)
         self._update_account_snapshot(self.msg.sender, 1)
@@ -492,9 +485,6 @@ class DEX(IconScoreBase):
 
         if not self._icx_queue_order_id[self.msg.sender]:
             revert("No open order in SICXICX queue")
-
-        if self._icx_withdraw_lock[self.msg.sender] + WITHDRAW_LOCK_TIMEOUT > self.now():
-            revert("Withdraw lock not expired")
 
         order_id = self._icx_queue_order_id[self.msg.sender]
         order = self._icx_queue._get_node(order_id)
@@ -601,7 +591,8 @@ class DEX(IconScoreBase):
 
         self.TransferSingle(self.msg.sender, _from, _to, _id, _value)
 
-        self._update_account_snapshot(self.msg.sender, _id)
+        self._update_account_snapshot(_from, _id)
+        self._update_account_snapshot(_to, _id)
 
         # TODO: Implement token fallback for multitoken score
 
@@ -756,10 +747,6 @@ class DEX(IconScoreBase):
             return 0
         return self._icx_queue._get_node(order_id).get_value1()
 
-    @external(readonly=True)
-    def getICXWithdrawLock(self) -> int:
-        return self._icx_withdraw_lock[self.msg.sender]
-
     ####################################
     # Token Functionality
 
@@ -831,6 +818,7 @@ class DEX(IconScoreBase):
             self._funded_addresses.add(_to)
 
         self._update_account_snapshot(_from, _id)
+        self._update_account_snapshot(_to, _id)
 
         # TODO: Implement onIRC31Received function
 
@@ -994,53 +982,124 @@ class DEX(IconScoreBase):
 
     def _update_account_snapshot(self, _account: Address, _id: int) -> None:
         """
-        Updates a user's balance snapshot
+        Updates a user's balance 24h avg snapshot
+
         :param _account: Address to update
         :param _id: pool id to update
+
+        Note that an average contains 3 fields for each snapshot:
+        1. the current value
+        2. The weighted average up to that time, for the given window
+        3. The timestamp of the last update
+
+        The average value holds the expected average at the end of the day,
+        if nothing else changes
         """
         current_id = self._current_day.get()
+        current_time = self.now()
         current_value = self.balanceOf(_account, _id)
+
         length = self._account_balance_snapshot[_id][_account]['length'][0]
+        last_snapshot_id = 0
+
+        day_start_us =  self._time_offset.get() + (U_SECONDS_DAY * current_id)
+        day_elapsed_us = current_time - day_start_us
+        day_remaining_us = U_SECONDS_DAY - day_elapsed_us
+
         if length == 0:
+            average = (current_value * day_remaining_us) // U_SECONDS_DAY
+
+            self._account_balance_snapshot[_id][_account]['ids'][length] = current_id
             self._account_balance_snapshot[_id][_account]['values'][length] = current_value
+            self._account_balance_snapshot[_id][_account]['avgs'][length] = average
+            self._account_balance_snapshot[_id][_account]['time'][length] = current_time
             self._account_balance_snapshot[_id][_account]['length'][0] += 1
             return
         else:
             last_snapshot_id = self._account_balance_snapshot[_id][_account]['ids'][length - 1]
 
+
+        # If there is a snapshot existing, it either falls before or in the current window.
         if last_snapshot_id < current_id:
+            # If the snapshot is before the current window, we should create a new entry
+            previous_value = self._account_balance_snapshot[_id][_account]['values'][length - 1]
+
+            average = ((day_elapsed_us * previous_value) + (day_remaining_us * current_value)) // U_SECONDS_DAY
+
             self._account_balance_snapshot[_id][_account]['ids'][length] = current_id
             self._account_balance_snapshot[_id][_account]['values'][length] = current_value
+            self._account_balance_snapshot[_id][_account]['avgs'][length] = average
+            self._account_balance_snapshot[_id][_account]['time'][length] = current_time
             self._account_balance_snapshot[_id][_account]['length'][0] += 1
         else:
-            self._account_balance_snapshot[_id][_account]['values'][length -
-                                                                    1] = current_value
+            # If the snapshot is in the current window, we should update the current entry
+            previous_average = self._account_balance_snapshot[_id][_account]['avgs'][length - 1]
+            
+
+            average = ((previous_average * day_elapsed_us) + (current_value * day_remaining_us)) // U_SECONDS_DAY
+
+            self._account_balance_snapshot[_id][_account]['values'][length - 1] = current_value
+            self._account_balance_snapshot[_id][_account]['avgs'][length - 1] = average
+            self._account_balance_snapshot[_id][_account]['time'][length - 1] = current_time
+
 
     def _update_total_supply_snapshot(self, _id: int) -> None:
         """
-        Updates a an asset's total supply snapshot
+        Updates an asset's 24h avg total supply snapshot
+
         :param _id: pool id to update
         """
         current_id = self._current_day.get()
+        current_time = self.now()
         current_value = self.totalSupply(_id)
         length = self._total_supply_snapshot[_id]['length'][0]
+        last_snapshot_id = 0
+
+        day_start_us =  self._time_offset.get() + (U_SECONDS_DAY * current_id)
+        day_elapsed_us = current_time - day_start_us
+        day_remaining_us = U_SECONDS_DAY - day_elapsed_us
+
         if length == 0:
+            average = (current_value * day_elapsed_us) // U_SECONDS_DAY
+
+            self._total_supply_snapshot[_id]['ids'][length] = current_id
             self._total_supply_snapshot[_id]['values'][length] = current_value
+            self._total_supply_snapshot[_id]['avgs'][length] = average
+            self._total_supply_snapshot[_id]['time'][length] = current_time
             self._total_supply_snapshot[_id]['length'][0] += 1
             return
         else:
             last_snapshot_id = self._total_supply_snapshot[_id]['ids'][length - 1]
 
+        # If there is a snapshot existing, it either falls before or in the current window.
         if last_snapshot_id < current_id:
+            # If the snapshot is before the current window, we should create a new entry
+            previous_value = self._total_supply_snapshot[_id]['values'][length - 1]
+
+            average = ((day_elapsed_us * previous_value) + (day_remaining_us * current_value)) // U_SECONDS_DAY
+
             self._total_supply_snapshot[_id]['ids'][length] = current_id
             self._total_supply_snapshot[_id]['values'][length] = current_value
+            self._total_supply_snapshot[_id]['avgs'][length] = average
+            self._total_supply_snapshot[_id]['time'][length] = current_time
+
             self._total_supply_snapshot[_id]['length'][0] += 1
         else:
-            self._total_supply_snapshot[_id]['values'][length -
-                                                       1] = current_value
+            # If the snapshot is in the current window, we should update the current entry
+            previous_average = self._total_supply_snapshot[_id]['avgs'][length - 1]
+
+            average = ((previous_average * day_elapsed_us) + (current_value * day_remaining_us)) // U_SECONDS_DAY
+
+            self._total_supply_snapshot[_id]['values'][length - 1] = current_value
+            self._total_supply_snapshot[_id]['avgs'][length - 1] = average
+            self._total_supply_snapshot[_id]['time'][length - 1] = current_time
+
+
+
 
     @external(readonly=True)
     def balanceOfAt(self, _account: Address, _id: int, _snapshot_id: int) -> int:
+        matched_index = 0
         if _snapshot_id < 0:
             revert(f'Snapshot id is equal to or greater then Zero')
         low = 0
@@ -1052,15 +1111,26 @@ class DEX(IconScoreBase):
                 high = mid
             else:
                 low = mid + 1
+
         if self._account_balance_snapshot[_id][_account]['ids'][0] == _snapshot_id:
-            return self._account_balance_snapshot[_id][_account]['values'][0]
+            # If the most recent snapshot is the requested snapshot, return the last average
+            return self._account_balance_snapshot[_id][_account]['avgs'][0]
         elif low == 0:
             return 0
         else:
-            return self._account_balance_snapshot[_id][_account]['values'][low - 1]
+            matched_index = low - 1
+        
+        # If we matched the day before, weighted avg will be same as ending value.
+        # If we matched the day of, return the actual weighted average
+        if self._account_balance_snapshot[_id][_account]['ids'][matched_index] == _snapshot_id:
+            return self._account_balance_snapshot[_id][_account]['avgs'][matched_index]
+        else:
+            return self._account_balance_snapshot[_id][_account]['values'][matched_index]
+
 
     @external(readonly=True)
     def totalSupplyAt(self, _id: int, _snapshot_id: int) -> int:
+        matched_index = 0
         if _snapshot_id < 0:
             revert(f'Snapshot id is equal to or greater then Zero')
         low = 0
@@ -1074,11 +1144,18 @@ class DEX(IconScoreBase):
                 low = mid + 1
 
         if self._total_supply_snapshot[_id]['ids'][0] == _snapshot_id:
-            return self._total_supply_snapshot[_id]['values'][0]
+            return self._total_supply_snapshot[_id]['avgs'][0]
         elif low == 0:
             return 0
         else:
-            return self._total_supply_snapshot[_id]['values'][low - 1]
+            matched_index = low - 1
+        
+        if self._total_supply_snapshot[_id]['ids'][matched_index] == _snapshot_id:
+            return self._total_supply_snapshot[_id]['avgs'][matched_index]
+        else:
+            return self._total_supply_snapshot[_id]['values'][matched_index]
+
+
 
     @external(readonly=True)
     def getTotalValue(self, _name: str, _snapshot_id: int) -> int:
@@ -1162,8 +1239,7 @@ class DEX(IconScoreBase):
             revert("Pool is not active")
         if _value > balance:
             revert("Invalid input")
-        if self._withdraw_lock[self.msg.sender][_pid] + WITHDRAW_LOCK_TIMEOUT < self.now():
-            revert("Funds not yet unlocked")
+
         token1 = self._pool_base[_pid]
         token2 = self._pool_quote[_pid]
         self._pool_total[_pid][token1] -= int(self._pool_total[_pid]
@@ -1244,7 +1320,6 @@ class DEX(IconScoreBase):
         self.Add(_pid, _owner, liquidity)
         self.TransferSingle(_owner, Address.from_string(
             ZERO_SCORE_ADDRESS), _owner, _pid, liquidity)
-        self._withdraw_lock[self.msg.sender][_pid] = self.now()
         if self.msg.sender not in self._funded_addresses:
             self._funded_addresses.add(self.msg.sender)
         self._update_account_snapshot(_owner, _pid)
