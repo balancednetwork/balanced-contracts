@@ -476,8 +476,8 @@ class DEX(IconScoreBase):
         self._icx_withdraw_lock[self.msg.sender] = self.now()
         if self.msg.sender not in self._funded_addresses:
             self._funded_addresses.add(self.msg.sender)
-        self._update_account_snapshot(self.msg.sender, 0)
-        self._update_total_supply_snapshot(0)
+        self._update_account_snapshot(self.msg.sender, 1)
+        self._update_total_supply_snapshot(1)
 
     @external
     def cancelSicxicxOrder(self):
@@ -506,8 +506,8 @@ class DEX(IconScoreBase):
         self._icx_queue.remove(order_id)
         self.icx.transfer(self.msg.sender, withdraw_amount)
         del self._icx_queue_order_id[self.msg.sender]
-        self._update_account_snapshot(self.msg.sender, 0)
-        self._update_total_supply_snapshot(0)
+        self._update_account_snapshot(self.msg.sender, 1)
+        self._update_total_supply_snapshot(1)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes):
