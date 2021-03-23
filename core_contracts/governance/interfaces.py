@@ -19,6 +19,10 @@ class LoansInterface(InterfaceScore):
         pass
 
     @interface
+    def toggleLoansOn(self) -> None:
+        pass
+
+    @interface
     def addAsset(self, _token_address: Address,
                        _active: bool = True,
                        _collateral: bool = False) -> None:
