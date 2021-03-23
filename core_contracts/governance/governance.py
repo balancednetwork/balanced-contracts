@@ -7,11 +7,6 @@ from .data_objects import *
 TAG = 'Governance'
 
 
-class DistPercentDict(TypedDict):
-    recipient_name : str
-    bal_token_dist_percent: int
-
-
 class Governance(IconScoreBase):
     """
     The Governance SCORE will have control of all parameters in BalancedDAO.
@@ -19,15 +14,9 @@ class Governance(IconScoreBase):
     and parameter values here.
     """
 
-    _ADMIN = 'admin'
-    _LAUNCH_DAY = 'launch_day'
-    _LAUNCHED = 'launched'
-
-
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self.addresses = Addresses(db, self)
-        self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._launch_day = VarDB('launch_day', db, int)
         self._launch_time = VarDB('launch_time', db, int)
         self._launched = VarDB('launched', db, bool)
@@ -55,7 +44,7 @@ class Governance(IconScoreBase):
             self.addresses.setContractAddresses()
             self._set_launch_day(self.getDay())
             self._set_launch_time(self.now())
-             # Minimum day value is 1 since 0 is the default value for uninitialized storage.
+            # Minimum day value is 1 since 0 is the default value for uninitialized storage.
             time_delta = DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1)
             loans.setTimeOffset(time_delta)
             dex.setTimeOffset(time_delta)
@@ -138,7 +127,7 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def updateBalTokenDistPercentage(self, _recipient_list : List[DistPercentDict]) -> None:
+    def updateBalTokenDistPercentage(self, _recipient_list: List[DistPercentDict]) -> None:
         """
         Assign percentages for distribution to the data sources. Must sum to 100%.
         """
@@ -182,7 +171,3 @@ class Governance(IconScoreBase):
     @payable
     def fallback(self):
         pass
-
-#-------------------------------------------------------------------------------
-# EVENT LOGS
-#-------------------------------------------------------------------------------
