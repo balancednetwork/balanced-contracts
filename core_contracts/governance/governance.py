@@ -49,12 +49,13 @@ class Governance(IconScoreBase):
             loans.setTimeOffset(time_delta)
             dex.setTimeOffset(time_delta)
             rewards.setTimeOffset(time_delta)
+            _addresses: dict = self.addresses.getAddresses()
             for asset in ASSETS:
-                loans.addAsset(self.addresses.getAddresses()[asset['address']],
+                loans.addAsset(_addresses[asset['address']],
                                asset['active'], asset['collateral'])
             for source in DATA_SOURCES:
                 rewards.addNewDataSource(source['name'],
-                                         self.addresses.getAddresses()[source['address']])
+                                         _addresses[source['address']])
             rewards.updateBalTokenDistPercentage(RECIPIENTS)
             loans.turnLoansOn()
             dex.turnDexOn()
