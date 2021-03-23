@@ -60,7 +60,7 @@ class Rewards(IconScoreBase):
 
     @external(readonly = True)
     def name(self) -> str:
-        return "Rewards"
+        return "Balanced Rewards"
 
     @external(readonly = True)
     def getBalnHoldings(self, _holders: List[str]) -> dict:

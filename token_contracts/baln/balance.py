@@ -5,7 +5,7 @@ from .utils.consts import *
 
 TAG = 'BALN'
 
-TOKEN_NAME = 'BalanceToken'
+TOKEN_NAME = 'Balanced Token'
 SYMBOL_NAME = 'BALN'
 DEFAULT_PEG = 'BALN'
 DEFAULT_ORACLE_ADDRESS = 'cx31bb0d42d9667fd6acab1bbebcfa3b916f04a3f3'
@@ -19,7 +19,7 @@ class OracleInterface(InterfaceScore):
         pass
 
 
-class BalanceToken(IRC2):
+class BalancedToken(IRC2):
 
     _PRICE_UPDATE_TIME = "price_update_time"
     _LAST_PRICE = "last_price"

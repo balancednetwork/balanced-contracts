@@ -191,7 +191,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def name(self) -> str:
-        return "BalancedLoans"
+        return "Balanced Loans"
 
     @external(readonly=True)
     def snapIndexes(self) -> List[int]:
@@ -675,7 +675,7 @@ class Loans(IconScoreBase):
             return bd_sicx
         _asset.liquidation_pool.set(0)
         reserve = self.create_interface_score(reserve_address, ReserveFund)
-        return in_pool + reserve.redeem(_from, bd_sicx - in_pool)
+        return in_pool + reserve.redeem(_from, bd_sicx - in_pool, _sicx_rate)
 
     @external
     def originateLoan(self, _asset: str, _amount: int, _from: Address = None) -> None:

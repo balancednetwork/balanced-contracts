@@ -155,7 +155,7 @@ class Staking(IconScoreBase):
 
     @external(readonly=True)
     def name(self) -> str:
-        return "Staking"
+        return "Staked ICX Manager"
 
     @external(readonly=True)
     def getTodayRate(self) -> int:
