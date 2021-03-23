@@ -63,6 +63,7 @@ class DEX(IconScoreBase):
     _REWARDS_DONE = 'rewards_done'
     _DIVIDENDS_DONE = 'dividends_done'
     _NAME = 'BalancedDex'
+    _SICXICX_POOL_ID = 1
 
     ####################################
     # Events
@@ -238,7 +239,7 @@ class DEX(IconScoreBase):
         # 2+ = pools
         self._nonce.set(2)
         self._current_day.set(0)
-        self._named_markets[self._SICXICX_MARKET_NAME] = 1
+        self._named_markets[self._SICXICX_MARKET_NAME] = self._SICXICX_POOL_ID
 
     def on_update(self) -> None:
         super().on_update()
@@ -469,8 +470,8 @@ class DEX(IconScoreBase):
 
         if self.msg.sender not in self._funded_addresses:
             self._funded_addresses.add(self.msg.sender)
-        self._update_account_snapshot(self.msg.sender, 1)
-        self._update_total_supply_snapshot(1)
+        self._update_account_snapshot(self.msg.sender, self._SICXICX_POOL_ID)
+        self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
 
     @external
     def cancelSicxicxOrder(self):
@@ -496,8 +497,8 @@ class DEX(IconScoreBase):
         self._icx_queue.remove(order_id)
         self.icx.transfer(self.msg.sender, withdraw_amount)
         del self._icx_queue_order_id[self.msg.sender]
-        self._update_account_snapshot(self.msg.sender, 1)
-        self._update_total_supply_snapshot(1)
+        self._update_account_snapshot(self.msg.sender, self._SICXICX_POOL_ID)
+        self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes):
@@ -651,7 +652,7 @@ class DEX(IconScoreBase):
 
     @external(readonly=True)
     def totalSupply(self, _pid: int) -> int:
-        if _pid == 1:
+        if _pid == self._SICXICX_POOL_ID:
             return self._icx_queue_total.get()
         return self._total[_pid]
 
@@ -664,7 +665,7 @@ class DEX(IconScoreBase):
         :param _id: ID of the token/pool
         :return: the _owner's balance of the token type requested
         """
-        if _id == 1:
+        if _id == self._SICXICX_POOL_ID:
             order_id = self._icx_queue_order_id[self.msg.sender]
             if not order_id:
                 return 0
@@ -709,7 +710,7 @@ class DEX(IconScoreBase):
         """
         if _pid < 1 or _pid > self._nonce.get():
             return "Invalid pool id"
-        if _pid == 1:
+        if _pid == self._SICXICX_POOL_ID:
             return self._get_sicx_rate()
         return (self._pool_total[_pid][self._pool_base[_pid]] * EXA) // self._pool_total[_pid][self._pool_quote[_pid]]
 
@@ -860,9 +861,9 @@ class DEX(IconScoreBase):
         original_value = _value
         _value -= fees
         _pid = self._pool_id[_fromToken][_toToken]
-        if _pid == 0:
+        if _pid <= 0:
             revert("Pool does not exist")
-        if _pid == 1:
+        if _pid == self._SICXICX_POOL_ID:
             revert("Not supported on this API, use the ICX swap API")
         old_price = 0
         if _fromToken == self.getPoolQuote(_pid):
