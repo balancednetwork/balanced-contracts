@@ -1,5 +1,4 @@
 from iconservice import *
-from .scorelib import *
 from .utils.checks import *
 from .utils.consts import *
 from .interfaces import *
