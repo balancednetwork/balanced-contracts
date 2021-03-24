@@ -187,11 +187,7 @@ class Staking(IconScoreBase):
         """
         Returns all the prep address as a list stored in the staking contract.
         """
-        prep_list = []
-
-        for address in self._prep_list:
-            prep_list.append(address)
-        return prep_list
+        return [address for address in self._prep_list]
 
     @external(readonly=True)
     def getUnstakingAmount(self) -> int:
@@ -219,10 +215,7 @@ class Staking(IconScoreBase):
         """
         Returns the top prep addresses that is set every week.
         """
-        top_prep_list = []
-        for single_prep in self._top_preps:
-            top_prep_list.append(single_prep)
-        return top_prep_list
+        return [prep for prep in self._top_preps]
 
     @external(readonly=True)
     def getAddressDelegations(self, _address: Address) -> dict:
@@ -655,7 +648,7 @@ class Staking(IconScoreBase):
                 dust = self.getTotalStake() - voting_power_check
                 value_in_icx += dust
                 self._prep_delegations[str(prep)] += dust
-            delegation_info: Delegation = {
+            delegation_info = {
                 "address": prep,
                 "value": value_in_icx
             }
