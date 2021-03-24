@@ -400,14 +400,13 @@ class BalanceToken(IRC2):
         """
         if _data is None:
             _data = b'None'
-        self._mint(self.address, _amount, _data)
 
         _to = self.msg.sender
         self._check_first_time(_to)
         self._make_available(_to)
         self._staked_balances[_to][Status.AVAILABLE] = self._staked_balances[_to][Status.AVAILABLE] + _amount
 
-        super()._transfer(self.address, _to, _amount, _data)
+        self._mint(_to, _amount, _data)
 
     @external
     def mintTo(self, _account: Address, _amount: int, _data: bytes = None) -> None:
@@ -421,14 +420,12 @@ class BalanceToken(IRC2):
         """
         if _data is None:
             _data = b'None'
-        self._mint(self.address, _amount, _data)
 
-        _to = _account
-        self._check_first_time(_to)
-        self._make_available(_to)
-        self._staked_balances[_to][Status.AVAILABLE] = self._staked_balances[_to][Status.AVAILABLE] + _amount
+        self._check_first_time(_account)
+        self._make_available(_account)
+        self._staked_balances[_account][Status.AVAILABLE] = self._staked_balances[_account][Status.AVAILABLE] + _amount
 
-        super()._transfer(self.address, _to, _amount, _data)
+        self._mint(_account, _amount, _data)
 
     @external
     def burn(self, _amount: int) -> None:
@@ -439,12 +436,10 @@ class BalanceToken(IRC2):
 
         :param _amount: Number of tokens to be destroyed.
         """
-        _data = b'None'
         _from = self.msg.sender
         self._staked_balances[_from][Status.AVAILABLE] = self._staked_balances[_from][Status.AVAILABLE] - _value
-        super()._transfer(_from, self.address, _amount, _data)
 
-        self._burn(self.address, _amount)
+        self._burn(_from, _amount)
 
     @external
     def burnFrom(self, _account: Address, _amount: int) -> None:
@@ -456,12 +451,9 @@ class BalanceToken(IRC2):
         :param _account: The account at which token is to be destroyed.
         :param _amount: Number of tokens to be destroyed at the `_account`.
         """
-        _data = b'None'
-        _from = _account
-        self._staked_balances[_from][Status.AVAILABLE] = self._staked_balances[_from][Status.AVAILABLE] - _value
-        super()._transfer(_from, self.address, _amount, _data)
+        self._staked_balances[_account][Status.AVAILABLE] = self._staked_balances[_account][Status.AVAILABLE] - _value
 
-        self._burn(_from, _amount)
+        self._burn(_account, _amount)
 
     # --------------------------------------------------------------------------
     # EVENTS

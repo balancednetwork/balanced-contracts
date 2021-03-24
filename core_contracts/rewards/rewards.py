@@ -30,13 +30,15 @@ class Rewards(IconScoreBase):
         self._baln_address = VarDB('baln_address', db, value_type=Address)
         self._bwt_address = VarDB('bwt_address', db, value_type=Address)
         self._reserve_fund = VarDB('reserve_fund', db, value_type=Address)
+        self._daofund = VarDB('reserve_fund', db, value_type=Address)
         self._start_timestamp = VarDB('start_timestamp', db, value_type=int)
         self._batch_size = VarDB('batch_size', db, value_type=int)
         self._baln_holdings = DictDB('baln_holdings', db, value_type=int)
         self._recipient_split = DictDB('recipient_split', db, value_type=int)
         self._recipients = ArrayDB('recipients', db, value_type=str)
         self._platform_recipients = {'Worker Tokens': self._bwt_address,
-                                     'Reserve Fund': self._reserve_fund}
+                                     'Reserve Fund': self._reserve_fund,
+                                     'DAOfund': self._daofund}
         self._total_dist = VarDB('total_dist', db, value_type=int)
         self._platform_day = VarDB('platform_day', db, value_type=int)
         self._data_source_db = DataSourceDB(db, self)
@@ -50,6 +52,8 @@ class Rewards(IconScoreBase):
         self._recipients.put('Worker Tokens')
         self._recipient_split['Reserve Fund'] = 0
         self._recipients.put('Reserve Fund')
+        self._recipient_split['DAOfund'] = 0
+        self._recipients.put('DAOfund')
 
     def on_update(self) -> None:
         super().on_update()
@@ -231,6 +235,7 @@ class Rewards(IconScoreBase):
             baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
             self._baln_holdings[address] = 0
             baln_token.transfer(self.msg.sender, amount)
+            self.RewardsClaimed(address, amount)
 
     def _get_day(self) -> int:
         today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS
@@ -312,6 +317,15 @@ class Rewards(IconScoreBase):
 
     @external
     @only_admin
+    def setDaofund(self, _address: Address) -> None:
+        self._daofund.set(_address)
+
+    @external(readonly=True)
+    def getDaofund(self) -> Address:
+        return self._daofund.get()
+
+    @external
+    @only_admin
     def setBatchSize(self, _batch_size: int) -> None:
         self._batch_size.set(_batch_size)
 
@@ -327,3 +341,12 @@ class Rewards(IconScoreBase):
     @external(readonly=True)
     def getTimeOffset(self) -> int:
         return self._start_timestamp.get()
+
+
+#-------------------------------------------------------------------------------
+#   EVENT LOGS
+#-------------------------------------------------------------------------------
+
+    @eventlog(indexed=1)
+    def RewardsClaimed(self, _address: Address, _amount: int):
+        pass

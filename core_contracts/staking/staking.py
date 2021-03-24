@@ -9,10 +9,10 @@ from .scorelib.linked_list import *
 TAG = 'StakedICXManager'
 
 DENOMINATOR = 1000000000000000000
-TOP_PREP_COUNT = 4
+TOP_PREP_COUNT = 20
 
 
-TOTAL_PREPS = 4
+TOTAL_PREPS = 20
 
 
 # An interface of token to distribute daily rewards
@@ -476,16 +476,16 @@ class Staking(IconScoreBase):
     @external
     def stakeICX(self, _to: Address = None, _data: bytes = None) -> None:
         """
-        Provides delegation preferences as a params
-        and stakes and delegates some ICX to different prep
-        addresses and receives equivalent of sICX by the user address.
+        Adds received ICX to the pool then mints an equivalent value of sICX to
+        the recipient address, _to.
+
         :params _to: Wallet address where sICX is minted to.
-        :params _user_delegations: A list of dictionaries to store the delegation preferences of a user.
+        :params _data: Data forwarded with the minted sICX.
         """
         if _data is None:
             _data = b'None'
         if _to is None:
-            _to = self.tx.origin
+            _to = self.msg.sender
         self._perform_checks()
         self._total_stake.set(self._total_stake.get() + self.msg.value)
         amount = DENOMINATOR * self.msg.value // self._rate.get()
@@ -579,8 +579,8 @@ class Staking(IconScoreBase):
             self._daily_reward.set(daily_reward)
             self._total_lifetime_reward.set(self.getLifetimeReward() + daily_reward)
             self._rate.set(self.getRate())
-            self._total_stake.set(self.getTotalStake() + daily_reward)
             totalStake = self._total_stake.get()
+            self._total_stake.set(self.getTotalStake() + daily_reward)
             for single_prep in self.getPrepList():
                 value_in_icx = self._prep_delegations[str(single_prep)]
                 weightage_in_per = ((value_in_icx * DENOMINATOR) // totalStake) * 100
@@ -599,7 +599,7 @@ class Staking(IconScoreBase):
         user and redelegates in the network.
         :params _user_delegations: A list of dictionaries to store the delegation preferences of a user.
         """
-        _to = self.tx.origin
+        _to = self.msg.sender
         self._perform_checks()
         previous_address_delegations = self._remove_previous_delegations(_to)
         prep_delegations = self.getPrepDelegations()
@@ -636,15 +636,25 @@ class Staking(IconScoreBase):
     def _delegations(self, evenly_distribute_value: int) -> None:
         """
         Delegates the ICX to top prep addresses.
-        :params evenly_distribute_value : Amount to be distributed to all the preps evenly.
-        :params source : to find out the source of the function call.
+
+        :param evenly_distribute_value: Share of even distribution to each P-Rep.
         """
         delegation_list = []
-        for one in self._top_preps:
-            one = Address.from_string(str(one))
+        total_preps = len(self._top_preps)
+        voting_power_check = 0
+        count = 0
+        for prep in self._top_preps:
+            count += 1
+            value_in_icx = self._prep_delegations[str(prep)] + evenly_distribute_value
+            voting_power_check += value_in_icx
+            # If this is the last prep, we add the dust.
+            if count == total_preps:
+                dust = self.getTotalStake() - voting_power_check
+                value_in_icx += dust
+                self._prep_delegations[str(prep)]  += dust
             delegation_info: Delegation = {
-                "address": one,
-                "value": self._prep_delegations[str(one)] + evenly_distribute_value
+                "address": prep,
+                "value": value_in_icx
             }
             delegation_list.append(delegation_info)
         self._system.setDelegation(delegation_list)
@@ -669,7 +679,7 @@ class Staking(IconScoreBase):
         self._delegations(self._reset_top_preps())
         self._stake(self._total_stake.get())
         stake_in_network = self._system.getStake(self.address)
-        self._linked_list_var.append(self.tx.origin, amount_to_unstake,
+        self._linked_list_var.append(_to, amount_to_unstake,
                                      stake_in_network['unstakes'][-1]['unstakeBlockHeight'], _to,
                                      self._linked_list_var._tail_id.get() + 1)
         self._sICX_supply.set(self._sICX_supply.get() - _value)

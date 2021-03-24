@@ -4,7 +4,7 @@ from ..utils.checks import *
 from ..utils.consts import *
 
 TAG = 'IRC_2'
-
+EOA_ZERO = Address.from_string('hx' + '0' * 40)
 
 class InsufficientBalanceError(Exception):
 	pass
@@ -198,6 +198,9 @@ class IRC2(TokenStandard, IconScoreBase):
 		self._balances[_from] -= _value
 		self._balances[_to] += _value
 
+		# Emits an event log `Transfer`
+		self.Transfer(_from, _to, _value, _data)
+
 		if _to.is_contract:
 			"""
 			If the recipient is SCORE,
@@ -205,9 +208,6 @@ class IRC2(TokenStandard, IconScoreBase):
 			"""
 			recipient_score = self.create_interface_score(_to, TokenFallbackInterface)
 			recipient_score.tokenFallback(_from, _value, _data)
-
-		# Emits an event log `Transfer`
-		self.Transfer(_from, _to, _value, _data)
 
 	@only_admin
 	def _mint(self, account: Address, amount: int, _data: bytes) -> None:
@@ -232,10 +232,21 @@ class IRC2(TokenStandard, IconScoreBase):
 		self._beforeTokenTransfer(0, account, amount)
 
 		self._total_supply.set(self._total_supply.get() + amount)
-		self._balances[self.address] += amount
+		self._balances[account] += amount
 
 		# Emits an event log Mint
 		self.Mint(account, amount, _data)
+
+		# Emits an event log `Transfer`
+		self.Transfer(EOA_ZERO, account, amount, _data)
+
+		if account.is_contract:
+			"""
+			If the recipient is SCORE,
+			then calls `tokenFallback` to hand over control.
+			"""
+			recipient_score = self.create_interface_score(account, TokenFallbackInterface)
+			recipient_score.tokenFallback(EOA_ZERO, amount, _data)
 
 	@only_admin
 	def _burn(self, account: Address, amount: int) -> None:
@@ -259,10 +270,13 @@ class IRC2(TokenStandard, IconScoreBase):
 		self._beforeTokenTransfer(account, 0, amount)
 
 		self._total_supply.set(self._total_supply.get() - amount)
-		self._balances[self.address] -= amount
+		self._balances[account] -= amount
 
 		# Emits an event log Burn
 		self.Burn(account, amount)
+
+		# Emits an event log `Transfer`
+		self.Transfer(account, EOA_ZERO, amount, b'None')
 
 	def _beforeTokenTransfer(self, _from: Address, _to: Address, _value: int) -> None:
 		"""
