@@ -4,8 +4,6 @@ from .scorelib.consts import *
 from .scorelib.id_factory import *
 from .scorelib.linked_list import *
 
-# from .scorelib import *
-
 TAG = 'StakedICXManager'
 
 DENOMINATOR = 1000000000000000000
@@ -163,10 +161,11 @@ class Staking(IconScoreBase):
         """
         Get the ratio of ICX to sICX.
         """
-        if (self._total_stake.get()) == 0:
+        total_stake = self._total_stake.get()
+        if total_stake == 0:
             rate = DENOMINATOR
         else:
-            rate = (self._total_stake.get() + self._daily_reward.get()) * DENOMINATOR // self.sICX_score.totalSupply()
+            rate = (total_stake + self._daily_reward.get()) * DENOMINATOR // self.sICX_score.totalSupply()
         return rate
 
     @external
