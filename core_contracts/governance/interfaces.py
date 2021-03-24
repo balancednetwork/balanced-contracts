@@ -5,7 +5,7 @@ from .utils.consts import *
 
 class DistPercentDict(TypedDict):
     recipient_name : str
-    bal_token_dist_percent: int
+    dist_percent: int
 
 
 # An interface to the Loans SCORE

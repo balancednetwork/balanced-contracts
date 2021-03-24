@@ -176,7 +176,7 @@ class Position(object):
         # Finds the next event that applies to the position.
         i = 1
         next_event = event_log[event_index + i]
-        while (next_event.id.get() < total_events and
+        while (next_event.index.get() < total_events and
                next_event.symbol.get() not in self.assets[snap_index]):
             i += 1
             next_event = event_log[event_index + i]

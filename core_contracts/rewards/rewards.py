@@ -8,7 +8,7 @@ TAG = 'Rewards'
 
 class DistPercentDict(TypedDict):
     recipient_name: str
-    bal_token_dist_percent: int
+    dist_percent: int
 
 
 class TokenInterface(InterfaceScore):
@@ -90,6 +90,7 @@ class Rewards(IconScoreBase):
         This method provides a means to adjust the allocation of rewards tokens.
         To maintain consistency a change to these percentages will only be
         accepted if they sum to 100%, with 100% represented by the value 10**18.
+        This method must only be called when rewards are fully up to date.
 
         :param _recipient_list: List of dicts containing the allocation spec.
         :type _recipient_list: List[TypedDict]
@@ -98,14 +99,18 @@ class Rewards(IconScoreBase):
             revert(f"Recipient lists lengths mismatched!")
         total_percentage = 0
         for recipient in _recipient_list:
-            self._recipient_split[recipient['recipient_name']] = recipient['bal_token_dist_percent']
-            if recipient['recipient_name'] not in self._recipients:
-                revert(f"Recipient {recipient['recipient_name']} doesn't exist")
-            source = self._data_source_db[recipient['recipient_name']]
-            if source.bal_token_dist_percent.get() == 0:
-                source.day.set(self._get_day())
-            source.bal_token_dist_percent.set(recipient['bal_token_dist_percent'])
-            total_percentage += recipient['bal_token_dist_percent']
+            name = recipient['recipient_name']
+            if name not in self._recipients:
+                revert(f"Recipient {name} doesn't exist")
+
+            percent = recipient['dist_percent']
+            self._recipient_split[name] = percent
+
+            source = self._data_source_db[name]
+            if source.get_data()['dist_percent'] == 0:
+                source.set_day(self._get_day())
+            source.set_dist_percent(percent)
+            total_percentage += percent
 
         if total_percentage != 10**18:
             revert(f"Total percentage doesn't sum up to 100")
@@ -119,8 +124,8 @@ class Rewards(IconScoreBase):
         :rtype list
         """
         data_source_names = []
-        for data_source_name in self._data_source_db._names:
-            data_source_names.append(data_source_name)
+        for name in self._data_source_db._names:
+            data_source_names.append(name)
         return data_source_names
 
     @external(readonly=True)
@@ -151,7 +156,7 @@ class Rewards(IconScoreBase):
 
     @external
     @only_governance
-    def addNewDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
+    def addNewDataSource(self, _name: str, _address: Address) -> None:
         """
         Sources for data on which to base incentive rewards are added with this
         method. Data source contracts must provide an API of precompute(),
@@ -159,44 +164,31 @@ class Rewards(IconScoreBase):
         with zero share (0%) of the rewards token distribution. The intention
         is to allow for the addition of new incentivized markets on the DEX.
 
-        :param _data_source_name: Identifying name for the data source.
-        :type _data_source_name: str
-        :param _contract_address: Address of the data source.
-        :type _contract_address: :class:`iconservice.base.address.Address`
-
-        May want limit who can call this function. Maybe only governance or DEX
-        should be allowed.
-        We are also expecting the address to be a contract address so we could
-        check if it is a contract.
+        :param _name: Identifying name for the data source.
+        :type _name: str
+        :param _address: Address of the data source.
+        :type _address: :class:`iconservice.base.address.Address`
         """
-        if _data_source_name in self._data_source_db._names:
+        if _name in self._recipients:
             return
-        if not _contract_address.is_contract:
-            revert(f'')
-        data_source_dict = {'contract_address': _contract_address, 'bal_token_dist_percent': 0}
-        data_source_obj = create_data_source_object(data_source_dict)
-        if _data_source_name not in self._data_source_db._names and _data_source_name not in self._recipients:
-            self._data_source_db._names.put(_data_source_name)
-            self._recipients.put(_data_source_name)
-            self._recipient_split[_data_source_name] = 0
-        add_data_to_data_source(_data_source_name, self._data_source_db, data_source_obj)
+        if not _address.is_contract:
+            revert(f'Data source must be a contract.')
+        self._data_source_db._names.put(_name)
+        self._recipients.put(_name)
+        self._recipient_split[_name] = 0
+        self._data_source_db.new_source(_name, _address)
 
     @external(readonly=True)
-    def getDataSources(self, _data_source_name: str) -> dict:
-        response = {}
-        if _data_source_name in self._data_source_db._names:
-            response = get_data_from_data_source(_data_source_name, self._data_source_db)
-        return response
-
-    def _reward_distribution(self, _data_source_name: str, _batch_size: int) -> None:
-        self._data_source_db[_data_source_name]._distribute(_batch_size)
+    def getSourceData(self, _name: str) -> dict:
+        source = self._data_source_db[_name]
+        return source.get_data()
 
     @external
     def distribute(self) -> bool:
         platform_day = self._platform_day.get()
         if platform_day < self._get_day():
             if self._total_dist.get() == 0:
-                distribution = self._bal_token_dist_per_day(platform_day)
+                distribution = self._daily_dist(platform_day)
                 baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
                 baln_token.mint(distribution)
                 self._total_dist.set(distribution)
@@ -214,18 +206,13 @@ class Rewards(IconScoreBase):
                 self._total_dist.set(remaining) # remaining will be == 0 at this point.
                 self._platform_day.set(platform_day + 1)
                 return False
-        distribution_complete = True
         for name in self._data_source_db._names:
-            data_source = self.getDataSources(name)
-            if data_source['day'] < self._get_day():
+            source_data = self.getSourceData(name)
+            if source_data['day'] < self._get_day():
                 source = self._data_source_db[name]
-                percent = source.dist_percent_dict
-                new_percent = source.bal_token_dist_percent.get()
-                if percent[data_source['day']] != new_percent:
-                    percent[data_source['day']] = new_percent
-                self._reward_distribution(name, self._batch_size.get())
-                distribution_complete = False
-        return distribution_complete
+                source._distribute(self._batch_size.get())
+                return False
+        return True
 
     @external
     def claimRewards(self) -> None:
@@ -241,7 +228,7 @@ class Rewards(IconScoreBase):
         today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS
         return today
 
-    def _bal_token_dist_per_day(self, _day: int) -> int:
+    def _daily_dist(self, _day: int) -> int:
         if _day <= 60:
             return 10**23
         else:

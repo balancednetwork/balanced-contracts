@@ -40,12 +40,12 @@ DATA_SOURCES = [{'name': 'Loans', 'address': 'loans'},
                 {'name': 'SICXbnUSD', 'address': 'dex'}]
 
 # First day rewards recipients split
-RECIPIENTS = [{'recipient_name': 'Loans', 'bal_token_dist_percent': 25 * 10**16},
-              {'recipient_name': 'SICXICX', 'bal_token_dist_percent': 10 * 10**16},
-              {'recipient_name': 'SICXbnUSD', 'bal_token_dist_percent': 175 * 10**15},
-              {'recipient_name': 'Worker Tokens', 'bal_token_dist_percent': 20 * 10**16},
-              {'recipient_name': 'Reserve Fund', 'bal_token_dist_percent': 5 * 10**16},
-              {'recipient_name': 'DAOfund', 'bal_token_dist_percent': 225 * 10**15}]
+RECIPIENTS = [{'recipient_name': 'Loans', 'dist_percent': 25 * 10**16},
+              {'recipient_name': 'SICXICX', 'dist_percent': 10 * 10**16},
+              {'recipient_name': 'SICXbnUSD', 'dist_percent': 175 * 10**15},
+              {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10**16},
+              {'recipient_name': 'Reserve Fund', 'dist_percent': 5 * 10**16},
+              {'recipient_name': 'DAOfund', 'dist_percent': 225 * 10**15}]
 
 #-------------------------------------------------------------------------------
 # LOANS LAUNCH CONFIG

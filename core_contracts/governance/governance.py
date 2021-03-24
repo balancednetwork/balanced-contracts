@@ -10,7 +10,7 @@ TAG = 'Governance'
 
 class DistPercentDict(TypedDict):
     recipient_name : str
-    bal_token_dist_percent: int
+    dist_percent: int
 
 
 class Governance(IconScoreBase):
@@ -128,13 +128,13 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def addRewardsDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
+    def addNewDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
         """
         Add a new data source to receive BALN tokens. Starts with a default of
         zero percentage of the distribution.
         """
         rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
-        rewards.addRewardsDataSource(_data_source_name, _contract_address)
+        rewards.addNewDataSource(_data_source_name, _contract_address)
 
     @external
     @only_owner
