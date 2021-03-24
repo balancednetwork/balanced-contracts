@@ -21,7 +21,7 @@ from .repeater import retry
 ICX = 1000000000000000000
 DIR_PATH = os.path.abspath(os.path.dirname(__file__))
 DEPLOY = ['loans', 'reserve', 'dividends', 'dummy_oracle', 'staking', 'rewards', 'dex', 'governance']
-TOKEN = ['bal', 'bwt', 'icd', 'sicx']
+TOKEN = ['bal', 'bwt', 'bnUSD', 'sicx']
 UPDATE = ['loans']
 
 path = '/home/sudeep/contracts-private/core_contracts/tests'
@@ -80,12 +80,12 @@ class TestLoan(IconIntegrateTestBase):
                     'SCORE': self.contracts['dex']},
             'governance': {'zip': 'core_contracts/governance.zip',
                            'SCORE': self.contracts['governance']},
-            'dummy_oracle': {'zip': 'core_contracts/dummy_oracle.zip',
+            'oracle': {'zip': 'core_contracts/oracle.zip',
                              'SCORE': self.contracts['dummy_oracle']},
             'sicx': {'zip': 'token_contracts/sicx.zip',
                      'SCORE': self.contracts['sicx']},
-            'icd': {'zip': 'token_contracts/icd.zip',
-                    'SCORE': self.contracts['icd']},
+            'bnUSD': {'zip': 'token_contracts/bnUSD.zip',
+                    'SCORE': self.contracts['bnUSD']},
             'bal': {'zip': 'token_contracts/bal.zip',
                     'SCORE': self.contracts['bal']},
             'bwt': {'zip': 'token_contracts/bwt.zip',
@@ -112,9 +112,9 @@ class TestLoan(IconIntegrateTestBase):
             'rewards': self.contracts['rewards']['SCORE'],
             'reserve': self.contracts['reserve']['SCORE'],
             'dividends': self.contracts['dividends']['SCORE'],
-            'oracle': self.contracts['dummy_oracle']['SCORE'],
+            'oracle': self.contracts['oracle']['SCORE'],
             'sicx': self.contracts['sicx']['SCORE'],
-            'icd': self.contracts['icd']['SCORE'],
+            'bnUSD': self.contracts['bnUSD']['SCORE'],
             'bal': self.contracts['bal']['SCORE'],
             'bwt': self.contracts['bwt']['SCORE']
         }
@@ -127,7 +127,7 @@ class TestLoan(IconIntegrateTestBase):
              'params': {'_address': self.contracts['staking']['SCORE']}},
             {'contract': 'staking', 'method': 'setSicxAddress',
              'params': {'_address': self.contracts['sicx']['SCORE']}},
-            {'contract': 'icd', 'method': 'setGovernance',
+            {'contract': 'bnUSD', 'method': 'setGovernance',
              'params': {'_address': self.contracts['governance']['SCORE']}},
             {'contract': 'bal', 'method': 'setGovernance',
              'params': {'_address': self.contracts['governance']['SCORE']}},
@@ -252,7 +252,7 @@ class TestLoan(IconIntegrateTestBase):
                 print('Revert Matched')
             else:
                 bal_of_sicx = self.balanceOfTokens('sicx', wallet_address)
-                bal_of_icd = self.balanceOfTokens('icd', wallet_address)
+                bal_of_icd = self.balanceOfTokens('bnUSD', wallet_address)
                 self.assertEqual(1, _tx_result['status'])
                 self.assertEqual(int(case['actions']['expected_sicx_baln_loan']), int(bal_of_sicx, 16))
                 self.assertEqual(int(case['actions']['expected_icd_bal_wallet']), int(bal_of_icd, 16))
@@ -279,7 +279,7 @@ class TestLoan(IconIntegrateTestBase):
         elif name == 'dividends':
             contract = self.contracts['dividends']['SCORE']
         else:
-            contract = self.contracts['icd']['SCORE']
+            contract = self.contracts['bnUSD']['SCORE']
         _call = CallBuilder().from_(self._test1.get_address()) \
             .to(contract) \
             .method("balanceOf") \
@@ -289,7 +289,7 @@ class TestLoan(IconIntegrateTestBase):
         if name == 'sicx':
             print('Balance of sicx token is ' + str(int(response, 16)))
         else:
-            print("Balance of icd is " + str(int(response, 16)))
+            print("Balance of bnUSD is " + str(int(response, 16)))
         return response
 
     def _getAccountPositions(self, owner) -> dict:

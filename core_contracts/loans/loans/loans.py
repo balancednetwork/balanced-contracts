@@ -9,7 +9,7 @@ TAG = 'BalancedLoans'
 
 # For testing only
 # TEST_ADDRESS = Address.from_string('hx3f01840a599da07b0f620eeae7aa9c574169a4be')
-TEST_ADDRESS = Address.from_string('hxe7af5fcfd8dfc67530a01a0e403882687528dfcb')
+TEST_ADDRESS = Address.from_string('hxe62d11fa19a0e8575ad92f06bc8fd42edbfe27db')
 
 
 # An interface to the Emergency Reserve Fund
@@ -575,6 +575,7 @@ class Loans(IconScoreBase):
         asset = self._assets._get_asset(str(self.msg.sender))
         symbol = asset.symbol()
         if self._positions._exists(_from):
+            pos = self._positions.get_pos(_from)
             repay = min(pos[symbol], _value)
             if repay > 0:
                 self._repay_loan(_from, repay)
@@ -648,7 +649,7 @@ class Loans(IconScoreBase):
             return bd_sicx
         _asset.liquidation_pool.set(0)
         reserve = self.create_interface_score(reserve_address, ReserveFund)
-        return in_pool + reserve.redeem(_from, bd_sicx - in_pool)
+        return in_pool + reserve.redeem(_from, bd_sicx - in_pool, _sicx_rate)
 
     @external
     def originateLoan(self, _asset: str, _amount: int, _from: Address = None) -> None:

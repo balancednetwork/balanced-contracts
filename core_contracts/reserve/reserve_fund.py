@@ -21,6 +21,10 @@ class TokenInterface(InterfaceScore):
     def priceInLoop(self) -> int:
         pass
 
+    @interface
+    def symbol(self):
+        pass
+
 
 # An interface to the Loans SCORE
 class LoansInterface(InterfaceScore):
@@ -146,7 +150,7 @@ class ReserveFund(IconScoreBase):
             baln_address = self._baln_token.get()
             baln = self.create_interface_score(baln_address, TokenInterface)
             baln_rate = baln.priceInLoop()
-            baln_to_send = (_amount - sicx) * sicx_rate // baln_rate
+            baln_to_send = (_amount - sicx) * _sicx_rate // baln_rate
             baln_remaining = self._baln.get() - baln_to_send
             if baln_remaining < 0: # Revert in case where there is not enough BALN.
                 revert(f'Unable to process request at this time.')
@@ -155,6 +159,7 @@ class ReserveFund(IconScoreBase):
             self._baln.set(baln_remaining)
         self._sicx.set(sicx - sicx_to_send)
         self._send_token(self._sicx_token.get(), self._loans_score.get(), sicx_to_send, 'To Loans:')
+        # return sicx_to_send
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
@@ -191,6 +196,7 @@ class ReserveFund(IconScoreBase):
         :param msg: Message for the event log.
         :type msg: str
         """
+        global symbol
         try:
             token_score = self.create_interface_score(_token_address, TokenInterface)
             token_score.transfer(_to, _amount)
