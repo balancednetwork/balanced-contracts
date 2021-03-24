@@ -138,10 +138,11 @@ class Staking(IconScoreBase):
 
     def on_install(self) -> None:
         super().on_install()
+        next_prep_term = self._system.getIISSInfo()["nextPRepTerm"]
         # initializing the block height to check change in the top 100 preps
-        self._block_height_week.set(self._system.getIISSInfo()["nextPRepTerm"])
+        self._block_height_week.set(next_prep_term)
         # initializing the block height to claim rewards once a day
-        self._block_height_day.set(self._system.getIISSInfo()["nextPRepTerm"])
+        self._block_height_day.set(next_prep_term)
         # top 100 preps is initialized at first
         self._rate.set(DENOMINATOR)
         self._distributing.set(False)
