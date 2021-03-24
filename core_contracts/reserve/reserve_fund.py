@@ -159,7 +159,6 @@ class ReserveFund(IconScoreBase):
             self._baln.set(baln_remaining)
         self._sicx.set(sicx - sicx_to_send)
         self._send_token(self._sicx_token.get(), self._loans_score.get(), sicx_to_send, 'To Loans:')
-        # return sicx_to_send
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
