@@ -66,7 +66,7 @@ class InterfaceSystemScore(InterfaceScore):
     def getPRepTerm(self) -> dict: pass
 
     @interface
-    def getPReps(self, startRanking: int, endRanking: int) -> list: pass
+    def getPReps(self, startRanking: int, endRanking: int) -> dict: pass
 
 
 class PrepDelegations(TypedDict):
@@ -252,8 +252,7 @@ class Staking(IconScoreBase):
                     dict_address_delegation_percent[list_split[0]] = int(list_split[1])
                 else:
                     if list_split[1] != '0':
-                        dict_address_delegation_percent[list_split[0]] = dict_address_delegation_percent[
-                                                                             list_split[0]] + int(list_split[1])
+                        dict_address_delegation_percent[list_split[0]] += int(list_split[1])
                     else:
                         dict_address_delegation_percent[list_split[0]] = 0
             return dict_address_delegation_percent
@@ -375,14 +374,7 @@ class Staking(IconScoreBase):
          :params _value : Value in ICX in 10**18 form.
          :params _delegations : complete delegations of staking contract.
         """
-        _prep_str = str(_prep)
-        if _delegations == {}:
-            self._prep_delegations[_prep_str] = _value
-        else:
-            if _prep_str in _delegations.keys():
-                self._prep_delegations[_prep_str] += _value
-            else:
-                self._prep_delegations[_prep_str] = _value
+        self._prep_delegations[str(_prep)] += _value
 
     def _stake_and_delegate(self, evenly_distribute_value: int = 0) -> None:
         """
@@ -405,8 +397,7 @@ class Staking(IconScoreBase):
             self._address_delegations[address_str] = ''
             for item in previous_address_delegations.items():
                 x = Address.from_string(item[0])
-                self._prep_delegations[str(x)] -= ((item[1] * icx_hold_previously) // (
-                        100 * DENOMINATOR))
+                self._prep_delegations[str(x)] -= (item[1] * icx_hold_previously) // (100 * DENOMINATOR)
         return previous_address_delegations
 
     def _reset_top_preps(self) -> int:
@@ -484,7 +475,7 @@ class Staking(IconScoreBase):
         if previous_address_delegations == {}:
             flags = 1
             amount_to_stake_in_per = 100 * DENOMINATOR
-            to_evenly_distribute_value = self._distribute_evenly(amount_to_stake_in_per, flags, _to)
+            self._distribute_evenly(amount_to_stake_in_per, flags, _to)
         else:
             for dict_prep_delegation in previous_address_delegations.items():
                 self._set_address_delegations(_to, Address.from_string(dict_prep_delegation[0]),
@@ -568,11 +559,11 @@ class Staking(IconScoreBase):
             self._daily_reward.set(daily_reward)
             self._total_lifetime_reward.set(self.getLifetimeReward() + daily_reward)
             self._rate.set(self.getRate())
-            totalStake = self._total_stake.get()
+            total_stake = self._total_stake.get()
             self._total_stake.set(self.getTotalStake() + daily_reward)
             for single_prep in self.getPrepList():
                 value_in_icx = self._prep_delegations[str(single_prep)]
-                weightage_in_per = ((value_in_icx * DENOMINATOR) // totalStake) * 100
+                weightage_in_per = ((value_in_icx * DENOMINATOR) // total_stake) * 100
                 single_prep_reward = ((weightage_in_per // 100) * daily_reward) // DENOMINATOR
                 self._set_prep_delegations(Address.from_string(str(single_prep)), single_prep_reward,
                                            self.getPrepDelegations())
@@ -682,8 +673,8 @@ class Staking(IconScoreBase):
         Sends ICX to an address.
         :param _to: ICX destination address.
         :type _to: :class:`iconservice.base.address.Address`
-        :param _amount: Number of ICX sent.
-        :type _amount: int
+        :param amount: Number of ICX sent.
+        :type amount: int
         :param msg: Message for the event log.
         :type msg: str
         """
