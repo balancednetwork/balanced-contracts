@@ -266,10 +266,7 @@ class Staking(IconScoreBase):
         Returns a dictionary with prep addresses as a key and total ICX delegated to that prep address
         from staking contract as a value.
          """
-        prep_address_votes = {}
-        for single_prep in self._prep_list:
-            prep_address_votes[str(single_prep)] = self._prep_delegations[str(single_prep)]
-        return prep_address_votes
+        return {prep: self._prep_delegations[prep] for prep in self._prep_list}
 
     @external
     def setSicxAddress(self, _address: Address) -> None:
@@ -285,10 +282,7 @@ class Staking(IconScoreBase):
         Returns a list of unstaked amount,wallet address, unstake amount period
         and self.msg.sender of an unstaking request.
         """
-        unstake_info_list = []
-        for items in self._linked_list_var:
-            unstake_info_list.append([items[1], items[2], items[3], items[4]])
-        return unstake_info_list
+        return [[items[1], items[2], items[3], items[4]] for items in self._linked_list_var]
 
     @external(readonly=True)
     def getUserUnstakeInfo(self, _address: Address) -> list:
@@ -297,11 +291,11 @@ class Staking(IconScoreBase):
         and self.msg.sender
         :params _address: the address of which the unstake request information is requested.
         """
-        unstake_info_list = []
-        for items in self._linked_list_var:
-            if items[4] == _address:
-                unstake_info_list.append([items[1], items[2], items[3], items[4]])
-        return unstake_info_list
+        return [
+            [items[1], items[2], items[3], items[4]]
+            for items in self._linked_list_var
+            if items[4] == _address
+        ]
 
     def _set_top_preps(self) -> None:
         """Weekly this function is called to set the top 100 prep address in an arraydb"""
