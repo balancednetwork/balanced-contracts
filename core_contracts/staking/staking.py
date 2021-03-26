@@ -609,7 +609,7 @@ class Staking(IconScoreBase):
         except BaseException as e:
             revert(f'Invalid data: {_data}. Exception: {e}')
         if d["method"] == "unstake":
-            if "user" in d.keys():
+            if "user" in d:
                 self._unstake(_from, _value, Address.from_string(d["user"]))
             else:
                 self._unstake(_from, _value)
