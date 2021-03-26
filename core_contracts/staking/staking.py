@@ -466,7 +466,7 @@ class Staking(IconScoreBase):
             for each_info in unstake_info_list:
                 value_to_transfer = each_info[0]
                 if value_to_transfer <= balance_score:
-                    self._send_ICX(each_info[1], value_to_transfer)
+                    self._send_ICX(each_info[3], value_to_transfer)
                     self._linked_list_var.remove(self._linked_list_var._head_id.get())
                     self._total_unstake_amount.set(self._total_unstake_amount.get() - value_to_transfer)
                 break
@@ -627,10 +627,11 @@ class Staking(IconScoreBase):
             d = json_loads(_data.decode("utf-8"))
         except BaseException as e:
             revert(f'Invalid data: {_data}. Exception: {e}')
-        if set(d.keys()) != set(["method"]):
-            revert('Invalid parameters.')
         if d["method"] == "unstake":
-            self._unstake(_from, _value)
+            if "user" in d.keys():
+                self._unstake(_from,_value,Address.from_string(d["user"]))
+            else:
+                self._unstake(_from, _value)
 
     def _delegations(self, evenly_distribute_value: int) -> None:
         """
@@ -658,7 +659,7 @@ class Staking(IconScoreBase):
             delegation_list.append(delegation_info)
         self._system.setDelegation(delegation_list)
 
-    def _unstake(self, _to: Address, _value: int) -> None:
+    def _unstake(self, _to: Address, _value: int,_sender_address : Address = None) -> None:
         """
         Burns the sICX and removes delegations
         from the prep addresses and adds the
@@ -678,8 +679,11 @@ class Staking(IconScoreBase):
         self._delegations(self._reset_top_preps())
         self._stake(self._total_stake.get())
         stake_in_network = self._system.getStake(self.address)
+        address_to_send = _to
+        if _sender_address is not None:
+            address_to_send = _sender_address
         self._linked_list_var.append(_to, amount_to_unstake,
-                                     stake_in_network['unstakes'][-1]['unstakeBlockHeight'], _to,
+                                     stake_in_network['unstakes'][-1]['unstakeBlockHeight'], address_to_send,
                                      self._linked_list_var._tail_id.get() + 1)
         self._sICX_supply.set(self._sICX_supply.get() - _value)
 
