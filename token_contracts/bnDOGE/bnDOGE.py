@@ -12,6 +12,7 @@ DEFAULT_ORACLE_ADDRESS = 'cx61a36e5d10412e03c907a507d1e8c6c3856d9964'
 DEFAULT_ORACLE_NAME = 'BandChain'
 INITIAL_PRICE_ESTIMATE = 3 * 10**16
 MIN_UPDATE_TIME = 30000000 # 30 seconds
+EXA = 10**18
 
 # An interface to the Band Price Oracle
 class OracleInterface(InterfaceScore):
@@ -48,7 +49,6 @@ class BalancedDoge(IRC2Mintable, IRC2Burnable):
         self._oracle_name.set(DEFAULT_ORACLE_NAME)
         self._last_price.set(INITIAL_PRICE_ESTIMATE)
         self._min_interval.set(MIN_UPDATE_TIME)
-        self.update_asset_value()
 
     def on_update(self) -> None:
         super().on_update()
@@ -72,7 +72,7 @@ class BalancedDoge(IRC2Mintable, IRC2Burnable):
         """
         Sets the authorized address.
 
-        :param account: The authorized admin address.
+        :param _admin: The authorized admin address.
         """
         return self._admin.set(_admin)
 
@@ -126,8 +126,9 @@ class BalancedDoge(IRC2Mintable, IRC2Burnable):
         quote = "ICX"
         oracle_address = self._oracle_address.get()
         oracle = self.create_interface_score(oracle_address, OracleInterface)
-        priceData = oracle.get_reference_data(base, quote)
-        return priceData['rate']
+        icx_price = oracle.get_reference_data("USD", quote)
+        priceData = oracle.get_reference_data(base, "USD")
+        return priceData['rate'] * icx_price['rate'] // EXA
 
     def update_asset_value(self) -> None:
         """
@@ -139,25 +140,18 @@ class BalancedDoge(IRC2Mintable, IRC2Burnable):
         oracle_address = self._oracle_address.get()
         try:
             oracle = self.create_interface_score(oracle_address, OracleInterface)
-            priceData = oracle.get_reference_data(base, quote)
-            self._last_price.set(priceData['rate'])
+            icx_price = oracle.get_reference_data("USD", quote)
+            priceData = oracle.get_reference_data(base, "USD")
+            rate = priceData['rate'] * icx_price['rate'] // EXA
+            self._last_price.set(rate)
             self._price_update_time.set(self.now())
-            self.OraclePrice(base + quote, self._oracle_name.get(), oracle_address, priceData['rate'])
+            self.OraclePrice(base + quote, self._oracle_name.get(), oracle_address, rate)
         except BaseException as e:
             revert(f'{base + quote}, {self._oracle_name.get()}, {oracle_address}, Exception: {e}')
-
-    @external
-    def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
-        if self.msg.sender != self.address:
-            revert(f'Only accepts bnUSD tokens.')
 
     # ------------------------------------------------------------------------------------------------------------------
     # EVENTS
     # ------------------------------------------------------------------------------------------------------------------
-
-    @eventlog(indexed=3)
-    def OraclePriceUpdateFailed(self, market: str, oracle_name: str, oracle_address: Address, msg: str):
-        pass
 
     @eventlog(indexed=3)
     def OraclePrice(self, market: str, oracle_name: str, oracle_address: Address, price: int):

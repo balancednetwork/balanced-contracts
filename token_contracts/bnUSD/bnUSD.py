@@ -71,7 +71,7 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
         """
         Sets the authorized address.
 
-        :param account: The authorized admin address.
+        :param _admin: The authorized admin address.
         """
         return self._admin.set(_admin)
 
@@ -145,18 +145,9 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
         except BaseException as e:
             revert(f'{base + quote}, {self._oracle_name.get()}, {oracle_address}, Exception: {e}')
 
-    @external
-    def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
-        if self.msg.sender != self.address:
-            revert(f'Only accepts bnUSD tokens.')
-
     # ------------------------------------------------------------------------------------------------------------------
     # EVENTS
     # ------------------------------------------------------------------------------------------------------------------
-
-    @eventlog(indexed=3)
-    def OraclePriceUpdateFailed(self, market: str, oracle_name: str, oracle_address: Address, msg: str):
-        pass
 
     @eventlog(indexed=3)
     def OraclePrice(self, market: str, oracle_name: str, oracle_address: Address, price: int):
