@@ -72,7 +72,7 @@ class DAOfund(IconScoreBase):
 
     @external(readonly=True)
     def name(self) -> str:
-        return "DAOfund"
+        return "Balanced DAOfund"
 
     @external
     @only_governance

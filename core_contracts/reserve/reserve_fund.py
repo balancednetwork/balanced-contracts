@@ -75,7 +75,7 @@ class ReserveFund(IconScoreBase):
 
     @external(readonly=True)
     def name(self) -> str:
-        return "ReserveFund"
+        return "Balanced Reserve Fund"
 
     @external
     @only_owner
@@ -146,7 +146,7 @@ class ReserveFund(IconScoreBase):
             baln_address = self._baln_token.get()
             baln = self.create_interface_score(baln_address, TokenInterface)
             baln_rate = baln.priceInLoop()
-            baln_to_send = (_amount - sicx) * sicx_rate // baln_rate
+            baln_to_send = (_amount - sicx) * _sicx_rate // baln_rate
             baln_remaining = self._baln.get() - baln_to_send
             if baln_remaining < 0: # Revert in case where there is not enough BALN.
                 revert(f'Unable to process request at this time.')

@@ -43,11 +43,16 @@ class Snapshot(object):
         :return: dict of the object data
         :rtype dict
         """
+        prices = {}
+        assets = self._loans.asset_db
+        for symbol in assets.slist:
+            if assets[symbol].added.get() < self.snap_time.get():
+                prices[symbol] = self.prices[symbol]
         snap = {
             'snap_day': self.snap_day.get(),
             'snap_time': self.snap_time.get(),
             'total_mining_debt': self.total_mining_debt.get(),
-            'prices': self._loans._assets.get_asset_prices(),
+            'prices': prices,
             'replay_index': self.replay_index.get(),
             'mining_count': len(self.mining),
             'precompute_index': self.precompute_index.get(),

@@ -55,17 +55,13 @@ class ReplayEvent(object):
 
 class ReplayLogDB:
 
-    REPLAY = 'replay'
-    IDFACTORY = '_idfactory'
-    EVENTS = '_events'
-
     def __init__(self, db: IconScoreDatabase, loans: IconScoreBase):
         self._db = db
         self._loans = loans
         self._items = {}
         self._snapshot_db = SnapshotDB(db, loans)
-        self._id_factory = IdFactory(self.REPLAY + self.IDFACTORY, db)
-        self._events = ArrayDB(self.REPLAY + self.EVENTS, db, value_type=int)
+        self._id_factory = IdFactory('id_factory', db)
+        self._events = ArrayDB('events', db, value_type=int)
 
     def __getitem__(self, id: int) -> ReplayEvent:
         if id < 0:

@@ -152,7 +152,7 @@ class Staking(IconScoreBase):
 
     @external(readonly=True)
     def name(self) -> str:
-        return "Staking"
+        return "Staked ICX Manager"
 
     @external(readonly=True)
     def getTodayRate(self) -> int:
@@ -188,6 +188,7 @@ class Staking(IconScoreBase):
         Returns all the prep address as a list stored in the staking contract.
         """
         prep_list = []
+
         for address in self._prep_list:
             prep_list.append(address)
         return prep_list

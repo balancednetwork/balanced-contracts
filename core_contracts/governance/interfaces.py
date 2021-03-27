@@ -1,11 +1,9 @@
 from iconservice import *
-from .utils.checks import *
-from .utils.consts import *
 
 
 class DistPercentDict(TypedDict):
     recipient_name : str
-    bal_token_dist_percent: int
+    dist_percent: int
 
 
 # An interface to the Loans SCORE
@@ -16,6 +14,10 @@ class LoansInterface(InterfaceScore):
 
     @interface
     def turnLoansOn(self) -> None:
+        pass
+
+    @interface
+    def toggleLoansOn(self) -> None:
         pass
 
     @interface
@@ -119,7 +121,7 @@ class RewardsInterface(InterfaceScore):
         pass
 
     @interface
-    def updateBalTokenDistPercentage(self, _recipient_list : List[DistPercentDict]) -> None:
+    def updateBalTokenDistPercentage(self, _recipient_list: List[DistPercentDict]) -> None:
         pass
 
 

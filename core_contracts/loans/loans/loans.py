@@ -52,6 +52,7 @@ class TokenInterface(InterfaceScore):
 
 class Loans(IconScoreBase):
 
+    _TEST_MODE = "test_mode"
     _LOANS_ON = 'loans_on'
     _GOVERNANCE = 'governance'
     _DIVIDENDS = 'dividends'
@@ -81,6 +82,7 @@ class Loans(IconScoreBase):
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
+        self._test_mode = VarDB(self._TEST_MODE, db, value_type=bool)
         self._loans_on = VarDB(self._LOANS_ON, db, value_type=bool)
         self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
         self._dividends = VarDB(self._DIVIDENDS, db, value_type=Address)
@@ -113,6 +115,7 @@ class Loans(IconScoreBase):
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
+        self._test_mode.set(False)
         self._governance.set(_governance)
         self._loans_on.set(False)
         self._admin.set(self.owner)
@@ -138,16 +141,32 @@ class Loans(IconScoreBase):
         self._locking_ratio.set(DEFAULT_LOCKING_RATIO)
         self._liquidation_ratio.set(DEFAULT_LIQUIDATION_RATIO)
 
+    @payable
     @external
-    def add_bad_test_position(self) -> None:
-        # # Create bad position for testing liquidation. Take out a loan that is too large.
-        pos = self._positions.get_pos(TEST_ADDRESS)
-        # Independently, 782769 * 10**15 =~$299 worth of collateral will be
-        # deposited for this position.
-        bnUSD: int = 2 * 10**20 # $200 bnUSD debt
-        self._assets['bnUSD'].mint(TEST_ADDRESS, bnUSD)
-        pos['bnUSD'] += bnUSD
+    def create_test_position(self, _address: Address, _asset: str, _amount: int) -> None:
+        # Create bad position for testing liquidation. Take out a loan that is too large.
+        # Add ICX collateral via staking contract.
+        if not self._test_mode.get():
+            revert(f'This method may only be called in test mode.')
+        params = {"_sender": str(_address), "_asset": "", "_amount": 0}
+        data = json_dumps({"method": "_deposit_and_borrow", "params": params}).encode("utf-8")
+        staking = self.create_interface_score(self._staking.get(), Staking)
+        staking.icx(self.msg.value).stakeICX(self.address, data)
+        pos = self._positions.get_pos(_address)
+        # Mint asset for this position.
+        if _amount > 0:
+            self._assets[_asset].mint(_address, _amount)
+            pos[_asset] += _amount
         pos.update_standing()
+
+    @external
+    @only_owner
+    def toggleTestMode(self) -> None:
+        self._test_mode.set(not self._test_mode.get())
+
+    @external(readonly=True)
+    def getTestMode(self) -> bool:
+        return self._test_mode.get()
 
     @external(readonly=True)
     def checkDebts(self) -> dict:
@@ -175,7 +194,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def name(self) -> str:
-        return "BalancedLoans"
+        return "Balanced Loans"
 
     @external(readonly=True)
     def snapIndexes(self) -> List[int]:
@@ -559,6 +578,7 @@ class Loans(IconScoreBase):
             repaid = pos[symbol]
             refund = _value - repaid
             pos[symbol] = 0
+            del pos[symbol]
             self._send_token(symbol, _from, refund, "Excess refunded.")
         if repaid != 0:
             self._assets[symbol].burn(repaid)
@@ -658,7 +678,7 @@ class Loans(IconScoreBase):
             return bd_sicx
         _asset.liquidation_pool.set(0)
         reserve = self.create_interface_score(reserve_address, ReserveFund)
-        return in_pool + reserve.redeem(_from, bd_sicx - in_pool)
+        return in_pool + reserve.redeem(_from, bd_sicx - in_pool, _sicx_rate)
 
     @external
     def originateLoan(self, _asset: str, _amount: int, _from: Address = None) -> None:
@@ -818,6 +838,7 @@ class Loans(IconScoreBase):
                     pool = self._assets[symbol].liquidation_pool.get()
                     self._assets[symbol].liquidation_pool.set(pool + share)
                     pos[symbol] = 0
+                    del pos[symbol]
             pos['sICX'] = 0
             self._send_token('sICX', self.msg.sender, reward, "Liquidation reward of")
             pos.update_standing()
