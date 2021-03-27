@@ -9,11 +9,7 @@ from .scorelib.linked_list import *
 TAG = 'StakedICXManager'
 
 DENOMINATOR = 1000000000000000000
-TOP_PREP_COUNT = 4
-
-
-TOTAL_PREPS = 4
-
+TOP_PREP_COUNT = 20
 
 # An interface of token to distribute daily rewards
 class sICXTokenInterface(InterfaceScore):
@@ -187,6 +183,9 @@ class Staking(IconScoreBase):
 
     @external(readonly=True)
     def getPrepList(self) -> list:
+        """
+        Returns all the prep address as a list stored in the staking contract.
+        """
         prep_list =[]
         for address in self._prep_list:
             prep_list.append(address)
@@ -608,7 +607,7 @@ class Staking(IconScoreBase):
         if amount_to_stake_in_per != 100 * DENOMINATOR:
             revert('Total delegations should be 100 %')
         if previous_address_delegations != {}:
-            self._delegations(self._check_for_week())
+            self._stake_and_delegate(self._check_for_week())
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
@@ -651,6 +650,7 @@ class Staking(IconScoreBase):
             if count == total_preps:
                 dust = self.getTotalStake() - voting_power_check
                 value_in_icx += dust
+                self._prep_delegations[str(prep)]  += dust
             delegation_info: Delegation = {
                 "address": prep,
                 "value": value_in_icx
@@ -670,10 +670,10 @@ class Staking(IconScoreBase):
         amount_to_unstake = (_value * self._rate.get()) // DENOMINATOR
         delegation_in_per = self._get_address_delegations_in_per(_to)
         self._total_unstake_amount.set(self._total_unstake_amount.get() + amount_to_unstake)
-        for single in delegation_in_per.items():
-            prep_percent = int(single[1])
+        for item in delegation_in_per.items():
+            prep_percent = int(item[1])
             amount_to_remove_from_prep = ((prep_percent // 100) * amount_to_unstake) // DENOMINATOR
-            self._prep_delegations[single[0]] -= amount_to_remove_from_prep
+            self._prep_delegations[item[0]] -= amount_to_remove_from_prep
         self._total_stake.set(self._total_stake.get() - amount_to_unstake)
         self._delegations(self._reset_top_preps())
         self._stake(self._total_stake.get())

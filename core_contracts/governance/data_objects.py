@@ -2,7 +2,7 @@ from iconservice import *
 from .utils.consts import *
 from .interfaces import *
 
-class BalancedAddresses(TypedDict, total=False):
+class BalancedAddresses(TypedDict):
     loans: Address
     dex: Address
     staking: Address
@@ -43,7 +43,7 @@ class Addresses(object):
     def __setitem__(self, key, value):
         revert('illegal access')
 
-    def setAddresses(self, addresses: TypedDict) -> None:
+    def setAddresses(self, addresses: BalancedAddresses) -> None:
         """
         Takes a TypedDict with 1 to 11 addresses and sets them.
         """
