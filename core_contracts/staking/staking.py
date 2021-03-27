@@ -232,12 +232,9 @@ class Staking(IconScoreBase):
         dict_address_delegation = {}
         dict_address_votes = self._get_address_delegations_in_per(_address)
         total_icx_hold = (self.get_sICX_score().balanceOf(_address) * self._rate.get()) // DENOMINATOR
-        if dict_address_votes != {}:
-            for item in dict_address_votes.items():
-                address = item[0]
-                vote_in_per = item[1]
-                votes_in_icx = (vote_in_per * total_icx_hold) // (DENOMINATOR * 100)
-                dict_address_delegation[str(address)] = votes_in_icx
+        for address_str, vote_in_per in dict_address_votes.items():
+            votes_in_icx = (vote_in_per * total_icx_hold) // (DENOMINATOR * 100)
+            dict_address_delegation[address_str] = votes_in_icx
         return dict_address_delegation
 
     def _get_address_delegations_in_per(self, _address: Address) -> dict:
@@ -270,7 +267,7 @@ class Staking(IconScoreBase):
         Returns a dictionary with prep addresses as a key and total ICX delegated to that prep address
         from staking contract as a value.
          """
-        return {prep: self._prep_delegations[prep] for prep in self._prep_list}
+        return {str(prep): self._prep_delegations[str(prep)] for prep in self._prep_list}
 
     @external
     def setSicxAddress(self, _address: Address) -> None:
@@ -364,7 +361,7 @@ class Staking(IconScoreBase):
         :params _delegations : complete delegations of staking contract.
         """
         _to_str = str(_to)
-        self._address_delegations[_to_str] += f'{str(_prep)}:{str(_value)}.'
+        self._address_delegations[_to_str] += f'{_prep}:{_value}.'
         # _value is the delegation preferences of a user for a specific prep in 10 **18 form
         total_icx_hold = (self.get_sICX_score().balanceOf(_to) * self._rate.get()) // DENOMINATOR
         if total_icx_hold != 0:
@@ -411,9 +408,9 @@ class Staking(IconScoreBase):
         that are out of 100 and returns an integer.
         """
         to_distribute = 0
-        for single_prep in self.getPrepDelegations().keys():
-            if Address.from_string(single_prep) not in self._top_preps:
-                to_distribute += self._prep_delegations[str(single_prep)]
+        for prep_str in self.getPrepDelegations():
+            if Address.from_string(prep_str) not in self._top_preps:
+                to_distribute += self._prep_delegations[prep_str]
         to_evenly_distribute_value = self._distribute_evenly(to_distribute)
         return to_evenly_distribute_value
 
@@ -570,8 +567,7 @@ class Staking(IconScoreBase):
                 value_in_icx = self._prep_delegations[str(single_prep)]
                 weightage_in_per = ((value_in_icx * DENOMINATOR) // total_stake) * 100
                 single_prep_reward = ((weightage_in_per // 100) * daily_reward) // DENOMINATOR
-                self._set_prep_delegations(Address.from_string(str(single_prep)), single_prep_reward,
-                                           self.getPrepDelegations())
+                self._set_prep_delegations(single_prep, single_prep_reward, self.getPrepDelegations())
             self._daily_reward.set(0)
             self._distributing.set(False)
         self._check_for_iscore()
@@ -629,14 +625,14 @@ class Staking(IconScoreBase):
         total_preps = len(self._top_preps)
         voting_power_check = 0
         for i, prep in enumerate(self._top_preps):
-            key = str(prep)
-            value_in_icx = self._prep_delegations[key] + evenly_distribute_value
+            prep_str = str(prep)
+            value_in_icx = self._prep_delegations[prep_str] + evenly_distribute_value
             voting_power_check += value_in_icx
             # If this is the last prep, we add the dust.
             if i == total_preps - 1:
                 dust = self.getTotalStake() - voting_power_check
                 value_in_icx += dust
-                self._prep_delegations[key] += dust
+                self._prep_delegations[prep_str] += dust
             delegation_list.append({"address": prep, "value": value_in_icx})
         self._system.setDelegation(delegation_list)
 
