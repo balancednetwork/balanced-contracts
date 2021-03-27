@@ -173,7 +173,6 @@ class Rewards(IconScoreBase):
             return
         if not _address.is_contract:
             revert(f'Data source must be a contract.')
-        self._data_source_db._names.put(_name)
         self._recipients.put(_name)
         self._recipient_split[_name] = 0
         self._data_source_db.new_source(_name, _address)
