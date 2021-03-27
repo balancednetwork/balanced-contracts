@@ -420,9 +420,10 @@ class Staking(IconScoreBase):
         Calls the function _reset_top_preps and returns the sum of ICX of those preps
         that are out of 100 if there is any else 0.
         """
-        if self._system.getIISSInfo()["nextPRepTerm"] > self._block_height_week.get() + (7 * 43200):
-            self._block_height_week.set(self._system.getIISSInfo()["nextPRepTerm"])
-            for i in range(TOP_PREP_COUNT):
+        next_prep_term: int = self._system.getIISSInfo()["nextPRepTerm"]
+        if next_prep_term > self._block_height_week.get() + (7 * 43200):
+            self._block_height_week.set(next_prep_term)
+            for _ in range(TOP_PREP_COUNT):
                 self._top_preps.pop()
             self._set_top_preps()
             return self._reset_top_preps()
@@ -433,8 +434,9 @@ class Staking(IconScoreBase):
         """
         Claim iscore once a day.
         """
-        if self._system.getIISSInfo()["nextPRepTerm"] > self._block_height_day.get() + 43200:
-            self._block_height_day.set(self._system.getIISSInfo()["nextPRepTerm"])
+        next_prep_term: int = self._system.getIISSInfo()["nextPRepTerm"]
+        if next_prep_term > self._block_height_day.get() + 43200:
+            self._block_height_day.set(next_prep_term)
             self._claim_iscore()
 
     def _checkForBalance(self) -> None:
