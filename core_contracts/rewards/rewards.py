@@ -70,7 +70,7 @@ class Rewards(IconScoreBase):
         return holdings
 
     @external(readonly = True)
-    def getBalnHolding(self, _holder: Address) -> int:
+    def getBalnHolding(self, _holder: str) -> int:
         return self._baln_holdings[_holder]
 
     @external(readonly = True)
