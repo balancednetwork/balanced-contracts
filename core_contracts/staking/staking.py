@@ -586,8 +586,8 @@ class Staking(IconScoreBase):
                 value_in_icx = self._prep_delegations[str(single_prep)]
                 weightage_in_per = ((value_in_icx * DENOMINATOR) // totalStake) * 100
                 single_prep_reward = ((weightage_in_per // 100) * daily_reward) // DENOMINATOR
-                self._set_prep_delegations(Address.from_string(str(single_prep)), single_prep_reward
-                                           , self.getPrepDelegations())
+                self._set_prep_delegations(Address.from_string(str(single_prep)), single_prep_reward,
+                                           self.getPrepDelegations())
             self._daily_reward.set(0)
             self._distributing.set(False)
         self._check_for_iscore()
