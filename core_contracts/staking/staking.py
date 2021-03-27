@@ -129,8 +129,8 @@ class Staking(IconScoreBase):
         self._prep_delegations = DictDB(self._PREP_DELEGATIONS, db, value_type=int)
         # initializing the system score
         self._system = IconScoreBase.create_interface_score(SYSTEM_SCORE, InterfaceSystemScore)
-        # initialize the sicx score
-        self.sICX_score = self.create_interface_score(self._sICX_address.get(), sICXTokenInterface)
+        # initialize the sicx score interface later since it needs db access
+        self._sICX_score = None
         # initialize the linked list
         self._linked_list_var = LinkedListDB("unstake_dict", db)
 
@@ -157,6 +157,11 @@ class Staking(IconScoreBase):
     def getTodayRate(self) -> int:
         return self._rate.get()
 
+    def get_sICX_score(self) -> sICXTokenInterface:
+        if self._sICX_score is None:
+            self._sICX_score = self.create_interface_score(self._sICX_address.get(), sICXTokenInterface)
+        return self._sICX_score
+
     def getRate(self) -> int:
         """
         Get the ratio of ICX to sICX.
@@ -165,7 +170,7 @@ class Staking(IconScoreBase):
         if total_stake == 0:
             rate = DENOMINATOR
         else:
-            rate = (total_stake + self._daily_reward.get()) * DENOMINATOR // self.sICX_score.totalSupply()
+            rate = (total_stake + self._daily_reward.get()) * DENOMINATOR // self.get_sICX_score().totalSupply()
         return rate
 
     @external
@@ -173,7 +178,7 @@ class Staking(IconScoreBase):
         """
         Only necessary for the dummy contract.
         """
-        self._sICX_supply.set(self.sICX_score.totalSupply())
+        self._sICX_supply.set(self.get_sICX_score().totalSupply())
 
     @external(readonly=True)
     def getSicxAddress(self) -> Address:
@@ -226,7 +231,7 @@ class Staking(IconScoreBase):
          """
         dict_address_delegation = {}
         dict_address_votes = self._get_address_delegations_in_per(_address)
-        total_icx_hold = (self.sICX_score.balanceOf(_address) * self._rate.get()) // DENOMINATOR
+        total_icx_hold = (self.get_sICX_score().balanceOf(_address) * self._rate.get()) // DENOMINATOR
         if dict_address_votes != {}:
             for item in dict_address_votes.items():
                 address = item[0]
@@ -361,7 +366,7 @@ class Staking(IconScoreBase):
         _to_str = str(_to)
         self._address_delegations[_to_str] += f'{str(_prep)}:{str(_value)}.'
         # _value is the delegation preferences of a user for a specific prep in 10 **18 form
-        total_icx_hold = (self.sICX_score.balanceOf(_to) * self._rate.get()) // DENOMINATOR
+        total_icx_hold = (self.get_sICX_score().balanceOf(_to) * self._rate.get()) // DENOMINATOR
         if total_icx_hold != 0:
             _value = (_value * total_icx_hold) // (100 * DENOMINATOR)
             self._set_prep_delegations(_prep, _value, _delegations)
@@ -392,7 +397,7 @@ class Staking(IconScoreBase):
         """
         address_str = str(_to)
         previous_address_delegations = self._get_address_delegations_in_per(_to)
-        icx_hold_previously = (self.sICX_score.balanceOf(_to) * self._rate.get()) // DENOMINATOR
+        icx_hold_previously = (self.get_sICX_score().balanceOf(_to) * self._rate.get()) // DENOMINATOR
         if previous_address_delegations != {}:
             self._address_delegations[address_str] = ''
             for item in previous_address_delegations.items():
@@ -470,7 +475,7 @@ class Staking(IconScoreBase):
         self._total_stake.set(self._total_stake.get() + self.msg.value)
         amount = DENOMINATOR * self.msg.value // self._rate.get()
         previous_address_delegations = self._remove_previous_delegations(_to)
-        self.sICX_score.mintTo(_to, amount, _data)
+        self.get_sICX_score().mintTo(_to, amount, _data)
         prep_delegations = self.getPrepDelegations()
         if previous_address_delegations == {}:
             flags = 1
@@ -643,7 +648,7 @@ class Staking(IconScoreBase):
         :params _to : Address that is making unstaking request.
         :params _value : Amount of sICX to be burned.
         """
-        self.sICX_score.burn(_value)
+        self.get_sICX_score().burn(_value)
         amount_to_unstake = (_value * self._rate.get()) // DENOMINATOR
         delegation_in_per = self._get_address_delegations_in_per(_to)
         self._total_unstake_amount.set(self._total_unstake_amount.get() + amount_to_unstake)
