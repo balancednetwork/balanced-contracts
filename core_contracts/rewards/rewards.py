@@ -30,7 +30,7 @@ class Rewards(IconScoreBase):
         self._baln_address = VarDB('baln_address', db, value_type=Address)
         self._bwt_address = VarDB('bwt_address', db, value_type=Address)
         self._reserve_fund = VarDB('reserve_fund', db, value_type=Address)
-        self._daofund = VarDB('reserve_fund', db, value_type=Address)
+        self._daofund = VarDB('dao_fund', db, value_type=Address)
         self._start_timestamp = VarDB('start_timestamp', db, value_type=int)
         self._batch_size = VarDB('batch_size', db, value_type=int)
         self._baln_holdings = DictDB('baln_holdings', db, value_type=int)
@@ -173,7 +173,6 @@ class Rewards(IconScoreBase):
             return
         if not _address.is_contract:
             revert(f'Data source must be a contract.')
-        self._data_source_db._names.put(_name)
         self._recipients.put(_name)
         self._recipient_split[_name] = 0
         self._data_source_db.new_source(_name, _address)
