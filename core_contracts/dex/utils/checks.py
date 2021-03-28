@@ -1,75 +1,40 @@
 from iconservice import *
 
-# ================================================
-#  Exceptions
-# ================================================
-class SenderNotScoreOwnerError(Exception):
-	pass
-
-
-class SenderNotAuthorized(Exception):
-	pass
-
-
-class SenderNotGovernance(Exception):
-	pass
-
-
-class NotAFunctionError(Exception):
-	pass
-
 
 def only_admin(func):
 	if not isfunction(func):
-		raise NotAFunctionError
+		revert(f"NotAFunctionError")
 
 	@wraps(func)
 	def __wrapper(self: object, *args, **kwargs):
 		if self.msg.sender != self._admin.get():
-			raise SenderNotAuthorized(self.msg.sender)
+			revert(f"SenderNotAdmin: sender({self.msg.sender}), admin({self._admin.get()})")
 
 		return func(self, *args, **kwargs)
 	return __wrapper
 
+
 def only_governance(func):
 	if not isfunction(func):
-		raise NotAFunctionError
+		revert(f"NotAFunctionError")
 
 	@wraps(func)
 	def __wrapper(self: object, *args, **kwargs):
 		if self.msg.sender != self._governance.get():
-			raise SenderNotAuthorized(self.msg.sender)
+			revert(f"SenderNotGovernance: sender({self.msg.sender}), governance({self._governance.get()})")
 
 		return func(self, *args, **kwargs)
 	return __wrapper
 
+
 def only_owner(func):
 	if not isfunction(func):
-		raise NotAFunctionError
+		revert(f"NotAFunctionError")
 
 	@wraps(func)
 	def __wrapper(self: object, *args, **kwargs):
 		if self.msg.sender != self.owner:
-			raise SenderNotScoreOwnerError(self.owner)
+			revert(f"SenderNotOwner: sender({self.msg.sender}), owner({self.owner})")
 
 		return func(self, *args, **kwargs)
-	return __wrapper
-
-def catch_error(func):
-	if not isfunction(func):
-		raise NotAFunctionError
-
-	@wraps(func)
-	def __wrapper(self: object, *args, **kwargs):
-		try:
-			return func(self, *args, **kwargs)
-		except BaseException as e:
-			Logger.error(repr(e), TAG)
-			try:
-				# readonly methods cannot emit eventlogs
-				self.ShowException(repr(e))
-			except:
-				pass
-			revert(repr(e))
-
 	return __wrapper

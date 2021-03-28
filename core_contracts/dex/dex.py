@@ -1147,7 +1147,7 @@ class DEX(IconScoreBase):
         return self.totalSupplyAt(self._named_markets[_name], _snapshot_id)
 
     @external(readonly=True)
-    def loadBalancesAtSnapshot(self, _pid: int, _snapshot_id: int, _limit: int,  _offset: int = 0) -> dict:
+    def loadBalancesAtSnapshot(self, _pid: int, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
         if _snapshot_id < 0:
             revert(f'Snapshot id is equal to or greater then Zero')
         if _pid < 0:
