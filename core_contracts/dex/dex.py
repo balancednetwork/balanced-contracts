@@ -774,7 +774,7 @@ class DEX(IconScoreBase):
             return False
 
     @external
-    def transferFrom(self, _from: Address, _to: Address, _value: int, _id: int, _data: bytes = None):
+    def transferFrom(self, _from: Address, _to: Address, _id: int, _value: int, _data: bytes = None):
         """
         Transfers `_value` amount of an token `_id` from one address to another address,
         and must emit `TransferSingle` event to reflect the balance change.
@@ -790,16 +790,16 @@ class DEX(IconScoreBase):
 
         :param _from: source address
         :param _to: target address
-        :param _value: the amount of transfer
         :param _id: ID of the token
+        :param _value: the amount of transfer
         :param _data: additional data that should be sent unaltered in call to `_to`
         """
 
         if _data is None:
             _data = b'None'
-        self._transfer_from(_from, _to, _value, _id, _data)
+        self._transfer_from(_from, _to, _id, _value, _data)
 
-    def _transfer_from(self, _from: Address, _to: Address, _value: int, _id: int, _data: bytes):
+    def _transfer_from(self, _from: Address, _to: Address, _id: int, _value: int, _data: bytes):
         if not self.isApprovedForAll(_from, self.msg.sender):
             revert("Not approved for transfer")
         if _value < 0:
