@@ -6,7 +6,7 @@ from .scorelib.linked_list import *
 
 TAG = 'StakedICXManager'
 
-DENOMINATOR = 1_000_000_000_000_000_000
+DENOMINATOR = 10 ** 18
 TOP_PREP_COUNT = 20
 
 

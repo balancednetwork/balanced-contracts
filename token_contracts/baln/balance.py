@@ -463,7 +463,7 @@ class BalancedToken(IRC2):
         :param _amount: Number of tokens to be destroyed.
         """
         _from = self.msg.sender
-        self._staked_balances[_from][Status.AVAILABLE] = self._staked_balances[_from][Status.AVAILABLE] - _value
+        self._staked_balances[_from][Status.AVAILABLE] = self._staked_balances[_from][Status.AVAILABLE] - _amount
 
         self._burn(_from, _amount)
 
@@ -477,7 +477,7 @@ class BalancedToken(IRC2):
         :param _account: The account at which token is to be destroyed.
         :param _amount: Number of tokens to be destroyed at the `_account`.
         """
-        self._staked_balances[_account][Status.AVAILABLE] = self._staked_balances[_account][Status.AVAILABLE] - _value
+        self._staked_balances[_account][Status.AVAILABLE] = self._staked_balances[_account][Status.AVAILABLE] - _amount
 
         self._burn(_account, _amount)
 
