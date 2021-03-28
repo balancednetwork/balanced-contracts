@@ -4,13 +4,9 @@
 #### and the underlying source code used to format and display that content is licensed under the GNU AGLPL license.  #####
 ##### Check the LICENSE file for more info #####
 
-from .scorelib.utils import *
-from .scorelib.id_factory import *
-from .scorelib.linked_list import *
-from .scorelib.bag import *
-from .scorelib.set import *
 from .scorelib.iterable_dict import *
-from iconservice import *
+from .scorelib.linked_list import *
+from .scorelib.utils import *
 from .utils.checks import *
 from .utils.consts import *
 
@@ -260,7 +256,7 @@ class DEX(IconScoreBase):
     @external
     def setAdmin(self, _admin: Address) -> None:
         """
-        :param _address: The new admin address to set.
+        :param _admin: The new admin address to set.
         Can make calls with the `@only_admin` decorator.
         Should be called before DEX use.
         """
@@ -459,7 +455,7 @@ class DEX(IconScoreBase):
             node = self._icx_queue._get_node(order_id)
             node.set_value1(node.get_value1() + self.msg.value)
             # Next, bump the user to the end of the line if it is not the tail
-            if self._icx_queue._length.get() > 1:
+            if len(self._icx_queue) > 1:
                 self._icx_queue.move_node_tail(order_id)
         else:
             order_id = self._icx_queue.append(self.msg.value, self.msg.sender)
@@ -572,7 +568,7 @@ class DEX(IconScoreBase):
         """
         if _data is None:
             _data = b'None'
-        self._transfer(self.msg.sender, _to, _value, _data)
+        self._transfer(self.msg.sender, _to, _value, _id, _data)
 
     def _transfer(self, _from: Address, _to: Address, _value: int, _id: int, _data: bytes):
         """
@@ -709,7 +705,7 @@ class DEX(IconScoreBase):
         e.g. USD/BTC, this is the inverse of the most common way to express price.
         """
         if _pid < 1 or _pid > self._nonce.get():
-            return "Invalid pool id"
+            revert("Invalid pool id")
         if _pid == self._SICXICX_POOL_ID:
             return self._get_sicx_rate()
         return (self._pool_total[_pid][self._pool_base[_pid]] * EXA) // self._pool_total[_pid][self._pool_quote[_pid]]
@@ -720,7 +716,7 @@ class DEX(IconScoreBase):
         e.g. BTC/USD, this is the most common way to express price.
         """
         if _pid < 1 or _pid > self._nonce.get():
-            return "Invalid pool id"
+            revert("Invalid pool id")
         return (self._pool_total[_pid][self._pool_quote[_pid]] * EXA) // self._pool_total[_pid][self._pool_base[_pid]]
 
     @external(readonly=True)
@@ -778,7 +774,7 @@ class DEX(IconScoreBase):
             return False
 
     @external
-    def transferFrom(self, _from: Address, _to: Address, _id: int, _value: int, _data: bytes = None):
+    def transferFrom(self, _from: Address, _to: Address, _value: int, _id: int, _data: bytes = None):
         """
         Transfers `_value` amount of an token `_id` from one address to another address,
         and must emit `TransferSingle` event to reflect the balance change.
@@ -794,16 +790,16 @@ class DEX(IconScoreBase):
 
         :param _from: source address
         :param _to: target address
-        :param _id: ID of the token
         :param _value: the amount of transfer
+        :param _id: ID of the token
         :param _data: additional data that should be sent unaltered in call to `_to`
         """
 
         if _data is None:
             _data = b'None'
-        self._transfer_from(self.msg.sender, _from, _to, _id, _value, _data)
+        self._transfer_from(_from, _to, _value, _id, _data)
 
-    def _transfer_from(self, _from: Address, _to: Address, _id: int, _value: int, _data: bytes):
+    def _transfer_from(self, _from: Address, _to: Address, _value: int, _id: int, _data: bytes):
         if not self.isApprovedForAll(_from, self.msg.sender):
             revert("Not approved for transfer")
         if _value < 0:
@@ -836,10 +832,8 @@ class DEX(IconScoreBase):
     def totalDexAddresses(self) -> int:
         """
         Returns total number of users that have used the dex.
-
-        :param _user: Address to check
         """
-        return self._funded_addresses.__len__()
+        return len(self._funded_addresses)
 
     def _get_exchange_rate(self) -> int:
         """
@@ -865,7 +859,6 @@ class DEX(IconScoreBase):
             revert("Pool does not exist")
         if _pid == self._SICXICX_POOL_ID:
             revert("Not supported on this API, use the ICX swap API")
-        old_price = 0
         if _fromToken == self.getPoolQuote(_pid):
             old_price = self.getBasePriceInQuote(_pid)
         else:
@@ -881,14 +874,14 @@ class DEX(IconScoreBase):
         self._pool_total[_pid][_fromToken] = new_token1 + lp_fees
         self._pool_total[_pid][_toToken] = new_token2
 
-        send_price = ((EXA) * _value) // send_amt
+        send_price = (EXA * _value) // send_amt
 
         max_slippage_price = (old_price * (10000 + _max_slippage)) // 10000
 
         Logger.info("send price = " + str(send_price) + ", old price = " +
                     str(old_price) + ", max slippage price = " + str(max_slippage_price), self._TAG)
 
-        if (send_price > max_slippage_price):
+        if send_price > max_slippage_price:
             revert("Passed Maximum slippage")
 
         # Pay each of the user and the dividends score their share of the tokens
@@ -924,28 +917,28 @@ class DEX(IconScoreBase):
 
         while not filled:
 
-            if self._icx_queue._length.get() == 0:
+            if len(self._icx_queue) == 0:
                 Logger.info("Transferring remaining SICX", 'DEX')
                 sicx_score.transfer(_sender, remaining_sicx)
                 break
 
             counterparty_order = self._icx_queue._get_head_node()
             counterparty_address = counterparty_order.get_value2()
-            order_sicx_value = (int)(counterparty_order.get_value1() * EXA //
-                                     conversion_factor)
+            order_sicx_value = int(counterparty_order.get_value1() * EXA //
+                                   conversion_factor)
             # Perform match. Matched amount is up to order size
             matched_sicx = min(order_sicx_value, remaining_sicx)
-            matched_icx = (int)(matched_sicx * conversion_factor // EXA)
-            filled_icx += (int)((matched_icx * fee_ratio) // FEE_SCALE)
+            matched_icx = int(matched_sicx * conversion_factor // EXA)
+            filled_icx += int((matched_icx * fee_ratio) // FEE_SCALE)
             removed_icx += matched_icx
 
-            dividends_contribution = (int)(
+            dividends_contribution = int(
                 (matched_icx * self._icx_baln_fee.get()) // FEE_SCALE)
             self.icx.transfer(self._dividends.get(),
                               dividends_contribution)
 
             sicx_score.transfer(counterparty_address, matched_sicx)
-            self.icx.transfer(counterparty_address, (int)
+            self.icx.transfer(counterparty_address, int
                               ((matched_icx * self._icx_conversion_fee.get()) // FEE_SCALE))
 
             if matched_icx == counterparty_order.get_value1():
@@ -1003,7 +996,7 @@ class DEX(IconScoreBase):
         length = self._account_balance_snapshot[_id][_account]['length'][0]
         last_snapshot_id = 0
 
-        day_start_us =  self._time_offset.get() + (U_SECONDS_DAY * current_id)
+        day_start_us = self._time_offset.get() + (U_SECONDS_DAY * current_id)
         day_elapsed_us = current_time - day_start_us
         day_remaining_us = U_SECONDS_DAY - day_elapsed_us
 
@@ -1018,7 +1011,6 @@ class DEX(IconScoreBase):
             return
         else:
             last_snapshot_id = self._account_balance_snapshot[_id][_account]['ids'][length - 1]
-
 
         # If there is a snapshot existing, it either falls before or in the current window.
         if last_snapshot_id < current_id:
@@ -1035,14 +1027,12 @@ class DEX(IconScoreBase):
         else:
             # If the snapshot is in the current window, we should update the current entry
             previous_average = self._account_balance_snapshot[_id][_account]['avgs'][length - 1]
-            
 
             average = ((previous_average * day_elapsed_us) + (current_value * day_remaining_us)) // U_SECONDS_DAY
 
             self._account_balance_snapshot[_id][_account]['values'][length - 1] = current_value
             self._account_balance_snapshot[_id][_account]['avgs'][length - 1] = average
             self._account_balance_snapshot[_id][_account]['time'][length - 1] = current_time
-
 
     def _update_total_supply_snapshot(self, _id: int) -> None:
         """
@@ -1056,7 +1046,7 @@ class DEX(IconScoreBase):
         length = self._total_supply_snapshot[_id]['length'][0]
         last_snapshot_id = 0
 
-        day_start_us =  self._time_offset.get() + (U_SECONDS_DAY * current_id)
+        day_start_us = self._time_offset.get() + (U_SECONDS_DAY * current_id)
         day_elapsed_us = current_time - day_start_us
         day_remaining_us = U_SECONDS_DAY - day_elapsed_us
 
@@ -1095,9 +1085,6 @@ class DEX(IconScoreBase):
             self._total_supply_snapshot[_id]['avgs'][length - 1] = average
             self._total_supply_snapshot[_id]['time'][length - 1] = current_time
 
-
-
-
     @external(readonly=True)
     def balanceOfAt(self, _account: Address, _id: int, _snapshot_id: int) -> int:
         matched_index = 0
@@ -1106,7 +1093,7 @@ class DEX(IconScoreBase):
         low = 0
         high = self._account_balance_snapshot[_id][_account]['length'][0]
 
-        while (low < high):
+        while low < high:
             mid = (low + high) // 2
             if self._account_balance_snapshot[_id][_account]['ids'][mid] > _snapshot_id:
                 high = mid
@@ -1128,7 +1115,6 @@ class DEX(IconScoreBase):
         else:
             return self._account_balance_snapshot[_id][_account]['values'][matched_index]
 
-
     @external(readonly=True)
     def totalSupplyAt(self, _id: int, _snapshot_id: int) -> int:
         matched_index = 0
@@ -1137,7 +1123,7 @@ class DEX(IconScoreBase):
         low = 0
         high = self._total_supply_snapshot[_id]['length'][0]
 
-        while (low < high):
+        while low < high:
             mid = (low + high) // 2
             if self._total_supply_snapshot[_id]['ids'][mid] > _snapshot_id:
                 high = mid
@@ -1155,8 +1141,6 @@ class DEX(IconScoreBase):
             return self._total_supply_snapshot[_id]['avgs'][matched_index]
         else:
             return self._total_supply_snapshot[_id]['values'][matched_index]
-
-
 
     @external(readonly=True)
     def getTotalValue(self, _name: str, _snapshot_id: int) -> int:
