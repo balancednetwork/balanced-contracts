@@ -79,6 +79,7 @@ class Loans(IconScoreBase):
     _LIQUIDATION_REWARD = 'liquidation_reward'
     _REDEEM_MINIMUM = 'redeem_minimum'
     _NEW_LOAN_MINIMUM = 'new_loan_minimum'
+    _MIN_MINING_DEBT = 'min_mining_debt'
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
@@ -112,6 +113,8 @@ class Loans(IconScoreBase):
         self._liquidation_reward = VarDB(self._LIQUIDATION_REWARD, db, value_type=int)
         self._redeem_minimum = VarDB(self._REDEEM_MINIMUM, db, value_type=int)
         self._new_loan_minimum = VarDB(self._NEW_LOAN_MINIMUM, db, value_type=int)
+        self._min_mining_debt = VarDB(self._MIN_MINING_DEBT, db, value_type=int)
+
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
@@ -132,6 +135,7 @@ class Loans(IconScoreBase):
         self._retirement_bonus.set(BAD_DEBT_RETIREMENT_BONUS)
         self._redeem_minimum.set(REDEEM_MINIMUM)
         self._new_loan_minimum.set(NEW_LOAN_MINIMUM)
+        self._min_mining_debt.set(DEFAULT_MIN_MINING_DEBT)
 
     def on_update(self) -> None:
         super().on_update()
@@ -986,6 +990,11 @@ class Loans(IconScoreBase):
         self._new_loan_minimum.set(_minimum)
 
     @external
+    @only_admin
+    def setMinMiningDebt(self, _minimum: int) -> None:
+        self._min_mining_debt.set(_minimum)
+
+    @external
     @only_governance
     def setTimeOffset(self, _delta_time: int) -> None:
         self._time_offset.set(_delta_time)
@@ -1008,6 +1017,7 @@ class Loans(IconScoreBase):
                 "liquidation reward": self._liquidation_reward.get(),
                 "redeem minimum": self._redeem_minimum.get(),
                 "new loan minimum": self._new_loan_minimum.get(),
+                "min mining debt": self._min_mining_debt.get(),
                 "time offset": self._time_offset.get()
                 }
 
