@@ -1,5 +1,5 @@
-from iconservice import *
 from ..scorelib.consts import *
+
 
 class Utils:
     @staticmethod
@@ -16,21 +16,22 @@ class Utils:
         while temp:
             array.put(temp.pop())
 
+
 # An interface of token score
 class TokenInterface(InterfaceScore):
     @interface
-    def transfer(self, _to: Address, _value: int, _data: bytes=None):
+    def transfer(self, _to: Address, _value: int, _data: bytes = None):
         pass
 
     @interface
-    def decimals(self) -> int :
+    def decimals(self) -> int:
         pass
 
 
 # An interface of token score
 class ICONPoolCoreInterface(InterfaceScore):
     @interface
-    def balanceOf(self, _pid: int, _user: Address) -> int :
+    def balanceOf(self, _pid: int, _user: Address) -> int:
         pass
 
     @interface

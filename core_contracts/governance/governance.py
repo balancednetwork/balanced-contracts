@@ -30,7 +30,7 @@ class Governance(IconScoreBase):
 
     @external(readonly=True)
     def name(self) -> str:
-        return "Governance"
+        return "Balanced Governance"
 
     @external
     @only_owner
