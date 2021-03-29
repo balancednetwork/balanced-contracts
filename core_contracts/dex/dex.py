@@ -731,7 +731,7 @@ class DEX(IconScoreBase):
         """
         This method is an alias to the current price of BALN tokens
         """
-        return self.getBasePriceInQuote(self._pool_id[self._baln.get()][_token2Address])
+        return self.getBasePriceInQuote(self._pool_id[self._baln.get()][_pid])
 
     @external(readonly=True)
     def getPriceByName(self, _name: str) -> int:
