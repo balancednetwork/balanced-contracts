@@ -63,6 +63,15 @@ class Rewards(IconScoreBase):
         return "Balanced Rewards"
 
     @external(readonly = True)
+    def getEmission(self, _day: int = -1) -> int:
+        today = self._get_day()
+        if _day < -1 or _day > today:
+            revert(f'Invalid day.')
+        if _day == -1:
+            _day = today
+        return self._daily_dist(_day)
+
+    @external(readonly = True)
     def getBalnHoldings(self, _holders: List[str]) -> dict:
         holdings = {}
         for holder in _holders:
