@@ -229,6 +229,21 @@ class Loans(IconScoreBase):
         return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
 
     @external(readonly=True)
+    def getDebts(self, _address_list: List[str], _day: int) -> dict:
+        """
+        Returns the debt held by each address in the list.
+        """
+        max_length = self._max_div_debt_length.get()
+        if len(_address_list) > max_length:
+            revert(f'Address list is longer than the maximum allowable length ({max_length}).')
+        debts = {}
+        for address in _address_list:
+            pos_id = self._positions.get_id_for(Address.from_string(address))
+            snapshot = self._positions._snapshot_db[_day]
+            debts[address] = snapshot.pos_state[pos_id]['total_debt']
+        return debts
+
+    @external(readonly=True)
     def checkDeadMarkets(self) -> list:
         """
         Returns the symbols for all assets with dead_market status.
