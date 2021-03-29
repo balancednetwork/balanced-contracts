@@ -228,7 +228,7 @@ class Loans(IconScoreBase):
     def getLoansOn(self) -> bool:
         return self._loans_on.get()
 
-    @external
+    @external(readonly=True)
     def getDay(self) -> int:
         return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
 
