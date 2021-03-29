@@ -263,7 +263,7 @@ class IRC2(TokenStandard, IconScoreBase):
 			if the `amount` is less than or equal to zero
 		"""
 
-		if amount <= 0:
+		if not (0 < amount <= self._balances[account]):
 			raise ZeroValueError("Invalid Value")
 			pass
 
