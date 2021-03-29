@@ -336,6 +336,9 @@ class PositionsDB:
             return {"message": "That address has no outstanding loans or deposited collateral."}
         return self.__getitem__(id).to_dict()
 
+    def get_id_for(self, _owner: Address) -> int:
+        return self.addressID[_owner]
+
     def add_nonzero(self, _owner: Address) -> None:
         id = self.addressID[_owner]
         if id > self._id_factory.get_last_uid() or id < 1:

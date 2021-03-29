@@ -196,10 +196,11 @@ class BalancedToken(IRC2):
         dex_score = self._dex_score.get()
         try:
             oracle = self.create_interface_score(dex_score, DexInterface)
-            priceData = oracle.get_reference_data(base, quote)
-            self._last_price.set(priceData['rate'])
+            pool_id = oracle.getPoolId(self._bnusd_score.get(), self.address)
+            price = oracle.getPrice(pool_id)
+            self._last_price.set(price)
             self._price_update_time.set(self.now())
-            self.OraclePrice(base + quote, self._oracle_name.get(), dex_score, priceData['rate'])
+            self.OraclePrice(base + quote, self._oracle_name.get(), dex_score, price)
         except BaseException as e:
             revert(f'{base + quote}, {self._oracle_name.get()}, {dex_score}, Exception: {e}')
 

@@ -85,7 +85,7 @@ class Rewards(IconScoreBase):
     # Methods to update the states of a data_source_name object
     @external
     @only_governance
-    def updateBalTokenDistPercentage(self, _recipient_list : List[DistPercentDict]) -> None:
+    def updateBalTokenDistPercentage(self, _recipient_list: List[DistPercentDict]) -> None:
         """
         This method provides a means to adjust the allocation of rewards tokens.
         To maintain consistency a change to these percentages will only be
