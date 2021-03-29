@@ -79,7 +79,7 @@ class ReserveFund(IconScoreBase):
 
     @external(readonly=True)
     def name(self) -> str:
-        return "ReserveFund"
+        return "Balanced Reserve Fund"
 
     @external
     @only_owner
@@ -139,7 +139,7 @@ class ReserveFund(IconScoreBase):
         return balances
 
     @external
-    def redeem(self, _to: Address, _amount: int, _sicx_rate: int) -> int:
+    def redeem(self, _to: Address, _amount: int, _sicx_rate: int) -> None:
         if self.msg.sender != self._loans_score.get():
             revert(f'The redeem method can only be called by the Loans SCORE.')
         sicx = self._sicx.get()

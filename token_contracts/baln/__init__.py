@@ -1,1 +1,1 @@
-from .balance import BalanceToken
+from .balance import BalancedToken

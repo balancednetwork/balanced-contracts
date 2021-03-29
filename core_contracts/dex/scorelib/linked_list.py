@@ -14,9 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from iconservice import *
-from .id_factory import *
 from .consts import *
+from .id_factory import *
 
 
 class EmptyLinkedListException(Exception):
@@ -124,14 +123,14 @@ class LinkedListDB:
             return iter(())
 
         node = self._get_node(cur_id)
-        yield (cur_id, node.get_value1(), node.get_value2())
+        yield cur_id, node.get_value1(), node.get_value2()
         tail_id = self._tail_id.get()
 
         # Iterate until tail
         while cur_id != tail_id:
             cur_id = node.get_next()
             node = self._get_node(cur_id)
-            yield (cur_id, node.get_value1(), node.get_value2())
+            yield cur_id, node.get_value1(), node.get_value2()
             tail_id = self._tail_id.get()
 
     def _node(self, node_id) -> _NodeDB:
@@ -149,7 +148,7 @@ class LinkedListDB:
 
         node.set_value1(value1)
         node.set_value2(value2)
-        return (node_id, node)
+        return node_id, node
 
     def _get_node(self, node_id: int) -> _NodeDB:
         node = self._node(node_id)
@@ -336,6 +335,8 @@ class LinkedListDB:
             # noop
             return
 
+        curprev = None
+        curnext = None
         after = self._get_node(after_id)
         afternext_id = after.get_next()
         afternext = self._get_node(afternext_id)
@@ -351,13 +352,13 @@ class LinkedListDB:
         # after>next>pid
         afternext.set_prev(cur_id)
         # curprev>nid
-        if curprev_id:
+        if curprev:
             curprev.set_next(curnext_id)
         else:
             # cur was head, set new head
             self._head_id.set(curnext_id)
         # curnext>pid
-        if curnext_id:
+        if curnext:
             curnext.set_prev(curprev_id)
         else:
             # cur was tail, set new tail
@@ -381,6 +382,8 @@ class LinkedListDB:
             # noop
             return
 
+        curprev = None
+        curnext = None
         before = self._get_node(before_id)
         beforeprev_id = before.get_prev()
         beforeprev = self._get_node(beforeprev_id)
@@ -396,13 +399,13 @@ class LinkedListDB:
         # before>prev>nid
         beforeprev.set_next(cur_id)
         # curprev>nid
-        if curprev_id:
+        if curprev:
             curprev.set_next(curnext_id)
         else:
             # cur was head, set new head
             self._head_id.set(curnext_id)
         # curnext>pid
-        if curnext_id:
+        if curnext:
             curnext.set_prev(curprev_id)
         else:
             # cur was tail, set new tail

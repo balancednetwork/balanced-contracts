@@ -3,15 +3,16 @@ from .tokens.IRC2mintable import IRC2Mintable
 from .tokens.IRC2burnable import IRC2Burnable
 from .utils.checks import *
 
-TAG = 'bnUSD'
+TAG = 'bnDOGE'
 
-TOKEN_NAME = 'BalancedDollar'
-SYMBOL_NAME = 'bnUSD'
-DEFAULT_PEG = 'USD'
+TOKEN_NAME = 'BalancedDogecoin'
+SYMBOL_NAME = 'bnDOGE'
+DEFAULT_PEG = 'DOGE'
 DEFAULT_ORACLE_ADDRESS = 'cx61a36e5d10412e03c907a507d1e8c6c3856d9964'
 DEFAULT_ORACLE_NAME = 'BandChain'
-INITIAL_PRICE_ESTIMATE = 125 * 10**16
+INITIAL_PRICE_ESTIMATE = 3 * 10**16
 MIN_UPDATE_TIME = 30_000_000 # 30 seconds
+EXA = 10**18
 
 # An interface to the Band Price Oracle
 class OracleInterface(InterfaceScore):
@@ -20,7 +21,7 @@ class OracleInterface(InterfaceScore):
         pass
 
 
-class BalancedDollar(IRC2Mintable, IRC2Burnable):
+class BalancedDoge(IRC2Mintable, IRC2Burnable):
 
     _PEG = 'peg'
     _GOVERNANCE = 'governance'
@@ -125,8 +126,9 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
         quote = "ICX"
         oracle_address = self._oracle_address.get()
         oracle = self.create_interface_score(oracle_address, OracleInterface)
-        priceData = oracle.get_reference_data(base, quote)
-        return priceData['rate']
+        icx_price = oracle.get_reference_data("USD", quote)
+        priceData = oracle.get_reference_data(base, "USD")
+        return priceData['rate'] * icx_price['rate'] // EXA
 
     def update_asset_value(self) -> None:
         """
@@ -138,10 +140,12 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
         oracle_address = self._oracle_address.get()
         try:
             oracle = self.create_interface_score(oracle_address, OracleInterface)
-            priceData = oracle.get_reference_data(base, quote)
-            self._last_price.set(priceData['rate'])
+            icx_price = oracle.get_reference_data("USD", quote)
+            priceData = oracle.get_reference_data(base, "USD")
+            rate = priceData['rate'] * icx_price['rate'] // EXA
+            self._last_price.set(rate)
             self._price_update_time.set(self.now())
-            self.OraclePrice(base + quote, self._oracle_name.get(), oracle_address, priceData['rate'])
+            self.OraclePrice(base + quote, self._oracle_name.get(), oracle_address, rate)
         except BaseException as e:
             revert(f'{base + quote}, {self._oracle_name.get()}, {oracle_address}, Exception: {e}')
 

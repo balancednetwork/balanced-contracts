@@ -32,6 +32,9 @@ class Position(object):
         self.check_snap()
         self.assets[day][key] = value
 
+    def __delitem__(self, _symbol: str):
+        self.assets[self.snaps[-1]].remove(_symbol)
+
     def check_snap(self, _day: int = -1) -> None:
         """
         If the specified day is ahead of the last day in the snaps ArrayDB it is
@@ -49,7 +52,8 @@ class Position(object):
             self.snaps.put(day)
             previous = self.snaps[-2]
             for symbol in self.asset_db.slist:
-                self.assets[day][symbol] = self.assets[previous][symbol]
+                if symbol in self.assets[previous]:
+                    self.assets[day][symbol] = self.assets[previous][symbol]
             self.replay_index[day] = self.replay_index[previous]
 
     def last_event_played(self, _day: int = -1) -> int:
@@ -103,11 +107,10 @@ class Position(object):
         if id == -1:
             return False
         for _symbol in self.asset_db.slist:
-            asset = self.asset_db[_symbol]
-            if (asset.active.get() and
-                    not asset.is_collateral.get() and
-                    self.assets[id][_symbol] != 0):
-                return True
+            if self.assets[id][_symbol] != 0:
+                asset = self.asset_db[_symbol]
+                if asset.active.get() and not asset.is_collateral.get():
+                    return True
         return False
 
     def _collateral_value(self, _day: int = -1) -> int:
@@ -128,7 +131,7 @@ class Position(object):
             price = self.snaps_db[_day].prices['sICX']
         return amount * price // EXA
 
-    def _total_debt(self, _day: int = -1) -> int:
+    def _total_debt(self, _day: int = -1, _readonly: bool = False) -> int:
         """
         Returns the total value of all outstanding debt in loop. Only valid
         for updated positions.
@@ -145,7 +148,10 @@ class Position(object):
                 amount = self.assets[id][symbol]
                 if amount > 0:
                     if _day == -1:
-                        price = self.asset_db[symbol].priceInLoop()
+                        if _readonly:
+                            price = self.asset_db[symbol].lastPriceInLoop()
+                        else:
+                            price = self.asset_db[symbol].priceInLoop()
                     else:
                         price = self.snaps_db[_day].prices[symbol]
                     asset_value += (price * amount) // EXA
@@ -161,15 +167,22 @@ class Position(object):
         event_log = self._loans._event_log
         snap_index = self.snaps[-1]
         # Check if there are any remaining events to replay.
-        if self.replay_index[snap_index] == len(event_log):
+        total_events = len(event_log)
+        if self.replay_index[snap_index] == total_events:
             return Outcome.NO_SUCCESS
 
         event_index = self.replay_index[snap_index]
         event_snap_index = event_log[event_index].snapshot.get()
-        next_event = event_log[event_index + 1]
+        # Finds the next event that applies to the position.
+        i = 1
+        next_event = event_log[event_index + i]
+        while (next_event.index.get() < total_events and
+               next_event.symbol.get() not in self.assets[snap_index]):
+            i += 1
+            next_event = event_log[event_index + i]
         next_event_snap_index = next_event.snapshot.get()
         # If the snapshot of the next event is larger than that of the current
-        # event add a new snapshot if it is also larger than the latest one.
+        # event add a new snapshot, if it is also larger than the current one.
         if next_event_snap_index > event_snap_index:
             self.check_snap(next_event_snap_index)
 
@@ -214,6 +227,7 @@ class Position(object):
             return Standing.INDETERMINATE
 
         debt: int = self._total_debt(_day)
+        bnUSD_debt: int = debt * EXA // self.asset_db["bnUSD"].priceInLoop()
         collateral: int = self._collateral_value(_day)
         state['total_debt'] = debt
         if debt == 0:
@@ -226,7 +240,10 @@ class Position(object):
         ratio: int = collateral * EXA // debt
         state['ratio'] = ratio
         if ratio > DEFAULT_MINING_RATIO * EXA // POINTS:
-            state['standing'] = Standing.MINING
+            if bnUSD_debt < self._loans._min_mining_debt.get():
+                state['standing'] = Standing.NOT_MINING
+            else:
+                state['standing'] = Standing.MINING
         elif ratio > DEFAULT_LOCKING_RATIO * EXA // POINTS:
             state['standing'] = Standing.NOT_MINING
         elif ratio > DEFAULT_LIQUIDATION_RATIO * EXA // POINTS:
@@ -266,7 +283,7 @@ class Position(object):
             'assets': assets,
             'replay_index': pos_rp_id,
             'events_behind': sys_rp_id - pos_rp_id,
-            'total_debt': state['total_debt'],
+            'total_debt': self._total_debt(id, True),
             'ratio': state['ratio'],
             'standing': Standing.STANDINGS[state['standing']]
         }
