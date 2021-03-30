@@ -79,7 +79,7 @@ class Loans(IconScoreBase):
     _LIQUIDATION_REWARD = 'liquidation_reward'
     _REDEEM_MINIMUM = 'redeem_minimum'
     _NEW_LOAN_MINIMUM = 'new_loan_minimum'
-    _MIN_MINING_DEBT = 'min_mining_debt'
+    _MAX_DIV_DEBT_LENGTH = 'max_div_debt_length'
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
@@ -113,8 +113,7 @@ class Loans(IconScoreBase):
         self._liquidation_reward = VarDB(self._LIQUIDATION_REWARD, db, value_type=int)
         self._redeem_minimum = VarDB(self._REDEEM_MINIMUM, db, value_type=int)
         self._new_loan_minimum = VarDB(self._NEW_LOAN_MINIMUM, db, value_type=int)
-        self._min_mining_debt = VarDB(self._MIN_MINING_DEBT, db, value_type=int)
-
+        self._max_div_debt_length = VarDB(self._MAX_DIV_DEBT_LENGTH, db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
@@ -135,7 +134,7 @@ class Loans(IconScoreBase):
         self._retirement_bonus.set(BAD_DEBT_RETIREMENT_BONUS)
         self._redeem_minimum.set(REDEEM_MINIMUM)
         self._new_loan_minimum.set(NEW_LOAN_MINIMUM)
-        self._min_mining_debt.set(DEFAULT_MIN_MINING_DEBT)
+        self._max_div_debt_length.set(MAX_DIV_DEBT_LENGTH)
 
     def on_update(self) -> None:
         super().on_update()
@@ -228,7 +227,7 @@ class Loans(IconScoreBase):
     def getLoansOn(self) -> bool:
         return self._loans_on.get()
 
-    @external
+    @external(readonly=True)
     def getDay(self) -> int:
         return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
 

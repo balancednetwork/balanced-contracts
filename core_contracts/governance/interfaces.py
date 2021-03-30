@@ -97,6 +97,10 @@ class DexInterface(InterfaceScore):
     def setBaln(self, _address: Address) -> None:
         pass
 
+    @interface
+    def addQuoteCoin(self, _address: Address) -> None:
+        pass
+
 
 # An interface to the Rewards SCORE
 class RewardsInterface(InterfaceScore):

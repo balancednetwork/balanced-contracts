@@ -7,7 +7,7 @@ from .scorelib.linked_list import *
 TAG = 'StakedICXManager'
 
 DENOMINATOR = 10 ** 18
-TOP_PREP_COUNT = 4
+TOP_PREP_COUNT = 20
 
 
 # An interface of token to distribute daily rewards
