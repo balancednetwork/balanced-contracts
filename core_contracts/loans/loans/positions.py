@@ -227,6 +227,7 @@ class Position(object):
             return Standing.INDETERMINATE
 
         debt: int = self._total_debt(_day)
+        bnUSD_debt: int = debt * EXA // self.asset_db["bnUSD"].priceInLoop()
         collateral: int = self._collateral_value(_day)
         state['total_debt'] = debt
         if debt == 0:
@@ -239,7 +240,10 @@ class Position(object):
         ratio: int = collateral * EXA // debt
         state['ratio'] = ratio
         if ratio > DEFAULT_MINING_RATIO * EXA // POINTS:
-            state['standing'] = Standing.MINING
+            if bnUSD_debt < self._loans._min_mining_debt.get():
+                state['standing'] = Standing.NOT_MINING
+            else:
+                state['standing'] = Standing.MINING
         elif ratio > DEFAULT_LOCKING_RATIO * EXA // POINTS:
             state['standing'] = Standing.NOT_MINING
         elif ratio > DEFAULT_LIQUIDATION_RATIO * EXA // POINTS:
