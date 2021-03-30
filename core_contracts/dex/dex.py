@@ -42,6 +42,7 @@ class DEX(IconScoreBase):
     _ACCOUNT_BALANCE_SNAPSHOT = 'account_balance_snapshot'
     _TOTAL_SUPPLY_SNAPSHOT = 'total_supply_snapshot'
     _FUNDED_ADDRESSES = 'funded_addresses'
+    _QUOTE_COINS = 'quote_coins'
     _ICX_QUEUE_TOTAL = 'icx_queue_total'
     _SICX_ADDRESS = 'sicx_address'
     _bnUSD_ADDRESS = 'bnUSD_address'
@@ -189,6 +190,9 @@ class DEX(IconScoreBase):
         self._funded_addresses = SetDB(
             self._FUNDED_ADDRESSES, db, value_type=Address, order=True)
 
+        # Pools must use one of these as a quote currency
+        self._quote_coins = SetDB(self._QUOTE_COINS, db, value_type=Address)
+
         # All fees are divided by `FEE_SCALE` in consts
         self._pool_lp_fee = VarDB('pool_lp_fee', db, value_type=int)
         self._pool_baln_fee = VarDB('pool_baln_fee', db, value_type=int)
@@ -277,6 +281,7 @@ class DEX(IconScoreBase):
         Sets new SICX address. Should be called before DEX use.
         """
         self._sicx.set(_address)
+        self._quote_coins.add(_address)
 
     @only_admin
     @external
@@ -350,6 +355,7 @@ class DEX(IconScoreBase):
         Sets new bnUSD contract address. Should be called before dex use.
         """
         self._bnUSD.set(_address)
+        self._quote_coins.add(_address)
 
     @external
     def getbnUSD(self) -> Address:
@@ -400,6 +406,21 @@ class DEX(IconScoreBase):
         if the DEX is not yet active.
         """
         return self._dex_on.get()
+
+    @only_governance
+    @external
+    def addQuoteCoin(self, _address: Address) -> None:
+        """
+        :param _address: Address of token to add as an allowed quote coin
+        """
+        self._quote_coins.add(_address)
+    
+    @external(readonly=True)
+    def isQuoteCoinAllowed(self, _address: Address) -> None:
+        """
+        :param _address: address of to check as allowable quote
+        """
+        return _address in self._quote_coins
 
     @external
     def getDay(self) -> int:
@@ -727,11 +748,11 @@ class DEX(IconScoreBase):
         return self.getBasePriceInQuote(_pid)
 
     @external(readonly=True)
-    def getBalnPrice(self, _pid: int) -> int:
+    def getBalnPrice(self) -> int:
         """
         This method is an alias to the current price of BALN tokens
         """
-        return self.getBasePriceInQuote(self._pool_id[self._baln.get()][_pid])
+        return self.getBasePriceInQuote(self._pool_id[self._baln.get()][self._bnUSD.get()])
 
     @external(readonly=True)
     def getPriceByName(self, _name: str) -> int:
@@ -1278,8 +1299,8 @@ class DEX(IconScoreBase):
         base_to_commit = _maxBaseValue
 
         if _pid == 0:
-            if not (_quoteToken == self._bnUSD.get()) and not (_quoteToken == self._sicx.get()):
-                revert("Second currency must be bnUSD or sICX")
+            if _quoteToken not in self._quote_coins:
+                revert("Second currency must be an allowed quote currency")
             self._pool_id[_baseToken][_quoteToken] = self._nonce.get()
             self._pool_id[_quoteToken][_baseToken] = self._nonce.get()
             _pid = self._nonce.get()

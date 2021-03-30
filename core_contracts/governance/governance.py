@@ -143,6 +143,12 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def dexAddQuoteCoin(self, _address: Address) -> None:
+        dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
+        dex.addQuoteCoin(_address)
+
+    @external
+    @only_owner
     def setMarketName(self, _pid: int, _name: str) -> None:
         """
         :param _pid: Pool ID to map to the name
