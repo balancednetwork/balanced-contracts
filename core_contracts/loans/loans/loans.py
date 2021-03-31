@@ -1012,10 +1012,10 @@ class Loans(IconScoreBase):
     def setNewLoanMinimum(self, _minimum: int) -> None:
         self._new_loan_minimum.set(_minimum)
 
-    # @external
-    # @only_admin
-    # def setMinMiningDebt(self, _minimum: int) -> None:
-    #     self._min_mining_debt.set(_minimum)
+    @external
+    @only_admin
+    def setMinMiningDebt(self, _minimum: int) -> None:
+        self._min_mining_debt.set(_minimum)
 
     @external
     @only_governance
@@ -1040,7 +1040,7 @@ class Loans(IconScoreBase):
                 "liquidation reward": self._liquidation_reward.get(),
                 "redeem minimum": self._redeem_minimum.get(),
                 "new loan minimum": self._new_loan_minimum.get(),
-                # "min mining debt": self._min_mining_debt.get(),
+                "min mining debt": self._min_mining_debt.get(),
                 "time offset": self._time_offset.get()
                 }
 
