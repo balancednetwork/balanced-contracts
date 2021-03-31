@@ -3,10 +3,12 @@ from .utils.checks import *
 
 TAG = 'DAOfund'
 
+
 # TypedDict for disbursement specs
 class Disbursement(TypedDict):
     address: Address
     amount: int
+    symbol: str
 
 
 # An interface of token to get balances.
@@ -16,7 +18,7 @@ class TokenInterface(InterfaceScore):
         pass
 
     @interface
-    def transfer(self, _to: Address, _value: int, _data: bytes=None):
+    def transfer(self, _to: Address, _value: int, _data: bytes = None):
         pass
 
 
@@ -134,19 +136,18 @@ class DAOfund(IconScoreBase):
             amount = disbursement[symbol]
             if amount > 0:
                 self._send_token(symbol, Address.from_string(assets[symbol]), self.msg.sender,
-                                 disbursement[symbol], 'Balanced DAOfund disbursement')
+                                 amount, 'Balanced DAOfund disbursement')
                 disbursement[symbol] = 0
         amount = disbursement['ICX']
         if amount > 0:
             self._send_ICX(self.msg.sender, amount, 'Balanced DAOfund disbursement')
             disbursement['ICX'] = 0
 
-
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
         Used only to receive portion of fees allocated to the DAOfund.
-        :param _from: Token orgination address.
+        :param _from: Token origination address.
         :type _from: :class:`iconservice.base.address.Address`
         :param _value: Number of tokens sent.
         :type _value: int
@@ -167,8 +168,8 @@ class DAOfund(IconScoreBase):
         Sends ICX to an address.
         :param _to: ICX destination address.
         :type _to: :class:`iconservice.base.address.Address`
-        :param _amount: Number of ICX sent.
-        :type _amount: int
+        :param amount: Number of ICX sent.
+        :type amount: int
         :param msg: Message for the event log.
         :type msg: str
         """
