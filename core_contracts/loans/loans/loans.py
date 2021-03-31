@@ -8,8 +8,8 @@ from .replay_log import ReplayLogDB
 TAG = 'BalancedLoans'
 
 # For testing only
-# TEST_ADDRESS = Address.from_string('hx3f01840a599da07b0f620eeae7aa9c574169a4be')
-TEST_ADDRESS = Address.from_string('hxe62d11fa19a0e8575ad92f06bc8fd42edbfe27db')
+TEST_ADDRESS = Address.from_string('hx3f01840a599da07b0f620eeae7aa9c574169a4be')
+# TEST_ADDRESS = Address.from_string('hxe62d11fa19a0e8575ad92f06bc8fd42edbfe27db')
 
 
 # An interface to the Emergency Reserve Fund
@@ -1009,10 +1009,10 @@ class Loans(IconScoreBase):
     def setNewLoanMinimum(self, _minimum: int) -> None:
         self._new_loan_minimum.set(_minimum)
 
-    @external
-    @only_admin
-    def setMinMiningDebt(self, _minimum: int) -> None:
-        self._min_mining_debt.set(_minimum)
+    # @external
+    # @only_admin
+    # def setMinMiningDebt(self, _minimum: int) -> None:
+    #     self._min_mining_debt.set(_minimum)
 
     @external
     @only_governance
@@ -1037,7 +1037,7 @@ class Loans(IconScoreBase):
                 "liquidation reward": self._liquidation_reward.get(),
                 "redeem minimum": self._redeem_minimum.get(),
                 "new loan minimum": self._new_loan_minimum.get(),
-                "min mining debt": self._min_mining_debt.get(),
+                # "min mining debt": self._min_mining_debt.get(),
                 "time offset": self._time_offset.get()
                 }
 
