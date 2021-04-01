@@ -1,11 +1,13 @@
 from iconservice import *
 from ..scorelib.id_factory import IdFactory
+from ..scorelib.linked_list import *
 from ..utils.consts import *
 from .assets import AssetsDB
 from .replay_log import ReplayLogDB, ReplayEvent
 from .snapshots import SnapshotDB, Snapshot
 
 TAG = 'BalancedPositions'
+
 
 class Position(object):
 
@@ -291,7 +293,6 @@ class Position(object):
 
 
 class PositionsDB:
-
     IDFACTORY = 'idfactory'
     ADDRESSID = 'addressid'
     NONZERO = 'nonzero'
@@ -305,6 +306,10 @@ class PositionsDB:
         self.addressID = DictDB(self.ADDRESSID, db, value_type=int)
         # list of nonzero positions will be brought up to date at the end of each day.
         self.nonzero = ArrayDB(self.NONZERO, db, value_type=int)
+
+        # linked list of all the non zero users
+        self.users = LinkedListDB('users', db)
+
         # The mining list is updated each day for the most recent snapshot.
         self._snapshot_db = SnapshotDB(db, loans)
 
@@ -338,6 +343,18 @@ class PositionsDB:
 
     def get_id_for(self, _owner: Address) -> int:
         return self.addressID[_owner]
+
+    def append_user(self, _owner: Address) -> None:
+        # call get pos
+        self.get_pos(_owner)
+        id = self.addressID[_owner]
+        self.users.append(_owner, id)
+
+    def remove_user(self, _owner: Address) -> None:
+        id = self.addressID[_owner]
+        if id == 0 or id is None:
+            revert(f'user does not exist. (remove_user)')
+        self.users.remove(id)
 
     def add_nonzero(self, _owner: Address) -> None:
         id = self.addressID[_owner]
@@ -424,8 +441,8 @@ class PositionsDB:
         add = len(snapshot.add_to_nonzero)
         remove = len(snapshot.remove_from_nonzero)
         nonzero_deltas = add + remove
-        if nonzero_deltas > 0: # Bring the list of all nonzero positions up to date.
-            iter = self._loans._snap_batch_size.get() # Starting default is 400.
+        if nonzero_deltas > 0:  # Bring the list of all nonzero positions up to date.
+            iter = self._loans._snap_batch_size.get()  # Starting default is 400.
             loops = min(iter, remove)
             for _ in range(loops):
                 self._remove(snapshot.remove_from_nonzero.pop(), self.nonzero)
@@ -436,23 +453,23 @@ class PositionsDB:
                     self.nonzero.put(snapshot.add_to_nonzero.pop())
             return Complete.NOT_DONE
 
-        index = snapshot.precompute_index.get() # Tracks where the precompute is over multiple calls.
+        index = snapshot.precompute_index.get()  # Tracks where the precompute is over multiple calls.
         total_nonzero = len(self.nonzero)
         remaining = total_nonzero - index
         batch_mining_debt = 0
-        for _ in range(min(remaining, batch_size)): # Update standing for all nonzero positions.
+        for _ in range(min(remaining, batch_size)):  # Update standing for all nonzero positions.
             account_id = self.nonzero[index]
             pos = self.__getitem__(account_id)
             # all retirement events that happened after the position creation,
             # but before the snapshot must be applied to the position before
             # calculating its value.
             if id >= pos.snaps[0]:
-                pos_rp_id = pos.replay_index[id] # last replay applied to the position for snapshot id
-                snap_rp_id = snapshot.replay_index.get() # last replay for that day from system snapshot.
+                pos_rp_id = pos.replay_index[id]  # last replay applied to the position for snapshot id
+                snap_rp_id = snapshot.replay_index.get()  # last replay for that day from system snapshot.
                 if pos_rp_id < snap_rp_id:
                     for _ in range(pos_rp_id, snap_rp_id):
                         pos.apply_next_event()
-                standing = pos.update_standing(id) # Calculates total_debt, ratio, and standing.
+                standing = pos.update_standing(id)  # Calculates total_debt, ratio, and standing.
                 if standing == Standing.MINING:
                     snapshot.mining.put(account_id)
                     batch_mining_debt += snapshot.pos_state[account_id]['total_debt']
