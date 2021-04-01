@@ -73,10 +73,7 @@ class Rewards(IconScoreBase):
 
     @external(readonly=True)
     def getBalnHoldings(self, _holders: List[str]) -> dict:
-        holdings = {}
-        for holder in _holders:
-            holdings[holder] = self._baln_holdings[holder]
-        return holdings
+        return {holder: self._baln_holdings[holder] for holder in _holders}
 
     @external(readonly=True)
     def getBalnHolding(self, _holder: str) -> int:
