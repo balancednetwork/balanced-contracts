@@ -454,16 +454,29 @@ class Staking(IconScoreBase):
          data from linked list one at a transaction.
          """
         balance_score = self.icx.get_balance(self.address) - self._daily_reward.get()
+        remaining_balance = balance_score
+        next_id =0
         if balance_score > 0:
+            to_remove = self._linked_list_var._head_id.get()
             unstake_info_list = self.getUnstakeInfo()
-            for each_info in unstake_info_list:
+            for i,each_info in enumerate(unstake_info_list):
+                if i > 200 :
+                    break
                 value_to_transfer = each_info[0]
-                if value_to_transfer <= balance_score:
-                    self._send_ICX(each_info[3], value_to_transfer)
-                    self._linked_list_var.remove(self._linked_list_var._head_id.get())
-                    self._total_unstake_amount.set(self._total_unstake_amount.get() - value_to_transfer)
-                    self.UnstakeAmountTransfer(each_info[3],value_to_transfer)
-                break
+                if remaining_balance > 0:
+                    if value_to_transfer <= remaining_balance:
+                        self._send_ICX(each_info[3], value_to_transfer)
+                        if to_remove != self._linked_list_var._tail_id.get():
+                            next_id = self._linked_list_var.next(to_remove)
+                        self._linked_list_var.remove(to_remove)
+                        to_remove = next_id
+                        self._total_unstake_amount.set(self._total_unstake_amount.get() - value_to_transfer)
+                        self.UnstakeAmountTransfer(each_info[3],value_to_transfer)
+                        remaining_balance -= value_to_transfer
+                    else:
+                        if to_remove != self._linked_list_var._tail_id.get():
+                            to_remove = self._linked_list_var.next(to_remove)
+
 
     @payable
     @external
