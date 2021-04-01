@@ -471,22 +471,23 @@ class DEX(IconScoreBase):
         self._check_distributions()
 
         order_id = self._icx_queue_order_id[self.msg.sender]
+        order_value = self.msg.value
+
         if order_id:
-            # First, modify our order
+            # TODO: Modify instead of cancel/replace, after debugging scorelib
             node = self._icx_queue._get_node(order_id)
-            node.set_value1(node.get_value1() + self.msg.value)
-            # Next, bump the user to the end of the line if it is not the tail
-            if len(self._icx_queue) > 1:
-                self._icx_queue.move_node_tail(order_id)
-        else:
-            order_id = self._icx_queue.append(self.msg.value, self.msg.sender)
-            self._icx_queue_order_id[self.msg.sender] = order_id
+            order_value += node.get_value1()
+            self._icx_queue.remove(order_id)
+
+        order_id = self._icx_queue.append(order_value, self.msg.sender)
+        self._icx_queue_order_id[self.msg.sender] = order_id
 
         current_icx_total = self._icx_queue_total.get() + self.msg.value
         self._icx_queue_total.set(current_icx_total)
 
         if self.msg.sender not in self._funded_addresses:
             self._funded_addresses.add(self.msg.sender)
+
         self._update_account_snapshot(self.msg.sender, self._SICXICX_POOL_ID)
         self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
 
