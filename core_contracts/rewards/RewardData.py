@@ -102,6 +102,10 @@ class DataSourceDB:
     def __setitem__(self, key, value):
         revert('illegal access')
 
+    def __iter__(self):
+        for name in self._names:
+            yield name
+
     def __len__(self) -> int:
         return len(self._names)
 

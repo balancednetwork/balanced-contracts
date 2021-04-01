@@ -84,7 +84,7 @@ class Rewards(IconScoreBase):
         status = {}
         status['platform_day'] = self._platform_day.get()
         status['source_days'] = {}
-        for source in self._data_source_db._names:
+        for source in self._data_source_db:
             status['source_days'][source] = self._data_source_db[source].day.get()
         return status
 
@@ -129,10 +129,7 @@ class Rewards(IconScoreBase):
         :return: list of data source names
         :rtype list
         """
-        data_source_names = []
-        for name in self._data_source_db._names:
-            data_source_names.append(name)
-        return data_source_names
+        return [name for name in self._data_source_db]
 
     @external(readonly=True)
     def getRecipients(self) -> list:
@@ -202,7 +199,7 @@ class Rewards(IconScoreBase):
                 for name in self._recipients:
                     split = self._recipient_split[name]
                     share = remaining * split // shares
-                    if name in self._data_source_db._names:
+                    if name in self._data_source_db:
                         self._data_source_db[name].total_dist[platform_day] = share
                     else:
                         baln_token.transfer(self._platform_recipients[name].get(), share)
@@ -211,7 +208,7 @@ class Rewards(IconScoreBase):
                 self._total_dist.set(remaining)  # remaining will be == 0 at this point.
                 self._platform_day.set(platform_day + 1)
                 return False
-        for name in self._data_source_db._names:
+        for name in self._data_source_db:
             source_data = self.getSourceData(name)
             if source_data['day'] < self._get_day():
                 source = self._data_source_db[name]
