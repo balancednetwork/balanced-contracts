@@ -81,12 +81,13 @@ class Rewards(IconScoreBase):
 
     @external(readonly=True)
     def distStatus(self) -> dict:
-        status = {}
-        status['platform_day'] = self._platform_day.get()
-        status['source_days'] = {}
-        for source in self._data_source_db:
-            status['source_days'][source] = self._data_source_db[source].day.get()
-        return status
+        return {
+            'platform_day': self._platform_day.get(),
+            'source_days': {
+                source: self._data_source_db[source].day.get()
+                for source in self._data_source_db
+            }
+        }
 
     # Methods to update the states of a data_source_name object
     @external
@@ -139,10 +140,7 @@ class Rewards(IconScoreBase):
         :return: list of recipient names
         :rtype list
         """
-        recipients = []
-        for recipient in self._recipients:
-            recipients.append(recipient)
-        return recipients
+        return [recipient for recipient in self._recipients]
 
     @external(readonly=True)
     def getRecipientsSplit(self) -> dict:
@@ -152,10 +150,7 @@ class Rewards(IconScoreBase):
         :return: dict of recipient {names: percent}
         :rtype dict
         """
-        recipients = {}
-        for recipient in self._recipients:
-            recipients[recipient] = self._recipient_split[recipient]
-        return recipients
+        return {recipient: self._recipient_split[recipient] for recipient in self._recipients}
 
     @external
     @only_governance
