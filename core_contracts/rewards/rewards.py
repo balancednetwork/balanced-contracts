@@ -105,6 +105,7 @@ class Rewards(IconScoreBase):
         if len(_recipient_list) != len(self._recipients):
             revert(f"Recipient lists lengths mismatched!")
         total_percentage = 0
+        day = self._get_day()
         for recipient in _recipient_list:
             name = recipient['recipient_name']
             if name not in self._recipients:
@@ -115,7 +116,7 @@ class Rewards(IconScoreBase):
 
             source = self._data_source_db[name]
             if source.get_data()['dist_percent'] == 0:
-                source.set_day(self._get_day())
+                source.set_day(day)
             source.set_dist_percent(percent)
             total_percentage += percent
 
@@ -183,7 +184,8 @@ class Rewards(IconScoreBase):
     @external
     def distribute(self) -> bool:
         platform_day = self._platform_day.get()
-        if platform_day < self._get_day():
+        day = self._get_day()
+        if platform_day < day:
             if self._total_dist.get() == 0:
                 distribution = self._daily_dist(platform_day)
                 baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
@@ -203,11 +205,12 @@ class Rewards(IconScoreBase):
                 self._total_dist.set(remaining)  # remaining will be == 0 at this point.
                 self._platform_day.set(platform_day + 1)
                 return False
+        batch_size = self._batch_size.get()
         for name in self._data_source_db:
             source_data = self.getSourceData(name)
-            if source_data['day'] < self._get_day():
+            if source_data['day'] < day:
                 source = self._data_source_db[name]
-                source._distribute(self._batch_size.get())
+                source._distribute(batch_size)
                 return False
         return True
 
