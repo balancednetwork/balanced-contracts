@@ -455,28 +455,21 @@ class Staking(IconScoreBase):
          """
         balance_score = self.icx.get_balance(self.address) - self._daily_reward.get()
         remaining_balance = balance_score
-        next_id =0
         if balance_score > 0:
-            to_remove = self._linked_list_var._head_id.get()
             unstake_info_list = self.getUnstakeInfo()
-            for i,each_info in enumerate(unstake_info_list):
-                if i > 200 :
+            for i, each_info in enumerate(unstake_info_list):
+                if i > 200:
                     break
                 value_to_transfer = each_info[0]
                 if remaining_balance > 0:
                     if value_to_transfer <= remaining_balance:
-                        self._send_ICX(each_info[3], value_to_transfer)
-                        if to_remove != self._linked_list_var._tail_id.get():
-                            next_id = self._linked_list_var.next(to_remove)
-                        self._linked_list_var.remove(to_remove)
-                        to_remove = next_id
+                        self._linked_list_var.remove(self._linked_list_var._head_id.get())
                         self._total_unstake_amount.set(self._total_unstake_amount.get() - value_to_transfer)
-                        self.UnstakeAmountTransfer(each_info[3],value_to_transfer)
+                        self._send_ICX(each_info[3], value_to_transfer)
+                        self.UnstakeAmountTransfer(each_info[3], value_to_transfer)
                         remaining_balance -= value_to_transfer
                     else:
-                        if to_remove != self._linked_list_var._tail_id.get():
-                            to_remove = self._linked_list_var.next(to_remove)
-
+                        break
 
     @payable
     @external
@@ -689,7 +682,7 @@ class Staking(IconScoreBase):
                                      stake_in_network['unstakes'][-1]['unstakeBlockHeight'], address_to_send,
                                      self._linked_list_var._tail_id.get() + 1)
         self._sICX_supply.set(self._sICX_supply.get() - _value)
-        self.UnstakeRequest(address_to_send,amount_to_unstake)
+        self.UnstakeRequest(address_to_send, amount_to_unstake)
 
     def _send_ICX(self, _to: Address, amount: int, msg: str = '') -> None:
         """
