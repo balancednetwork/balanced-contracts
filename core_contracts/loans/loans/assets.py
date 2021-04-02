@@ -1,5 +1,6 @@
 from iconservice import *
 from ..scorelib.id_factory import IdFactory
+from ..scorelib.linked_list import *
 
 TAG = 'BalancedAssets'
 
@@ -52,6 +53,7 @@ class Asset(object):
         self.is_collateral = VarDB('is_collateral', db, value_type=bool)
         self.active = VarDB('active', db, value_type=bool)
         self.dead_market = VarDB('dead_market', db, value_type=bool)
+        self.assetUsers = LinkedListDB('assetUsers',db)
 
     def symbol(self) -> str:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
