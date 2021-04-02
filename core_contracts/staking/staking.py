@@ -103,6 +103,14 @@ class Staking(IconScoreBase):
     def TokenTransfer(self, recipient: Address, amount: int, note: str):
         pass
 
+    @eventlog(indexed=2)
+    def UnstakeRequest(self, sender: Address, amount: int):
+        pass
+
+    @eventlog(indexed=2)
+    def UnstakeAmountTransfer(self, receiver: Address, amount: int):
+        pass
+
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self._sICX_supply = VarDB(self._SICX_SUPPLY, db, value_type=int)
@@ -454,6 +462,7 @@ class Staking(IconScoreBase):
                     self._send_ICX(each_info[3], value_to_transfer)
                     self._linked_list_var.remove(self._linked_list_var._head_id.get())
                     self._total_unstake_amount.set(self._total_unstake_amount.get() - value_to_transfer)
+                    self.UnstakeAmountTransfer(each_info[3],value_to_transfer)
                 break
 
     @payable
@@ -611,11 +620,13 @@ class Staking(IconScoreBase):
             d = json_loads(_data.decode("utf-8"))
         except BaseException as e:
             revert(f'Invalid data: {_data}. Exception: {e}')
-        if d["method"] == "unstake":
+        if 'method' in d and d["method"] == "unstake":
             if "user" in d:
                 self._unstake(_from, _value, Address.from_string(d["user"]))
             else:
                 self._unstake(_from, _value)
+        else:
+            revert(f'Invalid Parameters.')
 
     def _delegations(self, evenly_distribute_value: int) -> None:
         """
@@ -665,6 +676,7 @@ class Staking(IconScoreBase):
                                      stake_in_network['unstakes'][-1]['unstakeBlockHeight'], address_to_send,
                                      self._linked_list_var._tail_id.get() + 1)
         self._sICX_supply.set(self._sICX_supply.get() - _value)
+        self.UnstakeRequest(address_to_send,amount_to_unstake)
 
     def _send_ICX(self, _to: Address, amount: int, msg: str = '') -> None:
         """
