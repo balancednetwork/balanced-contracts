@@ -307,9 +307,6 @@ class PositionsDB:
         # list of nonzero positions will be brought up to date at the end of each day.
         self.nonzero = ArrayDB(self.NONZERO, db, value_type=int)
 
-        # linked list of all the non zero users
-        self.users = LinkedListDB('users', db)
-
         # The mining list is updated each day for the most recent snapshot.
         self._snapshot_db = SnapshotDB(db, loans)
 
@@ -344,17 +341,17 @@ class PositionsDB:
     def get_id_for(self, _owner: Address) -> int:
         return self.addressID[_owner]
 
-    def append_user(self, _owner: Address) -> None:
-        # call get pos
-        self.get_pos(_owner)
-        id = self.addressID[_owner]
-        self.users.append(_owner, id)
+    # def append_user(self, _owner: Address) -> None:
+    #     # call get pos
+    #     self.get_pos(_owner)
+    #     id = self.addressID[_owner]
+    #     self.users.append(_owner, id)
 
-    def remove_user(self, _owner: Address) -> None:
-        id = self.addressID[_owner]
-        if id == 0 or id is None:
-            revert(f'user does not exist. (remove_user)')
-        self.users.remove(id)
+    # def remove_user(self, _owner: Address) -> None:
+    #     id = self.addressID[_owner]
+    #     if id == 0 or id is None:
+    #         revert(f'user does not exist. (remove_user)')
+    #     self.users.remove(id)
 
     def add_nonzero(self, _owner: Address) -> None:
         id = self.addressID[_owner]
