@@ -48,7 +48,7 @@ class ReserveFund(IconScoreBase):
         pass
 
     @eventlog(indexed=1)
-    def RedeemFail(self, _to: Address, _value: int):
+    def RedeemFail(self, _to: Address, _symbol: str, _value: int):
         pass
 
     _GOVERNANCE = 'governance'
