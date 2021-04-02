@@ -545,6 +545,20 @@ class Loans(IconScoreBase):
         else:
             revert(f'No valid method called, data: {_data}')
 
+    @external(readonly=True)
+    def getAssetRetireBatch(self,_symbol:str) -> int:
+        batchSize = self.getRedeemBatchSize()
+        # userHead = self._positions.users.head_id()
+        userHead = self._assets[_symbol].assetUsers.head_id()
+        batchPosition: int = 0
+        for i in range(batchSize):
+            # userAddress = self._positions.users.node_user_address(userHead)
+            userPosition = self._positions[userHead]
+            userAsset = userPosition[_symbol]
+            userHead = self._assets[_symbol].assetUsers.next(userHead)
+            batchPosition += userAsset
+        return batchPosition
+
     def checkStanding(self, _address: Address) -> None:
         pos = self._positions.get_pos(_address)
         if pos.replay_index[pos.snaps[-1]] < len(self._event_log):
@@ -681,7 +695,8 @@ class Loans(IconScoreBase):
 
     def _retire_redeem(self, _symbol: str, _redeemed: int, _sicx_from_lenders: int) -> None:
         batchSize = self.getRedeemBatchSize()
-        userHead = self._positions.users.head_id()
+        # userHead = self._positions.users.head_id()
+        userHead = self._assets[_symbol].assetUsers.head_id()
         batchPosition: int = 0
         positionsDict = {}
         for i in range(batchSize):
@@ -689,7 +704,8 @@ class Loans(IconScoreBase):
             userPosition = self._positions[userHead]
             userAsset = userPosition[_symbol]
             positionsDict[userHead] = userAsset
-            userHead = self._positions.users.next(userHead)
+            # userHead = self._positions.users.next(userHead)
+            userHead = self._assets[_symbol].assetUsers.next(userHead)
             batchPosition += userAsset
 
         remainingValue = _redeemed
@@ -702,7 +718,9 @@ class Loans(IconScoreBase):
             # pos_value is userAsset
 
             # _sicx_from_lenders is returned_sicx_remaining
-            userAddress = self._positions.users.node_user_address(user)
+
+            # userAddress = self._positions.users.node_user_address(user)
+            userAddress = self._assets[_symbol].assetUsers.node_user_address(user)
             posValue = position
             remainingSupply -= posValue
             redeemedFromThisPos = remainingValue * posValue // remainingSupply
