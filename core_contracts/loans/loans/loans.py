@@ -80,7 +80,7 @@ class Loans(IconScoreBase):
     _REDEEM_MINIMUM = 'redeem_minimum'
     _NEW_LOAN_MINIMUM = 'new_loan_minimum'
     _MIN_MINING_DEBT = 'min_mining_debt'
-    _MAX_DIV_DEBT_LENGTH = 'max_div_debt_length'
+    _MAX_DEBTS_LIST_LENGTH = 'max_debts_list_length'
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
@@ -115,7 +115,7 @@ class Loans(IconScoreBase):
         self._redeem_minimum = VarDB(self._REDEEM_MINIMUM, db, value_type=int)
         self._new_loan_minimum = VarDB(self._NEW_LOAN_MINIMUM, db, value_type=int)
         self._min_mining_debt = VarDB(self._MIN_MINING_DEBT, db, value_type=int)
-        self._max_div_debt_length = VarDB(self._MAX_DIV_DEBT_LENGTH, db, value_type=int)
+        self._max_debts_list_length = VarDB(self._MAX_DEBTS_LIST_LENGTH, db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
@@ -137,15 +137,11 @@ class Loans(IconScoreBase):
         self._redeem_minimum.set(REDEEM_MINIMUM)
         self._new_loan_minimum.set(NEW_LOAN_MINIMUM)
         self._min_mining_debt.set(DEFAULT_MIN_MINING_DEBT)
-        self._max_div_debt_length.set(MAX_DIV_DEBT_LENGTH)
+        self._max_debts_list_length.set(MAX_DEBTS_LIST_LENGTH)
 
     def on_update(self) -> None:
         super().on_update()
-        self._new_loan_minimum.set(NEW_LOAN_MINIMUM)
-        self._redeem_minimum.set(REDEEM_MINIMUM)
-        self._mining_ratio.set(DEFAULT_MINING_RATIO)
-        self._locking_ratio.set(DEFAULT_LOCKING_RATIO)
-        self._liquidation_ratio.set(DEFAULT_LIQUIDATION_RATIO)
+        self._max_debts_list_length.set(MAX_DEBTS_LIST_LENGTH)
 
     @payable
     @external
@@ -239,7 +235,7 @@ class Loans(IconScoreBase):
         """
         Returns the debt held by each address in the list.
         """
-        max_length = self._max_div_debt_length.get()
+        max_length = self._max_debts_list_length.get()
         if len(_address_list) > max_length:
             revert(f'Address list is longer than the maximum allowable length ({max_length}).')
         debts = {}
@@ -1035,6 +1031,7 @@ class Loans(IconScoreBase):
                 "redeem minimum": self._redeem_minimum.get(),
                 "new loan minimum": self._new_loan_minimum.get(),
                 "min mining debt": self._min_mining_debt.get(),
+                "max div debt length": self._max_debts_list_length.get(),
                 "time offset": self._time_offset.get()
                 }
 
