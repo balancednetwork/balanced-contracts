@@ -211,6 +211,8 @@ class Rewards(IconScoreBase):
                         baln_token.transfer(self._platform_recipients[name].get(), share)
                     remaining -= share
                     shares -= split
+                    if shares == 0:
+                        break
                 self._total_dist.set(remaining) # remaining will be == 0 at this point.
                 self._platform_day.set(platform_day + 1)
                 return False
