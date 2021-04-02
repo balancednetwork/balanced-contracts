@@ -112,4 +112,5 @@ class DataSourceDB:
     def new_source(self, _name: str, _address: Address) -> None:
         self._names.put(_name)
         source = self.__getitem__(_name)
+        source.name.set(_name)
         source.contract_address.set(_address)
