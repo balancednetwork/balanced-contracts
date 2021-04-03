@@ -111,11 +111,12 @@ class Dividends(IconScoreBase):
         return balances
 
     @external
-    def distribute(self) -> None:
+    def distribute(self) -> bool:
         """
         A placeholder until BalancedDAO community decides how to handle fee revenue.
+        For now it is a stub that returns True so the Loans and DEX SCOREs will continue successfully.
         """
-        pass
+        return True
 
     @external
     def claim(self) -> None:
