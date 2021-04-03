@@ -1,8 +1,5 @@
-from iconservice import *
-from .utils.checks import *
-from .utils.consts import *
-from .interfaces import *
 from .data_objects import *
+from .utils.checks import *
 
 TAG = 'Governance'
 
@@ -37,9 +34,9 @@ class Governance(IconScoreBase):
     def launchBalanced(self) -> None:
         if not self._launched.get():
             self._launched.set(True)
-            loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
-            dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
-            rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+            loans = self.create_interface_score(self.addresses['loan'], LoansInterface)
+            dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+            rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
             self.addresses.setAdmins()
             self.addresses.setContractAddresses()
             self._set_launch_day(self.getDay())
@@ -77,7 +74,7 @@ class Governance(IconScoreBase):
     @external
     @only_owner
     def toggleBalancedOn(self) -> None:
-        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         loans.toggleLoansOn()
 
     def _set_launch_day(self, _day: int) -> None:
@@ -107,13 +104,13 @@ class Governance(IconScoreBase):
         """
         Adds a token to the assets dictionary on the Loans contract.
         """
-        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
+        loans = self.create_interface_score(self.addresses['loan'], LoansInterface)
         loans.addAsset(_token_address, _active, _collateral)
 
     @external
     @only_owner
     def toggleAssetActive(self, _symbol) -> None:
-        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
+        loans = self.create_interface_score(self.addresses['loan'], LoansInterface)
         loans.toggleAssetActive(_symbol)
 
     @external
@@ -123,7 +120,7 @@ class Governance(IconScoreBase):
         Add a new data source to receive BALN tokens. Starts with a default of
         zero percentage of the distribution.
         """
-        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.addNewDataSource(_data_source_name, _contract_address)
 
     @external
@@ -132,19 +129,19 @@ class Governance(IconScoreBase):
         """
         Assign percentages for distribution to the data sources. Must sum to 100%.
         """
-        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.updateBalTokenDistPercentage(_recipient_list)
 
     @external
     @only_owner
     def dexPermit(self, _pid: int, _permission: bool):
-        dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
         dex.permit(_pid, _permission)
 
     @external
     @only_owner
     def dexAddQuoteCoin(self, _address: Address) -> None:
-        dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
         dex.addQuoteCoin(_address)
 
     @external
@@ -156,10 +153,10 @@ class Governance(IconScoreBase):
         Links a pool ID to a name, so users can look up platform-defined
         markets more easily.
         """
-        dex_address = self.addresses._dex.get()
+        dex_address = self.addresses['dex']
         dex = self.create_interface_score(dex_address, DexInterface)
         dex.setMarketName(_pid, _name)
-        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.addNewDataSource(_name, dex_address)
 
     @external
