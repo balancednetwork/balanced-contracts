@@ -18,7 +18,7 @@ from iconservice import *
 from .consts import *
 
 
-class Utils():
+class Utils:
 
     @staticmethod
     def enum_names(cls):
