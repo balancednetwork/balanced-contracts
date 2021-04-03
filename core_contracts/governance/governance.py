@@ -104,13 +104,13 @@ class Governance(IconScoreBase):
         """
         Adds a token to the assets dictionary on the Loans contract.
         """
-        loans = self.create_interface_score(self.addresses['loan'], LoansInterface)
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         loans.addAsset(_token_address, _active, _collateral)
 
     @external
     @only_owner
     def toggleAssetActive(self, _symbol) -> None:
-        loans = self.create_interface_score(self.addresses['loan'], LoansInterface)
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         loans.toggleAssetActive(_symbol)
 
     @external
