@@ -1,10 +1,9 @@
-from iconservice import *
 from .utils.checks import *
-from .scorelib import *
 
 TAG = 'Dividends'
 
-UNITS_PER_TOKEN = 1000000000000000000
+UNITS_PER_TOKEN = 10 ** 18
+
 
 # An interface of token to get balances.
 class TokenInterface(InterfaceScore):
@@ -112,18 +111,18 @@ class Dividends(IconScoreBase):
         return balances
 
     @external
-    def distribute(self) -> bool:
+    def distribute(self) -> None:
         """
         A placeholder until BalancedDAO community decides how to handle fee revenue.
         """
-        return True
+        pass
 
     @external
     def claim(self) -> None:
         """
         A placeholder until BalancedDAO community decides how to handle fee revenue.
         """
-        return True
+        pass
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
@@ -143,8 +142,8 @@ class Dividends(IconScoreBase):
         Sends ICX to an address.
         :param _to: ICX destination address.
         :type _to: :class:`iconservice.base.address.Address`
-        :param _amount: Number of ICX sent.
-        :type _amount: int
+        :param amount: Number of ICX sent.
+        :type amount: int
         :param msg: Message for the event log.
         :type msg: str
         """
