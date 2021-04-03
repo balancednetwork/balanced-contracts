@@ -44,7 +44,7 @@ class WorkerToken(IRC2):
         """
         Sets the authorized address.
 
-        :param account: The authorized admin address.
+        :param _admin: The authorized admin address.
         """
         return self._admin.set(_admin)
 
@@ -55,7 +55,7 @@ class WorkerToken(IRC2):
 
     @external(readonly=True)
     def getBaln(self) -> Address:
-        self._baln_token.get()
+        return self._baln_token.get()
 
     @external
     @only_admin

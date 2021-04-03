@@ -1,5 +1,6 @@
 from iconservice import *
 
+
 # An interface of ICON Token Standard, IRC-2
 class TokenStandard(ABC):
 	@abstractmethod
