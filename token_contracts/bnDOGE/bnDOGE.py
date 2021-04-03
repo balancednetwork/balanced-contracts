@@ -127,8 +127,8 @@ class BalancedDoge(IRC2Mintable, IRC2Burnable):
         oracle_address = self._oracle_address.get()
         oracle = self.create_interface_score(oracle_address, OracleInterface)
         icx_price = oracle.get_reference_data("USD", quote)
-        priceData = oracle.get_reference_data(base, "USD")
-        return priceData['rate'] * icx_price['rate'] // EXA
+        price_data = oracle.get_reference_data(base, "USD")
+        return price_data['rate'] * icx_price['rate'] // EXA
 
     def update_asset_value(self) -> None:
         """
@@ -141,8 +141,8 @@ class BalancedDoge(IRC2Mintable, IRC2Burnable):
         try:
             oracle = self.create_interface_score(oracle_address, OracleInterface)
             icx_price = oracle.get_reference_data("USD", quote)
-            priceData = oracle.get_reference_data(base, "USD")
-            rate = priceData['rate'] * icx_price['rate'] // EXA
+            price_data = oracle.get_reference_data(base, "USD")
+            rate = price_data['rate'] * icx_price['rate'] // EXA
             self._last_price.set(rate)
             self._price_update_time.set(self.now())
             self.OraclePrice(base + quote, self._oracle_name.get(), oracle_address, rate)

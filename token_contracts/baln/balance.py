@@ -150,7 +150,7 @@ class BalancedToken(IRC2):
         """
         Sets the authorized address.
 
-        :param account: The authorized admin address.
+        :param _admin: The authorized admin address.
         """
         return self._admin.set(_admin)
 
