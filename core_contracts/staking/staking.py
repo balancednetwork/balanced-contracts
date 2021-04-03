@@ -8,7 +8,7 @@ TAG = 'StakedICXManager'
 
 DENOMINATOR = 10 ** 18
 TOP_PREP_COUNT = 20
-
+DEFAULT_UNSTAKE_BATCH_LIMIT = 200
 
 # An interface of token to distribute daily rewards
 class sICXTokenInterface(InterfaceScore):
@@ -90,6 +90,7 @@ class Staking(IconScoreBase):
     _ADDRESS_DELEGATIONS = '_address_delegations'
     _PREP_DELEGATIONS = '_prep_delegations'
     _TOTAL_UNSTAKE_AMOUNT = '_total_unstake_amount'
+    _UNSTAKE_BATCH_LIMIT = '_unstake_batch_limit'
 
     @eventlog(indexed=3)
     def Transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
@@ -141,6 +142,7 @@ class Staking(IconScoreBase):
         self._sICX_score = None
         # initialize the linked list
         self._linked_list_var = LinkedListDB("unstake_dict", db)
+        self._unstake_batch_limit = VarDB(self._UNSTAKE_BATCH_LIMIT, db, value_type=int)
 
     def on_install(self) -> None:
         super().on_install()
@@ -153,9 +155,11 @@ class Staking(IconScoreBase):
         self._rate.set(DENOMINATOR)
         self._distributing.set(False)
         self._set_top_preps()
+        self._unstake_batch_limit.set(DEFAULT_UNSTAKE_BATCH_LIMIT)
 
     def on_update(self) -> None:
         super().on_update()
+        self._unstake_batch_limit.set(DEFAULT_UNSTAKE_BATCH_LIMIT)
 
     @external(readonly=True)
     def name(self) -> str:
@@ -194,6 +198,14 @@ class Staking(IconScoreBase):
         Get the address of sICX token contract.
         """
         return self._sICX_address.get()
+
+    @external
+    def setUnstakeBatchLimit(self, _limit: int) -> None:
+        self._unstake_batch_limit.set(_limit)
+    
+    @external(readonly=True)
+    def getUnstakeBatchLimit(self) -> int:
+        return self._unstake_batch_limit.get()
 
     @external(readonly=True)
     def getPrepList(self) -> list:
@@ -453,23 +465,21 @@ class Staking(IconScoreBase):
          unstaked amount to the address and removing the
          data from linked list one at a transaction.
          """
-        balance_score = self.icx.get_balance(self.address) - self._daily_reward.get()
-        remaining_balance = balance_score
-        if balance_score > 0:
-            unstake_info_list = self.getUnstakeInfo()
-            for i, each_info in enumerate(unstake_info_list):
-                if i > 200:
-                    break
-                value_to_transfer = each_info[0]
-                if remaining_balance > 0:
-                    if value_to_transfer <= remaining_balance:
-                        self._linked_list_var.remove(self._linked_list_var._head_id.get())
-                        self._total_unstake_amount.set(self._total_unstake_amount.get() - value_to_transfer)
-                        self._send_ICX(each_info[3], value_to_transfer)
-                        self.UnstakeAmountTransfer(each_info[3], value_to_transfer)
-                        remaining_balance -= value_to_transfer
-                    else:
-                        break
+        balance = self.icx.get_balance(self.address) - self._daily_reward.get()
+        if balance > 0:
+            unstaking_requests = self.getUnstakeInfo()
+            for i, request in enumerate(unstaking_requests):
+                if i > self._unstake_batch_limit.get():
+                    return
+                unstake_amount = request[0]
+                if balance > 0 and unstake_amount <= balance:
+                    self._linked_list_var.remove(self._linked_list_var._head_id.get())
+                    self._total_unstake_amount.set(self._total_unstake_amount.get() - unstake_amount)
+                    balance -= unstake_amount
+                    self.UnstakeAmountTransfer(request[3], unstake_amount)
+                    self._send_ICX(request[3], unstake_amount)
+                else:
+                    return
 
     @payable
     @external
