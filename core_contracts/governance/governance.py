@@ -34,7 +34,7 @@ class Governance(IconScoreBase):
     def launchBalanced(self) -> None:
         if not self._launched.get():
             self._launched.set(True)
-            loans = self.create_interface_score(self.addresses['loan'], LoansInterface)
+            loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
             dex = self.create_interface_score(self.addresses['dex'], DexInterface)
             rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
             self.addresses.setAdmins()
