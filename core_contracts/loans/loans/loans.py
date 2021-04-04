@@ -600,7 +600,7 @@ class Loans(IconScoreBase):
         if repaid != 0:
             self._assets[symbol].burn(repaid)
         self.LoanRepaid(_from, symbol, repaid,
-            f'Loan of {repaid / EXA} {symbol} repaid to Balanced.')
+            f'Loan of {repaid} {symbol} repaid to Balanced.')
         self.check_dead_markets()
         pos.update_standing()
 
@@ -657,7 +657,7 @@ class Loans(IconScoreBase):
         self._send_token(symbol, self._dividends.get(), fee, "Redemption fee.")
         self.check_dead_markets()
         self.AssetRedeemed(_from, symbol, _value,
-            f'{_value / EXA} {symbol} redeemed on Balanced at price {price / EXA} ICX/{symbol}.')
+            f'{_value} {symbol} redeemed on Balanced at price {price} ICX/{symbol}.')
 
     def bd_redeem(self, _from: Address,
                         _asset: Asset,
@@ -748,7 +748,7 @@ class Loans(IconScoreBase):
         # Originate loan
         pos[_asset] += _amount + fee
         self.OriginateLoan(_from, _asset, _amount,
-            f'Loan of {_amount / EXA} {_asset} from Balanced.')
+            f'Loan of {_amount} {_asset} from Balanced.')
         self._assets[_asset].mint(_from, _amount)
 
         # Pay fee

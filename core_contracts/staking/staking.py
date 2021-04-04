@@ -511,7 +511,7 @@ class Staking(IconScoreBase):
                                               dict_prep_delegation[1], prep_delegations)
         self._stake_and_delegate(self._check_for_week())
         self._sICX_supply.set(self._sICX_supply.get() + amount)
-        self.TokenTransfer(_to, amount, f'{amount / DENOMINATOR} sICX minted to {_to}')
+        self.TokenTransfer(_to, amount, f'{amount // DENOMINATOR} sICX minted to {_to}')
         return amount
 
     def _claim_iscore(self) -> None:
