@@ -1262,12 +1262,14 @@ class DEX(IconScoreBase):
         self.Remove(_pid, self.msg.sender, _value)
         self.TransferSingle(self.msg.sender, self.msg.sender, Address.from_string(
             ZERO_SCORE_ADDRESS), _pid, _value)
-        if not _withdraw:
-            self._deposit[token1][self.msg.sender] += token1_amount
-            self._deposit[token2][self.msg.sender] += token2_amount
-        else:
+
+        self._deposit[token1][self.msg.sender] += token1_amount
+        self._deposit[token2][self.msg.sender] += token2_amount
+
+        if _withdraw:
             self.withdraw(token1, token1_amount)
             self.withdraw(token2, token2_amount)
+
         self._update_account_snapshot(self.msg.sender, _pid)
         self._update_total_supply_snapshot(_pid)
 
