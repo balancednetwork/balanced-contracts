@@ -37,7 +37,6 @@ class stakingInterface(InterfaceScore):
 
 
 class DEX(IconScoreBase):
-
     _TAG = 'DEX'
     _ACCOUNT_BALANCE_SNAPSHOT = 'account_balance_snapshot'
     _TOTAL_SUPPLY_SNAPSHOT = 'total_supply_snapshot'
@@ -416,7 +415,7 @@ class DEX(IconScoreBase):
         self._quote_coins.add(_address)
     
     @external(readonly=True)
-    def isQuoteCoinAllowed(self, _address: Address) -> None:
+    def isQuoteCoinAllowed(self, _address: Address) -> bool:
         """
         :param _address: address of to check as allowable quote
         """
@@ -502,7 +501,7 @@ class DEX(IconScoreBase):
         self._check_distributions()
 
         if not self._icx_queue_order_id[self.msg.sender]:
-            revert("No open order in SICXICX queue")
+            revert(f"{TAG} : No open order in SICXICX queue")
 
         order_id = self._icx_queue_order_id[self.msg.sender]
         order = self._icx_queue._get_node(order_id)
@@ -559,13 +558,13 @@ class DEX(IconScoreBase):
             if "maxSlippage" in unpacked_data["params"]:
                 max_slippage = int(unpacked_data["params"]["maxSlippage"])
                 if max_slippage > MAX_SLIPPAGE:
-                    revert("Slippage cannot exceed 10% (1000 basis points)")
+                    revert(f"{TAG} : Slippage cannot exceed 10% (1000 basis points)")
                 if max_slippage <= 0:
-                    revert("Max slippage must be a positive number")
+                    revert(f"{TAG} : Max slippage must be a positive number")
             self.exchange(_fromToken, Address.from_string(
                 unpacked_data["params"]["toToken"]), _from, _from, _value, max_slippage)
         else:
-            revert("Fallback directly not allowed")
+            revert(f"{TAG} : Fallback directly not allowed")
 
     @external
     def precompute(self, snap: int, batch_size: int) -> bool:
@@ -597,9 +596,9 @@ class DEX(IconScoreBase):
         Invoked by `transfer(...)`.
         """
         if _value < 0:
-            revert("Transferring value cannot be less than 0")
+            revert(f"{TAG} : Transferring value cannot be less than 0")
         if self._balance[_id][_from] < _value:
-            revert("Out of balance")
+            revert(f"{TAG} : Out of balance")
 
         if _to not in self._funded_addresses:
             self._funded_addresses.add(_to)
@@ -726,7 +725,7 @@ class DEX(IconScoreBase):
         e.g. USD/BTC, this is the inverse of the most common way to express price.
         """
         if _pid < 1 or _pid > self._nonce.get():
-            revert("Invalid pool id")
+            revert(f"{TAG} : Invalid pool id")
         if _pid == self._SICXICX_POOL_ID:
             return self._get_sicx_rate()
         return (self._pool_total[_pid][self._pool_base[_pid]] * EXA) // self._pool_total[_pid][self._pool_quote[_pid]]
@@ -737,7 +736,7 @@ class DEX(IconScoreBase):
         e.g. BTC/USD, this is the most common way to express price.
         """
         if _pid < 1 or _pid > self._nonce.get():
-            revert("Invalid pool id")
+            revert(f"{TAG} : Invalid pool id")
         return (self._pool_total[_pid][self._pool_quote[_pid]] * EXA) // self._pool_total[_pid][self._pool_base[_pid]]
 
     @external(readonly=True)
@@ -822,11 +821,11 @@ class DEX(IconScoreBase):
 
     def _transfer_from(self, _from: Address, _to: Address, _id: int, _value: int, _data: bytes):
         if not self.isApprovedForAll(_from, self.msg.sender):
-            revert("Not approved for transfer")
+            revert(f"{TAG} : Not approved for transfer")
         if _value < 0:
-            revert("Transferring value cannot be less than 0")
+            revert(f"{TAG} : Transferring value cannot be less than 0")
         if self._balance[_id][_from] < _value:
-            revert("Out of balance")
+            revert(f"{TAG} : Out of balance")
 
         self._balance[_id][_from] = self._balance[_from] - _value
         self._balance[_id][_to] = self._balance[_to] + _value
@@ -877,16 +876,16 @@ class DEX(IconScoreBase):
         _value -= fees
         _pid = self._pool_id[_fromToken][_toToken]
         if _pid <= 0:
-            revert("Pool does not exist")
+            revert(f"{TAG} : Pool does not exist")
         if _pid == self._SICXICX_POOL_ID:
-            revert("Not supported on this API, use the ICX swap API")
+            revert(f"{TAG} : Not supported on this API, use the ICX swap API")
         if _fromToken == self.getPoolQuote(_pid):
             old_price = self.getBasePriceInQuote(_pid)
         else:
             old_price = self.getQuotePriceInBase(_pid)
         Logger.info("old_price: " + str(old_price), self._TAG)
         if not self.active[_pid]:
-            revert("Pool is not active")
+            revert(f"{TAG} : Pool is not active")
         new_token1 = self._pool_total[_pid][_fromToken] + _value
         new_token2 = int(
             self._pool_total[_pid][_fromToken] * self._pool_total[_pid][_toToken] / new_token1)
@@ -903,7 +902,7 @@ class DEX(IconScoreBase):
                     str(old_price) + ", max slippage price = " + str(max_slippage_price), self._TAG)
 
         if send_price > max_slippage_price:
-            revert("Passed Maximum slippage")
+            revert(f"{TAG} : Passed Maximum slippage")
 
         # Pay each of the user and the dividends score their share of the tokens
         to_token_score = self.create_interface_score(_toToken, TokenInterface)
@@ -1110,7 +1109,7 @@ class DEX(IconScoreBase):
     def balanceOfAt(self, _account: Address, _id: int, _snapshot_id: int) -> int:
         matched_index = 0
         if _snapshot_id < 0:
-            revert(f'Snapshot id is equal to or greater then Zero')
+            revert(f"{TAG} : Snapshot id is equal to or greater then Zero")
         low = 0
         high = self._account_balance_snapshot[_id][_account]['length'][0]
 
@@ -1140,7 +1139,7 @@ class DEX(IconScoreBase):
     def totalSupplyAt(self, _id: int, _snapshot_id: int) -> int:
         matched_index = 0
         if _snapshot_id < 0:
-            revert(f'Snapshot id is equal to or greater then Zero')
+            revert(f"{TAG} : Snapshot id is equal to or greater then Zero")
         low = 0
         high = self._total_supply_snapshot[_id]['length'][0]
 
@@ -1157,7 +1156,7 @@ class DEX(IconScoreBase):
             return 0
         else:
             matched_index = low - 1
-        
+
         if self._total_supply_snapshot[_id]['ids'][matched_index] == _snapshot_id:
             return self._total_supply_snapshot[_id]['avgs'][matched_index]
         else:
@@ -1170,11 +1169,11 @@ class DEX(IconScoreBase):
     @external(readonly=True)
     def loadBalancesAtSnapshot(self, _pid: int, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
         if _snapshot_id < 0:
-            revert(f'Snapshot id is equal to or greater then Zero')
+            revert(f"{TAG} : Snapshot id is equal to or greater then Zero")
         if _pid < 0:
-            revert(f'Pool id must be equal to or greater than Zero')
+            revert(f"{TAG} : Pool id must be equal to or greater than Zero")
         if _offset < 0:
-            revert(f'Offset must be equal to or greater than Zero')
+            revert(f"{TAG} : Offset must be equal to or greater than Zero")
         rv = {}
         for addr in self._funded_addresses.select(_offset):
             snapshot_balance = self.balanceOfAt(addr, _pid, _snapshot_id)
@@ -1220,7 +1219,7 @@ class DEX(IconScoreBase):
         not currently committed to a pool.
         """
         if _value > self._deposit[_token][self.msg.sender]:
-            revert("Insufficient balance")
+            revert(f"{TAG} : Insufficient balance")
         self._deposit[_token][self.msg.sender] -= _value
         token_score = self.create_interface_score(_token, TokenInterface)
         token_score.transfer(self.msg.sender, _value)
@@ -1242,9 +1241,9 @@ class DEX(IconScoreBase):
 
         balance = self._balance[_pid][self.msg.sender]
         if not self.active[_pid]:
-            revert("Pool is not active")
+            revert(f"{TAG} : Pool is not active")
         if _value > balance:
-            revert("Invalid input")
+            revert(f"{TAG} : Invalid input")
 
         token1 = self._pool_base[_pid]
         token2 = self._pool_quote[_pid]
@@ -1285,22 +1284,22 @@ class DEX(IconScoreBase):
         _owner = self.msg.sender
         _pid = self._pool_id[_baseToken][_quoteToken]
         if _baseToken == _quoteToken:
-            revert("Pool must contain two token contracts")
+            revert(f"{TAG} : Pool must contain two token contracts")
         if not _maxBaseValue:
-            revert("Please send initial value for first currency")
+            revert(f"{TAG} : Please send initial value for first currency")
         if not _quoteValue:
-            revert("Please send initial value for second currency")
+            revert(f"{TAG} : Please send initial value for second currency")
         if self._deposit[_baseToken][self.msg.sender] < _maxBaseValue:
-            revert("Insufficient base asset funds deposited")
+            revert(f"{TAG} : Insufficient base asset funds deposited")
         if self._deposit[_quoteToken][self.msg.sender] < _quoteValue:
-            revert("insufficient quote asset funds deposited")
+            revert(f"{TAG} : insufficient quote asset funds deposited")
 
         # By default on new pools, use the maximum sent _maxBaseValue for supplied liquidity
         base_to_commit = _maxBaseValue
 
         if _pid == 0:
             if _quoteToken not in self._quote_coins:
-                revert("Second currency must be an allowed quote currency")
+                revert(f"{TAG} : Second currency must be an allowed quote currency")
             self._pool_id[_baseToken][_quoteToken] = self._nonce.get()
             self._pool_id[_quoteToken][_baseToken] = self._nonce.get()
             _pid = self._nonce.get()
@@ -1315,7 +1314,7 @@ class DEX(IconScoreBase):
         else:
             base_to_commit = (_quoteValue * self._pool_total[_pid][self._pool_base[_pid]]) // (self._pool_total[_pid][self._pool_quote[_pid]])
             if base_to_commit > _maxBaseValue:
-                revert('Proportionate base amount is {}, but sent {}'.format(base_to_commit, _maxBaseValue))
+                revert(f"{TAG} : Proportionate base amount is {base_to_commit}, but sent {_maxBaseValue}")
             liquidity = (self._total[_pid] * base_to_commit) // self._pool_total[_pid][_baseToken]
         self._pool_total[_pid][_baseToken] += base_to_commit
         self._pool_total[_pid][_quoteToken] += _quoteValue

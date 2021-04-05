@@ -58,11 +58,11 @@ class Rewards(IconScoreBase):
     def on_update(self) -> None:
         super().on_update()
 
-    @external(readonly = True)
+    @external(readonly=True)
     def name(self) -> str:
         return "Balanced Rewards"
 
-    @external(readonly = True)
+    @external(readonly=True)
     def getEmission(self, _day: int = -1) -> int:
         today = self._get_day()
         if _day < -1 or _day > today:
@@ -71,18 +71,18 @@ class Rewards(IconScoreBase):
             _day = today
         return self._daily_dist(_day)
 
-    @external(readonly = True)
+    @external(readonly=True)
     def getBalnHoldings(self, _holders: List[str]) -> dict:
         holdings = {}
         for holder in _holders:
             holdings[holder] = self._baln_holdings[holder]
         return holdings
 
-    @external(readonly = True)
+    @external(readonly=True)
     def getBalnHolding(self, _holder: str) -> int:
         return self._baln_holdings[_holder]
 
-    @external(readonly = True)
+    @external(readonly=True)
     def distStatus(self) -> dict:
         status = {}
         status['platform_day'] = self._platform_day.get()
@@ -121,7 +121,7 @@ class Rewards(IconScoreBase):
             source.set_dist_percent(percent)
             total_percentage += percent
 
-        if total_percentage != 10**18:
+        if total_percentage != 10 ** 18:
             revert(f"Total percentage doesn't sum up to 100")
 
     @external(readonly=True)
@@ -238,10 +238,10 @@ class Rewards(IconScoreBase):
 
     def _daily_dist(self, _day: int) -> int:
         if _day <= 60:
-            return 10**23
+            return 10 ** 23
         else:
             index = _day - 60
-            return max(((995 ** index) * 10**23) // (1000 ** index), 1250 * 10**18)
+            return max(((995 ** index) * 10 ** 23) // (1000 ** index), 1250 * 10 ** 18)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
@@ -260,10 +260,9 @@ class Rewards(IconScoreBase):
                    f'Deposit not accepted from {str(self.msg.sender)} '
                    f'Only accepted from BALN = {str(self._baln_address.get())}')
 
-
-#-------------------------------------------------------------------------------
-#   SETTERS AND GETTERS
-#-------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------------
+    #   SETTERS AND GETTERS
+    # -------------------------------------------------------------------------------
 
     @external
     @only_owner
@@ -337,10 +336,9 @@ class Rewards(IconScoreBase):
     def getTimeOffset(self) -> int:
         return self._start_timestamp.get()
 
-
-#-------------------------------------------------------------------------------
-#   EVENT LOGS
-#-------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------------
+    #   EVENT LOGS
+    # -------------------------------------------------------------------------------
 
     @eventlog(indexed=1)
     def RewardsClaimed(self, _address: Address, _amount: int):
