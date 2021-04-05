@@ -35,36 +35,41 @@ class Governance(IconScoreBase):
     @external
     @only_owner
     def configureBalanced(self) -> None:
+        """
+        Set parameters after deployment and before launch.
+        """
         loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
         rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
         self.addresses.setAdmins()
         self.addresses.setContractAddresses()
-        _addresses: dict = self.addresses.getAddresses()
+        addresses: dict = self.addresses.getAddresses()
         for asset in ASSETS:
-            loans.addAsset(_addresses[asset['address']],
-                           asset['active'], asset['collateral'])
-        for source in DATA_SOURCES:
-            rewards.addNewDataSource(source['name'],
-                                     _addresses[source['address']])
-        rewards.updateBalTokenDistPercentage(RECIPIENTS)
+            loans.addAsset(addresses[asset['address']],
+                           asset['active'],
+                           asset['collateral'])
 
     @external
     @only_owner
     def launchBalanced(self) -> None:
-        if not self._launched.get():
-            self._launched.set(True)
-            loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
-            dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
-            rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
-            self._set_launch_day(self.getDay())
-            self._set_launch_time(self.now())
-            # Minimum day value is 1 since 0 is the default value for uninitialized storage.
-            time_delta = DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1)
-            loans.setTimeOffset(time_delta)
-            dex.setTimeOffset(time_delta)
-            rewards.setTimeOffset(time_delta)
-            loans.turnLoansOn()
-            dex.turnDexOn()
+        if self._launched.get():
+            return
+        self._launched.set(True)
+        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
+        dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
+        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        self._set_launch_day(self.getDay())
+        self._set_launch_time(self.now())
+        # Minimum day value is 1 since 0 is the default value for uninitialized storage.
+        time_delta = DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1)
+        loans.setTimeOffset(time_delta)
+        dex.setTimeOffset(time_delta)
+        rewards.setTimeOffset(time_delta)
+        addresses: dict = self.addresses.getAddresses()
+        for source in DATA_SOURCES:
+            rewards.addNewDataSource(source['name'], addresses[source['address']])
+        rewards.updateBalTokenDistPercentage(RECIPIENTS)
+        loans.turnLoansOn()
+        dex.turnDexOn()
 
     @external
     @only_owner

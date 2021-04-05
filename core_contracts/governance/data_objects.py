@@ -45,7 +45,7 @@ class Addresses(object):
 
     def setAddresses(self, addresses: BalancedAddresses) -> None:
         """
-        Takes a TypedDict with 1 to 11 addresses and sets them.
+        Takes a TypedDict with 11 addresses and sets them.
         """
         set_func: dict = {'loans': self._loans.set,
                           'dex': self._dex.set,
