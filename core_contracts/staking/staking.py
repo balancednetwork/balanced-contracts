@@ -1,5 +1,6 @@
 from iconservice import *
 from .scorelib.linked_list import *
+from.scorelib.consts import *
 
 TAG = 'StakedICXManager'
 
@@ -310,7 +311,7 @@ class Staking(IconScoreBase):
         :params _address: the address of which the unstake request information is requested.
         """
         return [
-            [items[1], items[2], items[3], items[4]]
+            {'amount': items[1], 'contract': items[2], 'blockHeight': items[3], 'user': items[4]}
             for items in self._linked_list_var
             if items[4] == _address
         ]
