@@ -416,7 +416,7 @@ class DEX(IconScoreBase):
         self._quote_coins.add(_address)
     
     @external(readonly=True)
-    def isQuoteCoinAllowed(self, _address: Address) -> None:
+    def isQuoteCoinAllowed(self, _address: Address) -> bool:
         """
         :param _address: address of to check as allowable quote
         """
