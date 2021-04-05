@@ -628,15 +628,15 @@ class Staking(IconScoreBase):
         Logger.debug(f'({_value}) tokens received from {_from}.', TAG)
         try:
             d = json_loads(_data.decode("utf-8"))
+            if 'method' in d and d["method"] == "unstake":
+                if "user" in d:
+                    self._unstake(_from, _value, Address.from_string(d["user"]))
+                else:
+                    self._unstake(_from, _value)
+            else:
+                revert(f'Invalid Parameters.')
         except BaseException as e:
             revert(f'Invalid data: {_data}. Exception: {e}')
-        if 'method' in d and d["method"] == "unstake":
-            if "user" in d:
-                self._unstake(_from, _value, Address.from_string(d["user"]))
-            else:
-                self._unstake(_from, _value)
-        else:
-            revert(f'Invalid Parameters.')
 
     def _delegations(self, evenly_distribute_value: int) -> None:
         """
