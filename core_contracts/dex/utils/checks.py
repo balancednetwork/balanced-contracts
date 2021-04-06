@@ -38,3 +38,17 @@ def only_owner(func):
 
 		return func(self, *args, **kwargs)
 	return __wrapper
+
+
+def dex_on(func):
+	if not isfunction(func):
+		revert(f"NotAFunctionError")
+
+	@wraps(func)
+	def __wrapper(self: object, *args, **kwargs):
+		if not self._dex_on.get():
+			revert("NotLaunched: Function cannot be called before the DEX is turned on")
+
+		return func(self, *args, **kwargs)
+	return __wrapper
+
