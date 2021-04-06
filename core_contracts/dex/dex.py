@@ -446,6 +446,7 @@ class DEX(IconScoreBase):
         return self._time_offset.get()
 
     @payable
+    @dex_on
     def fallback(self):
         """
         Payable method called by sending ICX directly into the SCORE.
@@ -490,6 +491,7 @@ class DEX(IconScoreBase):
         self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
 
     @external
+    @dex_on
     def cancelSicxicxOrder(self):
         """
         Cancels user's order in the SICXICX queue.
@@ -885,6 +887,7 @@ class DEX(IconScoreBase):
     ####################################
     # Internal exchange function
 
+    @dex_on
     def exchange(self, _fromToken: Address, _toToken: Address, _sender: Address, _receiver: Address, _value: int, _max_slippage: int = 250):
         lp_fees = (_value * self._pool_lp_fee.get()) // FEE_SCALE
         baln_fees = (_value * self._pool_baln_fee.get()) // FEE_SCALE
@@ -1262,6 +1265,7 @@ class DEX(IconScoreBase):
         self.Withdraw(_token, self.msg.sender, _value)
 
     @external
+    @dex_on
     def remove(self, _pid: int, _value: int, _withdraw: bool = False):
         """
         :param _pid: The pool ID the user wishes to stop contributing to
@@ -1314,6 +1318,7 @@ class DEX(IconScoreBase):
         self._update_total_supply_snapshot(_pid)
 
     @external
+    @dex_on
     def add(self, _baseToken: Address, _quoteToken: Address, _maxBaseValue: int, _quoteValue: int):
         """
         Adds liquidity to a pool for trading, or creates a new pool. Rules:
