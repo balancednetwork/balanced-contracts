@@ -570,12 +570,12 @@ class DEX(IconScoreBase):
             revert("Fallback directly not allowed")
 
     @external
-    def precompute(self, snap: int, batch_size: int) -> bool:
+    def precompute(self, snap: int, batch_size: int):
         """
         Required by the rewards score data source API, but unused.
         Returns `True` to match the required workflow.
         """
-        return True
+        pass
 
     @external
     def transfer(self, _to: Address, _value: int, _id: int, _data: bytes = None):
@@ -708,16 +708,20 @@ class DEX(IconScoreBase):
 
         All fees are divided by the `FEE_SCALE` constant
         """
-        fees = {}
-        fees['icx_total'] = self._icx_baln_fee.get() + \
-            self._icx_conversion_fee.get()
-        fees['pool_total'] = self._pool_baln_fee.get() + \
-            self._pool_lp_fee.get()
-        fees['pool_lp_fee'] = self._pool_lp_fee.get()
-        fees['pool_baln_fee'] = self._pool_baln_fee.get()
-        fees['icx_conversion_fee'] = self._icx_conversion_fee.get()
-        fees['icx_baln_fee'] = self._icx_baln_fee.get()
-        return fees
+
+        icx_baln_fee = self._icx_baln_fee.get()
+        icx_conversion_fee = self._icx_conversion_fee.get()
+        pool_baln_fee = self._pool_baln_fee.get()
+        pool_ip_fee = self._pool_lp_fee.get()
+
+        return {
+            'icx_total': icx_baln_fee + icx_conversion_fee,
+            'pool_total': pool_baln_fee + pool_ip_fee,
+            'pool_lp_fee': pool_ip_fee,
+            'pool_baln_fee': pool_baln_fee,
+            'icx_conversion_fee': icx_conversion_fee,
+            'icx_baln_fee': icx_baln_fee
+        }
 
     @external(readonly=True)
     def getPoolBase(self, _pid: int) -> Address:
@@ -732,7 +736,7 @@ class DEX(IconScoreBase):
         """
         e.g. USD/BTC, this is the inverse of the most common way to express price.
         """
-        if _pid < 1 or _pid > self._nonce.get():
+        if self._nonce.get() < _pid < 1:
             revert("Invalid pool id")
         if _pid == self._SICXICX_POOL_ID:
             return self._get_sicx_rate()
@@ -743,7 +747,7 @@ class DEX(IconScoreBase):
         """
         e.g. BTC/USD, this is the most common way to express price.
         """
-        if _pid < 1 or _pid > self._nonce.get():
+        if self._nonce.get() < _pid < 1:
             revert("Invalid pool id")
         return (self._pool_total[_pid][self._pool_quote[_pid]] * EXA) // self._pool_total[_pid][self._pool_base[_pid]]
 
@@ -1354,7 +1358,7 @@ class DEX(IconScoreBase):
         else:
             base_to_commit = (_quoteValue * self._pool_total[_pid][self._pool_base[_pid]]) // (self._pool_total[_pid][self._pool_quote[_pid]])
             if base_to_commit > _maxBaseValue:
-                revert('Proportionate base amount is {}, but sent {}'.format(base_to_commit, _maxBaseValue))
+                revert(f'Proportionate base amount is {base_to_commit}, but sent {_maxBaseValue}')
             liquidity = (self._total[_pid] * base_to_commit) // self._pool_total[_pid][_baseToken]
         self._pool_total[_pid][_baseToken] += base_to_commit
         self._pool_total[_pid][_quoteToken] += _quoteValue
