@@ -1,6 +1,6 @@
 from iconservice import *
 from .scorelib.linked_list import *
-from.scorelib.consts import *
+from .scorelib.consts import *
 
 TAG = 'StakedICXManager'
 
@@ -311,7 +311,7 @@ class Staking(IconScoreBase):
         :params _address: the address of which the unstake request information is requested.
         """
         return [
-            {'amount': items[1], 'contract': items[2], 'blockHeight': items[3], 'user': items[4]}
+            {'amount': items[1], 'from': items[2], 'blockHeight': items[3], 'sender': items[4]}
             for items in self._linked_list_var
             if items[4] == _address
         ]
@@ -628,15 +628,15 @@ class Staking(IconScoreBase):
         Logger.debug(f'({_value}) tokens received from {_from}.', TAG)
         try:
             d = json_loads(_data.decode("utf-8"))
-            if 'method' in d and d["method"] == "unstake":
-                if "user" in d:
-                    self._unstake(_from, _value, Address.from_string(d["user"]))
-                else:
-                    self._unstake(_from, _value)
-            else:
-                revert(f'Invalid Parameters.')
         except BaseException as e:
             revert(f'Invalid data: {_data}. Exception: {e}')
+        if 'method' in d and d["method"] == "unstake":
+            if "user" in d:
+                self._unstake(_from, _value, Address.from_string(d["user"]))
+            else:
+                self._unstake(_from, _value)
+        else:
+            revert(f'Invalid Parameters.')
 
     def _delegations(self, evenly_distribute_value: int) -> None:
         """
