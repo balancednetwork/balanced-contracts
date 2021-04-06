@@ -1,6 +1,7 @@
 from iconservice import *
 from .IRC2 import IRC2
 
+
 class IRC2Mintable(IRC2):
 	'''
 	Implementation of IRC2Mintable
@@ -14,6 +15,7 @@ class IRC2Mintable(IRC2):
 		See {IRC2-_mint}
 
 		:param _amount: Number of tokens to be created at the account.
+		:param _data:
 		"""
 		if _data is None:
 			_data = b'None'
@@ -28,6 +30,7 @@ class IRC2Mintable(IRC2):
 
 		:param _account: The account at which token is to be created.
 		:param _amount: Number of tokens to be created at the account.
+		:param _data:
 		"""
 		if _data is None:
 			_data = b'None'
