@@ -306,7 +306,7 @@ class Staking(IconScoreBase):
     @external(readonly=True)
     def getUserUnstakeInfo(self, _address: Address) -> list:
         """
-        Returns a list that shows a specific wallet's unstaked amount, wallet address, unstake amount period
+        Returns a list of dictionary that shows a specific wallet's unstaked amount, wallet address, unstake amount period
         and self.msg.sender
         :params _address: the address of which the unstake request information is requested.
         """
