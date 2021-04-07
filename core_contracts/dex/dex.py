@@ -487,7 +487,7 @@ class DEX(IconScoreBase):
         current_icx_total = self._icx_queue_total.get() + self.msg.value
         self._icx_queue_total.set(current_icx_total)
 
-        if order_value > self._get_rewardable_amount(None):
+        if order_value >= self._get_rewardable_amount(None):
             self._active_addresses[self._SICXICX_POOL_ID].add(self.msg.sender)
 
         self._update_account_snapshot(self.msg.sender, self._SICXICX_POOL_ID)
@@ -621,7 +621,7 @@ class DEX(IconScoreBase):
 
         pool_quote_coin = self.getPoolQuote(_id)
         
-        if self._balance[_id][_to] > self._get_rewardable_amount(pool_quote_coin):
+        if self._balance[_id][_to] >= self._get_rewardable_amount(pool_quote_coin):
             self._active_addresses[_id].add(_to)
 
         if self._balance[_id][_from] < self._get_rewardable_amount(pool_quote_coin):
@@ -853,7 +853,7 @@ class DEX(IconScoreBase):
 
         pool_quote_coin = self.getPoolQuote(_id)
 
-        if self._balance[_id][_to] > self._get_rewardable_amount(pool_quote_coin):
+        if self._balance[_id][_to] >= self._get_rewardable_amount(pool_quote_coin):
             self._active_addresses[_id].add(_to)
 
         if self._balance[_id][_from] < self._get_rewardable_amount(pool_quote_coin):
@@ -1386,7 +1386,7 @@ class DEX(IconScoreBase):
         user_pool_ratio = self._balance[_pid][self.msg.sender] / self.totalSupply(_pid)
         user_quote_holdings = user_pool_ratio * self._pool_total[_pid][_quoteToken]
 
-        if user_quote_holdings > self._get_rewardable_amount(_quoteToken):
+        if user_quote_holdings >= self._get_rewardable_amount(_quoteToken):
             self._active_addresses[_pid].add(self.msg.sender)
 
         self._update_account_snapshot(_owner, _pid)
