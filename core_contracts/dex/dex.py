@@ -224,6 +224,9 @@ class DEX(IconScoreBase):
 
         self._named_markets = IterableDictDB(
             self._NAMED_MARKETS, db, value_type=int, key_type=str, order=True)
+        
+        # Cache of token precisions, filled on first call of `deposit`
+        self._token_precisions = DictDB('token_precisions', db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
@@ -555,6 +558,9 @@ class DEX(IconScoreBase):
         if unpacked_data["method"] == "_deposit":
             self._deposit[_fromToken][_from] += _value
             self.Deposit(_fromToken, _from, _value)
+            if _fromToken not in self._token_precisions:
+                from_token_score = self.create_interface_score(_fromToken, TokenInterface)
+                self._token_precisions[_fromToken] = from_token_score.decimals()
         elif unpacked_data["method"] == "_swap_icx":
             if _fromToken == self._sicx.get():
                 self._swap_icx(_from, _value)
@@ -952,9 +958,11 @@ class DEX(IconScoreBase):
             return 25 * EXA
         elif None == _token_address:
             return 50 * EXA
+        elif _token_address in self._token_precisions:
+            # default to 25 units of precision 1, if we have the coin on deposit
+            return 25 * (10 ** self._token_precisions[_token_address])
         else:
-            # Users should try to avoid this case, otherwise we assume their coin
-            # is worth 1 dollar, and has 18 digits precision
+            # Fallback to 18 digits of precision
             return 25 * EXA
 
     def _swap_icx(self, _sender: Address, _value: int):
