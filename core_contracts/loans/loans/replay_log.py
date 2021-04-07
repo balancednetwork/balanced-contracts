@@ -1,10 +1,11 @@
 from iconservice import *
 from ..scorelib.id_factory import IdFactory
-from .snapshots import SnapshotDB, Snapshot
+from .snapshots import SnapshotDB
 
 TAG = 'BalancedReplayLog'
 
 REPLAY_DB_PREFIX = b'replay'
+
 
 class ReplayEvent(object):
 
@@ -35,7 +36,7 @@ class ReplayEvent(object):
         :rtype dict
         """
 
-        event = {
+        return {
             'index': self.index.get(),
             'created': self.created.get(),
             'snapshot': self.snapshot.get(),
@@ -47,10 +48,8 @@ class ReplayEvent(object):
             'sicx_returned': self.sicx_returned.get(),
             'returned_sicx_remaining': self.returned_sicx_remaining.get(),
             'asset_supply': self.asset_supply.get(),
-            'remaining_supply':self.remaining_supply.get()
+            'remaining_supply': self.remaining_supply.get()
         }
-
-        return event
 
 
 class ReplayLogDB:
@@ -79,7 +78,7 @@ class ReplayLogDB:
         revert('illegal access')
 
     def __len__(self):
-        return len(self._events) # length is the last id since ids start with number 1.
+        return len(self._events)  # length is the last id since ids start with number 1.
 
     def new_event(self, **kwargs) -> ReplayEvent:
         id = self._id_factory.get_uid()
