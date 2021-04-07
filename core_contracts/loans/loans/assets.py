@@ -53,7 +53,7 @@ class Asset(object):
         self.is_collateral = VarDB('is_collateral', db, value_type=bool)
         self.active = VarDB('active', db, value_type=bool)
         self.dead_market = VarDB('dead_market', db, value_type=bool)
-        self.assetUsers = LinkedListDB('assetUsers',db)
+        self.borrowers = LinkedListDB('borrowers', db, value_type=int)
 
     def symbol(self) -> str:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
@@ -170,6 +170,10 @@ class AssetsDB:
 
     def __len__(self) -> int:
         return len(self.alist)
+
+    def __iter__(self):
+        for symbol in self.slist:
+            yield self.__getitem__(symbol)
 
     def _get_asset(self, _address: str) -> Asset:
         sub_db = self._db.get_sub_db(b'|'.join([ASSET_DB_PREFIX, _address.encode()]))

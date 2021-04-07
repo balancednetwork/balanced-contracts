@@ -5,6 +5,23 @@ TAG = 'LoansSnapshots'
 SNAP_DB_PREFIX = b'snaps'
 
 
+class BorrowerListDB:
+
+    def __init__(self, db: IconScoreDatabase, _type: str):
+        self._lists = {}
+        self._db = db
+        self._type = _type
+        self._symbols = ArrayDB('borrower_list_symbols', db, value_type=str)
+
+    def __getitem__(self, _symbol: str) -> ArrayDB:
+        if _symbol not in self._lists:
+            if _symbol not in self._symbols:
+                self._symbols.put(_symbol)
+            self._lists[_symbol] = ArrayDB(f'{self._type.get()}_{_symbol}', self._db, value_type=int)
+
+        return self._lists[_symbol]
+
+
 class Snapshot(object):
 
     def __init__(self, db: IconScoreDatabase, loans: IconScoreBase) -> None:
@@ -17,8 +34,6 @@ class Snapshot(object):
         self.total_mining_debt = VarDB('total_mining_debt', db, int)
         # Oracle Price for each asset at snapshot time.
         self.prices = DictDB('prices', db, int)
-        # Latest Replay Index at the time of each snapshot
-        self.replay_index = VarDB('replay_index', db, int)
         # index to track progress through the single precompute pass for each snap.
         # Starts at zero and counts up to the last index in the mining ArrayDB.
         self.precompute_index = VarDB('precompute_index', db, int)
@@ -31,10 +46,10 @@ class Snapshot(object):
         self.mining = ArrayDB('mining', db, int)
         # List of position ids that changed to non-zero collateral status since the last snap.
         # used to update the nonzero ArrayDB during calls to the precompute method.
-        self.add_to_nonzero = ArrayDB('nonzero', db, int)
+        self.add_to_nonzero = BorrowerListDB(db, 'add')
         # List of position ids that changed to a zero collateral status since the last snap.
         # used to update the nonzero ArrayDB during calls to the precompute method.
-        self.remove_from_nonzero = ArrayDB('zero', db, int)
+        self.remove_from_nonzero = BorrowerListDB(db, 'remove')
 
     def to_dict(self) -> dict:
         """
@@ -48,16 +63,17 @@ class Snapshot(object):
         for symbol in assets.slist:
             if assets[symbol].added.get() < self.snap_time.get():
                 prices[symbol] = self.prices[symbol]
+        add_counts = {symbol: len(self.add_to_nonzero[symbol]) for symbol in self.add_to_nonzero._symbols}
+        remove_counts = {symbol: len(self.remove_from_nonzero[symbol]) for symbol in self.remove_from_nonzero._symbols}
         snap = {
             'snap_day': self.snap_day.get(),
             'snap_time': self.snap_time.get(),
             'total_mining_debt': self.total_mining_debt.get(),
             'prices': prices,
-            'replay_index': self.replay_index.get(),
             'mining_count': len(self.mining),
             'precompute_index': self.precompute_index.get(),
-            'add_to_nonzero_count': len(self.add_to_nonzero),
-            'remove_from_nonzero_count': len(self.remove_from_nonzero)
+            'add_to_nonzero_count': add_counts,
+            'remove_from_nonzero_count': remove_counts
         }
         return snap
 
@@ -127,10 +143,9 @@ class SnapshotDB:
 
     def start_new_snapshot(self) -> None:
         _day: int = self._loans._current_day.get()
-        if len(self._indexes) == 0 or _day > self._indexes[-1]: # Ensures that the
-            self._indexes.put(_day) # sequence in _indexes is monotonically increasing.
+        if len(self._indexes) == 0 or _day > self._indexes[-1]:  # Ensures that the sequence in
+            self._indexes.put(_day)                              # _indexes is monotonically increasing.
             snapshot = self._get_snapshot(_day, _day)
             snapshot.snap_day.set(_day)
-            snapshot.replay_index.set(len(self._loans._event_log))
         else:
             revert(f'New snapshot called for a day less than the previous snapshot.')
