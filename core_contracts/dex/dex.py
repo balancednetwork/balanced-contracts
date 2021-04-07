@@ -1288,42 +1288,47 @@ class DEX(IconScoreBase):
         self._check_distributions()
 
         balance = self._balance[_pid][self.msg.sender]
+
         if not self.active[_pid]:
             revert("Pool is not active")
+
         if _value > balance:
             revert("Invalid input")
 
-        token1 = self._pool_base[_pid]
-        token2 = self._pool_quote[_pid]
-        self._pool_total[_pid][token1] -= int(self._pool_total[_pid]
-                                              [token1] * (_value / self._total[_pid]))
-        self._pool_total[_pid][token2] -= int(self._pool_total[_pid]
-                                              [token2] * (_value / self._total[_pid]))
-        token1_amount = int(
-            self._pool_total[_pid][token1] * (_value / self._total[_pid]))
-        token2_amount = int(
-            self._pool_total[_pid][token2] * (_value / self._total[_pid]))
+        base_token = self._pool_base[_pid]
+        quote_token = self._pool_quote[_pid]
+
+        base_withdraw = self._pool_total[_pid][base_token] * _value // self._total[_pid]
+        quote_withdraw = self._pool_total[_pid][quote_token] * _value // self._total[_pid]
+
+        self._pool_total[_pid][base_token] -= base_withdraw
+        self._pool_total[_pid][quote_token] -= quote_withdraw
         self._balance[_pid][self.msg.sender] -= _value
         self._total[_pid] -= _value
+
+        if self._total[_pid] < MIN_LIQUIDITY:
+            minimum_possible = _value - (MIN_LIQUIDITY - self._total[_pid]) 
+            revert(f"MinimumLiquidityError: {minimum_possible} max withdraw size")
+
         self.Remove(_pid, self.msg.sender, _value)
         self.TransferSingle(self.msg.sender, self.msg.sender, Address.from_string(
             DEX_ZERO_SCORE_ADDRESS), _pid, _value)
     
-        self._deposit[token1][self.msg.sender] += token1_amount
-        self._deposit[token2][self.msg.sender] += token2_amount
-
-        if _withdraw:
-            self.withdraw(token1, token1_amount)
-            self.withdraw(token2, token2_amount)
+        self._deposit[base_token][self.msg.sender] += base_withdraw
+        self._deposit[quote_token][self.msg.sender] += quote_withdraw
 
         user_pool_ratio = self._balance[_pid][self.msg.sender] / self.totalSupply(_pid)
-        user_quote_holdings = user_pool_ratio * self._pool_total[_pid][token2]
+        user_quote_holdings = user_pool_ratio * self._pool_total[_pid][quote_token]
 
-        if user_quote_holdings < self._get_rewardable_amount(token2):
+        if user_quote_holdings < self._get_rewardable_amount(quote_token):
             self._active_addresses[_pid].discard(self.msg.sender)
 
         self._update_account_snapshot(self.msg.sender, _pid)
         self._update_total_supply_snapshot(_pid)
+
+        if _withdraw:
+            self.withdraw(base_token, base_withdraw)
+            self.withdraw(quote_token, quote_withdraw)
 
     @external
     @dex_on
