@@ -58,7 +58,6 @@ class Loans(IconScoreBase):
     _REWARDS = 'rewards'
     _STAKING = 'staking'
     _ADMIN = 'admin'
-    _REPLAY_BATCH_SIZE = 'replay_batch_size'
     _SNAP_BATCH_SIZE = 'snap_batch_size'
     _GLOBAL_INDEX = 'global_index'
     _GLOBAL_BATCH_INDEX = 'global_batch_index'
@@ -93,7 +92,6 @@ class Loans(IconScoreBase):
         self._rewards = VarDB(self._REWARDS, db, value_type=Address)
         self._staking = VarDB(self._STAKING, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
-        self._replay_batch_size = VarDB(self._REPLAY_BATCH_SIZE, db, value_type=int)
         self._snap_batch_size = VarDB(self._SNAP_BATCH_SIZE, db, value_type=int)
         self._global_index = VarDB(self._GLOBAL_INDEX, db, value_type=int)
         self._global_batch_index = VarDB(self._GLOBAL_BATCH_INDEX, db, value_type=int)
@@ -128,7 +126,6 @@ class Loans(IconScoreBase):
         self._governance.set(_governance)
         self._loans_on.set(False)
         self._admin.set(self.owner)
-        self._replay_batch_size.set(REPLAY_BATCH_SIZE)
         self._snap_batch_size.set(SNAP_BATCH_SIZE)
         self._rewards_done.set(True)
         self._dividends_done.set(True)
@@ -148,11 +145,7 @@ class Loans(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self._new_loan_minimum.set(NEW_LOAN_MINIMUM)
         self._redeem_minimum.set(REDEEM_MINIMUM)
-        self._mining_ratio.set(DEFAULT_MINING_RATIO)
-        self._locking_ratio.set(DEFAULT_LOCKING_RATIO)
-        self._liquidation_ratio.set(DEFAULT_LIQUIDATION_RATIO)
 
     @payable
     @external
@@ -189,30 +182,6 @@ class Loans(IconScoreBase):
     @external(readonly=True)
     def getRedeemBatchSize(self) -> int:
         self._redeem_batch.get()
-
-    @external(readonly=True)
-    def checkDebts(self) -> dict:
-        debts = 0
-        for i in range(len(self._positions)):
-            debts += self._positions[i + 1]['bnUSD']
-        bad_debt = self._assets['bnUSD'].bad_debt.get()
-        supply = self._assets['bnUSD'].totalSupply()
-        diff = supply - debts - bad_debt
-        system_checks = {'debts': debts,
-                         'bad_debt': bad_debt,
-                         'supply': supply,
-                         'diff': diff}
-        event_checks = {}
-        remaining = 0
-        for j in range(1, len(self._event_log) + 1):
-            remaining_value = self._event_log[j].remaining_value.get()
-            if remaining_value != 0:
-                remaining += remaining_value
-                event_checks[j] = {'remaining_value': remaining_value,
-                                   'remaining_sicx': self._event_log[j].returned_sicx_remaining.get(),
-                                   'remaining_supply': self._event_log[j].remaining_supply.get()}
-        system_checks['remaining'] = remaining
-        return {'system': system_checks, 'events': event_checks}
 
     @external(readonly=True)
     def name(self) -> str:
@@ -264,6 +233,24 @@ class Loans(IconScoreBase):
             snapshot = self._positions._snapshot_db[_day]
             debts[address] = snapshot.pos_state[pos_id]['total_debt']
         return debts
+
+    @external(readonly=True)
+    def getMaxRetireAmount(self, _symbol: str) -> int:
+        batch_size = self._redeem_batch.get()
+        borrowers = self._assets[_symbol].borrowers
+        node_id = borrowers._head_id.get()
+        tail_id = borrowers._tail_id.get()
+        total_batch_debt: int = 0
+
+        for i in range(min(batch_size, len(borrowers))):
+            user_position = self._positions[borrowers.node_value(node_id)]
+            user_debt = user_position[_symbol]
+            total_batch_debt += user_debt
+            if tail_id != node_id:
+                node_id = borrowers.next(node_id)
+
+        bad_debt = self._assets[_symbol].bad_debt.get()
+        return bad_debt + self._max_retire_percent.get() * total_batch_debt // POINTS
 
     @external(readonly=True)
     def checkDeadMarkets(self) -> list:
@@ -387,17 +374,6 @@ class Loans(IconScoreBase):
         """
         pos = self._positions.get_pos(_owner)
         return pos.has_debt()
-
-    @external(readonly=True)
-    def getEvent(self, _event_id: int = -1) -> dict:
-        """
-        Returns a summary of the specified event. Returns an empty dict
-        for event indexes that are out of range.
-        """
-        events = len(self._event_log)
-        if _event_id > events or _event_id + events < 1:
-            return {}
-        return self._event_log[_event_id].to_dict()
 
     @external(readonly=True)
     def getSnapshot(self, _snap_id: int = -1) -> dict:
@@ -550,20 +526,6 @@ class Loans(IconScoreBase):
         else:
             revert(f'No valid method called, data: {_data}')
 
-    @external(readonly=True)
-    def getMaxRetireAmount(self, _symbol:str) -> int:
-        batch_size = self.getRedeemBatchSize()
-        # batch_head = self._positions.users.head_id()
-        batch_head = self._assets[_symbol].borrowers.head_id()
-        total_batch_debt: int = 0
-        for i in range(batch_size):
-            # userAddress = self._positions.users.node_user_address(batch_head)
-            user_position = self._positions[batch_head]
-            user_asset = user_position[_symbol]
-            batch_head = self._assets[_symbol].borrowers.next(batch_head)
-            total_batch_debt += user_asset
-        return self._max_retire_percent.get() * total_batch_debt // POINTS
-
     def _deposit_and_borrow(self, _value: int, _sender: str, _asset: str = '',
                             _amount: int = 0) -> None:
         """
@@ -663,15 +625,19 @@ class Loans(IconScoreBase):
                 _value -= repay
         price = asset.priceInLoop()
         redeem_min = self._redeem_minimum.get()
-        if _value * price // self._assets['bnUSD'].priceInLoop() < redeem_min:
-            revert(f'Minimum redeemed asset value is ${redeem_min // EXA}')
-        bad_debt = asset.bad_debt.get()
+        min_value = redeem_min * self._assets['bnUSD'].priceInLoop() // price
+        min_asset_value = min(min_value, 75 * self.getMaxRetireAmount(symbol) // 100)
+        if _value < min_asset_value:
+            revert(f'Minimum redeemed asset value is ${min_asset_value // EXA}')
         sicx_rate = self._assets['sICX'].priceInLoop()
         fee = _value * self._redemption_fee.get() // POINTS
         redeemed = _value - fee
-        supply = self._assets[symbol].totalSupply() - self._assets[symbol].bad_debt.get()
-        self._assets[symbol].burn(redeemed)
+        bad_debt = asset.bad_debt.get()
+        supply = asset.totalSupply() - bad_debt
+        asset.burn(redeemed)
         sicx: int = 0
+        total_batch_debt = 0
+        batch_dict = {}
         if bad_debt > 0:
             bd_value = min(bad_debt, redeemed)
             redeemed -= bd_value
@@ -679,77 +645,48 @@ class Loans(IconScoreBase):
         if redeemed > 0:
             sicx_from_lenders = redeemed * price // sicx_rate
             sicx += sicx_from_lenders
-            # self._positions.redeem_retire(_from,redeemed)
-            total_batch_debt, batch_dict = self._retire_redeem(symbol, redeemed, sicx_from_lenders, supply)
-
-            # event = self._event_log.new_event(snapshot=self._current_day.get(),
-            #                                   symbol=symbol,
-            #                                   value=redeemed,
-            #                                   sicx_rate=sicx_rate,
-            #                                   asset_price=price,
-            #                                   sicx_returned=sicx_from_lenders,
-            #                                   asset_supply=supply)
+            batch_dict = self._retire_redeem(symbol, redeemed, sicx_from_lenders)
+            total_batch_debt = batch_dict[0]
+            del batch_dict[0]
         self._send_token("sICX", _from, sicx, "Collateral redeemed.")
         self._send_token(symbol, self._dividends.get(), fee, "Redemption fee.")
         self.check_dead_markets()
-        self.AssetRetired(symbol, redeemed, price, total_batch_debt, batch_dict, _from)
+        self.AssetRetired(symbol, redeemed, price, f'total_batch_debt: {total_batch_debt}, batch_dict: {batch_dict}, _from: {_from}')
 
-    def _retire_redeem(self, _symbol: str, _redeemed: int, _sicx_from_lenders: int) -> int, dict:
-        batch_size = self.getRedeemBatchSize()
-        # batch_head = self._positions.users.head_id()
-        batch_head = self._assets[_symbol].borrowers.head_id()
+    def _retire_redeem(self, _symbol: str, _redeemed: int, _sicx_from_lenders: int) -> dict:
+        batch_size = self._redeem_batch.get()
+        borrowers = self._assets[_symbol].borrowers
+        pos_id = borrowers.head_value()
         total_batch_debt: int = 0
         positions_dict = {}
-        for i in range(batch_size):
-            # userAddress = self._positions.users.node_user_address(batch_head)
-            user_position = self._positions[batch_head]
-            user_asset = user_position[_symbol]
-            positions_dict[batch_head] = user_asset
-            # batch_head = self._positions.users.next(batch_head)
-            batch_head = self._assets[_symbol].borrowers.next(batch_head)
-            total_batch_debt += user_asset
+
+        for i in range(min(batch_size, len(borrowers))):
+            user_position = self._positions[pos_id]
+            user_debt = user_position[_symbol]
+            positions_dict[pos_id] = user_debt
+            total_batch_debt += user_debt
+            borrowers.move_head_to_tail()
+            pos_id = borrowers.head_value()
 
         if POINTS * _redeemed > self._max_retire_percent.get() * total_batch_debt:
             revert(f'Retired amount is greater than the current maximum allowed.')
-        remainingValue = _redeemed
+        remaining_value = _redeemed
         remaining_supply = total_batch_debt
-        returnedSicxRemaining = _sicx_from_lenders
+        returned_sicx_remaining = _sicx_from_lenders
 
-        for user, position in positions_dict.items():
-            # total_batch_debt is eq to remaining supply
-            # remaining_value is redeemed
-            # pos_value is user_asset
+        for pos_id, user_debt in positions_dict.items():
+            redeemed_from_this_pos = remaining_value * user_debt // remaining_supply
+            remaining_value -= redeemed_from_this_pos
+            self._positions[pos_id][_symbol] = user_debt - redeemed_from_this_pos
 
-            # _sicx_from_lenders is returned_sicx_remaining
+            sicx_share = returned_sicx_remaining * user_debt // remaining_supply
+            returned_sicx_remaining -= sicx_share
+            self._positions[pos_id]['sICX'] -= sicx_share
 
-            # userAddress = self._positions.users.node_user_address(user)
-            userAddress = self._assets[_symbol].borrowers.node_user_address(user)
-            pos_value = position
-            remaining_supply -= pos_value
-            redeemedFromThisPos = remainingValue * pos_value // remaining_supply
-            remainingValue -= redeemedFromThisPos
-            self._positions[user][_symbol] = pos_value - redeemedFromThisPos
-            sicxShare = returnedSicxRemaining * pos_value // remaining_supply
-            returnedSicxRemaining -= sicxShare
-            self._positions[user]['sICX'] -= sicxShare
+            remaining_supply -= user_debt
 
-            # appending user to tail
-            self._assets[_symbol].borrowers.append(user)
-        return
-
-        # if pos_value != 0:
-        #     remaining_supply = next_event.remaining_supply.get()
-        #     next_event.remaining_supply.set(remaining_supply - pos_value)
-        #
-        #     remaining_value = next_event.remaining_value.get()
-        #     redeemed_from_this_pos = remaining_value * pos_value // remaining_supply
-        #     next_event.remaining_value.set(remaining_value - redeemed_from_this_pos)
-        #     assets[symbol] = pos_value - redeemed_from_this_pos
-        #
-        #     returned_sicx_remaining = next_event.returned_sicx_remaining.get()
-        #     sicx_share = returned_sicx_remaining * pos_value // remaining_supply
-        #     next_event.returned_sicx_remaining.set(returned_sicx_remaining - sicx_share)
-        #     assets["sICX"] -= sicx_share
+        positions_dict[0] = total_batch_debt
+        return positions_dict
 
     def bd_redeem(self, _from: Address,
                   _asset: Asset,
@@ -1011,11 +948,6 @@ class Loans(IconScoreBase):
 
     @external
     @only_admin
-    def setReplayBatchSize(self, _size: int) -> None:
-        self._replay_batch_size.set(_size)
-
-    @external
-    @only_admin
     def setMiningRatio(self, _ratio: int) -> None:
         self._mining_ratio.set(_ratio)
 
@@ -1073,7 +1005,6 @@ class Loans(IconScoreBase):
             "reserve_fund": self._reserve.get(),
             "rewards": self._rewards.get(),
             "staking": self._staking.get(),
-            "replay batch size": self._replay_batch_size.get(),
             "mining ratio": self._mining_ratio.get(),
             "locking ratio": self._locking_ratio.get(),
             "liquidation ratio": self._liquidation_ratio.get(),
@@ -1127,7 +1058,7 @@ class Loans(IconScoreBase):
         pass
 
     @eventlog(indexed=3)
-    def AssetRetired(self, symbol: str, amount: int, price: int, total_batch_debt: int, batch_dict: dict, from: Address):
+    def AssetRetired(self, symbol: str, amount: int, price: int, note: str):
         pass
 
     @eventlog(indexed=2)

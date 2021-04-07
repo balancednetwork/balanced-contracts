@@ -17,7 +17,7 @@ class BorrowerListDB:
         if _symbol not in self._lists:
             if _symbol not in self._symbols:
                 self._symbols.put(_symbol)
-            self._lists[_symbol] = ArrayDB(f'{self._type.get()}_{_symbol}', self._db, value_type=int)
+            self._lists[_symbol] = ArrayDB(f'{self._type}_{_symbol}', self._db, value_type=int)
 
         return self._lists[_symbol]
 

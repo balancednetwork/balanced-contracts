@@ -16,7 +16,6 @@
 
 from iconservice import *
 from .id_factory import *
-from .consts import *
 
 
 class EmptyLinkedListException(Exception):
@@ -391,6 +390,26 @@ class LinkedListDB:
         # cur>pid
         cur.set_prev(beforeprev_id)
 
+    def move_head_to_tail(self) -> None:
+        """ Move the head node to the tail of the linkedlist."""
+        if self._length.get() < 2:
+            return
+
+        head_id = self._head_id.get()
+        head = self._get_node(head_id)
+        tail_id = self._tail_id.get()
+        tail = self._get_node(tail_id)
+
+        headnext_id = head.get_next()
+        headnext = self._get_node(headnext_id)
+        headnext.set_prev(0)
+        self._head_id.set(headnext_id)
+
+        tail.set_next(head_id)
+        head.set_prev(tail_id)
+        head.set_next(0)
+        self._tail_id.set(head_id)
+
     def move_node_tail(self, cur_id: int) -> None:
         """ Move an existing node at the tail of the linkedlist """
         if cur_id == self._tail_id.get():
@@ -481,63 +500,3 @@ class LinkedListDB:
             curprev.set_next(curnext_id)
             cur.delete()
             self._length.set(self._length.get() - 1)
-
-    def select(self, offset: int, cond=None, **kwargs) -> list:
-        """ Returns a limited amount of items in the LinkedListDB that optionally fulfills a condition """
-        items = iter(self)
-        result = []
-
-        # Skip N items until offset
-        try:
-            for _ in range(offset):
-                next(items)
-        except StopIteration:
-            # Offset is bigger than the size of the bag
-            raise StopIteration(self._name)
-
-        # Do a maximum iteration count of MAX_ITERATION_LOOP
-        for _ in range(MAX_ITERATION_LOOP):
-            try:
-                node = next(items)
-                if cond:
-                    if cond(self._db, node, **kwargs):
-                        result.append(node)
-                else:
-                    result.append(node)
-            except StopIteration:
-                # End of array : stop here
-                break
-
-        return result
-
-
-class UIDLinkedListDB(LinkedListDB):
-    """
-        UIDLinkedListDB is a linked list of unique IDs.
-        The linkedlist node ID is equal to the value of the UID provided,
-        so the developer needs to make sure the UID provided is globally unique to the application.
-        Consequently, the concept of node ID is merged with the UID provided
-        from a developper point of view, which simplifies the usage of the linkedlist.
-    """
-    _NAME = 'UID_LINKED_LIST_DB'
-
-    def __init__(self, address: Address, db: IconScoreDatabase):
-        name = f'{str(address)}_{UIDLinkedListDB._NAME}'
-        super().__init__(name, db, int)
-        self._name = name
-
-    def append(self, uid: int, _: int = None) -> None:
-        super().append(uid, uid)
-
-    def prepend(self, uid: int, _: int = None) -> None:
-        super().prepend(uid, uid)
-
-    def append_after(self, value: int, after_id: int, _: int = None) -> None:
-        super().append_after(value, after_id, value)
-
-    def prepend_before(self, value: int, before_id: int, _: int = None) -> None:
-        super().prepend_before(value, before_id, value)
-
-    def __iter__(self):
-        for node_id, uid in super().__iter__():
-            yield uid

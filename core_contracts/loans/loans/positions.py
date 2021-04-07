@@ -170,7 +170,7 @@ class Position(object):
             status['standing'] = Standing.NO_DEBT
             return status
 
-        status['ratio'] = collateral * EXA // debt
+        ratio = collateral * EXA // debt
 
         if _day == -1 or _day == self.snaps[-1]:
             if _readonly:
@@ -194,6 +194,7 @@ class Position(object):
         else:
             standing = Standing.LIQUIDATE
 
+        status['ratio'] = ratio
         status['standing'] = standing
         return status
 
@@ -363,8 +364,8 @@ class PositionsDB:
 
     def _calculate_snapshot(self, _day: int, batch_size: int) -> bool:
         """
-        Iterates once over all positions to play back all remaining retire
-        events and calculate their ratios at the end of the snapshot period.
+        Iterates once over all positions to calculate their ratios at the end
+        of the snapshot period.
 
         :param _day: Operating day of the snapshot as passed from rewards via
                      the precompute() method.
@@ -395,7 +396,7 @@ class PositionsDB:
                 if not assets[symbol].is_collateral.get() and assets[symbol].active.get():
                     loops = min(iter, remove[symbol])
                     for _ in range(loops):
-                        to_remove = snapshot.remove_from_nonzero.pop()
+                        to_remove = snapshot.remove_from_nonzero[symbol].pop()
                         for node_id, value in assets[symbol].borrowers:
                             if value == to_remove:
                                 assets[symbol].borrowers.remove(node_id)
@@ -404,7 +405,7 @@ class PositionsDB:
                     if iter > 0:
                         loops = min(iter, add[symbol])
                         for _ in range(loops):
-                            assets[symbol].borrowers.append(snapshot.add_to_nonzero.pop())
+                            assets[symbol].borrowers.append(snapshot.add_to_nonzero[symbol].pop())
                     return Complete.NOT_DONE
 
         add = len(snapshot.add_to_nonzero['total'])
