@@ -1,4 +1,4 @@
-from ..scorelib.consts import *
+from .consts import *
 
 
 class Utils:
