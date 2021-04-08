@@ -1037,14 +1037,6 @@ class Loans(IconScoreBase):
     def AssetActive(self, _asset: str, _state: str):
         pass
 
-    @eventlog(indexed=3)
-    def Transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
-        pass
-
-    @eventlog(indexed=2)
-    def FundTransfer(self, destination: Address, amount: int, note: str):
-        pass
-
     @eventlog(indexed=2)
     def TokenTransfer(self, recipient: Address, amount: int, note: str):
         pass
@@ -1074,27 +1066,11 @@ class Loans(IconScoreBase):
         pass
 
     @eventlog(indexed=3)
-    def BadDebt(self, account: Address, symbol: str, amount: int, note: str):
-        pass
-
-    @eventlog(indexed=2)
-    def TotalDebt(self, symbol: str, amount: int, note: str):
-        pass
-
-    @eventlog(indexed=3)
     def FeePaid(self, symbol: str, amount: int, type: str, note: str):
         pass
 
     @eventlog(indexed=2)
-    def OraclePriceUpdate(self, symbol: str, rate: int, note: str):
-        pass
-
-    @eventlog(indexed=2)
     def PositionStanding(self, address: Address, standing: str, ratio: int, note: str):
-        pass
-
-    @eventlog(indexed=1)
-    def Diagnostic(self, symbol: str, amount: int, note: str):
         pass
 
     @eventlog(indexed=1)
