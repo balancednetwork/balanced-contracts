@@ -77,7 +77,7 @@ class Loans(IconScoreBase):
     _REDEEM_MINIMUM = 'redeem_minimum'
     _NEW_LOAN_MINIMUM = 'new_loan_minimum'
     _MIN_MINING_DEBT = 'min_mining_debt'
-    _MAX_DIV_DEBT_LENGTH = 'max_div_debt_length'
+    _MAX_DEBTS_LIST_LENGTH = 'max_debts_list_length'
 
     _REDEEM_BATCH_SIZE = 'redeem_batch_size'
     _MAX_RETIRE_PERCENT = 'max_retire_percent'
@@ -113,7 +113,7 @@ class Loans(IconScoreBase):
         self._redeem_minimum = VarDB(self._REDEEM_MINIMUM, db, value_type=int)
         self._new_loan_minimum = VarDB(self._NEW_LOAN_MINIMUM, db, value_type=int)
         self._min_mining_debt = VarDB(self._MIN_MINING_DEBT, db, value_type=int)
-        self._max_div_debt_length = VarDB(self._MAX_DIV_DEBT_LENGTH, db, value_type=int)
+        self._max_debts_list_length = VarDB(self._MAX_DEBTS_LIST_LENGTH, db, value_type=int)
 
         # batch size for redeem-retire
         self._redeem_batch = VarDB(self._REDEEM_BATCH_SIZE, db, value_type=int)
@@ -142,6 +142,7 @@ class Loans(IconScoreBase):
         self._max_div_debt_length.set(MAX_DIV_DEBT_LENGTH)
         self._redeem_batch.set(DEFAULT_REDEEM_BATCH_SIZE)
         self._max_retire_percent.set(DEFAULT_MAX_RETIRE_PERCENT)
+        self._max_debts_list_length.set(MAX_DEBTS_LIST_LENGTH)
 
     def on_update(self) -> None:
         super().on_update()
@@ -224,7 +225,7 @@ class Loans(IconScoreBase):
         """
         Returns the debt held by each address in the list.
         """
-        max_length = self._max_div_debt_length.get()
+        max_length = self._max_debts_list_length.get()
         if len(_address_list) > max_length:
             revert(f'Address list is longer than the maximum allowable length ({max_length}).')
         debts = {}
@@ -596,7 +597,7 @@ class Loans(IconScoreBase):
         if repaid != 0:
             asset.burn(repaid)
         self.LoanRepaid(_from, symbol, repaid,
-                        f'Loan of {repaid / EXA} {symbol} repaid to Balanced.')
+            f'Loan of {repaid} {symbol} repaid to Balanced.')
         self.check_dead_markets()
         pos.update_standing()
 
@@ -781,7 +782,7 @@ class Loans(IconScoreBase):
         # Originate loan
         pos[_asset] += _amount + fee
         self.OriginateLoan(_from, _asset, _amount,
-                           f'Loan of {_amount / EXA} {_asset} from Balanced.')
+            f'Loan of {_amount} {_asset} from Balanced.')
         self._assets[_asset].mint(_from, _amount)
 
         # Pay fee
@@ -1017,6 +1018,7 @@ class Loans(IconScoreBase):
             "redeem minimum": self._redeem_minimum.get(),
             "new loan minimum": self._new_loan_minimum.get(),
             "min mining debt": self._min_mining_debt.get(),
+            "max div debt length": self._max_debts_list_length.get(),
             "time offset": self._time_offset.get()
         }
 

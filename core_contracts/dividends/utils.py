@@ -1,5 +1,6 @@
 from iconservice import *
 
+
 def remove_from_arraydb(_item, _array: ArrayDB) -> bool:
     length = len(_array)
     if length < 1:

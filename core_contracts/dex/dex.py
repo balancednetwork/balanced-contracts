@@ -9,6 +9,7 @@ from .scorelib.linked_list import *
 from .scorelib.utils import *
 from .utils.checks import *
 from .utils.consts import *
+from .lp_metadata import *
 
 
 # An interface to the Rewards SCORE
@@ -41,7 +42,6 @@ class DEX(IconScoreBase):
     _TAG = 'DEX'
     _ACCOUNT_BALANCE_SNAPSHOT = 'account_balance_snapshot'
     _TOTAL_SUPPLY_SNAPSHOT = 'total_supply_snapshot'
-    _FUNDED_ADDRESSES = 'funded_addresses'
     _QUOTE_COINS = 'quote_coins'
     _ICX_QUEUE_TOTAL = 'icx_queue_total'
     _SICX_ADDRESS = 'sicx_address'
@@ -186,9 +186,7 @@ class DEX(IconScoreBase):
         self._rewards_done = VarDB(self._REWARDS_DONE, db, value_type=bool)
         self._dividends_done = VarDB(self._DIVIDENDS_DONE, db, value_type=bool)
 
-        # Previously mapped addresses, for iteration purposes
-        self._funded_addresses = SetDB(
-            self._FUNDED_ADDRESSES, db, value_type=Address, order=True)
+        self._active_addresses = LPMetadataDB(db)
 
         # Pools must use one of these as a quote currency
         self._quote_coins = SetDB(self._QUOTE_COINS, db, value_type=Address)
@@ -416,7 +414,7 @@ class DEX(IconScoreBase):
         self._quote_coins.add(_address)
     
     @external(readonly=True)
-    def isQuoteCoinAllowed(self, _address: Address) -> None:
+    def isQuoteCoinAllowed(self, _address: Address) -> bool:
         """
         :param _address: address of to check as allowable quote
         """
@@ -448,6 +446,7 @@ class DEX(IconScoreBase):
         return self._time_offset.get()
 
     @payable
+    @dex_on
     def fallback(self):
         """
         Payable method called by sending ICX directly into the SCORE.
@@ -471,26 +470,28 @@ class DEX(IconScoreBase):
         self._check_distributions()
 
         order_id = self._icx_queue_order_id[self.msg.sender]
+        order_value = self.msg.value
+
         if order_id:
-            # First, modify our order
+            # TODO: Modify instead of cancel/replace, after debugging scorelib
             node = self._icx_queue._get_node(order_id)
-            node.set_value1(node.get_value1() + self.msg.value)
-            # Next, bump the user to the end of the line if it is not the tail
-            if len(self._icx_queue) > 1:
-                self._icx_queue.move_node_tail(order_id)
-        else:
-            order_id = self._icx_queue.append(self.msg.value, self.msg.sender)
-            self._icx_queue_order_id[self.msg.sender] = order_id
+            order_value += node.get_value1()
+            self._icx_queue.remove(order_id)
+
+        order_id = self._icx_queue.append(order_value, self.msg.sender)
+        self._icx_queue_order_id[self.msg.sender] = order_id
 
         current_icx_total = self._icx_queue_total.get() + self.msg.value
         self._icx_queue_total.set(current_icx_total)
 
-        if self.msg.sender not in self._funded_addresses:
-            self._funded_addresses.add(self.msg.sender)
+        if order_value > self._get_rewardable_amount(None):
+            self._active_addresses[self._SICXICX_POOL_ID].add(self.msg.sender)
+
         self._update_account_snapshot(self.msg.sender, self._SICXICX_POOL_ID)
         self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
 
     @external
+    @dex_on
     def cancelSicxicxOrder(self):
         """
         Cancels user's order in the SICXICX queue.
@@ -514,6 +515,9 @@ class DEX(IconScoreBase):
         self._icx_queue.remove(order_id)
         self.icx.transfer(self.msg.sender, withdraw_amount)
         del self._icx_queue_order_id[self.msg.sender]
+
+        self._active_addresses[self._SICXICX_POOL_ID].discard(self.msg.sender)
+
         self._update_account_snapshot(self.msg.sender, self._SICXICX_POOL_ID)
         self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
 
@@ -568,12 +572,12 @@ class DEX(IconScoreBase):
             revert("Fallback directly not allowed")
 
     @external
-    def precompute(self, snap: int, batch_size: int) -> bool:
+    def precompute(self, snap: int, batch_size: int):
         """
         Required by the rewards score data source API, but unused.
         Returns `True` to match the required workflow.
         """
-        return True
+        pass
 
     @external
     def transfer(self, _to: Address, _value: int, _id: int, _data: bytes = None):
@@ -601,9 +605,6 @@ class DEX(IconScoreBase):
         if self._balance[_id][_from] < _value:
             revert("Out of balance")
 
-        if _to not in self._funded_addresses:
-            self._funded_addresses.add(_to)
-
         self._balance[_id][_from] = self._balance[_from] - _value
         self._balance[_id][_to] = self._balance[_to] + _value
 
@@ -611,6 +612,14 @@ class DEX(IconScoreBase):
 
         self._update_account_snapshot(_from, _id)
         self._update_account_snapshot(_to, _id)
+
+        pool_quote_coin = self.getPoolQuote(_id)
+        
+        if self._balance[_id][_to] > self._get_rewardable_amount(pool_quote_coin):
+            self._active_addresses[_id].add(_to)
+
+        if self._balance[_id][_from] < self._get_rewardable_amount(pool_quote_coin):
+            self._active_addresses[_id].discard(_from)
 
         # TODO: Implement token fallback for multitoken score
 
@@ -701,16 +710,20 @@ class DEX(IconScoreBase):
 
         All fees are divided by the `FEE_SCALE` constant
         """
-        fees = {}
-        fees['icx_total'] = self._icx_baln_fee.get() + \
-            self._icx_conversion_fee.get()
-        fees['pool_total'] = self._pool_baln_fee.get() + \
-            self._pool_lp_fee.get()
-        fees['pool_lp_fee'] = self._pool_lp_fee.get()
-        fees['pool_baln_fee'] = self._pool_baln_fee.get()
-        fees['icx_conversion_fee'] = self._icx_conversion_fee.get()
-        fees['icx_baln_fee'] = self._icx_baln_fee.get()
-        return fees
+
+        icx_baln_fee = self._icx_baln_fee.get()
+        icx_conversion_fee = self._icx_conversion_fee.get()
+        pool_baln_fee = self._pool_baln_fee.get()
+        pool_ip_fee = self._pool_lp_fee.get()
+
+        return {
+            'icx_total': icx_baln_fee + icx_conversion_fee,
+            'pool_total': pool_baln_fee + pool_ip_fee,
+            'pool_lp_fee': pool_ip_fee,
+            'pool_baln_fee': pool_baln_fee,
+            'icx_conversion_fee': icx_conversion_fee,
+            'icx_baln_fee': icx_baln_fee
+        }
 
     @external(readonly=True)
     def getPoolBase(self, _pid: int) -> Address:
@@ -725,7 +738,7 @@ class DEX(IconScoreBase):
         """
         e.g. USD/BTC, this is the inverse of the most common way to express price.
         """
-        if _pid < 1 or _pid > self._nonce.get():
+        if self._nonce.get() < _pid < 1:
             revert("Invalid pool id")
         if _pid == self._SICXICX_POOL_ID:
             return self._get_sicx_rate()
@@ -736,7 +749,7 @@ class DEX(IconScoreBase):
         """
         e.g. BTC/USD, this is the most common way to express price.
         """
-        if _pid < 1 or _pid > self._nonce.get():
+        if self._nonce.get() < _pid < 1:
             revert("Invalid pool id")
         return (self._pool_total[_pid][self._pool_quote[_pid]] * EXA) // self._pool_total[_pid][self._pool_base[_pid]]
 
@@ -832,8 +845,13 @@ class DEX(IconScoreBase):
         self._balance[_id][_to] = self._balance[_to] + _value
         self.TransferSingle(self.msg.sender, _from, _to, _id, _value)
 
-        if _to not in self._funded_addresses:
-            self._funded_addresses.add(_to)
+        pool_quote_coin = self.getPoolQuote(_id)
+
+        if self._balance[_id][_to] > self._get_rewardable_amount(pool_quote_coin):
+            self._active_addresses[_id].add(_to)
+
+        if self._balance[_id][_from] < self._get_rewardable_amount(pool_quote_coin):
+            self._active_addresses[_id].discard(_from)
 
         self._update_account_snapshot(_from, _id)
         self._update_account_snapshot(_to, _id)
@@ -841,20 +859,20 @@ class DEX(IconScoreBase):
         # TODO: Implement onIRC31Received function
 
     @external(readonly=True)
-    def hasUsedDex(self, _user: Address) -> bool:
+    def isEarningRewards(self, _address: Address, _id: int) -> bool:
         """
-        Returns whether an address has previously used the dex.
+        Returns whether an address is currently eligible to earn rewards.
 
-        :param _user: Address to check
+        :param _address: Address to check
         """
-        return _user in self._funded_addresses
+        return _address in self._active_addresses[_id]
 
     @external(readonly=True)
-    def totalDexAddresses(self) -> int:
+    def totalDexAddresses(self, _id: int) -> int:
         """
         Returns total number of users that have used the dex.
         """
-        return len(self._funded_addresses)
+        return len(self._active_addresses[_id])
 
     def _get_exchange_rate(self) -> int:
         """
@@ -869,6 +887,7 @@ class DEX(IconScoreBase):
     ####################################
     # Internal exchange function
 
+    @dex_on
     def exchange(self, _fromToken: Address, _toToken: Address, _sender: Address, _receiver: Address, _value: int, _max_slippage: int = 250):
         lp_fees = (_value * self._pool_lp_fee.get()) // FEE_SCALE
         baln_fees = (_value * self._pool_baln_fee.get()) // FEE_SCALE
@@ -918,6 +937,25 @@ class DEX(IconScoreBase):
         staking_score = self.create_interface_score(
             self._staking.get(), stakingInterface)
         return staking_score.getTodayRate()
+
+    def _get_rewardable_amount(self, _token_address: Address = None) -> int:
+        """
+        Gets the minimum rewardable amount for a given coin.
+        Assumes that the pool is balanced, so the price at time of insert is the real price.
+        This won't be sensitive to 'impermanent losses', so use at your own risk.
+        
+        :param _token_address: Token SCORE to check (None = ICX)
+        """
+        if self._sicx == _token_address:
+            return (50 * EXA * EXA) // self._get_sicx_rate()
+        elif self._bnUSD == _token_address:
+            return 25 * EXA
+        elif None == _token_address:
+            return 50 * EXA
+        else:
+            # Users should try to avoid this case, otherwise we assume their coin
+            # is worth 1 dollar, and has 18 digits precision
+            return 25 * EXA
 
     def _swap_icx(self, _sender: Address, _value: int):
         """
@@ -1176,7 +1214,7 @@ class DEX(IconScoreBase):
         if _offset < 0:
             revert(f'Offset must be equal to or greater than Zero')
         rv = {}
-        for addr in self._funded_addresses.select(_offset):
+        for addr in self._active_addresses[_pid].select(_offset):
             snapshot_balance = self.balanceOfAt(addr, _pid, _snapshot_id)
             if snapshot_balance:
                 rv[str(addr)] = snapshot_balance
@@ -1184,10 +1222,10 @@ class DEX(IconScoreBase):
 
     @external(readonly=True)
     def getDataBatch(self, _name: str, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
-        total = self.totalDexAddresses()
+        pid = self._named_markets[_name]
+        total = self.totalDexAddresses(pid)
         clamped_offset = min(_offset, total)
         clamped_limit = min(_limit, total - clamped_offset)
-        pid = self._named_markets[_name]
         rv = self.loadBalancesAtSnapshot(
             pid, _snapshot_id, clamped_limit, clamped_offset)
         Logger.info(len(rv), self._TAG)
@@ -1227,6 +1265,7 @@ class DEX(IconScoreBase):
         self.Withdraw(_token, self.msg.sender, _value)
 
     @external
+    @dex_on
     def remove(self, _pid: int, _value: int, _withdraw: bool = False):
         """
         :param _pid: The pool ID the user wishes to stop contributing to
@@ -1260,17 +1299,26 @@ class DEX(IconScoreBase):
         self._total[_pid] -= _value
         self.Remove(_pid, self.msg.sender, _value)
         self.TransferSingle(self.msg.sender, self.msg.sender, Address.from_string(
-            ZERO_SCORE_ADDRESS), _pid, _value)
-        if not _withdraw:
-            self._deposit[token1][self.msg.sender] += token1_amount
-            self._deposit[token2][self.msg.sender] += token2_amount
-        else:
+            DEX_ZERO_SCORE_ADDRESS), _pid, _value)
+    
+        self._deposit[token1][self.msg.sender] += token1_amount
+        self._deposit[token2][self.msg.sender] += token2_amount
+
+        if _withdraw:
             self.withdraw(token1, token1_amount)
             self.withdraw(token2, token2_amount)
+
+        user_pool_ratio = self._balance[_pid][self.msg.sender] / self.totalSupply(_pid)
+        user_quote_holdings = user_pool_ratio * self._pool_total[_pid][token2]
+
+        if user_quote_holdings < self._get_rewardable_amount(token2):
+            self._active_addresses[_pid].discard(self.msg.sender)
+
         self._update_account_snapshot(self.msg.sender, _pid)
         self._update_total_supply_snapshot(_pid)
 
     @external
+    @dex_on
     def add(self, _baseToken: Address, _quoteToken: Address, _maxBaseValue: int, _quoteValue: int):
         """
         Adds liquidity to a pool for trading, or creates a new pool. Rules:
@@ -1315,7 +1363,7 @@ class DEX(IconScoreBase):
         else:
             base_to_commit = (_quoteValue * self._pool_total[_pid][self._pool_base[_pid]]) // (self._pool_total[_pid][self._pool_quote[_pid]])
             if base_to_commit > _maxBaseValue:
-                revert('Proportionate base amount is {}, but sent {}'.format(base_to_commit, _maxBaseValue))
+                revert(f'Proportionate base amount is {base_to_commit}, but sent {_maxBaseValue}')
             liquidity = (self._total[_pid] * base_to_commit) // self._pool_total[_pid][_baseToken]
         self._pool_total[_pid][_baseToken] += base_to_commit
         self._pool_total[_pid][_quoteToken] += _quoteValue
@@ -1325,8 +1373,13 @@ class DEX(IconScoreBase):
         self._total[_pid] += liquidity
         self.Add(_pid, _owner, liquidity)
         self.TransferSingle(_owner, Address.from_string(
-            ZERO_SCORE_ADDRESS), _owner, _pid, liquidity)
-        if self.msg.sender not in self._funded_addresses:
-            self._funded_addresses.add(self.msg.sender)
+            DEX_ZERO_SCORE_ADDRESS), _owner, _pid, liquidity)
+
+        user_pool_ratio = self._balance[_pid][self.msg.sender] / self.totalSupply(_pid)
+        user_quote_holdings = user_pool_ratio * self._pool_total[_pid][_quoteToken]
+
+        if user_quote_holdings > self._get_rewardable_amount(_quoteToken):
+            self._active_addresses[_pid].add(self.msg.sender)
+
         self._update_account_snapshot(_owner, _pid)
         self._update_total_supply_snapshot(_pid)

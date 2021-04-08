@@ -34,7 +34,6 @@ class DataSource(object):
         """
         The calculation and distribution of rewards proceeds in two stages
         """
-        wallets = []
         day = self.day.get()
         data_source = self._rewards.create_interface_score(self.contract_address.get(), DataSourceInterface)
         if not self.precomp.get() and data_source.precompute(day, batch_size):
@@ -49,14 +48,19 @@ class DataSource(object):
                 self.offset.set(0)
                 self.precomp.set(False)
                 return
-            remaining = self.total_dist[day] # Amount remaining of the allocation to this source
-            shares = self.total_value[day] # The sum of all mining done by this data source
-            originalshares = shares
+            remaining = self.total_dist[day]  # Amount remaining of the allocation to this source
+            shares = self.total_value[day]  # The sum of all mining done by this data source
+            original_shares = shares
             batch_sum = sum(data_batch.values())
             for address in data_batch:
                 if shares <= 0:
-                    revert(f'zero or negative divisor for {self.name.get()}, sum: {batch_sum}, total: {shares}, starting: {originalshares}')
-                token_share =  remaining * data_batch[address] // shares
+                    revert(
+                        f'zero or negative divisor for {self.name.get()}, '
+                        f'sum: {batch_sum}, '
+                        f'total: {shares}, '
+                        f'starting: {original_shares}'
+                    )
+                token_share = remaining * data_batch[address] // shares
                 remaining -= token_share
                 shares -= data_batch[address]
                 self._rewards._baln_holdings[address] += token_share
@@ -77,11 +81,11 @@ class DataSource(object):
         }
 
 
-
 class DataSourceDB:
     """
     Holds DataSource objects
     """
+
     def __init__(self, db: IconScoreDatabase, rewards: IconScoreBase):
         self._db = db
         self._rewards = rewards
@@ -98,10 +102,15 @@ class DataSourceDB:
     def __setitem__(self, key, value):
         revert('illegal access')
 
+    def __iter__(self):
+        for name in self._names:
+            yield name
+
     def __len__(self) -> int:
         return len(self._names)
 
     def new_source(self, _name: str, _address: Address) -> None:
         self._names.put(_name)
         source = self.__getitem__(_name)
+        source.name.set(_name)
         source.contract_address.set(_address)

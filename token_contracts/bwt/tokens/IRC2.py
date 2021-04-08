@@ -73,18 +73,14 @@ class IRC2(TokenStandard, IconScoreBase):
 			If `_initialSupply` is 0 or less.
 			If `_decimals` value is 0 or less.
 		"""
-		if (len(_symbolName) <= 0):
+		if len(_symbolName) <= 0:
 			raise InvalidNameError("Invalid Symbol name")
-			pass
-		if (len(_tokenName) <= 0):
+		if len(_tokenName) <= 0:
 			raise InvalidNameError("Invalid Token Name")
-			pass
 		if _initialSupply < 0:
 			raise ZeroValueError("Initial Supply cannot be less than zero")
-			pass
 		if _decimals < 0:
 			raise ZeroValueError("Decimals cannot be less than zero")
-			pass
 
 		super().on_install()
 
@@ -134,7 +130,7 @@ class IRC2(TokenStandard, IconScoreBase):
 		"""
 		Returns the amount of tokens owned by the account.
 
-		:param account: The account whose balance is to be checked.
+		:param _owner: The account whose balance is to be checked.
 		:return Amount of tokens owned by the `account` with the given address.
 		"""
 		return self._balances[_owner]
@@ -145,7 +141,7 @@ class IRC2(TokenStandard, IconScoreBase):
 		"""
 		Sets the authorized address.
 
-		:param account: The authorized admin address.
+		:param _admin: The authorized admin address.
 		"""
 		return self._admin.set(_admin)
 
@@ -190,13 +186,11 @@ class IRC2(TokenStandard, IconScoreBase):
 		InsufficientBalanceError
 			if the sender has less balance than the value to be transferred
 		"""
-		if _value < 0 :
+		if _value < 0:
 			raise ZeroValueError("Transferring value cannot be less than 0.")
-			return
 
-		if self._balances[_from] < _value :
+		if self._balances[_from] < _value:
 			raise InsufficientBalanceError("Insufficient balance.")
-			return
 
 		self._beforeTokenTransfer(_from, _to, _value)
 
@@ -232,9 +226,9 @@ class IRC2(TokenStandard, IconScoreBase):
 
 		if amount <= 0:
 			raise ZeroValueError("Invalid Value")
-			pass
 
-		self._beforeTokenTransfer(0, account, amount)
+		# TODO fix wrong method
+		# self._beforeTokenTransfer(0, account, amount)
 
 		self._total_supply.set(self._total_supply.get() + amount)
 		self._balances[account] += amount
@@ -270,9 +264,9 @@ class IRC2(TokenStandard, IconScoreBase):
 
 		if amount <= 0:
 			raise ZeroValueError("Invalid Value")
-			pass
 
-		self._beforeTokenTransfer(account, 0, amount)
+		# TODO fix wrong method
+		# self._beforeTokenTransfer(account, 0, amount)
 
 		self._total_supply.set(self._total_supply.get() - amount)
 		self._balances[account] -= amount
@@ -283,7 +277,7 @@ class IRC2(TokenStandard, IconScoreBase):
 		# Emits an event log `Transfer`
 		self.Transfer(account, EOA_ZERO, amount, b'None')
 
-	def _beforeTokenTransfer(self, _from: Address, _to: Address,_value: int) -> None:
+	def _beforeTokenTransfer(self, _from: Address, _to: Address, _value: int) -> None:
 		"""
 		Called before transfer of tokens.
 		This is an internal function.
