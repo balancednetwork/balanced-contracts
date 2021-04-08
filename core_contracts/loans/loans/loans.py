@@ -139,7 +139,6 @@ class Loans(IconScoreBase):
         self._redeem_minimum.set(REDEEM_MINIMUM)
         self._new_loan_minimum.set(NEW_LOAN_MINIMUM)
         self._min_mining_debt.set(DEFAULT_MIN_MINING_DEBT)
-        self._max_div_debt_length.set(MAX_DIV_DEBT_LENGTH)
         self._redeem_batch.set(DEFAULT_REDEEM_BATCH_SIZE)
         self._max_retire_percent.set(DEFAULT_MAX_RETIRE_PERCENT)
         self._max_debts_list_length.set(MAX_DEBTS_LIST_LENGTH)
