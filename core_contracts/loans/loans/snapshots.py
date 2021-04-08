@@ -5,23 +5,6 @@ TAG = 'LoansSnapshots'
 SNAP_DB_PREFIX = b'snaps'
 
 
-class BorrowerListDB:
-
-    def __init__(self, db: IconScoreDatabase, _type: str):
-        self._lists = {}
-        self._db = db
-        self._type = _type
-        self._symbols = ArrayDB('borrower_list_symbols', db, value_type=str)
-
-    def __getitem__(self, _symbol: str) -> ArrayDB:
-        if _symbol not in self._lists:
-            if _symbol not in self._symbols:
-                self._symbols.put(_symbol)
-            self._lists[_symbol] = ArrayDB(f'{self._type}_{_symbol}', self._db, value_type=int)
-
-        return self._lists[_symbol]
-
-
 class Snapshot(object):
 
     def __init__(self, db: IconScoreDatabase, loans: IconScoreBase) -> None:
@@ -46,10 +29,10 @@ class Snapshot(object):
         self.mining = ArrayDB('mining', db, int)
         # List of position ids that changed to non-zero collateral status since the last snap.
         # used to update the nonzero ArrayDB during calls to the precompute method.
-        self.add_to_nonzero = BorrowerListDB(db, 'add')
+        self.add_to_nonzero = ArrayDB('add_to_nonzero', db, int)
         # List of position ids that changed to a zero collateral status since the last snap.
         # used to update the nonzero ArrayDB during calls to the precompute method.
-        self.remove_from_nonzero = BorrowerListDB(db, 'remove')
+        self.remove_from_nonzero = ArrayDB('remove_from_nonzero', db, int)
 
     def to_dict(self) -> dict:
         """
@@ -60,11 +43,6 @@ class Snapshot(object):
         """
         prices = {}
         assets = self._loans.asset_db
-        for symbol in assets.slist:
-            if assets[symbol].added.get() < self.snap_time.get():
-                prices[symbol] = self.prices[symbol]
-        add_counts = {symbol: len(self.add_to_nonzero[symbol]) for symbol in self.add_to_nonzero._symbols}
-        remove_counts = {symbol: len(self.remove_from_nonzero[symbol]) for symbol in self.remove_from_nonzero._symbols}
         snap = {
             'snap_day': self.snap_day.get(),
             'snap_time': self.snap_time.get(),
@@ -72,8 +50,8 @@ class Snapshot(object):
             'prices': prices,
             'mining_count': len(self.mining),
             'precompute_index': self.precompute_index.get(),
-            'add_to_nonzero_count': add_counts,
-            'remove_from_nonzero_count': remove_counts
+            'add_to_nonzero_count': len(self.add_to_nonzero),
+            'remove_from_nonzero_count': len(self.remove_from_nonzero)
         }
         return snap
 

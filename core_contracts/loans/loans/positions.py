@@ -299,19 +299,15 @@ class PositionsDB:
     def get_id_for(self, _owner: Address) -> int:
         return self.addressID[_owner]
 
-    def add_nonzero(self, _owner_id: int, _symbol: str) -> None:
+    def add_nonzero(self, _owner_id: int) -> None:
         current_snapshot = self._snapshot_db[-1]
-        if _owner_id > self._id_factory.get_last_uid() or _owner_id < 1:
-            revert(f'That key does not exist yet. (add_nonzero)')
-        if not self._remove(_owner_id, current_snapshot.remove_from_nonzero[_symbol]):
-            current_snapshot.add_to_nonzero[_symbol].put(_owner_id)
+        if not self._remove(_owner_id, current_snapshot.remove_from_nonzero):
+            current_snapshot.add_to_nonzero.put(_owner_id)
 
-    def remove_nonzero(self, _owner_id: int, _symbol: str) -> None:
+    def remove_nonzero(self, _owner_id: int) -> None:
         current_snapshot = self._snapshot_db[-1]
-        if _owner_id > self._id_factory.get_last_uid() or _owner_id < 1:
-            revert(f'That key does not exist yet. (remove_nonzero)')
-        if not self._remove(_owner_id, current_snapshot.add_to_nonzero[_symbol]):
-            current_snapshot.remove_from_nonzero[_symbol].put(_owner_id)
+        if not self._remove(_owner_id, current_snapshot.add_to_nonzero):
+            current_snapshot.remove_from_nonzero.put(_owner_id)
 
     def _remove(self, item: int, array: ArrayDB) -> bool:
         if len(array) == 0:
@@ -380,47 +376,20 @@ class PositionsDB:
         id = snapshot.snap_day.get()
         if id < _day:
             return Complete.DONE
-        nonzero_deltas = 0
-        assets = self._loans._assets
-        add = {}
-        remove = {}
-        for symbol in assets.slist:
-            if not assets[symbol].is_collateral.get() and assets[symbol].active.get():
-                add[symbol] = len(snapshot.add_to_nonzero[symbol])
-                remove[symbol] = len(snapshot.remove_from_nonzero[symbol])
-                nonzero_deltas += add[symbol]
-                nonzero_deltas += remove[symbol]
-        if nonzero_deltas > 0:  # Bring the list of all nonzero positions up to date.
-            iter = self._loans._snap_batch_size.get()  # Starting default is 200.
-            for symbol in assets.slist:
-                if not assets[symbol].is_collateral.get() and assets[symbol].active.get():
-                    loops = min(iter, remove[symbol])
-                    for _ in range(loops):
-                        to_remove = snapshot.remove_from_nonzero[symbol].pop()
-                        for node_id, value in assets[symbol].borrowers:
-                            if value == to_remove:
-                                assets[symbol].borrowers.remove(node_id)
-                                break
-                        iter -= 1
-                    if iter > 0:
-                        loops = min(iter, add[symbol])
-                        for _ in range(loops):
-                            assets[symbol].borrowers.append(snapshot.add_to_nonzero[symbol].pop())
-                    return Complete.NOT_DONE
 
-        add = len(snapshot.add_to_nonzero['total'])
-        remove = len(snapshot.remove_from_nonzero['total'])
+        add = len(snapshot.add_to_nonzero)
+        remove = len(snapshot.remove_from_nonzero)
         nonzero_deltas = add + remove
         if nonzero_deltas > 0:  # Bring the list of all nonzero positions up to date.
             iter = self._loans._snap_batch_size.get()  # Starting default is 200.
             loops = min(iter, remove)
             for _ in range(loops):
-                self._remove(snapshot.remove_from_nonzero['total'].pop(), self.nonzero)
+                self._remove(snapshot.remove_from_nonzero.pop(), self.nonzero)
                 iter -= 1
             if iter > 0:
                 loops = min(iter, add)
                 for _ in range(loops):
-                    self.nonzero.put(snapshot.add_to_nonzero['total'].pop())
+                    self.nonzero.put(snapshot.add_to_nonzero.pop())
             return Complete.NOT_DONE
 
         index = snapshot.precompute_index.get()  # Tracks where the precompute is over multiple calls.

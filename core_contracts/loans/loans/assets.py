@@ -45,7 +45,6 @@ class Asset(object):
 
     def __init__(self, db: IconScoreDatabase, loans: IconScoreBase) -> None:
         self._loans = loans
-        self.event_id_factory = IdFactory('asset_event_id', db)
         self.added = VarDB('added', db, value_type=int)
         self.asset_address = VarDB('address', db, value_type=Address)
         self.bad_debt = VarDB('bad_debt', db, value_type=int)
@@ -121,8 +120,20 @@ class Asset(object):
             self.dead_market.set(dead)
         return dead
 
-    def get_last_event(self):
-        return self._id_factory.get_last_uid()
+    def remove_borrower(self, _pos_id: int) -> None:
+        """
+        Removes a borrower from the asset nonzero list.
+        """
+        for node_id, value in self.borrowers:
+            if value == _pos_id:
+                self.borrowers.remove(node_id)
+                break
+
+    def add_borrower(self, _pos_id: int) -> None:
+        """
+        Adds a borrower to the asset nonzero list.
+        """
+        self.borrowers.append(_pos_id)
 
     def to_dict(self) -> dict:
         """

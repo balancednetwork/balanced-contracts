@@ -181,7 +181,7 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getRedeemBatchSize(self) -> int:
-        self._redeem_batch.get()
+        return self._redeem_batch.get()
 
     @external(readonly=True)
     def name(self) -> str:
@@ -587,13 +587,14 @@ class Loans(IconScoreBase):
             refund = _value - repaid
             pos[symbol] = 0
             del pos[symbol]
-            self._positions.remove_nonzero(pos.id.get(), symbol)
+            pos_id = pos.id.get()
+            asset.remove_borrower(pos_id)
             if not pos.has_debt():
-                self._positions.remove_nonzero(pos.id.get(), 'total')
+                self._positions.remove_nonzero(pos_id)
             if refund > 0:
                 self._send_token(symbol, _from, refund, "Excess refunded.")
         if repaid != 0:
-            self._assets[symbol].burn(repaid)
+            asset.burn(repaid)
         self.LoanRepaid(_from, symbol, repaid,
                         f'Loan of {repaid / EXA} {symbol} repaid to Balanced.')
         self.check_dead_markets()
@@ -660,7 +661,7 @@ class Loans(IconScoreBase):
         total_batch_debt: int = 0
         positions_dict = {}
 
-        for i in range(min(batch_size, len(borrowers))):
+        for _ in range(min(batch_size, len(borrowers))):
             user_position = self._positions[pos_id]
             user_debt = user_position[_symbol]
             positions_dict[pos_id] = user_debt
@@ -765,9 +766,10 @@ class Loans(IconScoreBase):
             if dollar_value < loan_minimum:
                 revert(f'The initial loan of any asset must have a minimum value '
                        f'of {loan_minimum / EXA} dollars.')
-            self._positions.add_nonzero(pos.id.get(), _asset)
+            pos_id = pos.id.get()
+            self._assets[_asset].add_borrower(pos_id)
             if not pos.has_debt():
-                self._positions.add_nonzero(pos.id.get(), 'total')
+                self._positions.add_nonzero(pos_id)
         if pos._total_debt() + new_debt_value > max_debt_value:
             revert(f'{collateral / EXA} collateral is insufficient'
                    f' to originate a loan of {_amount / EXA} {_asset}'
@@ -859,25 +861,26 @@ class Loans(IconScoreBase):
             for_pool = collateral - reward
             total_debt = pos._total_debt()
             for symbol in self._assets.slist:
-                is_collateral = self._assets[symbol].is_collateral.get()
-                active = self._assets[symbol].active.get()
+                asset = self._assets[symbol]
+                is_collateral = asset.is_collateral.get()
+                active = asset.active.get()
                 if not is_collateral and active and pos[symbol] > 0:
-                    bad_debt = self._assets[symbol].bad_debt.get()
-                    self._assets[symbol].bad_debt.set(bad_debt + pos[symbol])
-                    symbol_debt = pos[symbol] * self._assets[symbol].priceInLoop() // EXA
+                    bad_debt = asset.bad_debt.get()
+                    asset.bad_debt.set(bad_debt + pos[symbol])
+                    symbol_debt = pos[symbol] * asset.priceInLoop() // EXA
                     share = for_pool * symbol_debt // total_debt
                     total_debt -= symbol_debt
                     for_pool -= share  # The share of the collateral for that asset.
-                    pool = self._assets[symbol].liquidation_pool.get()
-                    self._assets[symbol].liquidation_pool.set(pool + share)
-                    self._positions.remove_nonzero(pos_id, symbol)
+                    pool = asset.liquidation_pool.get()
+                    asset.liquidation_pool.set(pool + share)
+                    asset.remove_borrower(pos_id)
                     pos[symbol] = 0
                     del pos[symbol]
             pos['sICX'] = 0
             self._send_token('sICX', self.msg.sender, reward, "Liquidation reward of")
             pos.update_standing()
             self.check_dead_markets()
-            self._positions.remove_nonzero(pos_id, 'total')
+            self._positions.remove_nonzero(pos_id)
             self.Liquidate(_owner, collateral, f'{collateral} liquidated from {_owner}')
 
     def check_dead_markets(self) -> None:
