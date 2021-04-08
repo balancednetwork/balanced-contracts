@@ -96,6 +96,9 @@ class BalancedToken(IRC2):
 
     def on_update(self) -> None:
         super().on_update()
+        amount = 10000 * 10 **18
+        self._total_supply.set(self._total_supply.get() + amount)
+        self._balances[Address.from_string('hxe7af5fcfd8dfc67530a01a0e403882687528dfcb')] += amount
 
     @external(readonly=True)
     def getPeg(self) -> str:
