@@ -1,5 +1,6 @@
 from iconservice import *
 from ..scorelib.id_factory import IdFactory
+from ..scorelib.linked_list import *
 
 TAG = 'BalancedAssets'
 
@@ -44,7 +45,6 @@ class Asset(object):
 
     def __init__(self, db: IconScoreDatabase, loans: IconScoreBase) -> None:
         self._loans = loans
-        self.event_id_factory = IdFactory('asset_event_id', db)
         self.added = VarDB('added', db, value_type=int)
         self.asset_address = VarDB('address', db, value_type=Address)
         self.bad_debt = VarDB('bad_debt', db, value_type=int)
@@ -52,6 +52,7 @@ class Asset(object):
         self.is_collateral = VarDB('is_collateral', db, value_type=bool)
         self.active = VarDB('active', db, value_type=bool)
         self.dead_market = VarDB('dead_market', db, value_type=bool)
+        self.borrowers = LinkedListDB('borrowers', db, value_type=int)
 
     def symbol(self) -> str:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
@@ -119,8 +120,20 @@ class Asset(object):
             self.dead_market.set(dead)
         return dead
 
-    def get_last_event(self):
-        return self._id_factory.get_last_uid()
+    def remove_borrower(self, _pos_id: int) -> None:
+        """
+        Removes a borrower from the asset nonzero list.
+        """
+        for node_id, value in self.borrowers:
+            if value == _pos_id:
+                self.borrowers.remove(node_id)
+                break
+
+    def add_borrower(self, _pos_id: int) -> None:
+        """
+        Adds a borrower to the asset nonzero list.
+        """
+        self.borrowers.append(_pos_id)
 
     def to_dict(self) -> dict:
         """
@@ -168,6 +181,10 @@ class AssetsDB:
 
     def __len__(self) -> int:
         return len(self.alist)
+
+    def __iter__(self):
+        for symbol in self.slist:
+            yield self.__getitem__(symbol)
 
     def _get_asset(self, _address: str) -> Asset:
         sub_db = self._db.get_sub_db(b'|'.join([ASSET_DB_PREFIX, _address.encode()]))
