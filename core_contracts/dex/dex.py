@@ -224,6 +224,9 @@ class DEX(IconScoreBase):
 
         self._named_markets = IterableDictDB(
             self._NAMED_MARKETS, db, value_type=int, key_type=str, order=True)
+        
+        # Cache of token precisions, filled on first call of `deposit`
+        self._token_precisions = DictDB('token_precisions', db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
@@ -484,7 +487,7 @@ class DEX(IconScoreBase):
         current_icx_total = self._icx_queue_total.get() + self.msg.value
         self._icx_queue_total.set(current_icx_total)
 
-        if order_value > self._get_rewardable_amount(None):
+        if order_value >= self._get_rewardable_amount(None):
             self._active_addresses[self._SICXICX_POOL_ID].add(self.msg.sender)
 
         self._update_account_snapshot(self.msg.sender, self._SICXICX_POOL_ID)
@@ -555,6 +558,9 @@ class DEX(IconScoreBase):
         if unpacked_data["method"] == "_deposit":
             self._deposit[_fromToken][_from] += _value
             self.Deposit(_fromToken, _from, _value)
+            if _fromToken not in self._token_precisions:
+                from_token_score = self.create_interface_score(_fromToken, TokenInterface)
+                self._token_precisions[_fromToken] = from_token_score.decimals()
         elif unpacked_data["method"] == "_swap_icx":
             if _fromToken == self._sicx.get():
                 self._swap_icx(_from, _value)
@@ -615,7 +621,7 @@ class DEX(IconScoreBase):
 
         pool_quote_coin = self.getPoolQuote(_id)
         
-        if self._balance[_id][_to] > self._get_rewardable_amount(pool_quote_coin):
+        if self._balance[_id][_to] >= self._get_rewardable_amount(pool_quote_coin):
             self._active_addresses[_id].add(_to)
 
         if self._balance[_id][_from] < self._get_rewardable_amount(pool_quote_coin):
@@ -847,7 +853,7 @@ class DEX(IconScoreBase):
 
         pool_quote_coin = self.getPoolQuote(_id)
 
-        if self._balance[_id][_to] > self._get_rewardable_amount(pool_quote_coin):
+        if self._balance[_id][_to] >= self._get_rewardable_amount(pool_quote_coin):
             self._active_addresses[_id].add(_to)
 
         if self._balance[_id][_from] < self._get_rewardable_amount(pool_quote_coin):
@@ -952,9 +958,11 @@ class DEX(IconScoreBase):
             return 25 * EXA
         elif None == _token_address:
             return 50 * EXA
+        elif _token_address in self._token_precisions:
+            # default to 25 units of precision 1, if we have the coin on deposit
+            return 25 * (10 ** self._token_precisions[_token_address])
         else:
-            # Users should try to avoid this case, otherwise we assume their coin
-            # is worth 1 dollar, and has 18 digits precision
+            # Fallback to 18 digits of precision
             return 25 * EXA
 
     def _swap_icx(self, _sender: Address, _value: int):
@@ -1280,42 +1288,47 @@ class DEX(IconScoreBase):
         self._check_distributions()
 
         balance = self._balance[_pid][self.msg.sender]
+
         if not self.active[_pid]:
             revert("Pool is not active")
+
         if _value > balance:
             revert("Invalid input")
 
-        token1 = self._pool_base[_pid]
-        token2 = self._pool_quote[_pid]
-        self._pool_total[_pid][token1] -= int(self._pool_total[_pid]
-                                              [token1] * (_value / self._total[_pid]))
-        self._pool_total[_pid][token2] -= int(self._pool_total[_pid]
-                                              [token2] * (_value / self._total[_pid]))
-        token1_amount = int(
-            self._pool_total[_pid][token1] * (_value / self._total[_pid]))
-        token2_amount = int(
-            self._pool_total[_pid][token2] * (_value / self._total[_pid]))
+        base_token = self._pool_base[_pid]
+        quote_token = self._pool_quote[_pid]
+
+        base_withdraw = self._pool_total[_pid][base_token] * _value // self._total[_pid]
+        quote_withdraw = self._pool_total[_pid][quote_token] * _value // self._total[_pid]
+
+        self._pool_total[_pid][base_token] -= base_withdraw
+        self._pool_total[_pid][quote_token] -= quote_withdraw
         self._balance[_pid][self.msg.sender] -= _value
         self._total[_pid] -= _value
+
+        if self._total[_pid] < MIN_LIQUIDITY:
+            minimum_possible = _value - (MIN_LIQUIDITY - self._total[_pid]) 
+            revert(f"MinimumLiquidityError: {minimum_possible} max withdraw size")
+
         self.Remove(_pid, self.msg.sender, _value)
         self.TransferSingle(self.msg.sender, self.msg.sender, Address.from_string(
             DEX_ZERO_SCORE_ADDRESS), _pid, _value)
     
-        self._deposit[token1][self.msg.sender] += token1_amount
-        self._deposit[token2][self.msg.sender] += token2_amount
-
-        if _withdraw:
-            self.withdraw(token1, token1_amount)
-            self.withdraw(token2, token2_amount)
+        self._deposit[base_token][self.msg.sender] += base_withdraw
+        self._deposit[quote_token][self.msg.sender] += quote_withdraw
 
         user_pool_ratio = self._balance[_pid][self.msg.sender] / self.totalSupply(_pid)
-        user_quote_holdings = user_pool_ratio * self._pool_total[_pid][token2]
+        user_quote_holdings = user_pool_ratio * self._pool_total[_pid][quote_token]
 
-        if user_quote_holdings < self._get_rewardable_amount(token2):
+        if user_quote_holdings < self._get_rewardable_amount(quote_token):
             self._active_addresses[_pid].discard(self.msg.sender)
 
         self._update_account_snapshot(self.msg.sender, _pid)
         self._update_total_supply_snapshot(_pid)
+
+        if _withdraw:
+            self.withdraw(base_token, base_withdraw)
+            self.withdraw(quote_token, quote_withdraw)
 
     @external
     @dex_on
@@ -1378,7 +1391,7 @@ class DEX(IconScoreBase):
         user_pool_ratio = self._balance[_pid][self.msg.sender] / self.totalSupply(_pid)
         user_quote_holdings = user_pool_ratio * self._pool_total[_pid][_quoteToken]
 
-        if user_quote_holdings > self._get_rewardable_amount(_quoteToken):
+        if user_quote_holdings >= self._get_rewardable_amount(_quoteToken):
             self._active_addresses[_pid].add(self.msg.sender)
 
         self._update_account_snapshot(_owner, _pid)
