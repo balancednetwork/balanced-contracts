@@ -200,7 +200,7 @@ class Staking(IconScoreBase):
     @external
     def setUnstakeBatchLimit(self, _limit: int) -> None:
         self._unstake_batch_limit.set(_limit)
-    
+
     @external(readonly=True)
     def getUnstakeBatchLimit(self) -> int:
         return self._unstake_batch_limit.get()
