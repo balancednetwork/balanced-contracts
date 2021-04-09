@@ -139,7 +139,6 @@ class Loans(IconScoreBase):
         self._redeem_minimum.set(REDEEM_MINIMUM)
         self._new_loan_minimum.set(NEW_LOAN_MINIMUM)
         self._min_mining_debt.set(DEFAULT_MIN_MINING_DEBT)
-        self._max_div_debt_length.set(MAX_DIV_DEBT_LENGTH)
         self._redeem_batch.set(DEFAULT_REDEEM_BATCH_SIZE)
         self._max_retire_percent.set(DEFAULT_MAX_RETIRE_PERCENT)
         self._max_debts_list_length.set(MAX_DEBTS_LIST_LENGTH)
@@ -516,14 +515,14 @@ class Loans(IconScoreBase):
             d = json_loads(_data.decode("utf-8"))
         except BaseException as e:
             revert(f'Invalid data: {_data}, returning tokens. Exception: {e}')
-        if set(d.keys()) != set(["method", "params"]):
+        if set(d.keys()) != {"method", "params"}:
             revert('Invalid parameters.')
         if d["method"] == "_deposit_and_borrow":
             self._deposit_and_borrow(_value, **d['params'])
         elif d["method"] == "_repay_loan":
             self._repay_loan(_from, _value)
         elif d["method"] == "_retire_asset":
-            self._retire_asset(_from, _value, **d['params'])
+            self._retire_asset(_from, _value)
         else:
             revert(f'No valid method called, data: {_data}')
 
@@ -735,10 +734,12 @@ class Loans(IconScoreBase):
 
         :param _asset: Symbol of the asset.
         :type _asset: str
-        :param _value: Number of tokens sent.
-        :type _value: int
+        :param _amount: Number of tokens sent.
+        :type _amount: int
+        :param _from
+        :type _from: Address
         """
-        if _from == None:
+        if _from is None:
             _from = self.msg.sender
         if not self._positions._exists(_from):
             revert(f'This address does not have a position on Balanced. '
@@ -1034,14 +1035,6 @@ class Loans(IconScoreBase):
     def AssetActive(self, _asset: str, _state: str):
         pass
 
-    @eventlog(indexed=3)
-    def Transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
-        pass
-
-    @eventlog(indexed=2)
-    def FundTransfer(self, destination: Address, amount: int, note: str):
-        pass
-
     @eventlog(indexed=2)
     def TokenTransfer(self, recipient: Address, amount: int, note: str):
         pass
@@ -1071,27 +1064,11 @@ class Loans(IconScoreBase):
         pass
 
     @eventlog(indexed=3)
-    def BadDebt(self, account: Address, symbol: str, amount: int, note: str):
-        pass
-
-    @eventlog(indexed=2)
-    def TotalDebt(self, symbol: str, amount: int, note: str):
-        pass
-
-    @eventlog(indexed=3)
     def FeePaid(self, symbol: str, amount: int, type: str, note: str):
         pass
 
     @eventlog(indexed=2)
-    def OraclePriceUpdate(self, symbol: str, rate: int, note: str):
-        pass
-
-    @eventlog(indexed=2)
     def PositionStanding(self, address: Address, standing: str, ratio: int, note: str):
-        pass
-
-    @eventlog(indexed=1)
-    def Diagnostic(self, symbol: str, amount: int, note: str):
         pass
 
     @eventlog(indexed=1)
