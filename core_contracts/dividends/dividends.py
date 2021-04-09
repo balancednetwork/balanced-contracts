@@ -26,6 +26,35 @@ class LoansInterface(InterfaceScore):
     def getAssetTokens(self) -> dict:
         pass
 
+    @interface
+    def getDebts(self, _address_list: List[str], _day: int) -> dict:
+        pass
+
+
+class DexInterface(InterfaceScore):
+    @interface
+    def getTotalValue(self, _name: str, _snapshot_id: int) -> int:
+        pass
+
+
+class BalnTokenInterface(InterfaceScore):
+
+    @interface
+    def getStakeUpdates(self) -> dict:
+        pass
+
+    @interface
+    def clearYesterdaysStakeChanges(self) -> bool:
+        pass
+
+    @interface
+    def switchStakeUpdateDB(self) -> None:
+        pass
+
+    @interface
+    def balanceOf(self, _owner: Address) -> int:
+        pass
+
 
 class Dividends(IconScoreBase):
 
