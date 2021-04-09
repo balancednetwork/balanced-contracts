@@ -513,20 +513,18 @@ class Loans(IconScoreBase):
             return
         try:
             d = json_loads(_data.decode("utf-8"))
-            if set(d.keys()) != {"method", "params"}:
-                revert('Invalid parameters.')
-            if d["method"] == "_deposit_and_borrow":
-                self._deposit_and_borrow(_value, **d['params'])
-            elif d["method"] == "_repay_loan":
-                self._repay_loan(_from, _value)
-            elif d["method"] == "_retire_asset":
-                # TODO unexpected last param
-                # self._retire_asset(_from, _value, **d['params'])
-                self._retire_asset(_from, _value)
-            else:
-                revert(f'No valid method called, data: {_data}')
         except BaseException as e:
             revert(f'Invalid data: {_data}, returning tokens. Exception: {e}')
+        if set(d.keys()) != {"method", "params"}:
+            revert('Invalid parameters.')
+        if d["method"] == "_deposit_and_borrow":
+            self._deposit_and_borrow(_value, **d['params'])
+        elif d["method"] == "_repay_loan":
+            self._repay_loan(_from, _value)
+        elif d["method"] == "_retire_asset":
+            self._retire_asset(_from, _value)
+        else:
+            revert(f'No valid method called, data: {_data}')
 
     def _deposit_and_borrow(self, _value: int, _sender: str, _asset: str = '',
                             _amount: int = 0) -> None:
