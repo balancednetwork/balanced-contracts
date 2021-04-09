@@ -74,7 +74,6 @@ class Loans(IconScoreBase):
     _REDEMPTION_FEE = 'redemption_fee'
     _RETIREMENT_BONUS = 'retirement_bonus'
     _LIQUIDATION_REWARD = 'liquidation_reward'
-    _REDEEM_MINIMUM = 'redeem_minimum'
     _NEW_LOAN_MINIMUM = 'new_loan_minimum'
     _MIN_MINING_DEBT = 'min_mining_debt'
     _MAX_DEBTS_LIST_LENGTH = 'max_debts_list_length'
@@ -110,7 +109,6 @@ class Loans(IconScoreBase):
         self._redemption_fee = VarDB(self._REDEMPTION_FEE, db, value_type=int)
         self._retirement_bonus = VarDB(self._RETIREMENT_BONUS, db, value_type=int)
         self._liquidation_reward = VarDB(self._LIQUIDATION_REWARD, db, value_type=int)
-        self._redeem_minimum = VarDB(self._REDEEM_MINIMUM, db, value_type=int)
         self._new_loan_minimum = VarDB(self._NEW_LOAN_MINIMUM, db, value_type=int)
         self._min_mining_debt = VarDB(self._MIN_MINING_DEBT, db, value_type=int)
         self._max_debts_list_length = VarDB(self._MAX_DEBTS_LIST_LENGTH, db, value_type=int)
@@ -136,7 +134,6 @@ class Loans(IconScoreBase):
         self._redemption_fee.set(DEFAULT_REDEMPTION_FEE)
         self._liquidation_reward.set(LIQUIDATION_REWARD)
         self._retirement_bonus.set(BAD_DEBT_RETIREMENT_BONUS)
-        self._redeem_minimum.set(REDEEM_MINIMUM)
         self._new_loan_minimum.set(NEW_LOAN_MINIMUM)
         self._min_mining_debt.set(DEFAULT_MIN_MINING_DEBT)
         self._redeem_batch.set(DEFAULT_REDEEM_BATCH_SIZE)
@@ -145,7 +142,6 @@ class Loans(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self._redeem_minimum.set(REDEEM_MINIMUM)
 
     @payable
     @external
@@ -625,11 +621,6 @@ class Loans(IconScoreBase):
             else:
                 _value -= repay
         price = asset.priceInLoop()
-        redeem_min = self._redeem_minimum.get()
-        min_value = redeem_min * self._assets['bnUSD'].priceInLoop() // price
-        min_asset_value = min(min_value, 75 * self.getMaxRetireAmount(symbol) // 100)
-        if _value < min_asset_value:
-            revert(f'Minimum redeemed asset value is ${min_asset_value // EXA}')
         sicx_rate = self._assets['sICX'].priceInLoop()
         fee = _value * self._redemption_fee.get() // POINTS
         redeemed = _value - fee
@@ -651,7 +642,7 @@ class Loans(IconScoreBase):
             del batch_dict[0]
         self._send_token("sICX", _from, sicx, "Collateral redeemed.")
         self._send_token(symbol, self._dividends.get(), fee, "Redemption fee.")
-        self.check_dead_markets()
+        self._assets[symbol].dead()
         self.AssetRetired(symbol, redeemed, price, f'total_batch_debt: {total_batch_debt}, batch_dict: {batch_dict}, _from: {_from}')
 
     def _retire_redeem(self, _symbol: str, _redeemed: int, _sicx_from_lenders: int) -> dict:
@@ -983,11 +974,6 @@ class Loans(IconScoreBase):
 
     @external
     @only_admin
-    def setRedeemMinimum(self, _minimum: int) -> None:
-        self._redeem_minimum.set(_minimum)
-
-    @external
-    @only_admin
     def setNewLoanMinimum(self, _minimum: int) -> None:
         self._new_loan_minimum.set(_minimum)
 
@@ -1016,7 +1002,6 @@ class Loans(IconScoreBase):
             "origination fee": self._origination_fee.get(),
             "redemption fee": self._redemption_fee.get(),
             "liquidation reward": self._liquidation_reward.get(),
-            "redeem minimum": self._redeem_minimum.get(),
             "new loan minimum": self._new_loan_minimum.get(),
             "min mining debt": self._min_mining_debt.get(),
             "max div debt length": self._max_debts_list_length.get(),
