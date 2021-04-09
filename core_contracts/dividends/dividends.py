@@ -74,17 +74,86 @@ class Dividends(IconScoreBase):
     _ADMIN = 'admin'
     _LOANS_SCORE = 'loans_score'
     _DAOFUND = 'daofund'
+    _BALN_SCORE = "baln_score"
+
+    _ACCEPTED_TOKENS = "accepted_tokens"
+    _AMOUNT_TO_DISTRIBUTE = "amount_to_distribute"
+    _AMOUNT_BEING_DISTRIBUTED = "amount_being_distributed"
+
+    _ELIGIBLE_BALN_HOLDERS = "eligible_baln_holders"
+    _ELIGIBLE_BALN_BALANCES = "eligible_baln_balances"
+    _TOTAL_ELIGIBILE_BALN_TOKENS = "total_eligible_baln_tokens"
+    _BALN_DIST_INDEX = "baln_dist_index"
+
+    _STAKED_BALN_HOLDERS = "staked_baln_holders"
+    _STAKED_BALN_BALANCES = "staked_baln_balances"
+    _STAKED_DIST_INDEX = "staked_dist_index"
+
+    _BALN_IN_DEX = "baln_in_dex"
+    _TOTAL_LP_TOKENS = "total_lp_tokens"
+
+    _USERS_BALANCE = "users_balance"
+
+    _DIVIDENDS_DISTRIBUTION_STATUS = "dividends_distribution_status"
+
+    _SNAPSHOT_ID = "snapshot_id"
+
+    _AMOUNT_RECEIVED_STATUS = "amount_received_status"
+
+    _MAX_LOOP_COUNT = "max_loop_count"
+    _MINIMUM_ELIGIBLE_DEBT = "minimum_eligible_debt"
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
+
+        # Addresses of other SCORES, that dividends score interacts with
         self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._loans_score = VarDB(self._LOANS_SCORE, db, value_type=Address)
         self._daofund = VarDB(self._DAOFUND, db, value_type=Address)
+        self._baln_score = VarDB(self._BALN_SCORE, db, value_type=Address)
+
+        # Accepted tokens store all the tokens that dividends can distribute and accept, store cx00.. for ICX
+        self._accepted_tokens = ArrayDB(self._ACCEPTED_TOKENS, db, value_type=Address)
+        # Amount that comes in between distribution or during the week is recorded here
+        self._amount_to_distribute = DictDB(self._AMOUNT_TO_DISTRIBUTE, db, value_type=int)
+        # Amount that is being distributed is recorded here
+        self._amount_being_distributed = DictDB(self._AMOUNT_BEING_DISTRIBUTED, db, value_type=int)
+
+        # Eligible baln token holders retrieved from staked baln token and from baln pool
+        self._eligible_baln_holders = ArrayDB(self._ELIGIBLE_BALN_HOLDERS, db, value_type=str)
+        self._eligible_baln_balances = DictDB(self._ELIGIBLE_BALN_BALANCES, db, value_type=int)
+        self._total_eligible_baln_tokens = VarDB(self._TOTAL_ELIGIBILE_BALN_TOKENS, db, value_type=int)
+        self._baln_dist_index = VarDB(self._BALN_DIST_INDEX, db, value_type=int)
+
+        # Staked baln token holders and their balance retrieved from baln token contract
+        self._staked_baln_holders = ArrayDB(self._STAKED_BALN_HOLDERS, db, value_type=str)
+        self._staked_baln_balances = DictDB(self._STAKED_BALN_BALANCES, db, value_type=int)
+        self._staked_dist_index = VarDB(self._STAKED_DIST_INDEX, db, value_type=int)
+
+        self._baln_in_dex = VarDB(self._BALN_IN_DEX, db, value_type=int)
+        self._total_lp_tokens = VarDB(self._TOTAL_LP_TOKENS, db, value_type=int)
+
+        self._users_balance = DictDB(self._USERS_BALANCE, db, value_type=int, depth=2)
+
+        self._dividends_distribution_status = VarDB(self._DIVIDENDS_DISTRIBUTION_STATUS, db, value_type=int)
+
+        # Track which snapshot has been used for distribution
+        self._snapshot_id = VarDB(self._SNAPSHOT_ID, db, value_type=int)
+
+        self._amount_received_status = VarDB(self._AMOUNT_RECEIVED_STATUS, db, value_type=bool)
+
+        self._max_loop_count = VarDB(self._MAX_LOOP_COUNT, db, value_type=int)
+        self._minimum_eligible_debt = VarDB(self._MINIMUM_ELIGIBLE_DEBT, db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
         self._governance.set(_governance)
+
+        self._accepted_tokens.put(Address.from_string(ZERO_SCORE_ADDRESS))
+        self._snapshot_id.set(1)
+        self._max_loop_count.set(MAX_LOOP)
+        self._minimum_eligible_debt.set(MINIMUM_ELIGIBLE_DEBT)
 
     def on_update(self) -> None:
         super().on_update()
