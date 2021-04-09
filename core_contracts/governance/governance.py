@@ -4,6 +4,37 @@ from .utils.checks import *
 TAG = 'Governance'
 
 
+class TokenInterface(InterfaceScore):
+
+    @interface
+    def setbnUSD(self, _address):
+        pass
+
+    @interface
+    def setDividends(self, _score):
+        pass
+
+    @interface
+    def setDex(self, _address):
+        pass
+
+    @interface
+    def setOracleName(self, _name):
+        pass
+
+    @interface
+    def toggleStakingEnabled(self):
+        pass
+
+    @interface
+    def setMinimumStake(self, _amount):
+        pass
+
+    @interface
+    def setUnstakingPeriod(self, _time):
+        pass
+
+
 class Governance(IconScoreBase):
     """
     The Governance SCORE will have control of all parameters in BalancedDAO.
@@ -159,6 +190,54 @@ class Governance(IconScoreBase):
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.addNewDataSource(_name, dex_address)
 
+    @external
+    @only_owner
+    def setbnUSD(self, _address: Address) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], TokenInterface)
+        baln.setbnUSD(_address)
+
+    @external
+    @only_owner
+    def setDividends(self, _score: Address) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], TokenInterface)
+        baln.setDividends(_score)
+
+    @external
+    @only_owner
+    def balancesetDex(self, _address: Address) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], TokenInterface)
+        baln.setDex(_address)
+
+    @external
+    @only_owner
+    def balancesetOracleName(self, _name: str) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], TokenInterface)
+        baln.setOracleName(_name)
+
+    @external
+    @only_owner
+    def balancesetMinInterval(self, _interval: int) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], TokenInterface)
+        baln.setOracleName(_interval)
+
+    @external
+    @only_owner
+    def balancetoggleStakingEnabled(self) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], TokenInterface)
+        baln.toggleStakingEnabled()
+
+    @external
+    @only_owner
+    def balancesetMinimumStake(self, _amount: int) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], TokenInterface)
+        baln.setMinimumStake(_amount)
+
+    @external
+    @only_owner
+    def balancesetUnstakingPeriod(self, _time: int) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], TokenInterface)
+        baln.setUnstakingPeriod(_time)
+        
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
