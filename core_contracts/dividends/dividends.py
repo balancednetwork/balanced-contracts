@@ -274,7 +274,99 @@ class Dividends(IconScoreBase):
     @external
     def distribute(self) -> bool:
         """
-        A placeholder until BalancedDAO community decides how to handle fee revenue.
+        Main method to handle the distribution of tokens to eligible BALN token holders
+        :return: True if distribution has completed
+        """
+        baln_score = self.create_interface_score(self._baln_score.get(), BalnTokenInterface)
+
+        if self._dividends_distribution_status.get() == Status.DIVIDENDS_DISTRIBUTION_COMPLETE:
+            # TODO get the current snapshot being used in other contracts
+            current_snapshot_id = 0
+
+            increased_snapshot = self._snapshot_id.get() + DAYS_IN_A_WEEK
+            if increased_snapshot <= current_snapshot_id:
+                # week has passed
+                self._snapshot_id.set(increased_snapshot)
+                # week has also advanced as well as there is amount to distribute
+                if self._amount_received_status.get():
+                    self._dividends_distribution_status.set(Status.COMPLETE_STAKED_BALN_UPDATES)
+                    self._sweep_amount_for_distribution()
+                    baln_score.switchStakeUpdateDB()
+            else:
+                self._update_stake_balances()
+                baln_score.clearYesterdaysStakeChanges()
+                return True
+
+        elif self._dividends_distribution_status.get() == Status.COMPLETE_STAKED_BALN_UPDATES:
+            # If the week has changed but the dividends distribution contract has not pulled all the staking data from
+            # baln token contract, it continues to pull the data
+            if self._update_stake_balances():
+                self._dividends_distribution_status.set(Status.FILTER_ELIGIBLE_STAKED_BALN_HOLDERS)
+
+        elif self._dividends_distribution_status.get() == Status.FILTER_ELIGIBLE_STAKED_BALN_HOLDERS:
+            # get debt data in batch and process only those addresses
+            # self._staked_dist_index self._staked_baln_holders
+            baln_stake_holders = get_array_items(self._staked_baln_holders, self._staked_dist_index.get(),
+                                                 self._max_loop_count.get())
+
+            count_of_remaining_baln_stake_holders = len(baln_stake_holders)
+            dist_index = self._staked_dist_index.get() + count_of_remaining_baln_stake_holders
+            if dist_index >= len(self._staked_baln_holders):
+                # Filter process has been complete, can be changed to next state
+                self._staked_dist_index.set(0)
+                self._dividends_distribution_status.set(Status.TOTAL_DATA_FROM_BALN_LP_POOL)
+            else:
+                self._staked_dist_index.set(dist_index)
+
+            loan_score = self.create_interface_score(self._loans_score.get(), LoansInterface)
+            baln_stake_holders_debts = loan_score.getDebts(baln_stake_holders, self._snapshot_id.get() - 1)
+            for address, debt in baln_stake_holders_debts.items():
+                if debt >= self._minimum_eligible_debt.get():
+                    if address not in self._eligible_baln_holders:
+                        self._eligible_baln_holders.put(address)
+                    baln_token = self._staked_baln_balances[address]
+                    self._eligible_baln_balances[address] = baln_token
+                    self._total_eligible_baln_tokens.set(self._total_eligible_baln_tokens.get() + baln_token)
+
+        elif self._dividends_distribution_status.get() == Status.TOTAL_DATA_FROM_BALN_LP_POOL:
+            pass
+        elif self._dividends_distribution_status.get() == Status.COMPUTE_BALN_FOR_LP_HOLDER:
+            pass
+        elif self._dividends_distribution_status.get() == Status.DAOFUND_DISTRIBUTION:
+            pass
+        elif self._dividends_distribution_status.get() == Status.DISTRIBUTE_FUND_TO_HOLDERS:
+            pass
+        else:
+            pass
+        return False
+
+    def _sweep_amount_for_distribution(self) -> None:
+        for token in self._accepted_tokens:
+            token_key = str(token)
+            self._amount_being_distributed[token_key] += self._amount_to_distribute[token_key]
+            self._amount_to_distribute[token_key] = 0
+
+    def _check_eligibility_against_debt_value(self) -> None:
+        # Checks if the staked BALN token holders still maintain the debt criteria
+        pass
+
+    def _distribute_token(self) -> None:
+        # Maintain account balance of each user for different tokens to distribute
+        for token in self._accepted_tokens:
+            token_key = str(token)
+        pass
+
+    def _update_total_lp_tokens(self) -> None:
+        # update the total lp tokens and baln tokens in the pool
+
+        pass
+
+    def _update_lp_holders_balance(self) -> None:
+        # Update the lp holders balance of baln tokens
+        # name: BALNbnUSD
+        pass
+
+    def _update_stake_balances(self) -> bool:
         """
         Updates the staked balances of BALN token
         """
