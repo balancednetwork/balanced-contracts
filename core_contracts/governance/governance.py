@@ -187,7 +187,7 @@ class Governance(IconScoreBase):
     @only_owner
     def balancesetMinInterval(self,  _interval: int) -> None:
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
-        baln.setOracleName(_interval)
+        baln.setMinInterval(_interval)
 
     @external
     @only_owner
@@ -206,6 +206,30 @@ class Governance(IconScoreBase):
     def balancesetUnstakingPeriod(self, _time: int) -> None:
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         baln.setUnstakingPeriod(_time)
+
+    @external
+    @only_owner
+    def dAodisburse(self, _recipient: Address, _amounts: List[Disbursement]) -> bool:
+        dao = self.create_interface_score(self.addresses['daofund'], DAOfundInterface)
+        dao.disburse(_recipient, _amounts)
+
+    @external
+    @only_owner
+    def bnUSDsetOracle(self, _address: Address) -> None:
+        bnUSD = self.create_interface_score(self.addresses['bnUSD'], BalancedDollarInterface)
+        bnUSD.setOracle(_address)
+
+    @external
+    @only_owner
+    def bnUSDsetOracleName(self, _name: str) -> None:
+        bnUSD = self.create_interface_score(self.addresses['bnUSD'], BalancedDollarInterface)
+        bnUSD.setOracleName(_name)
+
+    @external
+    @only_owner
+    def dnUSDsetMinInterval(self, _interval: int) -> None:
+        bnUSD = self.create_interface_score(self.addresses['bnUSD'], BalancedDollarInterface)
+        bnUSD.setMinInterval(_interval)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
