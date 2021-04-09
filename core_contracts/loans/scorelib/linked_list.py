@@ -314,6 +314,8 @@ class LinkedListDB:
             # noop
             return
 
+        curprev = None
+        curnext = None
         after = self._get_node(after_id)
         afternext_id = after.get_next()
         afternext = self._get_node(afternext_id)
@@ -359,6 +361,8 @@ class LinkedListDB:
             # noop
             return
 
+        curprev = None
+        curnext = None
         before = self._get_node(before_id)
         beforeprev_id = before.get_prev()
         beforeprev = self._get_node(beforeprev_id)
