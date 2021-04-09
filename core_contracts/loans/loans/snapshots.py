@@ -42,6 +42,7 @@ class Snapshot(object):
         :rtype dict
         """
         prices = {}
+        # TODO empty prices value?
         assets = self._loans.asset_db
         snap = {
             'snap_day': self.snap_day.get(),
