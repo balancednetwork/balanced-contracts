@@ -276,7 +276,17 @@ class Dividends(IconScoreBase):
         """
         A placeholder until BalancedDAO community decides how to handle fee revenue.
         """
-        return True
+        Updates the staked balances of BALN token
+        """
+        baln_score = self.create_interface_score(self._baln_score.get(), BalnTokenInterface)
+        staked_baln_balances = baln_score.getStakeUpdates()
+        if len(staked_baln_balances) == 0:
+            return True
+        for address, balance in staked_baln_balances.items():
+            if address not in self._staked_baln_holders:
+                self._staked_baln_holders.put(address)
+            self._staked_baln_balances[address] = balance
+        return False
 
     @external
     def claim(self) -> None:
