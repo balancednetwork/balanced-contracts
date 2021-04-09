@@ -198,6 +198,39 @@ class Dividends(IconScoreBase):
     def getDaofund(self) -> Address:
         return self._daofund.get()
 
+    @external
+    @only_admin
+    def setBalnTokenAddress(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is EOA address. Should be a contract address.")
+        self._baln_score.set(_address)
+
+    @external(readonly=True)
+    def getBalnTokenAddress(self) -> Address:
+        return self._baln_score.get()
+
+    @external
+    @only_admin
+    def setMaxLoopCount(self, _loop: int) -> None:
+        if not 100 <= _loop <= 1000:
+            revert(f"{TAG}: Please provide loop in the range of 100 and 1000")
+        self._max_loop_count.set(_loop)
+
+    @external(readonly=True)
+    def getMaxLoopCount(self) -> int:
+        return self._max_loop_count.get()
+
+    @external
+    @only_admin
+    def setMinimumEligibleDebt(self, _debt: int) -> None:
+        if _debt < 0:
+            revert(f"{TAG}: Negative value for _debt can't be provided")
+        self._minimum_eligible_debt.set(_debt)
+
+    @external(readonly=True)
+    def getMinimumEligibleDebt(self) -> int:
+        return self._minimum_eligible_debt.get()
+
     @external(readonly=True)
     def getBalances(self) -> dict:
         loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
@@ -211,6 +244,32 @@ class Dividends(IconScoreBase):
         balance = self.icx.get_balance(self.address)
         balances['ICX'] = balance
         return balances
+
+    @external(readonly=True)
+    def getAcceptedTokens(self) -> list:
+        """
+        Returns the list of accepted tokens for dividends, zero score address represents ICX
+        """
+        return [token for token in self._accepted_tokens]
+
+    @external(readonly=True)
+    def getUserDividends(self, _account: Address) -> dict:
+        return {token: self._users_balance[str(_account)][str(token)] for token in self._accepted_tokens}
+
+    @external(readonly=True)
+    def getAmountToDistribute(self) -> dict:
+        """
+        Returns the amount of tokens that will be distributed in the next div cycle. zero score address refers to ICX
+        """
+        return {token: self._amount_to_distribute[str(token)] for token in self._accepted_tokens}
+
+    @external(readonly=True)
+    def getAmountBeingDistributed(self) -> dict:
+        """
+        Returns the amount of tokens being distributed currently. In the middle of distribution it only shows the
+        remaining amount to distribute.
+        """
+        return {token: self._amount_being_distributed[str(token)] for token in self._accepted_tokens}
 
     @external
     def distribute(self) -> bool:
