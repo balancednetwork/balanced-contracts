@@ -747,12 +747,14 @@ class Loans(IconScoreBase):
         if not self._positions._exists(_from):
             revert(f'This address does not have a position on Balanced. '
                    f'Collateral must be deposited before originating a loan.')
-        if self._assets[_asset].dead():
+
+        asset = self._assets[_asset]
+        if asset.dead():
             revert(f'No new loans of {_asset} can be originated since '
                    f'it is in a dead market state.')
-        if self._assets[_asset].is_collateral.get():
+        if asset.is_collateral.get():
             revert(f'Loans of collateral assets are not allowed.')
-        if not self._assets[_asset].active.get():
+        if not asset.active.get():
             revert(f'Loans of inactive assets are not allowed.')
         if self.msg.sender != self._assets['sICX'].asset_address.get():  # to avoid doubling this call.
             day, new_day = self.checkForNewDay()
@@ -763,7 +765,7 @@ class Loans(IconScoreBase):
         collateral = pos._collateral_value()
         max_debt_value = POINTS * collateral // self._locking_ratio.get()
         fee = self._origination_fee.get() * _amount // POINTS
-        new_debt_value = self._assets[_asset].priceInLoop() * (_amount + fee) // EXA
+        new_debt_value = asset.priceInLoop() * (_amount + fee) // EXA
         # Check for loan minimum
         if pos[_asset] == 0:
             loan_minimum = self._new_loan_minimum.get()
@@ -772,7 +774,7 @@ class Loans(IconScoreBase):
                 revert(f'The initial loan of any asset must have a minimum value '
                        f'of {loan_minimum / EXA} dollars.')
             pos_id = pos.id.get()
-            self._assets[_asset].add_borrower(pos_id)
+            asset.add_borrower(pos_id)
             if not pos.has_debt():
                 self._positions.add_nonzero(pos_id)
         if pos._total_debt() + new_debt_value > max_debt_value:
@@ -786,11 +788,11 @@ class Loans(IconScoreBase):
         # Originate loan
         pos[_asset] += _amount + fee
         self.OriginateLoan(_from, _asset, _amount,
-            f'Loan of {_amount} {_asset} from Balanced.')
-        self._assets[_asset].mint(_from, _amount)
+                           f'Loan of {_amount} {_asset} from Balanced.')
+        asset.mint(_from, _amount)
 
         # Pay fee
-        self._assets[_asset].mint(self._dividends.get(), fee)
+        asset.mint(self._dividends.get(), fee)
         self.FeePaid(_asset, fee, "origination", "")
         pos.update_standing()
 
