@@ -192,10 +192,7 @@ class Loans(IconScoreBase):
         """
         Diagnostic only. Will be removed for production.
         """
-        indexes = []
-        for i in self._positions._snapshot_db._indexes:
-            indexes.append(i)
-        return indexes
+        return [i for i in self._positions._snapshot_db._indexes]
 
     @external
     @only_governance
@@ -208,8 +205,9 @@ class Loans(IconScoreBase):
     @external
     @only_governance
     def toggleLoansOn(self) -> None:
-        self._loans_on.set(not self._loans_on.get())
-        self.ContractActive("Loans", "Active" if self._loans_on.get() else "Inactive")
+        value: bool = not self._loans_on.get()
+        self._loans_on.set(value)
+        self.ContractActive("Loans", "Active" if value else "Inactive")
 
     @external(readonly=True)
     def getLoansOn(self) -> bool:
@@ -257,11 +255,11 @@ class Loans(IconScoreBase):
         """
         Returns the symbols for all assets with dead_market status.
         """
-        dead_markets = []
-        for symbol in self._assets.slist:
-            if self._assets[symbol].dead_market.get():
-                dead_markets.append(symbol)
-        return dead_markets
+        return [
+            symbol
+            for symbol in self._assets.slist
+            if self._assets[symbol].dead_market.get()
+        ]
 
     @external(readonly=True)
     def getNonzeroPositionCount(self) -> int:
@@ -300,10 +298,9 @@ class Loans(IconScoreBase):
         Returns a dictionary of assets from the assetsDB with token symbol as
         the key and address as a string value.
         """
-        assets = {}
-        for symbol in self._assets.slist:
-            assets[symbol] = self._assets.symboldict[symbol]
-        return assets
+        return {
+            symbol: self._assets.symboldict[symbol] for symbol in self._assets.slist
+        }
 
     @external(readonly=True)
     def getCollateralTokens(self) -> dict:
@@ -311,11 +308,11 @@ class Loans(IconScoreBase):
         Returns a dictionary of assets from the assetsDB that are marked as
         collateral, with token symbol as the key and address as a string value.
         """
-        collateral = {}
-        for symbol in self._assets.slist:
-            if self._assets[symbol].is_collateral.get():
-                collateral[symbol] = self._assets.symboldict[symbol]
-        return collateral
+        return {
+            symbol: self._assets.symboldict[symbol]
+            for symbol in self._assets.slist
+            if self._assets[symbol].is_collateral.get()
+        }
 
     @external(readonly=True)
     def getTotalCollateral(self) -> int:
@@ -402,8 +399,9 @@ class Loans(IconScoreBase):
     @only_admin
     def toggleAssetActive(self, _symbol) -> None:
         asset = self._assets[_symbol]
-        asset.active.set(not asset.active.get())
-        self.AssetActive(_symbol, "Active" if asset.active.get() else "Inactive")
+        value: bool = not asset.active.get()
+        asset.active.set(value)
+        self.AssetActive(_symbol, "Active" if value else "Inactive")
 
     @external
     def precompute(self, _snapshot_id: int, batch_size: int) -> bool:
@@ -461,14 +459,17 @@ class Loans(IconScoreBase):
 
     @external
     def checkDistributions(self, _day: int, _new_day: bool) -> None:
-        if _new_day and self._rewards_done.get() and self._dividends_done.get():
+        rewards_done: bool = self._rewards_done.get()
+        dividends_done: bool = self._dividends_done.get()
+
+        if _new_day and rewards_done and dividends_done:
             self._rewards_done.set(False)
             if _day % 7 == 0:
                 self._dividends_done.set(False)
-        elif not self._dividends_done.get():
+        elif not dividends_done:
             dividends = self.create_interface_score(self._dividends.get(), Dividends)
             self._dividends_done.set(dividends.distribute())
-        elif not self._rewards_done.get():
+        elif not rewards_done:
             rewards = self.create_interface_score(self._rewards.get(), Rewards)
             self._rewards_done.set(rewards.distribute())
 
@@ -596,7 +597,7 @@ class Loans(IconScoreBase):
         if repaid != 0:
             asset.burn(repaid)
         self.LoanRepaid(_from, symbol, repaid,
-            f'Loan of {repaid} {symbol} repaid to Balanced.')
+                        f'Loan of {repaid} {symbol} repaid to Balanced.')
         self.check_dead_markets()
         pos.update_standing()
 
@@ -634,7 +635,6 @@ class Loans(IconScoreBase):
         fee = _value * self._redemption_fee.get() // POINTS
         redeemed = _value - fee
         bad_debt = asset.bad_debt.get()
-        supply = asset.totalSupply() - bad_debt
         asset.burn(redeemed)
         sicx: int = 0
         total_batch_debt = 0
@@ -652,7 +652,10 @@ class Loans(IconScoreBase):
         self._send_token("sICX", _from, sicx, "Collateral redeemed.")
         self._send_token(symbol, self._dividends.get(), fee, "Redemption fee.")
         self.check_dead_markets()
-        self.AssetRetired(symbol, redeemed, price, f'total_batch_debt: {total_batch_debt}, batch_dict: {batch_dict}, _from: {_from}')
+        self.AssetRetired(
+            symbol, redeemed, price,
+            f'total_batch_debt: {total_batch_debt}, batch_dict: {batch_dict}, _from: {_from}'
+        )
 
     def _retire_redeem(self, _symbol: str, _redeemed: int, _sicx_from_lenders: int) -> dict:
         batch_size = self._redeem_batch.get()
@@ -909,7 +912,7 @@ class Loans(IconScoreBase):
         try:
             token_score = self.create_interface_score(address, TokenInterface)
             token_score.transfer(_to, _amount)
-            self.TokenTransfer(_to, _amount, msg + f' {_amount} {_token} sent to {_to}.')
+            self.TokenTransfer(_to, _amount, f'{msg} {_amount} {_token} sent to {_to}.')
         except BaseException as e:
             revert(f'{_amount} {_token} not sent to {_to}. '
                    f'Exception: {e}')
