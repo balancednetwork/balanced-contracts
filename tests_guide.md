@@ -17,8 +17,8 @@ Testing in t-bears
 
 Testing in NoteBook
 
-Step 1 : Test files are outside `core_contracts`.
-Step 2 : These are the tests written in jupyter notebook . You just need to run Jupyter Notebook in the folder 
+- Step 1 : Test files are outside `core_contracts`.
+- Step 2 : These are the tests written in jupyter notebook . You just need to run Jupyter Notebook in the folder 
     that contains these test files. 
 
 - Test files:
