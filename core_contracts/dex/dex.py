@@ -65,18 +65,20 @@ class DEX(IconScoreBase):
     ####################################
     # Events
     @eventlog(indexed=2)
-    def Swap(self, _fromToken: Address, _toToken: Address, _sender: Address,
-             _receiver: Address, _fromValue: int, _toValue: int, _lpFees: int, _balnFees: int): pass
+    def Swap(self, _pid: int, _baseToken: Address, _fromToken: Address, _toToken: Address,
+             _sender: Address, _receiver: Address, _fromValue: int, _toValue: int,
+             _timestamp: int, _lpFees: int, _balnFees: int, _poolBase: int,
+             _poolQuote: int, _endingPrice: int, _effectiveFillPrice: int): pass
 
     @eventlog(indexed=3)
     def MarketAdded(self, _pid: int, _baseToken: Address,
                     _quoteToken: Address, _baseValue: int, _quoteValue: int): pass
 
-    @eventlog(indexed=2)
-    def Add(self, _pid: int, _owner: Address, _value: int): pass
+    @eventlog(indexed=3)
+    def Add(self, _pid: int, _owner: Address, _value: int, _base: int, _quote: int): pass
 
-    @eventlog(indexed=2)
-    def Remove(self, _pid: int, _owner: Address, _value: int): pass
+    @eventlog(indexed=3)
+    def Remove(self, _pid: int, _owner: Address, _value: int, _base: int, _quote: int): pass
 
     @eventlog(indexed=2)
     def Deposit(self, _token: Address, _owner: Address, _value: int): pass
@@ -746,8 +748,10 @@ class DEX(IconScoreBase):
         """
         if self._nonce.get() < _pid < 1:
             revert("Invalid pool id")
+
         if _pid == self._SICXICX_POOL_ID:
             return self._get_sicx_rate()
+
         return (self._pool_total[_pid][self._pool_base[_pid]] * EXA) // self._pool_total[_pid][self._pool_quote[_pid]]
 
     @external(readonly=True)
@@ -757,6 +761,10 @@ class DEX(IconScoreBase):
         """
         if self._nonce.get() < _pid < 1:
             revert("Invalid pool id")
+        
+        if _pid == self._SICXICX_POOL_ID:
+            return EXA * EXA // self._get_sicx_rate()
+
         return (self._pool_total[_pid][self._pool_quote[_pid]] * EXA) // self._pool_total[_pid][self._pool_base[_pid]]
 
     @external(readonly=True)
@@ -783,6 +791,35 @@ class DEX(IconScoreBase):
         if not order_id:
             return 0
         return self._icx_queue._get_node(order_id).get_value1()
+    
+    @external(readonly=True)
+    def getPoolStats(self, _id: int) -> int:
+
+        if self._nonce.get() < _id < 1:
+            revert("Invalid pool id")
+        
+        if _id == self._SICXICX_POOL_ID:
+            return {
+                'base_token': self._sicx.get(),
+                'quote_token': None,
+                'base': 0,
+                'quote': self._icx_queue_total.get(),
+                'total_supply': self._icx_queue_total.get(),
+                'price': self.getPrice(_id)
+            }
+
+        else:
+            base_token = self._pool_base[_id]
+            quote_token = self._pool_quote[_id]
+
+            return {
+                'base': self._pool_total[_id][base_token],
+                'quote': self._pool_total[_id][quote_token],
+                'base_token': base_token,
+                'quote_token': quote_token,
+                'total_supply': self._total[_id],
+                'price': self.getPrice(_id)
+            }
 
     ####################################
     # Token Functionality
@@ -895,49 +932,75 @@ class DEX(IconScoreBase):
 
     @dex_on
     def exchange(self, _fromToken: Address, _toToken: Address, _sender: Address, _receiver: Address, _value: int, _max_slippage: int = 250):
+
+        # All fees are scaled to FEE_SCALE
         lp_fees = (_value * self._pool_lp_fee.get()) // FEE_SCALE
         baln_fees = (_value * self._pool_baln_fee.get()) // FEE_SCALE
         fees = lp_fees + baln_fees
+
         original_value = _value
         _value -= fees
+
+        is_sell = False
+        
         _pid = self._pool_id[_fromToken][_toToken]
+ 
         if _pid <= 0:
             revert("Pool does not exist")
+ 
         if _pid == self._SICXICX_POOL_ID:
             revert("Not supported on this API, use the ICX swap API")
+ 
         if _fromToken == self.getPoolQuote(_pid):
             old_price = self.getBasePriceInQuote(_pid)
+ 
         else:
             old_price = self.getQuotePriceInBase(_pid)
-        Logger.info("old_price: " + str(old_price), self._TAG)
+            is_sell = True
+
         if not self.active[_pid]:
             revert("Pool is not active")
+ 
         new_token1 = self._pool_total[_pid][_fromToken] + _value
+ 
         new_token2 = int(
             self._pool_total[_pid][_fromToken] * self._pool_total[_pid][_toToken] / new_token1)
+ 
         send_amt = self._pool_total[_pid][_toToken] - new_token2
 
-        self._pool_total[_pid][_fromToken] = new_token1 + lp_fees
+        new_token1 += lp_fees
+
+        self._pool_total[_pid][_fromToken] = new_token1
         self._pool_total[_pid][_toToken] = new_token2
+
+        total_base = new_token2 if is_sell else new_token1
+        total_quote = new_token1 if is_sell else new_token1
 
         send_price = (EXA * _value) // send_amt
 
         max_slippage_price = (old_price * (10000 + _max_slippage)) // 10000
 
-        Logger.info("send price = " + str(send_price) + ", old price = " +
-                    str(old_price) + ", max slippage price = " + str(max_slippage_price), self._TAG)
-
         if send_price > max_slippage_price:
             revert("Passed Maximum slippage")
 
-        # Pay each of the user and the dividends score their share of the tokens
+        # Send the trader their funds
         to_token_score = self.create_interface_score(_toToken, TokenInterface)
         to_token_score.transfer(_receiver, send_amt)
+
+        # Send the dividends share to the dividends SCORE
         from_token_score = self.create_interface_score(
             _fromToken, TokenInterface)
         from_token_score.transfer(self._dividends.get(), baln_fees)
-        self.Swap(_fromToken, _toToken, _sender,
-                  _receiver, original_value, send_amt, lp_fees, baln_fees)
+
+        # Broadcast pool ending price
+        ending_price = self.getPrice(_pid)
+        effective_fill_price = send_price
+        if not is_sell:
+            effective_fill_price = (EXA * send_amt) // _value
+
+        self.Swap(_pid, self._pool_base[_pid], _fromToken, _toToken, _sender,
+                  _receiver, original_value, send_amt, self.now(), lp_fees,
+                  baln_fees, total_base, total_quote, ending_price, effective_fill_price)
 
     def _get_sicx_rate(self) -> int:
         staking_score = self.create_interface_score(
@@ -1267,6 +1330,10 @@ class DEX(IconScoreBase):
         """
         if _value > self._deposit[_token][self.msg.sender]:
             revert("Insufficient balance")
+        
+        if _value <= 0:
+            revert("InvalidAmountError: Please send a positive amount")
+
         self._deposit[_token][self.msg.sender] -= _value
         token_score = self.create_interface_score(_token, TokenInterface)
         token_score.transfer(self.msg.sender, _value)
@@ -1310,7 +1377,7 @@ class DEX(IconScoreBase):
             minimum_possible = _value - (MIN_LIQUIDITY - self._total[_pid]) 
             revert(f"MinimumLiquidityError: {minimum_possible} max withdraw size")
 
-        self.Remove(_pid, self.msg.sender, _value)
+        self.Remove(_pid, self.msg.sender, _value, base_withdraw, quote_withdraw)
         self.TransferSingle(self.msg.sender, self.msg.sender, Address.from_string(
             DEX_ZERO_SCORE_ADDRESS), _pid, _value)
     
@@ -1332,12 +1399,19 @@ class DEX(IconScoreBase):
 
     @external
     @dex_on
-    def add(self, _baseToken: Address, _quoteToken: Address, _maxBaseValue: int, _quoteValue: int):
+    def add(self, _baseToken: Address, _quoteToken: Address, _baseValue: int, _quoteValue: int, _withdraw_unused: bool = True):
         """
         Adds liquidity to a pool for trading, or creates a new pool. Rules:
         - The quote coin of the pool must be one of the allowed quote currencies.
         - Tokens must be deposited in the pool's ratio.
         - If ratio is incorrect, it is advisable to call `swap` first.
+        - The pool will attempt to maximize the base and quote tokens to fit the pools ratio
+        - If there is no deposits, the initial ratio will equal the deposit
+
+        :param _baseToken: Base Token to apply to the pool
+        :param _quoteToken: Quote Token to apply to the pool
+        :param _baseValue: Amount of base token (at most) to commit to the pool
+        :param _quoteValue: Amount of qutoe token (at most) to commit to the pool
         """
 
         self._take_new_day_snapshot()
@@ -1345,46 +1419,81 @@ class DEX(IconScoreBase):
 
         _owner = self.msg.sender
         _pid = self._pool_id[_baseToken][_quoteToken]
+
         if _baseToken == _quoteToken:
             revert("Pool must contain two token contracts")
-        if not _maxBaseValue:
+        if not _baseValue:
             revert("Please send initial value for first currency")
         if not _quoteValue:
             revert("Please send initial value for second currency")
-        if self._deposit[_baseToken][self.msg.sender] < _maxBaseValue:
+        if self._deposit[_baseToken][self.msg.sender] < _baseValue:
             revert("Insufficient base asset funds deposited")
         if self._deposit[_quoteToken][self.msg.sender] < _quoteValue:
             revert("insufficient quote asset funds deposited")
 
-        # By default on new pools, use the maximum sent _maxBaseValue for supplied liquidity
-        base_to_commit = _maxBaseValue
+        # By default on new pools, use the supplied parameters
+        # If a pool id already exists (non-zero), apply in the pool ratio instead
+        base_to_commit = _baseValue
+        quote_to_commit = _quoteValue
 
         if _pid == 0:
+
             if _quoteToken not in self._quote_coins:
-                revert("Second currency must be an allowed quote currency")
+                revert("QuoteNotAllowed: Supplied quote token not in permitted set")
+
             self._pool_id[_baseToken][_quoteToken] = self._nonce.get()
             self._pool_id[_quoteToken][_baseToken] = self._nonce.get()
             _pid = self._nonce.get()
-            liquidity = DEFAULT_INITAL_LP
+
             self._nonce.set(self._nonce.get() + 1)
             self.active[_pid] = True
+
             self._pool_base[_pid] = _baseToken
             self._pool_quote[_pid] = _quoteToken
+
+            liquidity = DEFAULT_INITAL_LP
             self.MarketAdded(_pid, _baseToken, _quoteToken,
-                             _maxBaseValue, _quoteValue)
+                             _baseValue, _quoteValue)
 
         else:
-            base_to_commit = (_quoteValue * self._pool_total[_pid][self._pool_base[_pid]]) // (self._pool_total[_pid][self._pool_quote[_pid]])
-            if base_to_commit > _maxBaseValue:
-                revert(f'Proportionate base amount is {base_to_commit}, but sent {_maxBaseValue}')
-            liquidity = (self._total[_pid] * base_to_commit) // self._pool_total[_pid][_baseToken]
+            
+            # We will commit up to the supplied assets, and refund the rest
+            base_from_quote = (_quoteValue * self._pool_total[_pid][self._pool_base[_pid]]) // (self._pool_total[_pid][self._pool_quote[_pid]])
+
+            quote_from_base = (_baseValue * self._pool_total[_pid][self._pool_quote[_pid]]) // (self._pool_total[_pid][self._pool_base[_pid]])
+
+            Logger.info(f"Pre Total Base: {self._pool_total[_pid][_baseToken]}, quote: {self._pool_total[_pid][_quoteToken]}", self._TAG)
+
+            Logger.info(f"Base: {_baseValue} (supplied), {base_from_quote} (computed); Quote: {_quoteValue} (supplied), {quote_from_base} (computed)", self._TAG)
+
+            if quote_from_base <= _quoteValue:
+                quote_to_commit = quote_from_base
+
+            elif base_from_quote <= _baseValue:
+                base_to_commit = base_from_quote
+
+            else:
+                revert("AddLiquidityError: Unable to add to pool in supplied ratio")
+
+            liquidity_from_base = (self._total[_pid] * base_to_commit) // self._pool_total[_pid][_baseToken]
+            liquidity_from_quote = (self._total[_pid] * quote_to_commit) // self._pool_total[_pid][_quoteToken]
+
+            liquidity = min(liquidity_from_base, liquidity_from_quote)
+
+        # Apply the funds to the pool and add LP tokens
         self._pool_total[_pid][_baseToken] += base_to_commit
-        self._pool_total[_pid][_quoteToken] += _quoteValue
+        self._pool_total[_pid][_quoteToken] += quote_to_commit
+
+        Logger.info(f"Committing: {base_to_commit} base, {quote_to_commit} quote for {liquidity} LP tokens", self._TAG)
+
         self._deposit[_baseToken][self.msg.sender] -= base_to_commit
-        self._deposit[_quoteToken][self.msg.sender] -= _quoteValue
+        self._deposit[_quoteToken][self.msg.sender] -= quote_to_commit
+
         self._balance[_pid][_owner] += liquidity
         self._total[_pid] += liquidity
-        self.Add(_pid, _owner, liquidity)
+
+        self.Add(_pid, _owner, liquidity, base_to_commit, quote_to_commit)
+
         self.TransferSingle(_owner, Address.from_string(
             DEX_ZERO_SCORE_ADDRESS), _owner, _pid, liquidity)
 
@@ -1396,3 +1505,18 @@ class DEX(IconScoreBase):
 
         self._update_account_snapshot(_owner, _pid)
         self._update_total_supply_snapshot(_pid)
+
+        Logger.info(f"Post Total Base: {self._pool_total[_pid][_baseToken]}, quote: {self._pool_total[_pid][_quoteToken]}", self._TAG)
+
+        # If set to withdraw unused funds, check if any are left on deposit
+        # If yes, then send back to the msg.sender address
+        if _withdraw_unused:
+            remaining_base = self._deposit[_baseToken][self.msg.sender]
+
+            if remaining_base > 0:
+                self.withdraw(_baseToken, remaining_base)
+
+            remaining_quote = self._deposit[_quoteToken][self.msg.sender]
+
+            if remaining_quote > 0:
+                self.withdraw(_quoteToken, remaining_quote)
