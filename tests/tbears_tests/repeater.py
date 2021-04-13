@@ -53,7 +53,7 @@ def retry(exception_to_check: Exception or tuple, tries: int =10, delay: int =1,
                 try:
                     return f(*args, **kwargs)
                 except exception_to_check as e:
-                    msg = "%s, Retrying in %d seconds..." % (str(e), mdelay)
+                    msg = "Retrying in %d seconds..." % mdelay
                     if logger:
                         logger.warning(msg)
                     else:
@@ -64,5 +64,3 @@ def retry(exception_to_check: Exception or tuple, tries: int =10, delay: int =1,
             return f(*args, **kwargs)
         return f_retry  # true decorator
     return deco_retry
-
-

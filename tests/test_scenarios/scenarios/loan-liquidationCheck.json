@@ -23,7 +23,7 @@
       }
     },
     {
-      "description": "Mints 200 amount of ICD to the user 2 address without checking collateralization ratio With the above collateral deposit it will put the position in a standing of Liquidation",
+      "description": "Mints 200 amount of bnUSD to the user 2 address without checking collateralization ratio With the above collateral deposit it will put the position in a standing of Liquidation",
       "actions": {
         "prev_sicx_bal_loan": "782000000000000000000",
         "prev_icd_debt_bal_loan": "0",
@@ -42,7 +42,7 @@
       }
     },
     {
-      "description": "Mints 200 amount of ICD to the user 2 address without checking collateralization ratio With the above collateral deposit it will put the position in a standing of Liquidation",
+      "description": "Mints 200 amount of bnUSD to the user 2 address without checking collateralization ratio With the above collateral deposit it will put the position in a standing of Liquidation",
       "actions": {
         "prev_sicx_bal_loan": "782000000000000000000",
         "prev_icd_debt_bal_loan": "200000000000000000000",
@@ -61,7 +61,7 @@
       }
     },
     {
-      "description": "Mints 200 amount of ICD to the user 2 address without checking collateralization ratio With the above collateral deposit it will put the position in a standing of Liquidation",
+      "description": "Mints 200 amount of bnUSD to the user 2 address without checking collateralization ratio With the above collateral deposit it will put the position in a standing of Liquidation",
       "actions": {
         "prev_sicx_bal_loan": "782000000000000000000",
         "prev_icd_debt_bal_loan": "400000000000000000000",
@@ -99,7 +99,7 @@
       }
     },
     {
-      "description": "Check account standing of user 2 on loan score calling liquidate method, Should now have zero balance for sICX and ICD.",
+      "description": "Check account standing of user 2 on loan score calling liquidate method, Should now have zero balance for sICX and bnUSD.",
       "actions": {
         "prev_sicx_bal_loan": "500000000000000000000",
         "prev_icd_debt_bal_loan": "200000000000000000000",
@@ -111,7 +111,7 @@
           "_owner": "self.user3.get_address()"
         },
         "expected": "1",
-        "standing": "Should now have zero balance for sICX and ICD",
+        "standing": "Should now have zero balance for sICX and bnUSD",
         "expected_sicx_baln_loan": "0",
         "expected_icd_debt_baln_loan": "0",
         "expected_icd_bal_wallet": "0"
@@ -137,7 +137,7 @@
       }
     },
     {
-      "description": "Check account standing of user 2 on loan score after 200 ICD, should have standing of 'Liquidate'.",
+      "description": "Check account standing of user 2 on loan score after 200 bnUSD, should have standing of 'Liquidate'.",
       "actions": {
         "prev_sicx_bal_loan": "1000000000000000000000",
         "prev_icd_debt_bal_loan": "250000000000000000000",

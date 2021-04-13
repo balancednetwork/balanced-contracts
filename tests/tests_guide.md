@@ -7,7 +7,7 @@ Step 1 : Clone the repository
 Testing in t-bears
 - Step 1 : Test files are inside `core_contracts` `tests` .
 - Step 2 : Now you just need to change the file path for tests files and test-scenarios files.
-- Step 3 : You can run tests in t-bears using a command : tbears test test_file_name . Here, test_file_name is tests.
+- Step 3 : You can run tests in t-bears using a command in terminal: tbears test test_file_name . Here, test_file_name is tests.
     If you want to run some specific tests only then you can comment out other test files and run that test.
 - Test files:
     - test_loan_add_collateral.py - This file tests different cases of addCollateral method in loans score.
@@ -17,7 +17,7 @@ Testing in t-bears
 
 Testing in NoteBook
 
-- Step 1 : Test files are outside `core_contracts`.
+- Step 1 : Test files are outside of  `core_contracts`.
 - Step 2 : These are the tests written in jupyter notebook . You just need to run Jupyter Notebook in the folder 
     that contains these test files. 
 

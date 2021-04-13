@@ -1,35 +1,23 @@
 import os
-import pickle
 from shutil import make_archive
-from time import sleep
-from iconservice import *
-from tbears.libs.icon_integrate_test import IconIntegrateTestBase, SCORE_INSTALL_ADDRESS
+from tbears.libs.icon_integrate_test import IconIntegrateTestBase
 import json
 
 # raise e
-
 
 from iconsdk.builder.call_builder import CallBuilder
 from iconsdk.libs.in_memory_zip import gen_deploy_data_content
 from iconsdk.signed_transaction import SignedTransaction
 from iconsdk.icon_service import IconService
 from iconsdk.providers.http_provider import HTTPProvider
-from iconsdk.builder.transaction_builder import CallTransactionBuilder, TransactionBuilder, DeployTransactionBuilder
+from iconsdk.builder.transaction_builder import CallTransactionBuilder, DeployTransactionBuilder
 from iconsdk.wallet.wallet import KeyWallet
 from iconsdk.exception import JSONRPCException
-from .repeater import retry
+from tbears_tests.repeater import retry
 
 ICX = 1000000000000000000
-DIR_PATH = os.path.abspath(os.path.dirname(__file__))
-DEPLOY = ['loans', 'reserve', 'dividends', 'dummy_oracle', 'staking', 'rewards', 'dex']
-TOKEN = ['bal', 'bwt', 'icd', 'sicx']
-UPDATE = ['loans']
 
-# need to change it to relative path using dir
-# path = '/home/sudeep/self.contracts-private/core_self.contracts/tests'
-# filename = '/home/sudeep/self.contracts-private/test_scenarios/scenarios/loan-addCollateral.json'
-
-filename = '../test_scenarios/scenarios/loan-addCollateral.json'
+filename = './test_scenarios/scenarios/loan-addCollateral.json'
 
 GOVERNANCE_ADDRESS = "cx0000000000000000000000000000000000000000"
 ORACLE = "cx61a36e5d10412e03c907a507d1e8c6c3856d9964"
@@ -46,42 +34,28 @@ test_cases = read_file_data(filename)
 
 class TestLoan(IconIntegrateTestBase):
     TEST_HTTP_ENDPOINT_URI_V3 = "http://18.144.108.38:9000/api/v3"
-    SCORES = os.path.abspath(os.path.join(DIR_PATH, '..'))
 
     def setUp(self):
         super().setUp()
         self.contracts = {}
+
+        self.wallet = KeyWallet.load("keystores/keystore_test1.json", "test1_Account")
+        # Balanced test wallet
+        with open("keystores/balanced_test.pwd", "r") as f:
+            key_data = f.read()
+        self.btest_wallet = KeyWallet.load("keystores/balanced_test.json", key_data)
+
         # test2 = hx7a1824129a8fe803e45a3aae1c0e060399546187
         private = "0a354424b20a7e3c55c43808d607bddfac85d033e63d7d093cb9f0a26c4ee022"
         self._test2 = KeyWallet.load(bytes.fromhex(private))
         # self._test2 = KeyWallet.create()
+
         self.icon_service = IconService(HTTPProvider(self.TEST_HTTP_ENDPOINT_URI_V3))
-        print(self._test1.get_address())
-        print(self._test2.get_address())
+        print(self.wallet.get_address())
+        print(self.btest_wallet.get_address())
         # deploy SCORE
 
-        results = {}
-        self.deploy_all(self.btest_wallet)
-        print(
-            '------------------------------------------------------------------------------------------------------------------')
-        print(self.contracts)
-        print(
-            '----------Contracts for Testing UI--------------------------------------------------------------------------------')
-        # print(get_scores_json(self.contracts))
-
-        # governance = self._deploy_score(self.self.contracts['governance'], {}, self.wallet, 0)
-        # for address in DEPLOY:
-        #     # deploy_all(btest_wallet)
-        #     self.SCORE_PROJECT = self.SCORES + "/" + address
-        #     print('Deploying ' + address + ' Contract in Testnet')
-        #     self.self.contracts[address] = self._deploy_score(self.self.contracts[address], {'_governance': governance}, self.wallet, 0)['scoreAddress']
-        #     print('Deployed Successfully')
-        # 
-        # for addr in TOKEN:
-        #     self.SCORES = os.path.abspath(os.path.join(DIR_PATH, '../../token_self.contracts'))
-        #     self.SCORE_PROJECT = self.SCORES + "/" + addr
-        #     print('Deploying ' + addr + ' Contract in Testnet')
-        #     self.self.contracts[addr] = self._deploy_score()['scoreAddress']
+        self.results = {}
 
         self.contracts = {'loans': {'zip': 'core_contracts/loans.zip',
                                'SCORE': 'cxa0f715fb2c4bc8f4c6399c2cc26167a27be0aa61'},
@@ -114,6 +88,13 @@ class TestLoan(IconIntegrateTestBase):
                      'bwt': {'zip': 'token_contracts/bwt.zip',
                              'SCORE': 'cx663f9d59163846d9f6c6f7b586858c59aa8878a9'}}
 
+        self.deploy_all(self.btest_wallet)
+        print(
+            '------------------------------------------------------------------------------------------------------------------')
+        print(self.contracts)
+        print(
+            '----------Contracts for Testing UI--------------------------------------------------------------------------------')
+        print(self.get_scores_json(self.contracts))
 
     @retry(JSONRPCException, tries=10, delay=1, back_off=2)
     def _get_tx_result(self, _tx_hash):
@@ -124,9 +105,6 @@ class TestLoan(IconIntegrateTestBase):
     def get_tx_result(self, _call):
         tx_result = self.icon_service.call(_call)
         return tx_result
-
-    # Cell 6
-    # Define deploy and send_tx functions
 
     def compress(self):
         """
@@ -166,9 +144,8 @@ class TestLoan(IconIntegrateTestBase):
             .build()
 
         signed_transaction = SignedTransaction(deploy_transaction, wallet, step_limit)
-        _tx_result = self.process_transaction(signed_transaction, self.icon_service)
-
-        res = self.get_tx_result(_tx_result)
+        tx_hash = self.icon_service.send_transaction(signed_transaction)
+        res = self._get_tx_result(tx_hash)
         print(f'Status: {res["status"]}')
         if len(res["eventLogs"]) > 0:
             for item in res["eventLogs"]:
@@ -200,7 +177,7 @@ class TestLoan(IconIntegrateTestBase):
         signed_transaction = SignedTransaction(transaction, wallet)
         tx_hash = self.icon_service.send_transaction(signed_transaction)
 
-        res = get_tx_result(tx_hash)
+        res = self._get_tx_result(tx_hash)
         print(
             f'************************************************** Status: {res["status"]} **************************************************')
         if len(res["eventLogs"]) > 0:
@@ -250,7 +227,7 @@ class TestLoan(IconIntegrateTestBase):
         Prints out dictionary of SCORE addresses for use in testing UI.
         """
         scores = {}
-        for score in self.contracts:
+        for score in contracts:
             scores[score] = self.contracts[score]['SCORE']
         return json.dumps(scores)
 
@@ -264,38 +241,28 @@ class TestLoan(IconIntegrateTestBase):
         print(
             '------------------------------------------------------------------------------------------------------------------')
         call = CallBuilder() \
-            .from_(wallet.get_address()) \
+            .from_(self.wallet.get_address()) \
             .to(self.contracts[dest]['SCORE']) \
             .method(method) \
             .params(params) \
             .build()
-        result = icon_service.call(call)
+        result = self.icon_service.call(call)
         print(result)
         return result
 
 
-    # results = {}
-    # deploy_all(btest_wallet)
-    # print(
-    #     '------------------------------------------------------------------------------------------------------------------')
-    # print(self.contracts)
-    # print(
-    #     '----------Contracts for Testing UI--------------------------------------------------------------------------------')
-    # print(get_scores_json(self.contracts))
-
-
-    def _score_update(self):
-        # update SCORE
-        for address in UPDATE:
-            print('======================================================================')
-            print('Test Score Update(' + address + ')')
-            print('----------------------------------------------------------------------')
-            self.SCORES = os.path.abspath(os.path.join(DIR_PATH, '../../core_self.contracts'))
-            self.SCORE_PROJECT = self.SCORES + "/" + address
-            SCORE_PROJECT = os.path.abspath(os.path.join(DIR_PATH, '..')) + "/" + address
-            tx_result = self._deploy_score(self.self.contracts[address], 'update')
-            self.assertEqual(
-                self.self.contracts[address], tx_result['scoreAddress'])
+    # def _score_update(self):
+    #     # update SCORE
+    #     for address in UPDATE:
+    #         print('======================================================================')
+    #         print('Test Score Update(' + address + ')')
+    #         print('----------------------------------------------------------------------')
+    #         self.SCORES = os.path.abspath(os.path.join(DIR_PATH, '../../core_self.contracts'))
+    #         self.SCORE_PROJECT = self.SCORES + "/" + address
+    #         SCORE_PROJECT = os.path.abspath(os.path.join(DIR_PATH, '')) + "/" + address
+    #         tx_result = self._deploy_score(self.contracts[address], 'update')
+    #         self.assertEqual(
+    #             self.contracts[address], tx_result['scoreAddress'])
 
     # # Adding collateral to wallet _test1
     def test_addCollateral(self):
@@ -313,7 +280,7 @@ class TestLoan(IconIntegrateTestBase):
             params = {"_asset": data1['_asset'], "_amount": int(data1['_amount'])}
             transaction = CallTransactionBuilder() \
                 .from_(wallet_address) \
-                .to(self.self.contracts['loans']['SCORE']) \
+                .to(self.contracts['loans']['SCORE']) \
                 .value(int(case['actions']['deposited_icx'])) \
                 .step_limit(10000000) \
                 .nid(3) \
@@ -329,13 +296,13 @@ class TestLoan(IconIntegrateTestBase):
                 print('Revert Matched')
             else:
                 bal_of_sicx = self.balanceOfTokens('sicx')
-                bal_of_icd = self.balanceOfTokens('icd')
+                bal_of_icd = self.balanceOfTokens('bnUSD')
                 self.assertEqual(1, _tx_result['status'])
                 self.assertEqual(int(case['actions']['expected_sicx_baln_loan']), int(bal_of_sicx, 16))
                 self.assertEqual(int(case['actions']['expected_icd_debt_baln_loan']), int(bal_of_icd, 16))
                 account_position = self._getAccountPositions()
                 assets = account_position['assets']
-                position_to_check = {'sICX':str(bal_of_sicx),'ICD':hex(int(bal_of_icd,16) + int(self.getBalances()['ICD'],16))}
+                position_to_check = {'sICX':str(bal_of_sicx),'bnUSD':hex(int(bal_of_icd,16) + int(self.getBalances()['bnUSD'],16))}
                 self.assertEqual(position_to_check, assets)
                 print('added collateral')
 
@@ -344,14 +311,14 @@ class TestLoan(IconIntegrateTestBase):
             "_owner": self._test1.get_address()
         }
         if name == 'sicx':
-            contract = self.self.contracts['sicx']['SCORE']
+            contract = self.contracts['sicx']['SCORE']
             params = {
-                "_owner": self.self.contracts['loans']['SCORE']
+                "_owner": self.contracts['loans']['SCORE']
             }
         elif name == 'dividends':
-            contract = self.self.contracts['dividends']['SCORE']
+            contract = self.contracts['dividends']['SCORE']
         else:
-            contract = self.self.contracts['icd']['SCORE']
+            contract = self.contracts['bnUSD']['SCORE']
         _call = CallBuilder().from_(self._test1.get_address()) \
             .to(contract) \
             .method("balanceOf") \
@@ -361,13 +328,13 @@ class TestLoan(IconIntegrateTestBase):
         if name == 'sicx':
             print('Balance of sicx token is ' + str(int(response, 16)))
         else:
-            print("Balance of icd is " + str(int(response, 16)))
+            print("Balance of bnUSD is " + str(int(response, 16)))
         return response
 
     def _getAccountPositions(self) -> dict:
         params = {'_owner': self._test1.get_address()}
         _call = CallBuilder().from_(self._test1.get_address()) \
-            .to(self.self.contracts['loans']['SCORE']) \
+            .to(self.contracts['loans']['SCORE']) \
             .method('getAccountPositions') \
             .params(params) \
             .build()
@@ -376,7 +343,7 @@ class TestLoan(IconIntegrateTestBase):
 
     def getBalances(self):
         _call = CallBuilder().from_(self._test1.get_address()) \
-            .to(self.self.contracts['dividends']['SCORE']) \
+            .to(self.contracts['dividends']['SCORE']) \
             .method('getBalances') \
             .build()
         result = self.get_tx_result(_call)

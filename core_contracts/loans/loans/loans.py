@@ -154,7 +154,7 @@ class Loans(IconScoreBase):
         # Create bad position for testing liquidation. Take out a loan that is too large.
         # Add ICX collateral via staking contract.
         if not self._test_mode.get():
-            revert(f'This method may only be called in test mode.')
+            revert(f'This method may only be called in test_scenerios mode.')
         params = {"_sender": str(_address), "_asset": "", "_amount": 0}
         data = json_dumps({"method": "_deposit_and_borrow", "params": params}).encode("utf-8")
         staking = self.create_interface_score(self._staking.get(), Staking)
