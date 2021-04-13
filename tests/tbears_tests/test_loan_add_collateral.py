@@ -4,7 +4,6 @@ from tbears.libs.icon_integrate_test import IconIntegrateTestBase
 import json
 
 # raise e
-
 from iconsdk.builder.call_builder import CallBuilder
 from iconsdk.libs.in_memory_zip import gen_deploy_data_content
 from iconsdk.signed_transaction import SignedTransaction
@@ -13,7 +12,7 @@ from iconsdk.providers.http_provider import HTTPProvider
 from iconsdk.builder.transaction_builder import CallTransactionBuilder, DeployTransactionBuilder
 from iconsdk.wallet.wallet import KeyWallet
 from iconsdk.exception import JSONRPCException
-from tbears_tests.repeater import retry
+from .repeater import retry
 
 ICX = 1000000000000000000
 
@@ -39,11 +38,11 @@ class TestLoan(IconIntegrateTestBase):
         super().setUp()
         self.contracts = {}
 
-        self.wallet = KeyWallet.load("keystores/keystore_test1.json", "test1_Account")
+        self.wallet = KeyWallet.load("../keystores/keystore_test1.json", "test1_Account")
         # Balanced test wallet
-        with open("keystores/balanced_test.pwd", "r") as f:
+        with open("../keystores/balanced_test.pwd", "r") as f:
             key_data = f.read()
-        self.btest_wallet = KeyWallet.load("keystores/balanced_test.json", key_data)
+        self.btest_wallet = KeyWallet.load("../keystores/balanced_test.json", key_data)
 
         # test2 = hx7a1824129a8fe803e45a3aae1c0e060399546187
         private = "0a354424b20a7e3c55c43808d607bddfac85d033e63d7d093cb9f0a26c4ee022"
@@ -58,35 +57,35 @@ class TestLoan(IconIntegrateTestBase):
         self.results = {}
 
         self.contracts = {'loans': {'zip': 'core_contracts/loans.zip',
-                               'SCORE': 'cxa0f715fb2c4bc8f4c6399c2cc26167a27be0aa61'},
-                     'staking': {'zip': 'core_contracts/staking.zip',
-                                 'SCORE': 'cxbabed822d59b605dbeb6322735c529b292baac3b'},
-                     'dividends': {'zip': 'core_contracts/dividends.zip',
-                                   'SCORE': 'cx1379084f45776301abda3849c6e374f460ee0155'},
-                     'reserve': {'zip': 'core_contracts/reserve.zip',
-                                 'SCORE': 'cx71dda2221bf88faddc8f84b72ffd6db296e5609e'},
-                     'daofund': {'zip': 'core_contracts/daofund.zip',
-                                 'SCORE': 'cxfd09787f23d23b945fa0c7eb55b5aa69425da1c8'},
-                     'rewards': {'zip': 'core_contracts/rewards.zip',
-                                 'SCORE': 'cx27aa3bf62145822e60d85fa5d18dabdcff5b9ada'},
-                     'dex': {'zip': 'core_contracts/dex.zip',
-                             'SCORE': 'cx01eee12b6614e5328e0a84261652cb7f055e0176'},
-                     'governance': {'zip': 'core_contracts/governance.zip',
-                                    'SCORE': 'cxd7b3e71dcff3d75392216e208f28ef68e8a54ec0'},
-                     'oracle': {'zip': 'core_contracts/oracle.zip',
-                                'SCORE': 'cx7171e2f5653c1b9c000e24228276b8d24e84f10d'},
-                     'sicx': {'zip': 'token_contracts/sicx.zip',
-                              'SCORE': 'cx799f724e02560a762b5f2bd3b6d2d8d59d7aecc1'},
-                     'bnUSD': {'zip': 'token_contracts/bnUSD.zip',
-                               'SCORE': 'cx266bdc0c35828c8130cdf1cbaa3ad109f7694722'},
-                     'bnXLM': {'zip': 'token_contracts/bnXLM.zip',
-                               'SCORE': 'cx266bdc0c35828c8130cdf1cbaa3ad109f7694722'},
-                     'bnDOGE': {'zip': 'token_contracts/bnDOGE.zip',
-                                'SCORE': 'cx266bdc0c35828c8130cdf1cbaa3ad109f7694722'},
-                     'baln': {'zip': 'token_contracts/baln.zip',
-                              'SCORE': 'cx4d0768508a7ff550de4405f27aebfb8831565c19'},
-                     'bwt': {'zip': 'token_contracts/bwt.zip',
-                             'SCORE': 'cx663f9d59163846d9f6c6f7b586858c59aa8878a9'}}
+                                    'SCORE': 'cxa0f715fb2c4bc8f4c6399c2cc26167a27be0aa61'},
+                          'staking': {'zip': 'core_contracts/staking.zip',
+                                      'SCORE': 'cxbabed822d59b605dbeb6322735c529b292baac3b'},
+                          'dividends': {'zip': 'core_contracts/dividends.zip',
+                                        'SCORE': 'cx1379084f45776301abda3849c6e374f460ee0155'},
+                          'reserve': {'zip': 'core_contracts/reserve.zip',
+                                      'SCORE': 'cx71dda2221bf88faddc8f84b72ffd6db296e5609e'},
+                          'daofund': {'zip': 'core_contracts/daofund.zip',
+                                      'SCORE': 'cxfd09787f23d23b945fa0c7eb55b5aa69425da1c8'},
+                          'rewards': {'zip': 'core_contracts/rewards.zip',
+                                      'SCORE': 'cx27aa3bf62145822e60d85fa5d18dabdcff5b9ada'},
+                          'dex': {'zip': 'core_contracts/dex.zip',
+                                  'SCORE': 'cx01eee12b6614e5328e0a84261652cb7f055e0176'},
+                          'governance': {'zip': 'core_contracts/governance.zip',
+                                         'SCORE': 'cxd7b3e71dcff3d75392216e208f28ef68e8a54ec0'},
+                          'oracle': {'zip': 'core_contracts/oracle.zip',
+                                     'SCORE': 'cx7171e2f5653c1b9c000e24228276b8d24e84f10d'},
+                          'sicx': {'zip': 'token_contracts/sicx.zip',
+                                   'SCORE': 'cx799f724e02560a762b5f2bd3b6d2d8d59d7aecc1'},
+                          'bnUSD': {'zip': 'token_contracts/bnUSD.zip',
+                                    'SCORE': 'cx266bdc0c35828c8130cdf1cbaa3ad109f7694722'},
+                          'bnXLM': {'zip': 'token_contracts/bnXLM.zip',
+                                    'SCORE': 'cx266bdc0c35828c8130cdf1cbaa3ad109f7694722'},
+                          'bnDOGE': {'zip': 'token_contracts/bnDOGE.zip',
+                                     'SCORE': 'cx266bdc0c35828c8130cdf1cbaa3ad109f7694722'},
+                          'baln': {'zip': 'token_contracts/baln.zip',
+                                   'SCORE': 'cx4d0768508a7ff550de4405f27aebfb8831565c19'},
+                          'bwt': {'zip': 'token_contracts/bwt.zip',
+                                  'SCORE': 'cx663f9d59163846d9f6c6f7b586858c59aa8878a9'}}
 
         self.deploy_all(self.btest_wallet)
         print(
@@ -108,10 +107,10 @@ class TestLoan(IconIntegrateTestBase):
 
     def compress(self):
         """
-        Compress all SCORE folders in the core_self.contracts and toekn_self.contracts folders
+        Compress all SCORE folders in the core_self.contracts and token_self.contracts folders
         """
         deploy = list(self.contracts.keys())[:]
-        for directory in {"core_contracts", "token_contracts"}:
+        for directory in {"../core_contracts", "../token_contracts"}:
             with os.scandir(directory) as it:
                 for file in it:
                     archive_name = directory + "/" + file.name
@@ -202,10 +201,12 @@ class TestLoan(IconIntegrateTestBase):
         governance = self.deploy_SCORE(self.contracts['governance'], {}, wallet, 0)
         self.contracts['governance']['SCORE'] = governance
         for score in deploy:
-            self.contracts[score]['SCORE'] = self.deploy_SCORE(self.contracts[score], {'_governance': governance}, wallet, 0)
+            self.contracts[score]['SCORE'] = self.deploy_SCORE(self.contracts[score], {'_governance': governance},
+                                                               wallet, 0)
         self.contracts['staking']['SCORE'] = self.deploy_SCORE(self.contracts['staking'], {}, wallet, 0)
-        self.contracts['sicx']['SCORE'] = self.deploy_SCORE(self.contracts['sicx'], {'_admin': self.contracts['staking']['SCORE']}, wallet,
-                                                  0)
+        self.contracts['sicx']['SCORE'] = self.deploy_SCORE(self.contracts['sicx'],
+                                                            {'_admin': self.contracts['staking']['SCORE']}, wallet,
+                                                            0)
 
         config = list(self.contracts.keys())[:]
         config.remove('governance')
@@ -249,7 +250,6 @@ class TestLoan(IconIntegrateTestBase):
         result = self.icon_service.call(call)
         print(result)
         return result
-
 
     # def _score_update(self):
     #     # update SCORE
@@ -302,7 +302,8 @@ class TestLoan(IconIntegrateTestBase):
                 self.assertEqual(int(case['actions']['expected_icd_debt_baln_loan']), int(bal_of_icd, 16))
                 account_position = self._getAccountPositions()
                 assets = account_position['assets']
-                position_to_check = {'sICX':str(bal_of_sicx),'bnUSD':hex(int(bal_of_icd,16) + int(self.getBalances()['bnUSD'],16))}
+                position_to_check = {'sICX': str(bal_of_sicx),
+                                     'bnUSD': hex(int(bal_of_icd, 16) + int(self.getBalances()['bnUSD'], 16))}
                 self.assertEqual(position_to_check, assets)
                 print('added collateral')
 
