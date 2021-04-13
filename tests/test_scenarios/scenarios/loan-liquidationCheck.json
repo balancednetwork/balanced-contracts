@@ -23,16 +23,18 @@
       }
     },
     {
-      "description": "Mints 200 amount of bnUSD to the user 2 address without checking collateralization ratio With the above collateral deposit it will put the position in a standing of Liquidation",
+      "description": "Mints 200 amount of bnUSD to the user 1 address without checking collateralization ratio With the above collateral deposit it will put the position in a standing of Liquidation",
       "actions": {
         "prev_sicx_bal_loan": "782000000000000000000",
         "prev_icd_debt_bal_loan": "0",
         "prev_icd_bal_wallet": "0",
         "sender": "user1",
-        "name": "add_bad_test_position",
+        "name": "create_test_position",
         "deposited_icx": "0",
         "args": {
-          "params": "{}"
+          "_address": "user1",
+          "_asset": "bnUSD",
+          "_amount": "200000000000000000000"
         },
         "expected": "1",
         "standing": "Mining",
@@ -42,16 +44,18 @@
       }
     },
     {
-      "description": "Mints 200 amount of bnUSD to the user 2 address without checking collateralization ratio With the above collateral deposit it will put the position in a standing of Liquidation",
+      "description": "Mints 200 amount of bnUSD to the user 1 address without checking collateralization ratio With the above collateral deposit it will put the position in a standing of Liquidation",
       "actions": {
         "prev_sicx_bal_loan": "782000000000000000000",
         "prev_icd_debt_bal_loan": "200000000000000000000",
         "prev_icd_bal_wallet": "200000000000000000000",
         "sender": "user1",
-        "name": "add_bad_test_position",
+        "name": "create_test_position",
         "deposited_icx": "0",
         "args": {
-          "params": "{}"
+          "_address": "user1",
+          "_asset": "bnUSD",
+          "_amount": "200000000000000000000"
         },
         "expected": "1",
         "standing": "Locked",
@@ -61,16 +65,18 @@
       }
     },
     {
-      "description": "Mints 200 amount of bnUSD to the user 2 address without checking collateralization ratio With the above collateral deposit it will put the position in a standing of Liquidation",
+      "description": "Mints 200 amount of bnUSD to the user 1 address without checking collateralization ratio With the above collateral deposit it will put the position in a standing of Liquidation",
       "actions": {
         "prev_sicx_bal_loan": "782000000000000000000",
         "prev_icd_debt_bal_loan": "400000000000000000000",
         "prev_icd_bal_wallet": "400000000000000000000",
         "sender": "user1",
-        "name": "add_bad_test_position",
+        "name": "create_test_position",
         "deposited_icx": "0",
         "args": {
-          "params": "{}"
+          "_address": "user1",
+          "_asset": "bnUSD",
+          "_amount": "200000000000000000000"
         },
         "expected": "1",
         "standing": "Locked",
@@ -80,7 +86,7 @@
       }
     },
     {
-      "description": "Liquidate the user 2 account position calling liquidate method on loans score",
+      "description": "Liquidate the user 1 account position calling liquidate method on loans score",
       "actions": {
         "prev_sicx_bal_loan": "782000000000000000000",
         "prev_icd_debt_bal_loan": "400000000000000000000",
@@ -99,7 +105,7 @@
       }
     },
     {
-      "description": "Check account standing of user 2 on loan score calling liquidate method, Should now have zero balance for sICX and bnUSD.",
+      "description": "Check account standing of user 1 on loan score calling liquidate method, Should now have zero balance for sICX and bnUSD.",
       "actions": {
         "prev_sicx_bal_loan": "500000000000000000000",
         "prev_icd_debt_bal_loan": "200000000000000000000",

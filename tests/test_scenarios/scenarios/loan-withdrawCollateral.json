@@ -3,7 +3,7 @@
   "description": "Test cases for the withdrawCollateral function.",
   "stories": [
     {
-      "description": "User 1 deposits 500 ICX as collateral and borrows 50 ICD loan",
+      "description": "User 1 deposits 500 ICX as collateral and borrows 50 bnUSD loan",
       "actions": {
         "prev_sicx_bal_loan": "0",
         "prev_icd_debt_bal_loan": "0",
@@ -11,7 +11,7 @@
         "name": "addCollateral",
         "deposited_icx": "500000000000000000000",
         "args": {
-          "_asset": "ICD",
+          "_asset": "bnUSD",
           "_amount": "50000000000000000000"
         },
         "expected": "1",
@@ -76,7 +76,7 @@
           "_value": "-50000000000000000000"
         },
         "expected": "0",
-        "revertMessage": "-50000000000000000000 sICX not sent to hxe7af5fcfd8dfc67530a01a0e403882687528dfcb. Exception: Transferring value cannot be less than 0.",
+        "revertMessage": "Withdraw amount must be more than zero.",
         "expected_sicx_baln_loan": "121000000000000000000",
         "expected_icd_debt_baln_loan": "50000000000000000000"
       }

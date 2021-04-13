@@ -3,7 +3,7 @@
   "description": "Test cases for the repay loan.",
   "stories": [
     {
-      "description": "User 1 deposits 500 ICX as collateral and borrows 50 ICD loan",
+      "description": "User 1 deposits 500 ICX as collateral and borrows 50 bnUSD loan",
       "actions": {
         "prev_sicx_bal_loan": "0",
         "prev_icd_debt_bal_loan": "0",
@@ -12,7 +12,7 @@
         "name": "addCollateral",
         "deposited_icx": "500000000000000000000",
         "args": {
-          "_asset": "ICD",
+          "_asset": "bnUSD",
           "_amount": "50000000000000000000"
         },
         "expected": "1",
@@ -22,7 +22,7 @@
       }
     },
     {
-      "description": "user 1 repays a loan of 10 ICD by calling transfer method to icd score.",
+      "description": "user 1 repays a loan of 10 bnUSD by calling transfer method to bnUSD score.",
       "actions": {
         "prev_sicx_bal_loan" : "500000000000000000000",
         "prev_icd_debt_bal_loan" : "50000000000000000000",
@@ -42,7 +42,7 @@
       }
     },
     {
-      "description": "user 1 repays a loan of -10 ICD by calling transfer method to icd score.",
+      "description": "user 1 repays a loan of -10 bnUSD by calling transfer method to bnUSD score.",
       "actions": {
         "prev_sicx_bal_loan": "500000000000000000000",
         "prev_icd_debt_bal_loan": "0",
@@ -63,7 +63,7 @@
       }
     },
     {
-      "description": "user 1 repays a loan of 40 ICD by calling transfer method to icd score.",
+      "description": "user 1 repays a loan of 40 bnUSD by calling transfer method to bnUSD score.",
       "actions": {
         "prev_sicx_bal_loan": "500000000000000000000",
         "prev_icd_debt_bal_loan": "40000000000000000000",
@@ -83,7 +83,7 @@
       }
     },
     {
-      "description": "user 1 repays a loan of 40 ICD by calling transfer method to icd score.",
+      "description": "user 1 repays a loan of 40 bnUSD by calling transfer method to bnUSD score.",
       "actions": {
         "prev_sicx_bal_loan": "500000000000000000000",
         "prev_icd_debt_bal_loan": "0",
@@ -96,7 +96,8 @@
           "method": "_repay_loan",
           "params": "{}"
         },
-        "expected": "1",
+        "expected": "0",
+        "revertMessage": "Insufficient balance.",
         "expected_sicx_baln_loan": "500000000000000000000",
         "expected_icd_debt_baln_loan": "0",
         "expected_icd_bal_wallet": "0"
