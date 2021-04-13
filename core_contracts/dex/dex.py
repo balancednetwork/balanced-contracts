@@ -224,7 +224,7 @@ class DEX(IconScoreBase):
 
         self._named_markets = IterableDictDB(
             self._NAMED_MARKETS, db, value_type=int, key_type=str, order=True)
-        
+
         # Cache of token precisions, filled on first call of `deposit`
         self._token_precisions = DictDB('token_precisions', db, value_type=int)
 
@@ -415,7 +415,7 @@ class DEX(IconScoreBase):
         :param _address: Address of token to add as an allowed quote coin
         """
         self._quote_coins.add(_address)
-    
+
     @external(readonly=True)
     def isQuoteCoinAllowed(self, _address: Address) -> bool:
         """
@@ -578,12 +578,12 @@ class DEX(IconScoreBase):
             revert("Fallback directly not allowed")
 
     @external
-    def precompute(self, snap: int, batch_size: int):
+    def precompute(self, snap: int, batch_size: int) -> bool:
         """
         Required by the rewards score data source API, but unused.
         Returns `True` to match the required workflow.
         """
-        pass
+        return True
 
     @external
     def transfer(self, _to: Address, _value: int, _id: int, _data: bytes = None):
@@ -620,7 +620,7 @@ class DEX(IconScoreBase):
         self._update_account_snapshot(_to, _id)
 
         pool_quote_coin = self.getPoolQuote(_id)
-        
+
         if self._balance[_id][_to] >= self._get_rewardable_amount(pool_quote_coin):
             self._active_addresses[_id].add(_to)
 
@@ -949,7 +949,7 @@ class DEX(IconScoreBase):
         Gets the minimum rewardable amount for a given coin.
         Assumes that the pool is balanced, so the price at time of insert is the real price.
         This won't be sensitive to 'impermanent losses', so use at your own risk.
-        
+
         :param _token_address: Token SCORE to check (None = ICX)
         """
         if self._sicx == _token_address:
@@ -1174,7 +1174,7 @@ class DEX(IconScoreBase):
             return 0
         else:
             matched_index = low - 1
-        
+
         # If we matched the day before, weighted avg will be same as ending value.
         # If we matched the day of, return the actual weighted average
         if self._account_balance_snapshot[_id][_account]['ids'][matched_index] == _snapshot_id:
@@ -1203,7 +1203,7 @@ class DEX(IconScoreBase):
             return 0
         else:
             matched_index = low - 1
-        
+
         if self._total_supply_snapshot[_id]['ids'][matched_index] == _snapshot_id:
             return self._total_supply_snapshot[_id]['avgs'][matched_index]
         else:
@@ -1307,13 +1307,13 @@ class DEX(IconScoreBase):
         self._total[_pid] -= _value
 
         if self._total[_pid] < MIN_LIQUIDITY:
-            minimum_possible = _value - (MIN_LIQUIDITY - self._total[_pid]) 
+            minimum_possible = _value - (MIN_LIQUIDITY - self._total[_pid])
             revert(f"MinimumLiquidityError: {minimum_possible} max withdraw size")
 
         self.Remove(_pid, self.msg.sender, _value)
         self.TransferSingle(self.msg.sender, self.msg.sender, Address.from_string(
             DEX_ZERO_SCORE_ADDRESS), _pid, _value)
-    
+
         self._deposit[base_token][self.msg.sender] += base_withdraw
         self._deposit[quote_token][self.msg.sender] += quote_withdraw
 

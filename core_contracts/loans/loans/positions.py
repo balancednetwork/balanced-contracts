@@ -28,32 +28,34 @@ class Position(object):
             revert(f'{_symbol} is not a supported asset on Balanced.')
 
     def __setitem__(self, key: str, value: int):
-        day = self._loans._current_day.get()
-        self.check_snap()
+        day = self.check_snap()
         self.assets[day][key] = value
+        if key in self.asset_db.aalist:
+            borrowers = self.asset_db[key].borrowers
+            borrowers[self.id.get()] = value
+            borrowers.serialize()
 
     def __delitem__(self, _symbol: str):
         self.assets[self.snaps[-1]].remove(_symbol)
+        if _symbol in self.asset_db.aalist:
+            self.asset_db[_symbol].remove_borrower(self.id.get())
 
-    def check_snap(self, _day: int = -1) -> None:
+    def check_snap(self) -> int:
         """
-        If the specified day is ahead of the last day in the snaps ArrayDB it is
+        If the current day is ahead of the last day in the snaps ArrayDB it is
         added to the snaps array and a new snapshot is initialized.
 
-        :param _day: Day number of the snapshot to be added.
-        :type _day: int
+        :return: index for the current day.
+        :rtype: int
         """
-        current_day = self._loans._current_day.get()
-        if _day == -1:
-            day = current_day
-        else:
-            day = _day
-        if day > self.snaps[-1] and day <= current_day:
+        day = self._loans._current_day.get()
+        if day > self.snaps[-1]:
             self.snaps.put(day)
             previous = self.snaps[-2]
             for symbol in self.asset_db.slist:
                 if symbol in self.assets[previous]:
                     self.assets[day][symbol] = self.assets[previous][symbol]
+        return day
 
     def get_snapshot_id(self, _day: int = -1) -> int:
         """
@@ -97,11 +99,9 @@ class Position(object):
         id = self.get_snapshot_id(_day)
         if id == -1:
             return False
-        for _symbol in self.asset_db.slist:
+        for _symbol in self.asset_db.aalist:
             if self.assets[id][_symbol] != 0:
-                asset = self.asset_db[_symbol]
-                if asset.active.get() and not asset.is_collateral.get():
-                    return True
+                return True
         return False
 
     def _collateral_value(self, _day: int = -1) -> int:
@@ -114,13 +114,16 @@ class Position(object):
         id = self.get_snapshot_id(_day)
         if id == -1:
             return 0
-        asset = self.asset_db['sICX']
-        amount = self.assets[id]['sICX']
-        if _day == -1 or _day == self.snaps[-1]:
-            price = asset.priceInLoop()
-        else:
-            price = self.snaps_db[_day].prices['sICX']
-        return amount * price // EXA
+        value = 0
+        for _symbol in self.asset_db.aclist:
+            asset = self.asset_db[_symbol]
+            amount = self.assets[id][_symbol]
+            if _day == -1 or _day == self.snaps[-1]:
+                price = asset.priceInLoop()
+            else:
+                price = self.snaps_db[_day].prices[_symbol]
+            value += amount * price // EXA
+        return value
 
     def _total_debt(self, _day: int = -1, _readonly: bool = False) -> int:
         """
@@ -134,18 +137,17 @@ class Position(object):
         if id == -1:
             return 0
         asset_value = 0
-        for symbol in self.asset_db.slist:
-            if not self.asset_db[symbol].is_collateral.get() and symbol in self.assets[id]:
-                amount = self.assets[id][symbol]
-                if amount > 0:
-                    if _day == -1 or _day == self.snaps[-1]:
-                        if _readonly:
-                            price = self.asset_db[symbol].lastPriceInLoop()
-                        else:
-                            price = self.asset_db[symbol].priceInLoop()
+        for symbol in self.asset_db.aalist:
+            amount = self.assets[id][symbol]
+            if amount > 0:
+                if _day == -1 or _day == self.snaps[-1]:
+                    if _readonly:
+                        price = self.asset_db[symbol].lastPriceInLoop()
                     else:
-                        price = self.snaps_db[_day].prices[symbol]
-                    asset_value += (price * amount) // EXA
+                        price = self.asset_db[symbol].priceInLoop()
+                else:
+                    price = self.snaps_db[_day].prices[symbol]
+                asset_value += (price * amount) // EXA
         return asset_value
 
     def get_standing(self, _day: int = -1, _readonly: bool = False) -> dict:
@@ -255,6 +257,7 @@ class PositionsDB:
     IDFACTORY = 'idfactory'
     ADDRESSID = 'addressid'
     NONZERO = 'nonzero'
+    NEXT_NODE = 'next_node'
 
     def __init__(self, db: IconScoreDatabase, loans: IconScoreBase):
         self._db = db
@@ -263,7 +266,8 @@ class PositionsDB:
         self._id_factory = IdFactory(self.IDFACTORY, db)
         self.addressID = DictDB(self.ADDRESSID, db, value_type=int)
         # list of nonzero positions will be brought up to date at the end of each day.
-        self.nonzero = ArrayDB(self.NONZERO, db, value_type=int)
+        self.nonzero = LinkedListDB(self.NONZERO, db, value_type=int)
+        self.next_node = VarDB(self.NEXT_NODE, db, value_type=int)
 
         # The mining list is updated each day for the most recent snapshot.
         self._snapshot_db = SnapshotDB(db, loans)
@@ -384,20 +388,24 @@ class PositionsDB:
             iter = self._loans._snap_batch_size.get()  # Starting default is 200.
             loops = min(iter, remove)
             for _ in range(loops):
-                self._remove(snapshot.remove_from_nonzero.pop(), self.nonzero)
+                self.nonzero.remove(snapshot.remove_from_nonzero.pop())
                 iter -= 1
             if iter > 0:
                 loops = min(iter, add)
                 for _ in range(loops):
-                    self.nonzero.put(snapshot.add_to_nonzero.pop())
+                    self.nonzero.append(0, snapshot.add_to_nonzero.pop())
+            self.nonzero.serialize()
             return Complete.NOT_DONE
 
         index = snapshot.precompute_index.get()  # Tracks where the precompute is over multiple calls.
         total_nonzero = len(self.nonzero)
+        next_node = self.next_node.get()
+        if next_node == 0:
+            next_node = self.nonzero._head_id
         remaining = total_nonzero - index
         batch_mining_debt = 0
         for _ in range(min(remaining, batch_size)):  # Update standing for all nonzero positions.
-            account_id = self.nonzero[index]
+            account_id = next_node
             pos = self.__getitem__(account_id)
             # Only positions created before the day of this snapshot are used.
             if id >= pos.snaps[0]:
@@ -406,8 +414,13 @@ class PositionsDB:
                     snapshot.mining.put(account_id)
                     batch_mining_debt += snapshot.pos_state[account_id]['total_debt']
             index += 1
+            if next_node == self.nonzero._tail_id:
+                next_node = 0
+            else:
+                next_node = self.nonzero.next(next_node)
         snapshot.total_mining_debt.set(snapshot.total_mining_debt.get() + batch_mining_debt)
         snapshot.precompute_index.set(index)
+        self.next_node.set(next_node)
         if total_nonzero == index:
             return Complete.DONE
         return Complete.NOT_DONE

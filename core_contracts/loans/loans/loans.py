@@ -77,6 +77,7 @@ class Loans(IconScoreBase):
     _NEW_LOAN_MINIMUM = 'new_loan_minimum'
     _MIN_MINING_DEBT = 'min_mining_debt'
     _MAX_DEBTS_LIST_LENGTH = 'max_debts_list_length'
+    _ZERO_CHECK_BATCH_SIZE = 'zero_check_batch_size'
 
     _REDEEM_BATCH_SIZE = 'redeem_batch_size'
     _MAX_RETIRE_PERCENT = 'max_retire_percent'
@@ -112,6 +113,7 @@ class Loans(IconScoreBase):
         self._new_loan_minimum = VarDB(self._NEW_LOAN_MINIMUM, db, value_type=int)
         self._min_mining_debt = VarDB(self._MIN_MINING_DEBT, db, value_type=int)
         self._max_debts_list_length = VarDB(self._MAX_DEBTS_LIST_LENGTH, db, value_type=int)
+        self._zero_check_batch_size = VarDB(self._ZERO_CHECK_BATCH_SIZE, db, value_type=int)
 
         # batch size for redeem-retire
         self._redeem_batch = VarDB(self._REDEEM_BATCH_SIZE, db, value_type=int)
@@ -139,6 +141,7 @@ class Loans(IconScoreBase):
         self._redeem_batch.set(DEFAULT_REDEEM_BATCH_SIZE)
         self._max_retire_percent.set(DEFAULT_MAX_RETIRE_PERCENT)
         self._max_debts_list_length.set(MAX_DEBTS_LIST_LENGTH)
+        self._zero_check_batch_size.set(ZERO_CHECK_BATCH_SIZE)
 
     def on_update(self) -> None:
         super().on_update()
@@ -216,6 +219,10 @@ class Loans(IconScoreBase):
         return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
 
     @external(readonly=True)
+    def getDistributionsDone(self) -> dict:
+        return {"Rewards": self._rewards_done.get(), "Dividends": self._dividends_done.get()}
+
+    @external(readonly=True)
     def getDebts(self, _address_list: List[str], _day: int) -> dict:
         """
         Returns the debt held by each address in the list.
@@ -232,15 +239,25 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getMaxRetireAmount(self, _symbol: str) -> int:
+        """
+        The maximum amount allowed to be liquidated from a batch of borrowers
+        is 1% of their debt, to limit the impact on any single borrower.
+        The limit on the amount that can be retired is increased by the amount
+        of bad debt for the asset since all of that can be paid off at once.
+
+        :param _symbol: Symbol for the asset to be retired.
+        :type _symbol: str
+        :return: Maximum amount accepted by the _retire_asset method.
+        :rtype: int
+        """
         batch_size = self._redeem_batch.get()
         borrowers = self._assets[_symbol].borrowers
-        node_id = borrowers._head_id.get()
-        tail_id = borrowers._tail_id.get()
+        node_id = borrowers.get_head_id()
+        tail_id = borrowers.get_tail_id()
         total_batch_debt: int = 0
 
         for i in range(min(batch_size, len(borrowers))):
-            user_position = self._positions[borrowers.node_value(node_id)]
-            user_debt = user_position[_symbol]
+            user_debt = borrowers.node_value(node_id)
             total_batch_debt += user_debt
             if tail_id != node_id:
                 node_id = borrowers.next(node_id)
@@ -581,10 +598,8 @@ class Loans(IconScoreBase):
         else:
             repaid = borrowed
             refund = _value - repaid
-            pos[symbol] = 0
             del pos[symbol]
             pos_id = pos.id.get()
-            asset.remove_borrower(pos_id)
             if not pos.has_debt():
                 self._positions.remove_nonzero(pos_id)
             if refund > 0:
@@ -648,17 +663,16 @@ class Loans(IconScoreBase):
     def _retire_redeem(self, _symbol: str, _redeemed: int, _sicx_from_lenders: int) -> dict:
         batch_size = self._redeem_batch.get()
         borrowers = self._assets[_symbol].borrowers
-        pos_id = borrowers.head_value()
+        node_id = borrowers.get_head_id()
         total_batch_debt: int = 0
         positions_dict = {}
 
         for _ in range(min(batch_size, len(borrowers))):
-            user_position = self._positions[pos_id]
-            user_debt = user_position[_symbol]
-            positions_dict[pos_id] = user_debt
+            user_debt = borrowers.node_value(node_id)
+            positions_dict[node_id] = user_debt
             total_batch_debt += user_debt
             borrowers.move_head_to_tail()
-            pos_id = borrowers.head_value()
+            node_id = borrowers.get_head_id()
 
         if POINTS * _redeemed > self._max_retire_percent.get() * total_batch_debt:
             revert(f'Retired amount is greater than the current maximum allowed.')
@@ -751,16 +765,15 @@ class Loans(IconScoreBase):
         fee = self._origination_fee.get() * _amount // POINTS
         new_debt_value = self._assets[_asset].priceInLoop() * (_amount + fee) // EXA
         # Check for loan minimum
+        new_borrower = False
+        pos_id = pos.id.get()
         if pos[_asset] == 0:
             loan_minimum = self._new_loan_minimum.get()
             dollar_value = new_debt_value * EXA // self._assets['bnUSD'].priceInLoop()
             if dollar_value < loan_minimum:
                 revert(f'The initial loan of any asset must have a minimum value '
                        f'of {loan_minimum / EXA} dollars.')
-            pos_id = pos.id.get()
-            self._assets[_asset].add_borrower(pos_id)
-            if not pos.has_debt():
-                self._positions.add_nonzero(pos_id)
+            new_borrower  = True
         if pos._total_debt() + new_debt_value > max_debt_value:
             revert(f'{collateral / EXA} collateral is insufficient'
                    f' to originate a loan of {_amount / EXA} {_asset}'
@@ -770,7 +783,10 @@ class Loans(IconScoreBase):
                    f' and an existing loan value of {pos._total_debt() / EXA}.')
 
         # Originate loan
-        pos[_asset] += _amount + fee
+        if new_borrower and not pos.has_debt():
+            self._positions.add_nonzero(pos_id)
+        new_debt = _amount + fee
+        pos[_asset] += new_debt
         self.OriginateLoan(_from, _asset, _amount,
             f'Loan of {_amount} {_asset} from Balanced.')
         self._assets[_asset].mint(_from, _amount)
@@ -855,17 +871,16 @@ class Loans(IconScoreBase):
                 asset = self._assets[symbol]
                 is_collateral = asset.is_collateral.get()
                 active = asset.active.get()
-                if not is_collateral and active and pos[symbol] > 0:
+                debt = pos[symbol]
+                if not is_collateral and active and debt > 0:
                     bad_debt = asset.bad_debt.get()
-                    asset.bad_debt.set(bad_debt + pos[symbol])
-                    symbol_debt = pos[symbol] * asset.priceInLoop() // EXA
+                    asset.bad_debt.set(bad_debt + debt)
+                    symbol_debt = debt * asset.priceInLoop() // EXA
                     share = for_pool * symbol_debt // total_debt
                     total_debt -= symbol_debt
                     for_pool -= share  # The share of the collateral for that asset.
                     pool = asset.liquidation_pool.get()
                     asset.liquidation_pool.set(pool + share)
-                    asset.remove_borrower(pos_id)
-                    pos[symbol] = 0
                     del pos[symbol]
             pos['sICX'] = 0
             self._send_token('sICX', self.msg.sender, reward, "Liquidation reward of")
