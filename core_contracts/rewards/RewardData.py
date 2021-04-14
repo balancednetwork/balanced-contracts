@@ -36,7 +36,9 @@ class DataSource(object):
         """
         day = self.day.get()
         data_source = self._rewards.create_interface_score(self.contract_address.get(), DataSourceInterface)
-        if not self.precomp.get() and data_source.precompute(day, batch_size):
+        precomp_done = data_source.precompute(day, batch_size)
+        # revert(f'Source: {self.name.get()}, day: {day}, precomp_done: {precomp_done}')
+        if not self.precomp.get() and precomp_done:
             self.precomp.set(True)
             self.total_value[day] = data_source.getTotalValue(self.name.get(), day)
 
@@ -113,4 +115,5 @@ class DataSourceDB:
         self._names.put(_name)
         source = self.__getitem__(_name)
         source.name.set(_name)
+        source.day.set(self._rewards._get_day())
         source.contract_address.set(_address)

@@ -42,7 +42,7 @@ class Snapshot(object):
         :rtype dict
         """
         prices = {}
-        assets = self._loans.asset_db
+        assets = self._loans._assets
         for symbol in assets.slist:
             if assets[symbol].added.get() < self.snap_time.get() and assets[symbol].active.get():
                 prices[symbol] = self.prices[symbol]
