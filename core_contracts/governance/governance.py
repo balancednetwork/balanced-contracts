@@ -160,6 +160,78 @@ class Governance(IconScoreBase):
         rewards.addNewDataSource(_name, dex_address)
 
     @external
+    @only_owner
+    def setbnUSD(self, _address: Address) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setbnUSD(_address)
+
+    @external
+    @only_owner
+    def setDividends(self, _score: Address) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setDividends(_score)
+
+    @external
+    @only_owner
+    def balancesetDex(self, _address: Address) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setDex(_address)
+
+    @external
+    @only_owner
+    def balancesetOracleName(self, _name: str) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setOracleName(_name)
+
+    @external
+    @only_owner
+    def balancesetMinInterval(self,  _interval: int) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setMinInterval(_interval)
+
+    @external
+    @only_owner
+    def balancetoggleStakingEnabled(self) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.toggleStakingEnabled()
+
+    @external
+    @only_owner
+    def balancesetMinimumStake(self, _amount: int) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setMinimumStake(_amount)
+
+    @external
+    @only_owner
+    def balancesetUnstakingPeriod(self, _time: int) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setUnstakingPeriod(_time)
+
+    @external
+    @only_owner
+    def dAodisburse(self, _recipient: Address, _amounts: List[Disbursement]) -> bool:
+        dao = self.create_interface_score(self.addresses['daofund'], DAOfundInterface)
+        dao.disburse(_recipient, _amounts)
+
+    @external
+    @only_owner
+    def bnUSDsetOracle(self, _address: Address) -> None:
+        bnUSD = self.create_interface_score(self.addresses['bnUSD'], BalancedDollarInterface)
+        bnUSD.setOracle(_address)
+
+    @external
+    @only_owner
+    def bnUSDsetOracleName(self, _name: str) -> None:
+        bnUSD = self.create_interface_score(self.addresses['bnUSD'], BalancedDollarInterface)
+        bnUSD.setOracleName(_name)
+
+    @external
+    @only_owner
+    def dnUSDsetMinInterval(self, _interval: int) -> None:
+        bnUSD = self.create_interface_score(self.addresses['bnUSD'], BalancedDollarInterface)
+        bnUSD.setMinInterval(_interval)
+
+    @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
         Used only to receive sICX for unstaking.
