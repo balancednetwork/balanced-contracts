@@ -973,8 +973,8 @@ class DEX(IconScoreBase):
         self._pool_total[_pid][_fromToken] = new_token1
         self._pool_total[_pid][_toToken] = new_token2
 
-        total_base = new_token2 if is_sell else new_token1
-        total_quote = new_token1 if is_sell else new_token1
+        total_base = new_token1 if is_sell else new_token2
+        total_quote = new_token2 if is_sell else new_token1
 
         send_price = (EXA * _value) // send_amt
 
@@ -1469,11 +1469,8 @@ class DEX(IconScoreBase):
             if quote_from_base <= _quoteValue:
                 quote_to_commit = quote_from_base
 
-            elif base_from_quote <= _baseValue:
-                base_to_commit = base_from_quote
-
             else:
-                revert("AddLiquidityError: Unable to add to pool in supplied ratio")
+                base_to_commit = base_from_quote
 
             liquidity_from_base = (self._total[_pid] * base_to_commit) // self._pool_total[_pid][_baseToken]
             liquidity_from_quote = (self._total[_pid] * quote_to_commit) // self._pool_total[_pid][_quoteToken]
