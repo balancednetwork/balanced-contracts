@@ -183,3 +183,60 @@ class SetAddressesInterface(InterfaceScore):
     @interface
     def setBwt(self, _address: Address) -> None:
         pass
+
+
+class BalancedInterface(InterfaceScore):
+
+    @interface
+    def setbnUSD(self, _address):
+        pass
+
+    @interface
+    def setDividends(self, _score):
+        pass
+
+    @interface
+    def setDex(self, _address):
+        pass
+
+    @interface
+    def setOracleName(self, _name):
+        pass
+
+    @interface
+    def toggleStakingEnabled(self):
+        pass
+
+    @interface
+    def setMinimumStake(self, _amount):
+        pass
+
+    @interface
+    def setUnstakingPeriod(self, _time):
+        pass
+
+    @interface
+    def setMinInterval(self, _interval):
+        pass
+
+
+class DAOfundInterface(InterfaceScore):
+
+    @interface
+    def disburse(self, _recipient, _amounts):
+        pass
+
+
+class BalancedDollarInterface(InterfaceScore):
+
+    @interface
+    def setOracleName(self, _address):
+        pass
+
+    @interface
+    def setOracle(self, _address):
+        pass
+
+    @interface
+    def setMinInterval(self, _interval):
+        pass
