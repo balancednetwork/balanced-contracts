@@ -532,8 +532,6 @@ class Loans(IconScoreBase):
             revert('Invalid parameters.')
         if d["method"] == "_deposit_and_borrow":
             self._deposit_and_borrow(_value, **d['params'])
-        elif d["method"] == "_repay_loan":
-            self._repay_loan(_from, _value)
         elif d["method"] == "_retire_asset":
             self._retire_asset(_from, _value)
         else:
@@ -568,7 +566,8 @@ class Loans(IconScoreBase):
             return
         self.originateLoan(_asset, _amount, _from=_from)
 
-    def _repay_loan(self, _from: Address, _value: int) -> None:
+    @external
+    def repayLoan(self, _symbol: str, _value: int) -> None:
         """
         If the received token type is in the asset list the loan position for
         the account of the token sender will be reduced by _value. If there is
@@ -579,35 +578,34 @@ class Loans(IconScoreBase):
         :param _value: Number of tokens sent.
         :type _value: int
         """
-        if self.msg.sender == self._assets['sICX'].asset_address.get():
-            revert(f'This method does not accept sICX tokens')
+        _from = self.msg.sender
         if not self._positions._exists(_from):
             revert(f'This address does not have a position on Balanced.')
         if not _value > 0:
             revert(f'Repayment requires a positive value.')
+        asset = self._assets[_symbol]
+        if not (asset and asset.active.get()) or asset.is_collateral.get():
+            revert(f'{_symbol} is not an active, borrowable asset on Balanced.')
         pos = self._positions.get_pos(_from)
 
-        asset = self._assets._get_asset(str(self.msg.sender))
-        symbol = asset.symbol()
-        borrowed = pos[symbol]
+        borrowed = pos[_symbol]
         if borrowed == 0:
             revert(f'No debt exists to be repaid.')
         if borrowed - _value > 0:
-            pos[symbol] -= _value
+            pos[_symbol] -= _value
             repaid = _value
         else:
             repaid = borrowed
             refund = _value - repaid
-            del pos[symbol]
+            del pos[_symbol]
             pos_id = pos.id.get()
             if not pos.has_debt():
                 self._positions.remove_nonzero(pos_id)
             if refund > 0:
-                self._send_token(symbol, _from, refund, "Excess refunded.")
-        if repaid != 0:
-            asset.burn(repaid)
-        self.LoanRepaid(_from, symbol, repaid,
-            f'Loan of {repaid} {symbol} repaid to Balanced.')
+                self._send_token(_symbol, _from, refund, "Excess refunded.")
+        asset.burnFrom(_from, repaid)
+        self.LoanRepaid(_from, _symbol, repaid,
+            f'Loan of {repaid} {_symbol} repaid to Balanced.')
         self.check_dead_markets()
         pos.update_standing()
 
@@ -630,7 +628,7 @@ class Loans(IconScoreBase):
             pos = self._positions.get_pos(_from)
             repay = min(pos[symbol], _value)
             if repay > 0:
-                self._repay_loan(_from, repay)
+                self.repayLoan(symbol, repay)
             if repay == _value:
                 return
             else:
