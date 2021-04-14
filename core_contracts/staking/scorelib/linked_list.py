@@ -205,6 +205,16 @@ class LinkedListDB:
         self._head_id.remove()
         self._length.set(0)
 
+    def update_node(self, key: Address, value: int, block_height: int, sender_address: Address, node_id: int):
+        node = self._node(node_id)
+        if node.exists():
+            node.set_value(value)
+            node.set_key(key)
+            node.set_block_height(block_height)
+            node.set_sender_address(sender_address)
+        else:
+            revert(f'There is no node of the provided node id.')
+
     def append(self, key: Address, value: int, block_height: int, sender_address: Address, node_id: int = None) -> int:
         """ Append an element at the end of the linkedlist """
         cur_id, cur = self._create_node(key, value, block_height, sender_address, node_id)
