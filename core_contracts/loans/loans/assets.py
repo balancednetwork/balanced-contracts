@@ -1,5 +1,3 @@
-from iconservice import *
-from ..scorelib.id_factory import IdFactory
 from ..scorelib.linked_list import *
 
 TAG = 'BalancedAssets'
