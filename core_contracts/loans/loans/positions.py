@@ -3,7 +3,7 @@ from ..scorelib.id_factory import IdFactory
 from ..scorelib.linked_list import *
 from ..utils.consts import *
 from .assets import AssetsDB
-from .snapshots import SnapshotDB, Snapshot
+from .snapshots import SnapshotDB
 
 TAG = 'BalancedPositions'
 
@@ -59,7 +59,7 @@ class Position(object):
 
     def get_snapshot_id(self, _day: int = -1) -> int:
         """
-        Binary serch to return the snapshot id to use for the given day.
+        Binary search to return the snapshot id to use for the given day.
         Returns -1 if there was not yet a snapshot on the requested day.
 
         :param _day: Day number of the desired snapshot ID.
@@ -203,7 +203,7 @@ class Position(object):
     def update_standing(self, _day: int = -1) -> int:
         """
         This method updates the standing for a snapshot. It will calculate the
-        total debt and collateralization ratio and record them in the positon
+        total debt and collateralization ratio and record them in the position
         snapshot along with the standing.
 
         :return: Enum of standing from class Standing.
@@ -390,9 +390,9 @@ class PositionsDB:
             loops = min(_iter, remove)
             for _ in range(loops):
                 nonzero.remove(snapshot.remove_from_nonzero.pop())
-                iter -= 1
-            if iter > 0:
-                loops = min(iter, add)
+                _iter -= 1
+            if _iter > 0:
+                loops = min(_iter, add)
                 for _ in range(loops):
                     nonzero.append(0, snapshot.add_to_nonzero.pop())
             nonzero.serialize()
