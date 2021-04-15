@@ -249,7 +249,7 @@ class Loans(IconScoreBase):
         :rtype: int
         """
         batch_size = self._redeem_batch.get()
-        borrowers = self._assets[_symbol].borrowers
+        borrowers = self._assets[_symbol].get_borrowers()
         node_id = borrowers.get_head_id()
         tail_id = borrowers.get_tail_id()
         total_batch_debt: int = 0
@@ -281,7 +281,7 @@ class Loans(IconScoreBase):
         """
         pos = self._positions
         snap = pos._snapshot_db[-1]
-        nonzero = len(pos.nonzero) + len(snap.add_to_nonzero) - len(snap.remove_from_nonzero)
+        nonzero = len(pos.get_nonzero()) + len(snap.add_to_nonzero) - len(snap.remove_from_nonzero)
         if snap.snap_day.get() > 1:
             last_snap = pos._snapshot_db[-2]
             nonzero += len(last_snap.add_to_nonzero) - len(last_snap.remove_from_nonzero)
@@ -662,7 +662,7 @@ class Loans(IconScoreBase):
 
     def _retire_redeem(self, _symbol: str, _redeemed: int, _sicx_from_lenders: int) -> dict:
         batch_size = self._redeem_batch.get()
-        borrowers = self._assets[_symbol].borrowers
+        borrowers = self._assets[_symbol].get_borrowers()
         node_id = borrowers.get_head_id()
         total_batch_debt: int = 0
         positions_dict = {}

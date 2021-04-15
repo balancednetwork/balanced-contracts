@@ -31,7 +31,7 @@ class Position(object):
         day = self.check_snap()
         self.assets[day][key] = value
         if key in self.asset_db.aalist:
-            borrowers = self.asset_db[key].borrowers
+            borrowers = self.asset_db[key].get_borrowers()
             borrowers[self.id.get()] = value
             borrowers.serialize()
 
@@ -100,7 +100,7 @@ class Position(object):
         if _id == -1:
             return False
         for _symbol in self.asset_db.aalist:
-            if self.assets[id][_symbol] != 0:
+            if self.assets[_id][_symbol] != 0:
                 return True
         return False
 
@@ -117,7 +117,7 @@ class Position(object):
         value = 0
         for _symbol in self.asset_db.aclist:
             asset = self.asset_db[_symbol]
-            amount = self.assets[id][_symbol]
+            amount = self.assets[_id][_symbol]
             if _day == -1 or _day == self.snaps[-1]:
                 price = asset.priceInLoop()
             else:
@@ -138,7 +138,7 @@ class Position(object):
             return 0
         asset_value = 0
         for symbol in self.asset_db.aalist:
-            amount = self.assets[id][symbol]
+            amount = self.assets[_id][symbol]
             if amount > 0:
                 if _day == -1 or _day == self.snaps[-1]:
                     if _readonly:
@@ -265,10 +265,7 @@ class PositionsDB:
         self._items = {}
         self._id_factory = IdFactory(self.IDFACTORY, db)
         self.addressID = DictDB(self.ADDRESSID, db, value_type=int)
-        # list of nonzero positions will be brought up to date at the end of each day.
-        self.nonzero = LinkedListDB(self.NONZERO, db, value_type=int)
         self.next_node = VarDB(self.NEXT_NODE, db, value_type=int)
-
         # The mining list is updated each day for the most recent snapshot.
         self._snapshot_db = SnapshotDB(db, loans)
 
@@ -302,6 +299,9 @@ class PositionsDB:
 
     def get_id_for(self, _owner: Address) -> int:
         return self.addressID[_owner]
+
+    def get_nonzero(self) -> LinkedListDB:
+        return LinkedListDB(self.NONZERO, self._db, value_type=int)
 
     def add_nonzero(self, _owner_id: int) -> None:
         current_snapshot = self._snapshot_db[-1]
@@ -383,25 +383,26 @@ class PositionsDB:
 
         add = len(snapshot.add_to_nonzero)
         remove = len(snapshot.remove_from_nonzero)
+        nonzero = self.get_nonzero()
         nonzero_deltas = add + remove
         if nonzero_deltas > 0:  # Bring the list of all nonzero positions up to date.
             _iter = self._loans._snap_batch_size.get()  # Starting default is 200.
             loops = min(_iter, remove)
             for _ in range(loops):
-                self.nonzero.remove(snapshot.remove_from_nonzero.pop())
+                nonzero.remove(snapshot.remove_from_nonzero.pop())
                 iter -= 1
             if iter > 0:
                 loops = min(iter, add)
                 for _ in range(loops):
-                    self.nonzero.append(0, snapshot.add_to_nonzero.pop())
-            self.nonzero.serialize()
+                    nonzero.append(0, snapshot.add_to_nonzero.pop())
+            nonzero.serialize()
             return Complete.NOT_DONE
 
         index = snapshot.precompute_index.get()  # Tracks where the precompute is over multiple calls.
-        total_nonzero = len(self.nonzero)
+        total_nonzero = len(nonzero)
         next_node = self.next_node.get()
         if next_node == 0:
-            next_node = self.nonzero._head_id
+            next_node = nonzero._head_id
         remaining = total_nonzero - index
         batch_mining_debt = 0
         for _ in range(min(remaining, batch_size)):  # Update standing for all nonzero positions.
@@ -414,10 +415,10 @@ class PositionsDB:
                     snapshot.mining.put(account_id)
                     batch_mining_debt += snapshot.pos_state[account_id]['total_debt']
             index += 1
-            if next_node == self.nonzero._tail_id:
+            if next_node == nonzero._tail_id:
                 next_node = 0
             else:
-                next_node = self.nonzero.next(next_node)
+                next_node = nonzero.next(next_node)
         snapshot.total_mining_debt.set(snapshot.total_mining_debt.get() + batch_mining_debt)
         snapshot.precompute_index.set(index)
         self.next_node.set(next_node)

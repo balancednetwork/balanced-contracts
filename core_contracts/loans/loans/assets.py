@@ -42,6 +42,7 @@ class TokenInterface(InterfaceScore):
 class Asset(object):
 
     def __init__(self, db: IconScoreDatabase, loans: IconScoreBase) -> None:
+        self._db = db
         self._loans = loans
         self.added = VarDB('added', db, value_type=int)
         self.asset_address = VarDB('address', db, value_type=Address)
@@ -50,7 +51,6 @@ class Asset(object):
         self.is_collateral = VarDB('is_collateral', db, value_type=bool)
         self.active = VarDB('active', db, value_type=bool)
         self.dead_market = VarDB('dead_market', db, value_type=bool)
-        self.borrowers = LinkedListDB('borrowers', db, value_type=int)
 
     def symbol(self) -> str:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
@@ -118,19 +118,24 @@ class Asset(object):
             self.dead_market.set(dead)
         return dead
 
+    def get_borrowers(self) -> LinkedListDB:
+        return LinkedListDB('borrowers', self._db, value_type=int)
+
     def remove_borrower(self, _pos_id: int) -> None:
         """
         Removes a borrower from the asset nonzero list.
         """
-        self.borrowers.remove(_pos_id)
-        self.borrowers.serialize()
+        borrowers = self.get_borrowers()
+        borrowers.remove(_pos_id)
+        borrowers.serialize()
 
     def add_borrower(self, _new_debt: int, _pos_id: int) -> None:
         """
         Adds a borrower to the asset nonzero list.
         """
-        self.borrowers.append(_new_debt, _pos_id)
-        self.borrowers.serialize()
+        borrowers = self.get_borrowers()
+        borrowers.append(_new_debt, _pos_id)
+        borrowers.serialize()
 
     def to_dict(self) -> dict:
         """
@@ -147,7 +152,7 @@ class Asset(object):
             'added': self.added.get(),
             'is_collateral': self.is_collateral.get(),
             'active': self.active.get(),
-            'borrowers': len(self.borrowers),
+            'borrowers': len(self.get_borrowers()),
             'bad_debt': self.bad_debt.get(),
             'liquidation_pool': self.liquidation_pool.get(),
             'dead_market': self.dead_market.get()
