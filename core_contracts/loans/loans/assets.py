@@ -31,6 +31,10 @@ class TokenInterface(InterfaceScore):
         pass
 
     @interface
+    def burnFrom(self, _account: Address, _amount: int) -> None:
+        pass
+
+    @interface
     def priceInLoop(self) -> int:
         pass
 
@@ -87,6 +91,16 @@ class Asset(object):
         try:
             token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
             token.burn(_amount)
+        except BaseException as e:
+            revert(f'Trouble burning {self.symbol()} tokens. Exception: {e}')
+
+    def burnFrom(self, _account: Address, _amount: int) -> None:
+        """
+        Burn asset.
+        """
+        try:
+            token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
+            token.burnFrom(_account, _amount)
         except BaseException as e:
             revert(f'Trouble burning {self.symbol()} tokens. Exception: {e}')
 

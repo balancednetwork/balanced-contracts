@@ -99,8 +99,8 @@ class Position(object):
         _id = self.get_snapshot_id(_day)
         if _id == -1:
             return False
-        for _symbol in self.asset_db.aalist:
-            if self.assets[id][_symbol] != 0:
+        for symbol in self.asset_db.aalist:
+            if self.assets[_id][symbol] != 0:
                 return True
         return False
 
@@ -115,13 +115,13 @@ class Position(object):
         if _id == -1:
             return 0
         value = 0
-        for _symbol in self.asset_db.aclist:
-            asset = self.asset_db[_symbol]
-            amount = self.assets[id][_symbol]
+        for symbol in self.asset_db.aclist:
+            asset = self.asset_db[symbol]
+            amount = self.assets[_id][symbol]
             if _day == -1 or _day == self.snaps[-1]:
                 price = asset.priceInLoop()
             else:
-                price = self.snaps_db[_day].prices[_symbol]
+                price = self.snaps_db[_day].prices[symbol]
             value += amount * price // EXA
         return value
 
@@ -138,7 +138,7 @@ class Position(object):
             return 0
         asset_value = 0
         for symbol in self.asset_db.aalist:
-            amount = self.assets[id][symbol]
+            amount = self.assets[_id][symbol]
             if amount > 0:
                 if _day == -1 or _day == self.snaps[-1]:
                     if _readonly:

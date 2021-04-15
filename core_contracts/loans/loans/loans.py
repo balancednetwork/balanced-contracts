@@ -532,8 +532,6 @@ class Loans(IconScoreBase):
             revert('Invalid parameters.')
         if d["method"] == "_deposit_and_borrow":
             self._deposit_and_borrow(_value, **d['params'])
-        elif d["method"] == "_retire_asset":
-            self._retire_asset(_from, _value)
         else:
             revert(f'No valid method called, data: {_data}')
 
@@ -566,15 +564,13 @@ class Loans(IconScoreBase):
             return
         self.originateLoan(_asset, _amount, _from=_from)
 
-    @external
-    def repayLoan(self, _symbol: str, _value: int) -> None:
+    def _repay_loan(self, _symbol: str, _value: int) -> None:
         """
-        If the received token type is in the asset list the loan position for
-        the account of the token sender will be reduced by _value. If there is
-        any excess it will be returned.
+        If the repaid token type is in the asset list the loan position for
+        the account of the token sender will be reduced by _value.
 
-        :param _from: Address of the token sender.
-        :type _from: :class:`iconservice.base.address.Address`
+        :param _symbol: repaid token symbol.
+        :type _symbol: str
         :param _value: Number of tokens sent.
         :type _value: int
         """
@@ -596,39 +592,43 @@ class Loans(IconScoreBase):
             repaid = _value
         else:
             repaid = borrowed
-            refund = _value - repaid
             del pos[_symbol]
             pos_id = pos.id.get()
             if not pos.has_debt():
                 self._positions.remove_nonzero(pos_id)
-            if refund > 0:
-                self._send_token(_symbol, _from, refund, "Excess refunded.")
         asset.burnFrom(_from, repaid)
         self.LoanRepaid(_from, _symbol, repaid,
             f'Loan of {repaid} {_symbol} repaid to Balanced.')
         self.check_dead_markets()
         pos.update_standing()
 
-    def _retire_asset(self, _from: Address, _value: int) -> None:
+    @external
+    def returnAsset(self, _symbol: str, _value: int) -> None:
         """
-        An asset holder who does not hold a position in the asset may retire
-        it in exchange for collateral that comes proportionately from all
-        collateral positions in the system.
+        All returned assets come back to Balanced through this method.
+        A borrower will use this method to pay off their loan.
+        An asset holder who does not hold a position in the asset will retire
+        it here as well. This will either pay off bad debt in exchange for
+        collateral from the liquidation pool or pay off debt from a batch of
+        borrowers proportionately, returning a share of collateral from each
+        position in the batch.
 
-        :param _from: Address of the token sender.
-        :type _from: :class:`iconservice.base.address.Address`
+        :param _symbol: retired token symbol.
+        :type _symbol: str
         :param _value: Number of tokens sent.
         :type _value: int
         """
-        if _value <= 0:
+        _from = self.msg.sender
+        if not _value > 0:
             revert(f'Amount retired must be greater than zero.')
-        asset = self._assets._get_asset(str(self.msg.sender))
-        symbol = asset.symbol()
+        asset = self._assets[_symbol]
+        if not (asset and asset.active.get()) or asset.is_collateral.get():
+            revert(f'{_symbol} is not an active, borrowable asset on Balanced.')
         if self._positions._exists(_from):
             pos = self._positions.get_pos(_from)
-            repay = min(pos[symbol], _value)
+            repay = min(pos[_symbol], _value)
             if repay > 0:
-                self.repayLoan(symbol, repay)
+                self._repay_loan(_symbol, repay)
             if repay == _value:
                 return
             else:
@@ -638,8 +638,7 @@ class Loans(IconScoreBase):
         fee = _value * self._redemption_fee.get() // POINTS
         redeemed = _value - fee
         bad_debt = asset.bad_debt.get()
-        supply = asset.totalSupply() - bad_debt
-        asset.burn(redeemed)
+        asset.burn(_value)
         sicx: int = 0
         total_batch_debt = 0
         batch_dict = {}
@@ -650,13 +649,13 @@ class Loans(IconScoreBase):
         if redeemed > 0:
             sicx_from_lenders = redeemed * price // sicx_rate
             sicx += sicx_from_lenders
-            batch_dict = self._retire_redeem(symbol, redeemed, sicx_from_lenders)
+            batch_dict = self._retire_redeem(_symbol, redeemed, sicx_from_lenders)
             total_batch_debt = batch_dict[0]
             del batch_dict[0]
         self._send_token("sICX", _from, sicx, "Collateral redeemed.")
-        self._send_token(symbol, self._dividends.get(), fee, "Redemption fee.")
-        self._assets[symbol].dead()
-        self.AssetRetired(symbol, redeemed, price, f'total_batch_debt: {total_batch_debt}, batch_dict: {batch_dict}, _from: {_from}')
+        asset.mint(self._dividends.get(), fee)
+        self._assets[_symbol].dead()
+        self.AssetRetired(_symbol, redeemed, price, f'total_batch_debt: {total_batch_debt}, batch_dict: {batch_dict}, _from: {_from}')
 
     def _retire_redeem(self, _symbol: str, _redeemed: int, _sicx_from_lenders: int) -> dict:
         batch_size = self._redeem_batch.get()
@@ -728,7 +727,7 @@ class Loans(IconScoreBase):
             return bd_sicx
         _asset.liquidation_pool.set(0)
         reserve = self.create_interface_score(reserve_address, ReserveFund)
-        return in_pool + reserve.redeem(_from, bd_sicx - in_pool, _sicx_rate)
+        return in_pool + reserve.redeem(_from, bd_sicx - in_pool, _sicx_rate)  # Possible reentrancy here when reserve.redeem send baln to the redeemer.
 
     @external
     def originateLoan(self, _asset: str, _amount: int, _from: Address = None) -> None:
