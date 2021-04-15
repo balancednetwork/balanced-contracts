@@ -46,13 +46,13 @@ class _Node:
         self._name = var_key + _Node._NAME
         self._node_data = VarDB(f'{self._name}_node_data', db, str)
         self._data_string = ""
-        self._value = 0
+        self._value = None
         self._next = 0
         self._prev = 0
         self.unpack()
 
     ######### LinkedListDB 2.0 Compatibility Layer #########
-    def serialize_value(self) -> None:
+    def serialize_value(self) -> str:
         if self._value_type == int:
             return str(self._value)
         if self._value_type == str:
@@ -184,14 +184,14 @@ class LinkedListDB:
             return iter(())
 
         node = self._get_node(cur_id)
-        yield (cur_id, node.get_value())
+        yield cur_id, node.get_value()
         tail_id = self._tail_id
 
         # Iterate until tail
         while cur_id != tail_id:
             cur_id = node.get_next()
             node = self._get_node(cur_id)
-            yield (cur_id, node.get_value())
+            yield cur_id, node.get_value()
             tail_id = self._tail_id
 
     def __getitem__(self, node_id: int):
@@ -214,7 +214,7 @@ class LinkedListDB:
             raise LinkedNodeAlreadyExists(self._name, node_id)
 
         node.set_value(value)
-        return (node_id, node)
+        return node_id, node
 
     def set_node_value(self, value, node_id: int) -> None:
         node = self._get_node(node_id)
@@ -227,7 +227,7 @@ class LinkedListDB:
             self.__cachedb[node_id] = node
         node = self.__cachedb[node_id]
         if not node.exists():
-            self.append(node.default_value(node._value_type), node_id)
+            self.append(node.default_value(self._value_type), node_id)
         return node
 
     def _get_tail_node(self) -> _Node:
@@ -402,7 +402,6 @@ class LinkedListDB:
         tail.repack()
         cur.repack()
 
-
     def move_node_head(self, cur_id: int) -> None:
         """ Move an existing node at the head of the linkedlist """
         if cur_id == self._head_id:
@@ -437,7 +436,6 @@ class LinkedListDB:
         head.repack()
         cur.repack()
 
-
     def remove_head(self) -> None:
         """ Remove the current head from the linkedlist """
         if self._length == 1:
@@ -465,7 +463,6 @@ class LinkedListDB:
             old_tail.delete()
             self._length = self._length - 1
             tail.repack()
-
 
     def remove(self, cur_id: int) -> None:
         """ Remove a given node from the linkedlist """
