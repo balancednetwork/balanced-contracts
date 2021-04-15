@@ -5,7 +5,7 @@ from .scorelib.consts import *
 TAG = 'StakedICXManager'
 
 DENOMINATOR = 10 ** 18
-TOP_PREP_COUNT = 4
+TOP_PREP_COUNT = 20
 DEFAULT_UNSTAKE_BATCH_LIMIT = 200
 
 

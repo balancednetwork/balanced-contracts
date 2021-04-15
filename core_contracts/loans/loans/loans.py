@@ -728,7 +728,7 @@ class Loans(IconScoreBase):
             return bd_sicx
         _asset.liquidation_pool.set(0)
         reserve = self.create_interface_score(reserve_address, ReserveFund)
-        return in_pool + reserve.redeem(_from, bd_sicx - in_pool, _sicx_rate)  # Possible reentrancy here when reserve.redeem send baln to the redeemer.
+        return in_pool + reserve.redeem(_from, bd_sicx - in_pool, _sicx_rate)
 
     @external
     def originateLoan(self, _asset: str, _amount: int, _from: Address = None) -> None:
