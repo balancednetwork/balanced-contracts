@@ -86,6 +86,9 @@ class DEX(IconScoreBase):
     @eventlog(indexed=2)
     def Withdraw(self, _token: Address, _owner: Address, _value: int): pass
 
+    @eventlog(indexed=2)
+    def ClaimSicxEarnings(self, _owner: Address, _value: int): pass
+
     @eventlog(indexed=3)
     def TransferSingle(self, _operator: Address, _from: Address, _to: Address, _id: int, _value: int):
         """
@@ -216,6 +219,8 @@ class DEX(IconScoreBase):
             'icxQueue', db, value1_type=int, value2_type=Address)
         self._icx_queue_order_id = DictDB(
             'icxQueueOrderId', db, value_type=int)
+        # Map (address => int)
+        self._sicx_earnings = DictDB('sicxEarnings', db, value_type=int)
 
         # Total ICX Balance available for conversion
         self._icx_queue_total = VarDB(
@@ -474,6 +479,9 @@ class DEX(IconScoreBase):
         self._take_new_day_snapshot()
         self._check_distributions()
 
+        if self.msg.value < 10 * EXA:
+            revert("Minimum pool contribution is 10 ICX")
+
         order_id = self._icx_queue_order_id[self.msg.sender]
         order_value = self.msg.value
 
@@ -646,6 +654,16 @@ class DEX(IconScoreBase):
         return self._deposit[_tokenAddress][_user]
 
     @external(readonly=True)
+    def getSicxEarnings(self, _user: Address) -> int:
+        """
+        Returns sICX earnings from the ICX queue
+
+        :param _user: User address to check balance of
+        """
+        return self._sicx_earnings[_user]
+
+
+    @external(readonly=True)
     def getPoolId(self, _token1Address: Address, _token2Address: Address) -> int:
         """
         Returns the pool ID mapped to this token pair. The following holds:
@@ -750,7 +768,7 @@ class DEX(IconScoreBase):
             revert("Invalid pool id")
 
         if _pid == self._SICXICX_POOL_ID:
-            return self._get_sicx_rate()
+            return EXA * EXA // self._get_sicx_rate()
 
         return (self._pool_total[_pid][self._pool_base[_pid]] * EXA) // self._pool_total[_pid][self._pool_quote[_pid]]
 
@@ -761,10 +779,10 @@ class DEX(IconScoreBase):
         """
         if self._nonce.get() < _pid < 1:
             revert("Invalid pool id")
-        
+ 
         if _pid == self._SICXICX_POOL_ID:
-            return EXA * EXA // self._get_sicx_rate()
-
+            return self._get_sicx_rate()
+       
         return (self._pool_total[_pid][self._pool_quote[_pid]] * EXA) // self._pool_total[_pid][self._pool_base[_pid]]
 
     @external(readonly=True)
@@ -1033,57 +1051,82 @@ class DEX(IconScoreBase):
         Perform an instant conversion from SICX to ICX.
         Gets orders from SICXICX queue by price time precedence.
         """
-        remaining_sicx = _value
-        conversion_factor = self._get_sicx_rate()
+        # Amount of ICX in one unit sICX
+        sicx_icx_price = self._get_sicx_rate()
 
         sicx_score = self.create_interface_score(
             self._sicx.get(), TokenInterface)
+
+        # subtract out fees to LPs
+        baln_fees = _value * self._icx_baln_fee.get() // FEE_SCALE
+        conversion_fees = _value * self._icx_conversion_fee.get() // FEE_SCALE
+
+        # effective initial order size. We check the ICX price of order after fees.
+        order_size = _value - (baln_fees + conversion_fees)
+        order_icx_value = order_size * sicx_icx_price // EXA
+
+        # ICX LPs earn a proportionate amount of order + fees
+        lp_sicx_size = order_size + conversion_fees
+
+        if order_icx_value > self._icx_queue_total.get():
+            revert("InsufficientLiquidityError: Not enough ICX suppliers")
+
+        # Start order at order_icx_value, fill against queue until none remaining
         filled = False
-        filled_icx = 0
-        removed_icx = 0
+        order_remaining_icx = order_icx_value
 
-        fee_ratio = FEE_SCALE - \
-            (self._icx_baln_fee.get() + self._icx_conversion_fee.get())
+        iterations = 0
 
+        # Tune this to maximum available on the ICON chain
         while not filled:
 
-            if len(self._icx_queue) == 0:
-                Logger.info("Transferring remaining SICX", 'DEX')
-                sicx_score.transfer(_sender, remaining_sicx)
-                break
+            iterations += 1
 
+            if (len(self._icx_queue) == 0) or iterations > ICX_QUEUE_FILL_DEPTH:
+                revert(f"InsufficientLiquidityError: Unable to fill {order_remaining_icx} icx")
+
+            # Get next order from the queue
             counterparty_order = self._icx_queue._get_head_node()
             counterparty_address = counterparty_order.get_value2()
-            order_sicx_value = int(counterparty_order.get_value1() * EXA //
-                                   conversion_factor)
+            counterparty_icx = counterparty_order.get_value1()
+            counterparty_filled = False
+
+
             # Perform match. Matched amount is up to order size
-            matched_sicx = min(order_sicx_value, remaining_sicx)
-            matched_icx = int(matched_sicx * conversion_factor // EXA)
-            filled_icx += int((matched_icx * fee_ratio) // FEE_SCALE)
-            removed_icx += matched_icx
+            matched_icx = min(counterparty_icx, order_remaining_icx)
+            order_remaining_icx -= matched_icx
 
-            dividends_contribution = int(
-                (matched_icx * self._icx_baln_fee.get()) // FEE_SCALE)
-            self.icx.transfer(self._dividends.get(),
-                              dividends_contribution)
+            # Check for a full fill of the order
+            if matched_icx == counterparty_icx:
+                counterparty_filled = True
 
-            sicx_score.transfer(counterparty_address, matched_sicx)
-            self.icx.transfer(counterparty_address, int
-                              ((matched_icx * self._icx_conversion_fee.get()) // FEE_SCALE))
+            # Counterparty earns a proportional amount of order + fees (lp_sicx_size)
+            lp_sicx_earnings = lp_sicx_size * matched_icx // order_icx_value
+            self._sicx_earnings[counterparty_address] += lp_sicx_earnings
 
-            if matched_icx == counterparty_order.get_value1():
+            if counterparty_filled:
                 self._icx_queue.remove_head()
                 del self._icx_queue_order_id[counterparty_address]
+
             else:
                 counterparty_order.set_value1(
                     counterparty_order.get_value1() - matched_icx)
+            
+            self._update_account_snapshot(counterparty_address, self._SICXICX_POOL_ID)
 
-            remaining_sicx -= matched_sicx
-            if not remaining_sicx:
+            # If no more remaining ICX, the order is fully filled
+            if not order_remaining_icx:
                 filled = True
 
-        current_icx_total = self._icx_queue_total.get() - removed_icx
-        self._icx_queue_total.set(current_icx_total)
+        # Subtract the filled ICX from the queue
+        self._icx_queue_total.set(self._icx_queue_total.get() - order_icx_value)
+        self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
+
+        # Settle fees to dividends and ICX converted to the sender
+        sicx_score.transfer(self._dividends.get(), baln_fees)
+        self.icx.transfer(_sender, order_icx_value)
+
+
 
     # Snapshotting
     def _take_new_day_snapshot(self) -> None:
@@ -1517,3 +1560,25 @@ class DEX(IconScoreBase):
 
             if remaining_quote > 0:
                 self.withdraw(_quoteToken, remaining_quote)
+
+    @external
+    def withdrawSicxEarnings(self, _value: int = 0):
+        """
+        :param _value: Amount of token the users wishes to withdraw
+
+        This function is used to withdraw funds deposited to the DEX, but
+        not currently committed to a pool.
+        """
+        if _value == 0:
+            _value = self._sicx_earnings[self.msg.sender]
+
+        if _value > self._sicx_earnings[self.msg.sender]:
+            revert("Insufficient balance")
+        
+        if _value <= 0:
+            revert("InvalidAmountError: Please send a positive amount")
+
+        self._sicx_earnings[self.msg.sender] -= _value
+        token_score = self.create_interface_score(self._sicx.get(), TokenInterface)
+        token_score.transfer(self.msg.sender, _value)
+        self.ClaimSicxEarnings(self.msg.sender, _value)
