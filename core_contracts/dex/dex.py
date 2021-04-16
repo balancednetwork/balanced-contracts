@@ -10,6 +10,7 @@ from .scorelib.utils import *
 from .utils.checks import *
 from .utils.consts import *
 from .lp_metadata import *
+from .utils.scoremath import *
 
 
 # An interface to the Rewards SCORE
@@ -1494,7 +1495,12 @@ class DEX(IconScoreBase):
             self._pool_base[_pid] = _baseToken
             self._pool_quote[_pid] = _quoteToken
 
-            liquidity = DEFAULT_INITAL_LP
+            liquidity = sqrt(_baseValue * _quoteValue)
+
+            if liquidity < MIN_LIQUIDITY:
+                revert(f"InsufficientInitialLiquidity: Initial LP tokens must exceed {MIN_LIQUIDITY}")
+
+
             self.MarketAdded(_pid, _baseToken, _quoteToken,
                              _baseValue, _quoteValue)
 
