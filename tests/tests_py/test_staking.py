@@ -462,6 +462,30 @@ def test_transfer():
 
 # In[98]:
 
+def test_top_preps():
+    print('Testing top preps')
+    _call = CallBuilder() \
+        .from_(user2.get_address()) \
+        .to(staking_address) \
+        .method('getTopPreps') \
+        .build()
+
+    _result1 = icon_service.call(_call)
+
+    _call = CallBuilder() \
+        .from_(user2.get_address()) \
+        .to(GOVERNANCE_ADDRESS) \
+        .method('getPReps') \
+        .params({'startRanking': 1, 'endRanking': 20}) \
+        .build()
+
+    _result2 = icon_service.call(_call)
+    top_prep_in_network = []
+    preps = (_result2['preps'])
+    for prep in preps:
+        top_prep_in_network.append(prep['address'])
+    assert top_prep_in_network == _result1, 'Top preps not set properly'
+
 def test_unstake():
     test_cases = {
         "stories": [
@@ -586,6 +610,103 @@ def test_payout():
             "20 icx from the contract.")
 
 
+def test_partial_payout():
+    params = {'_to': user2.get_address()}
+
+    set_div_per = CallTransactionBuilder() \
+        .from_(user2.get_address()) \
+        .to(staking_address) \
+        .nid(NID) \
+        .nonce(100) \
+        .method("stakeICX") \
+        .params(params) \
+        .value(3000000000000000000) \
+        .build()
+    estimate_step = icon_service.estimate_step(set_div_per)
+    step_limit = estimate_step + 10000000
+    signed_transaction = SignedTransaction(set_div_per, user2, step_limit)
+
+    tx_hash = icon_service.send_transaction(signed_transaction)
+
+    @retry(JSONRPCException, tries=10, delay=1, back_off=2)
+    def get_tx_result(_tx_hash):
+        tx_result = icon_service.get_transaction_result(_tx_hash)
+        return tx_result
+
+    ab = get_tx_result(tx_hash)
+    if ab['status'] == 1:
+        _call = CallBuilder() \
+            .from_(user2.get_address()) \
+            .to(staking_address) \
+            .method('getUnstakingAmount') \
+            .build()
+
+        _result = icon_service.call(_call)
+        total_unstaking_amount = int(_result, 16)
+        print(total_unstaking_amount)
+        assert total_unstaking_amount == 7000000000000000000, 'Failed'
+        print(
+            "3 icx is deposited partially by user2 and as user2 has unstake request in top of the list. User1 will receive 3 icx from the contract.")
+        _call = CallBuilder() \
+            .from_(user2.get_address()) \
+            .to(staking_address) \
+            .method('getUserUnstakeInfo') \
+            .params({'_address': user2.get_address()}) \
+            .build()
+
+        _result = icon_service.call(_call)
+        for x in _result:
+            print(int(x['amount'], 16))
+            assert int(x['amount'], 16) == 7000000000000000000
+
+
+def test_complete_payout():
+    params = {'_to': user2.get_address()}
+
+    set_div_per = CallTransactionBuilder() \
+        .from_(user2.get_address()) \
+        .to(staking_address) \
+        .nid(NID) \
+        .nonce(100) \
+        .method("stakeICX") \
+        .params(params) \
+        .value(30000000000000000000) \
+        .build()
+    estimate_step = icon_service.estimate_step(set_div_per)
+    step_limit = estimate_step + 10000000
+    signed_transaction = SignedTransaction(set_div_per, user2, step_limit)
+
+    tx_hash = icon_service.send_transaction(signed_transaction)
+
+    @retry(JSONRPCException, tries=10, delay=1, back_off=2)
+    def get_tx_result(_tx_hash):
+        tx_result = icon_service.get_transaction_result(_tx_hash)
+        return tx_result
+
+    ab = get_tx_result(tx_hash)
+    if ab['status'] == 1:
+        _call = CallBuilder() \
+            .from_(user2.get_address()) \
+            .to(staking_address) \
+            .method('getUnstakingAmount') \
+            .build()
+
+        _result = icon_service.call(_call)
+        total_unstaking_amount = int(_result, 16)
+        print(total_unstaking_amount)
+        assert total_unstaking_amount == 0, 'Failed'
+        print("Left 7 icx is transferred to user1")
+        _call = CallBuilder() \
+            .from_(user2.get_address()) \
+            .to(staking_address) \
+            .method('getUserUnstakeInfo') \
+            .params({'_address': user2.get_address()}) \
+            .build()
+
+        _result = icon_service.call(_call)
+        assert _result == [], 'Failed'
+
+
 if __name__ == '__main__':
     icon_service = IconService(HTTPProvider("https://bicon.net.solidwallet.io", 3))
     # NID = 80
@@ -593,8 +714,8 @@ if __name__ == '__main__':
 
     # In[92]:
 
-    user1 = KeyWallet.load("./keystores/.json", "password")
-    user2 = KeyWallet.load("./keystores/.json", "password")
+    user1 = KeyWallet.load("../keystores/keystore1.json", "password")
+    user2 = KeyWallet.load("../keystores/keystore2.json", "password")
 
     # print(icon_service.get_balance(user1.get_address()) / 10 ** 18)
     # print(icon_service.get_balance(user2.get_address()) / 10 ** 18)
@@ -609,7 +730,7 @@ if __name__ == '__main__':
     print('Deploying staking Contract')
     deploy_transaction = DeployTransactionBuilder().from_(user2.get_address()).to(GOVERNANCE_ADDRESS).nid(
         NID).nonce(100).content_type("application/zip").content(
-        gen_deploy_data_content('./core_contracts/staking')).build()
+        gen_deploy_data_content('../../core_contracts/staking')).build()
 
     estimate_step = icon_service.estimate_step(deploy_transaction)
     step_limit = estimate_step + 40000000
@@ -635,7 +756,7 @@ if __name__ == '__main__':
     print('Deploying sIcx Contract')
     deploy_transaction = DeployTransactionBuilder().from_(user2.get_address()).to(GOVERNANCE_ADDRESS).nid(
         NID).nonce(100).content_type("application/zip").params({"_admin": staking_address}).content(
-        gen_deploy_data_content('./token_contracts/sicx')).build()
+        gen_deploy_data_content('../../token_contracts/sicx')).build()
 
     estimate_step = icon_service.estimate_step(deploy_transaction)
     step_limit = estimate_step + 40000000
@@ -656,9 +777,12 @@ if __name__ == '__main__':
     assert ab['status'] == 1, 'sICX contract not deployed'
     print('sICX contract Deployed')
     token_address = ab['scoreAddress']
+    test_top_preps()
     test_rate()
     test_stake_icx()
     test_delegations()
     test_transfer()
     test_unstake()
     test_payout()
+    test_partial_payout()
+    test_complete_payout()
