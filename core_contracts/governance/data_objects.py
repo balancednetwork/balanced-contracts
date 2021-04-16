@@ -3,6 +3,13 @@ from .utils.consts import *
 from .interfaces import *
 
 
+# TypedDict for disbursement specs
+class Disbursement(TypedDict):
+    address: Address
+    amount: int
+    symbol: str
+
+
 class BalancedAddresses(TypedDict):
     loans: Address
     dex: Address

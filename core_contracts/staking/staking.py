@@ -8,6 +8,7 @@ DENOMINATOR = 10 ** 18
 TOP_PREP_COUNT = 4
 DEFAULT_UNSTAKE_BATCH_LIMIT = 200
 
+
 # An interface of token to distribute daily rewards
 class sICXTokenInterface(InterfaceScore):
     @interface
@@ -301,7 +302,7 @@ class Staking(IconScoreBase):
         Returns a list of unstaked amount,wallet address, unstake amount period
         and self.msg.sender of an unstaking request.
         """
-        return [[items[1], items[2], items[3], items[4]] for items in self._linked_list_var]
+        return [[items[0], items[1], items[2], items[3], items[4]] for items in self._linked_list_var]
 
     @external(readonly=True)
     def getUserUnstakeInfo(self, _address: Address) -> list:
@@ -342,7 +343,8 @@ class Staking(IconScoreBase):
             if single_prep["_address"] in similar_prep_list_check:
                 revert(f'You can not delegate same Prep twice in a transaction')
             if single_prep["_votes_in_per"] < 10 ** 15:
-                revert('You should provide delegation percentage more than 0.001')
+                revert(
+                    f'You should provide delegation percentage more than 0.001. Your delegation preference is {_user_delegations} ')
             similar_prep_list_check.append(single_prep["_address"])
             amount_to_stake += single_prep["_votes_in_per"]
             self._set_address_delegations(_to, single_prep['_address'],
@@ -469,13 +471,20 @@ class Staking(IconScoreBase):
             for i, request in enumerate(unstaking_requests):
                 if i > self._unstake_batch_limit.get():
                     return
-                unstake_amount = request[0]
-                if balance > 0 and unstake_amount <= balance:
-                    self._linked_list_var.remove(self._linked_list_var._head_id.get())
-                    self._total_unstake_amount.set(self._total_unstake_amount.get() - unstake_amount)
-                    balance -= unstake_amount
-                    self.UnstakeAmountTransfer(request[3], unstake_amount)
-                    self._send_ICX(request[3], unstake_amount)
+                unstake_amount = request[1]
+                if balance > 0:
+                    if unstake_amount <= balance:
+                        payout = unstake_amount
+                        self._linked_list_var.remove(self._linked_list_var._head_id.get())
+                    else:
+                        payout = balance
+                        self._linked_list_var.update_node(request[2], unstake_amount - payout,
+                                                          request[3], request[4],
+                                                          request[0])
+                    self._total_unstake_amount.set(self._total_unstake_amount.get() - payout)
+                    balance -= payout
+                    self.UnstakeAmountTransfer(request[4], payout)
+                    self._send_ICX(request[4], payout)
                 else:
                     return
 

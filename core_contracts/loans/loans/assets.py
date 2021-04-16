@@ -42,6 +42,7 @@ class TokenInterface(InterfaceScore):
 class Asset(object):
 
     def __init__(self, db: IconScoreDatabase, loans: IconScoreBase) -> None:
+        self._db = db
         self._loans = loans
         self.added = VarDB('added', db, value_type=int)
         self.asset_address = VarDB('address', db, value_type=Address)
@@ -50,7 +51,6 @@ class Asset(object):
         self.is_collateral = VarDB('is_collateral', db, value_type=bool)
         self.active = VarDB('active', db, value_type=bool)
         self.dead_market = VarDB('dead_market', db, value_type=bool)
-        self.borrowers = LinkedListDB('borrowers', db, value_type=int)
 
     def symbol(self) -> str:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
@@ -118,20 +118,24 @@ class Asset(object):
             self.dead_market.set(dead)
         return dead
 
+    def get_borrowers(self) -> LinkedListDB:
+        return LinkedListDB('borrowers', self._db, value_type=int)
+
     def remove_borrower(self, _pos_id: int) -> None:
         """
         Removes a borrower from the asset nonzero list.
         """
-        for node_id, value in self.borrowers:
-            if value == _pos_id:
-                self.borrowers.remove(node_id)
-                break
+        borrowers = self.get_borrowers()
+        borrowers.remove(_pos_id)
+        borrowers.serialize()
 
-    def add_borrower(self, _pos_id: int) -> None:
+    def add_borrower(self, _new_debt: int, _pos_id: int) -> None:
         """
         Adds a borrower to the asset nonzero list.
         """
-        self.borrowers.append(_pos_id)
+        borrowers = self.get_borrowers()
+        borrowers.append(_new_debt, _pos_id)
+        borrowers.serialize()
 
     def to_dict(self) -> dict:
         """
@@ -148,6 +152,7 @@ class Asset(object):
             'added': self.added.get(),
             'is_collateral': self.is_collateral.get(),
             'active': self.active.get(),
+            'borrowers': len(self.get_borrowers()),
             'bad_debt': self.bad_debt.get(),
             'liquidation_pool': self.liquidation_pool.get(),
             'dead_market': self.dead_market.get()
@@ -162,6 +167,8 @@ class AssetsDB:
         self._loans = loans
         self.alist = ArrayDB('address_list', db, value_type=Address)
         self.slist = ArrayDB('symbol_list', db, value_type=str)
+        self.aalist = ArrayDB('active_assets_list', db, value_type=str)  # Does not include collateral.
+        self.aclist = ArrayDB('active_collateral_list', db, value_type=str)
         self.collateral = ArrayDB('collateral', db, value_type=str)
         self.symboldict = DictDB('symbol|address', db, value_type=str)
         self._items = {}
@@ -190,19 +197,17 @@ class AssetsDB:
 
     def get_assets(self) -> dict:
         assets = {}
-        for address in self.alist:
-            asset = self._get_asset(str(address))
-            if asset.active.get():
-                asset_dict = asset.to_dict()
-                assets[asset_dict['symbol']] = asset_dict
+        for symbol in self.aalist:
+            asset = self.__getitem__(symbol)
+            asset_dict = asset.to_dict()
+            assets[symbol] = asset_dict
         return assets
 
     def get_asset_prices(self) -> dict:
         assets = {}
-        for address in self.alist:
-            asset = self._get_asset(str(address))
-            if asset.active.get():
-                assets[asset.symbol()] = asset.lastPriceInLoop()
+        for symbol in self.aalist:
+            asset = self.__getitem__(symbol)
+            assets[symbol] = asset.lastPriceInLoop()
         return assets
 
     def add_asset(self, _address: Address, is_active: bool = True, is_collateral: bool = False) -> None:
@@ -216,8 +221,12 @@ class AssetsDB:
         symbol = asset.symbol()
         self.slist.put(symbol)
         self.symboldict[symbol] = address
-        asset.active.set(is_active)
+        if is_active and not is_collateral:
+            asset.active.set(is_active)
+            self.aalist.put(symbol)
         if is_collateral:
             asset.is_collateral.set(is_collateral)
             self.collateral.put(symbol)
+            if is_active:
+                self.aclist.put(symbol)
         self._items[symbol] = asset

@@ -223,7 +223,7 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def balancesetMinInterval(self, _interval: int) -> None:
+    def balancesetMinInterval(self,  _interval: int) -> None:
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         baln.setMinInterval(_interval)
 
