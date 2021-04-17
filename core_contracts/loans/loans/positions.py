@@ -125,7 +125,7 @@ class Position(object):
             value += amount * price // EXA
         return value
 
-    def _total_debt(self, _day: int = -1, _readonly: bool = False) -> int:
+    def total_debt(self, _day: int = -1, _readonly: bool = False) -> int:
         """
         Returns the total value of all outstanding debt in loop. Only valid
         for updated positions.
@@ -159,7 +159,7 @@ class Position(object):
         :rtype: dict
         """
         status = {}
-        debt = self._total_debt(_day, _readonly)
+        debt = self.total_debt(_day, _readonly)
         status['debt'] = debt
         collateral = self._collateral_value(_day)
         status['collateral'] = collateral
@@ -184,14 +184,14 @@ class Position(object):
 
         bnUSD_debt: int = debt * EXA // price
 
-        if ratio > DEFAULT_MINING_RATIO * EXA // POINTS:
+        if ratio > MINING_RATIO * EXA // POINTS:
             if bnUSD_debt < self._loans._min_mining_debt.get():
                 standing = Standing.NOT_MINING
             else:
                 standing = Standing.MINING
-        elif ratio > DEFAULT_LOCKING_RATIO * EXA // POINTS:
+        elif ratio > LOCKING_RATIO * EXA // POINTS:
             standing = Standing.NOT_MINING
-        elif ratio > DEFAULT_LIQUIDATION_RATIO * EXA // POINTS:
+        elif ratio > LIQUIDATION_RATIO * EXA // POINTS:
             standing = Standing.LOCKED
         else:
             standing = Standing.LIQUIDATE
@@ -346,6 +346,7 @@ class PositionsDB:
         _new_pos.address.set(_address)
         _new_pos.snaps.put(snap_id)
         _new_pos.assets[snap_id]['sICX'] = 0
+        self._items[_id] = _new_pos
         return _new_pos
 
     def _take_snapshot(self) -> None:
@@ -356,7 +357,7 @@ class PositionsDB:
         snapshot = self._snapshot_db[-1]
         assets = self._loans._assets
         for symbol in assets.slist:
-            if assets[symbol].active.get():
+            if assets[symbol].is_active():
                 snapshot.prices[symbol] = assets[symbol].priceInLoop()
         snapshot.snap_time.set(self._loans.now())
         self._loans.Snapshot(self._loans._current_day.get())
@@ -389,9 +390,9 @@ class PositionsDB:
             loops = min(_iter, remove)
             for _ in range(loops):
                 self.nonzero.remove(snapshot.remove_from_nonzero.pop())
-                iter -= 1
-            if iter > 0:
-                loops = min(iter, add)
+                _iter -= 1
+            if _iter > 0:
+                loops = min(_iter, add)
                 for _ in range(loops):
                     self.nonzero.append(0, snapshot.add_to_nonzero.pop())
             self.nonzero.serialize()

@@ -44,7 +44,7 @@ class Snapshot(object):
         prices = {}
         assets = self._loans._assets
         for symbol in assets.slist:
-            if assets[symbol].added.get() < self.snap_time.get() and assets[symbol].active.get():
+            if assets[symbol].added.get() < self.snap_time.get() and assets[symbol].is_active():
                 prices[symbol] = self.prices[symbol]
         snap = {
             'snap_day': self.snap_day.get(),

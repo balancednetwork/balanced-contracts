@@ -6,10 +6,6 @@ from .assets import AssetsDB, Asset
 
 TAG = 'BalancedLoans'
 
-# For testing only
-TEST_ADDRESS = Address.from_string('hx3f01840a599da07b0f620eeae7aa9c574169a4be')
-
-
 # An interface to the Emergency Reserve Fund
 class ReserveFund(InterfaceScore):
     @interface
@@ -77,10 +73,11 @@ class Loans(IconScoreBase):
     _NEW_LOAN_MINIMUM = 'new_loan_minimum'
     _MIN_MINING_DEBT = 'min_mining_debt'
     _MAX_DEBTS_LIST_LENGTH = 'max_debts_list_length'
-    _ZERO_CHECK_BATCH_SIZE = 'zero_check_batch_size'
 
     _REDEEM_BATCH_SIZE = 'redeem_batch_size'
     _MAX_RETIRE_PERCENT = 'max_retire_percent'
+    _SICX_EXPECTED = 'sicx_expected'
+    _SICX_RECEIVED = 'sicx_received'
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
@@ -113,12 +110,13 @@ class Loans(IconScoreBase):
         self._new_loan_minimum = VarDB(self._NEW_LOAN_MINIMUM, db, value_type=int)
         self._min_mining_debt = VarDB(self._MIN_MINING_DEBT, db, value_type=int)
         self._max_debts_list_length = VarDB(self._MAX_DEBTS_LIST_LENGTH, db, value_type=int)
-        self._zero_check_batch_size = VarDB(self._ZERO_CHECK_BATCH_SIZE, db, value_type=int)
 
         # batch size for redeem-retire
         self._redeem_batch = VarDB(self._REDEEM_BATCH_SIZE, db, value_type=int)
         # max percentage of the batch total debt that can be accepted in one redemption.
         self._max_retire_percent = VarDB(self._MAX_RETIRE_PERCENT, db, value_type=int)
+        self._sICX_expected = VarDB(self._SICX_EXPECTED, db, value_type=bool)
+        self._sICX_received = VarDB(self._SICX_RECEIVED, db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
@@ -129,19 +127,18 @@ class Loans(IconScoreBase):
         self._snap_batch_size.set(SNAP_BATCH_SIZE)
         self._rewards_done.set(True)
         self._dividends_done.set(True)
-        self._mining_ratio.set(DEFAULT_MINING_RATIO)
-        self._locking_ratio.set(DEFAULT_LOCKING_RATIO)
-        self._liquidation_ratio.set(DEFAULT_LIQUIDATION_RATIO)
-        self._origination_fee.set(DEFAULT_ORIGINATION_FEE)
-        self._redemption_fee.set(DEFAULT_REDEMPTION_FEE)
+        self._mining_ratio.set(MINING_RATIO)
+        self._locking_ratio.set(LOCKING_RATIO)
+        self._liquidation_ratio.set(LIQUIDATION_RATIO)
+        self._origination_fee.set(ORIGINATION_FEE)
+        self._redemption_fee.set(REDEMPTION_FEE)
         self._liquidation_reward.set(LIQUIDATION_REWARD)
         self._retirement_bonus.set(BAD_DEBT_RETIREMENT_BONUS)
         self._new_loan_minimum.set(NEW_LOAN_MINIMUM)
-        self._min_mining_debt.set(DEFAULT_MIN_MINING_DEBT)
-        self._redeem_batch.set(DEFAULT_REDEEM_BATCH_SIZE)
-        self._max_retire_percent.set(DEFAULT_MAX_RETIRE_PERCENT)
+        self._min_mining_debt.set(MIN_MINING_DEBT)
+        self._redeem_batch.set(REDEEM_BATCH_SIZE)
+        self._max_retire_percent.set(MAX_RETIRE_PERCENT)
         self._max_debts_list_length.set(MAX_DEBTS_LIST_LENGTH)
-        self._zero_check_batch_size.set(ZERO_CHECK_BATCH_SIZE)
 
     def on_update(self) -> None:
         super().on_update()
@@ -153,16 +150,19 @@ class Loans(IconScoreBase):
         # Add ICX collateral via staking contract.
         if not self._test_mode.get():
             revert(f'This method may only be called in test mode.')
-        params = {"_sender": str(_address), "_asset": "", "_amount": 0}
-        data = json_dumps({"method": "_deposit_and_borrow", "params": params}).encode("utf-8")
+        params = {"_asset": "", "_amount": 0}
+        data = json_dumps(params).encode("utf-8")
         staking = self.create_interface_score(self._staking.get(), Staking)
-        staking.icx(self.msg.value).stakeICX(self.address, data)
+        value = self.msg.value
+        if value > 0:
+            staking.icx(value).stakeICX(self.address, data)
         pos = self._positions.get_pos(_address)
         # Mint asset for this position.
         if _amount > 0:
             self._assets[_asset].mint(_address, _amount)
             pos[_asset] += _amount
         pos.update_standing()
+        self.check_dead_markets()
 
     @external
     @only_owner
@@ -218,7 +218,8 @@ class Loans(IconScoreBase):
 
     @external(readonly=True)
     def getDistributionsDone(self) -> dict:
-        return {"Rewards": self._rewards_done.get(), "Dividends": self._dividends_done.get()}
+        return {"Rewards": self._rewards_done.get(),
+                "Dividends": self._dividends_done.get()}
 
     @external(readonly=True)
     def getDebts(self, _address_list: List[str], _day: int) -> dict:
@@ -227,7 +228,8 @@ class Loans(IconScoreBase):
         """
         max_length = self._max_debts_list_length.get()
         if len(_address_list) > max_length:
-            revert(f'Address list is longer than the maximum allowable length ({max_length}).')
+            revert(f'Address list is longer than the maximum '
+                   f'allowable length ({max_length}).')
         debts = {}
         for address in _address_list:
             pos_id = self._positions.get_id_for(Address.from_string(address))
@@ -248,8 +250,9 @@ class Loans(IconScoreBase):
         :return: Maximum amount accepted by the _retire_asset method.
         :rtype: int
         """
+        asset = self._assets[_symbol]
         batch_size = self._redeem_batch.get()
-        borrowers = self._assets[_symbol].borrowers
+        borrowers = asset.borrowers
         node_id = borrowers.get_head_id()
         tail_id = borrowers.get_tail_id()
         total_batch_debt: int = 0
@@ -260,8 +263,10 @@ class Loans(IconScoreBase):
             if tail_id != node_id:
                 node_id = borrowers.next(node_id)
 
-        bad_debt = self._assets[_symbol].bad_debt.get()
-        return bad_debt + self._max_retire_percent.get() * total_batch_debt // POINTS
+        bad_debt = asset.bad_debt.get()
+        max_retire_percent = self._max_retire_percent.get()
+        top = bad_debt * POINTS + total_batch_debt * max_retire_percent
+        return top // (POINTS - self._redemption_fee.get())
 
     @external(readonly=True)
     def checkDeadMarkets(self) -> list:
@@ -270,7 +275,7 @@ class Loans(IconScoreBase):
         """
         return [
             symbol
-            for symbol in self._assets.slist
+            for symbol in self._assets.aalist
             if self._assets[symbol].dead_market.get()
         ]
 
@@ -324,7 +329,7 @@ class Loans(IconScoreBase):
         return {
             symbol: self._assets.symboldict[symbol]
             for symbol in self._assets.slist
-            if self._assets[symbol].is_collateral.get()
+            if self._assets[symbol].is_collateral()
         }
 
     @external(readonly=True)
@@ -336,7 +341,7 @@ class Loans(IconScoreBase):
         total_collateral = 0
         for symbol in self._assets.slist:
             asset = self._assets[symbol]
-            if asset.is_collateral.get() and asset.active.get():
+            if asset.is_collateral() and asset.is_active():
                 held = asset.balanceOf(self.address)
                 price = asset.lastPriceInLoop()
                 total_collateral += held * price
@@ -412,7 +417,7 @@ class Loans(IconScoreBase):
     @only_admin
     def toggleAssetActive(self, _symbol) -> None:
         asset = self._assets[_symbol]
-        value: bool = not asset.active.get()
+        value: bool = not asset.is_active()
         asset.active.set(value)
         self.AssetActive(_symbol, "Active" if value else "Inactive")
 
@@ -444,7 +449,8 @@ class Loans(IconScoreBase):
         return len(self._positions._snapshot_db[_snapshot_id].mining)
 
     @external(readonly=True)
-    def getDataBatch(self, _name: str, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
+    def getDataBatch(self, _name: str, _snapshot_id: int,
+                     _limit: int, _offset: int = 0) -> dict:
         """
         Read position data batch.
         """
@@ -486,23 +492,6 @@ class Loans(IconScoreBase):
             rewards = self.create_interface_score(self._rewards.get(), Rewards)
             self._rewards_done.set(rewards.distribute())
 
-    @payable
-    @external
-    def addCollateral(self, _asset: str = '', _amount: int = 0) -> None:
-        """
-        Sends ICX to the addCollateral method on the staking SCORE and specifies
-        an amount and type of asset to borrow.
-
-        :param _asset: Symbol for the pegged asset to borrow.
-        :type _asset: str
-        :param _amount: Amount of asset to borrow.
-        :type _amount: int
-        """
-        params = {"_sender": str(self.msg.sender), "_asset": _asset, "_amount": _amount}
-        data = json_dumps({"method": "_deposit_and_borrow", "params": params}).encode("utf-8")
-        staking = self.create_interface_score(self._staking.get(), Staking)
-        staking.icx(self.msg.value).stakeICX(self.address, data)
-
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
@@ -519,51 +508,62 @@ class Loans(IconScoreBase):
             revert('Balanced is currently not accepting transactions.')
         if _value <= 0:
             revert(f'Amount sent must be greater than zero.')
-        if self.msg.sender not in self._assets.alist:
+        if self.msg.sender != self._assets['sICX'].get_address():
             revert(f'The Balanced Loans contract does not accept that token type.')
-        day, new_day = self.checkForNewDay()
-        self.checkDistributions(day, new_day)
-        if _from == self._reserve.get():
+        if self._sICX_expected.get():
+            self._sICX_received.set(_value)
             return
         try:
             d = json_loads(_data.decode("utf-8"))
         except BaseException as e:
             revert(f'Invalid data: {_data}, returning tokens. Exception: {e}')
-        if set(d.keys()) != {"method", "params"}:
+        if set(d.keys()) != {"_asset", "_amount"}:
             revert('Invalid parameters.')
-        if d["method"] == "_deposit_and_borrow":
-            self._deposit_and_borrow(_value, **d['params'])
-        else:
-            revert(f'No valid method called, data: {_data}')
+        self.depositAndBorrow(d['_asset'], d['_amount'], _from, _value)
 
-    def _deposit_and_borrow(self, _value: int, _sender: str, _asset: str = '',
-                            _amount: int = 0) -> None:
+    @payable
+    @external
+    def depositAndBorrow(self, _asset: str = '', _amount: int = 0,
+                         _from: Address = None, _value: int = 0) -> None:
         """
-        If the received token type is sICX it will be added to the account of
-        the token sender.
+        This method may be used to deposit ICX or sICX as collateral and / or
+        originate a loan of one of the assets supported by Balanced.
         If the optional parameters of _asset and _amount are present a loan of
         _amount of _asset will be returned to the originating address if
         there is sufficient collateral present.
 
-        :param _sender: Address of the token sender.
-        :type _sender: str
-        :param _value: Number of tokens sent.
+        :param _from: Sender address if sICX is received.
+        :type _from: :class:`iconservice.base.address.Address`
+        :param _value: Amount of sICX received.
         :type _value: int
         :param _asset: Symbol of asset to borrow.
         :type _asset: str
         :param _amount: Size of loan requested.
         :type _amount: int
         """
-        if self.msg.sender != self._assets['sICX'].asset_address.get():
-            revert(f'sICX is the only type of collateral accepted.')
-        _from = Address.from_string(_sender)
+        deposit = self.msg.value
+        sender = self.msg.sender
+        if sender != self._assets['sICX'].get_address():
+            _from = sender
+            if deposit > 0:
+                self._sICX_expected.set(True)
+                staking = self.create_interface_score(self._staking.get(), Staking)
+                staking.icx(deposit).stakeICX(self.address)
+                received = self._sICX_received.get()
+                if received == 0:
+                    revert(f'Expected sICX not received.')
+                _value = received
+                self._sICX_received.set(0)
+                self._sICX_expected.set(False)
+        day, new_day = self.checkForNewDay()
+        self.checkDistributions(day, new_day)
         pos = self._positions.get_pos(_from)
-        pos['sICX'] += _value
-        self.CollateralReceived(_from, 'sICX')
-        if _asset == '' or _amount == 0:
-            pos.update_standing()
+        if _value > 0:
+            pos['sICX'] += _value
+            self.CollateralReceived(_from, 'sICX', _value)
+        if _asset == '' or _amount < 1:
             return
-        self.originateLoan(_asset, _amount, _from=_from)
+        self._originate_loan(_asset, _amount, _from)
 
     def _repay_loan(self, _symbol: str, _value: int) -> None:
         """
@@ -581,8 +581,6 @@ class Loans(IconScoreBase):
         if not _value > 0:
             revert(f'Repayment requires a positive value.')
         asset = self._assets[_symbol]
-        if not (asset and asset.active.get()) or asset.is_collateral.get():
-            revert(f'{_symbol} is not an active, borrowable asset on Balanced.')
         pos = self._positions.get_pos(_from)
 
         borrowed = pos[_symbol]
@@ -600,8 +598,7 @@ class Loans(IconScoreBase):
         asset.burnFrom(_from, repaid)
         self.LoanRepaid(_from, _symbol, repaid,
             f'Loan of {repaid} {_symbol} repaid to Balanced.')
-        self.check_dead_markets()
-        pos.update_standing()
+        asset.is_dead()
 
     @external
     def returnAsset(self, _symbol: str, _value: int) -> None:
@@ -623,7 +620,7 @@ class Loans(IconScoreBase):
         if not _value > 0:
             revert(f'Amount retired must be greater than zero.')
         asset = self._assets[_symbol]
-        if not (asset and asset.active.get()) or asset.is_collateral.get():
+        if not (asset and asset.is_active()) or asset.is_collateral():
             revert(f'{_symbol} is not an active, borrowable asset on Balanced.')
         if self._positions._exists(_from):
             pos = self._positions.get_pos(_from)
@@ -631,6 +628,8 @@ class Loans(IconScoreBase):
             if repay > 0:
                 self._repay_loan(_symbol, repay)
             if repay == _value:
+                day, new_day = self.checkForNewDay()
+                self.checkDistributions(day, new_day)
                 return
             else:
                 _value -= repay
@@ -655,8 +654,13 @@ class Loans(IconScoreBase):
             del batch_dict[0]
         self._send_token("sICX", _from, sicx, "Collateral redeemed.")
         asset.mint(self._dividends.get(), fee)
-        self._assets[_symbol].dead()
-        self.AssetRetired(_symbol, redeemed, price, f'total_batch_debt: {total_batch_debt}, batch_dict: {batch_dict}, _from: {_from}')
+        self.FeePaid(_symbol, fee, "redemption")
+        asset.is_dead()
+        self.AssetRetired(_from, _symbol, _value, price, redeemed,
+                          total_batch_debt, str(batch_dict))
+        if redeemed == 0:
+            day, new_day = self.checkForNewDay()
+            self.checkDistributions(day, new_day)
 
     def _retire_redeem(self, _symbol: str, _redeemed: int, _sicx_from_lenders: int) -> dict:
         batch_size = self._redeem_batch.get()
@@ -678,10 +682,11 @@ class Loans(IconScoreBase):
         remaining_supply = total_batch_debt
         returned_sicx_remaining = _sicx_from_lenders
 
+        redeemed_dict = {}
         for pos_id, user_debt in positions_dict.items():
-            redeemed_from_this_pos = remaining_value * user_debt // remaining_supply
-            remaining_value -= redeemed_from_this_pos
-            self._positions[pos_id][_symbol] = user_debt - redeemed_from_this_pos
+            redeemed_dict[pos_id] = remaining_value * user_debt // remaining_supply
+            remaining_value -= redeemed_dict[pos_id]
+            self._positions[pos_id][_symbol] = user_debt - redeemed_dict[pos_id]
 
             sicx_share = returned_sicx_remaining * user_debt // remaining_supply
             returned_sicx_remaining -= sicx_share
@@ -689,8 +694,8 @@ class Loans(IconScoreBase):
 
             remaining_supply -= user_debt
 
-        positions_dict[0] = total_batch_debt
-        return positions_dict
+        redeemed_dict[0] = total_batch_debt
+        return redeemed_dict
 
     def bd_redeem(self, _from: Address,
                   _asset: Asset,
@@ -717,21 +722,22 @@ class Loans(IconScoreBase):
         """
         reserve_address = self._reserve.get()
         in_pool = _asset.liquidation_pool.get()
-        bd_sicx = (POINTS + self._retirement_bonus.get()) * _bd_value * _price // (POINTS * _sicx_rate)
+        bd_sicx = ((POINTS + self._retirement_bonus.get())
+                   * _bd_value * _price // (POINTS * _sicx_rate))
         if in_pool > bd_sicx:
             _asset.liquidation_pool.set(in_pool - bd_sicx)
             bad_debt = _asset.bad_debt.get() - _bd_value
             _asset.bad_debt.set(bad_debt)
             if bad_debt == 0:
-                self._send_token('sICX', reserve_address, in_pool - bd_sicx, "Sweep to ReserveFund:")
+                self._send_token('sICX', reserve_address,
+                                 in_pool - bd_sicx, "Sweep to ReserveFund:")
                 _asset.liquidation_pool.set(0)
             return bd_sicx
         _asset.liquidation_pool.set(0)
         reserve = self.create_interface_score(reserve_address, ReserveFund)
         return in_pool + reserve.redeem(_from, bd_sicx - in_pool, _sicx_rate)
 
-    @external
-    def originateLoan(self, _asset: str, _amount: int, _from: Address = None) -> None:
+    def _originate_loan(self, _asset: str, _amount: int, _from: Address) -> None:
         """
         Originate a loan of an asset if there is sufficient collateral.
 
@@ -742,21 +748,14 @@ class Loans(IconScoreBase):
         :param _from
         :type _from: Address
         """
-        if _from is None:
-            _from = self.msg.sender
-        if not self._positions._exists(_from):
-            revert(f'This address does not have a position on Balanced. '
-                   f'Collateral must be deposited before originating a loan.')
-        if self._assets[_asset].dead():
+        asset = self._assets[_asset]
+        if asset.is_dead():
             revert(f'No new loans of {_asset} can be originated since '
                    f'it is in a dead market state.')
-        if self._assets[_asset].is_collateral.get():
+        if asset.is_collateral():
             revert(f'Loans of collateral assets are not allowed.')
-        if not self._assets[_asset].active.get():
+        if not asset.is_active():
             revert(f'Loans of inactive assets are not allowed.')
-        if self.msg.sender != self._assets['sICX'].asset_address.get():  # to avoid doubling this call.
-            day, new_day = self.checkForNewDay()
-            self.checkDistributions(day, new_day)
         pos = self._positions.get_pos(_from)
 
         # Check for sufficient collateral
@@ -764,8 +763,8 @@ class Loans(IconScoreBase):
         max_debt_value = POINTS * collateral // self._locking_ratio.get()
         fee = self._origination_fee.get() * _amount // POINTS
         new_debt_value = self._assets[_asset].priceInLoop() * (_amount + fee) // EXA
+
         # Check for loan minimum
-        new_borrower = False
         pos_id = pos.id.get()
         if pos[_asset] == 0:
             loan_minimum = self._new_loan_minimum.get()
@@ -773,17 +772,17 @@ class Loans(IconScoreBase):
             if dollar_value < loan_minimum:
                 revert(f'The initial loan of any asset must have a minimum value '
                        f'of {loan_minimum / EXA} dollars.')
-            new_borrower  = True
-        if pos._total_debt() + new_debt_value > max_debt_value:
+        total_debt = pos.total_debt()
+        if total_debt + new_debt_value > max_debt_value:
             revert(f'{collateral / EXA} collateral is insufficient'
                    f' to originate a loan of {_amount / EXA} {_asset}'
-                   f' when max_debt_value = {max_debt_value / EXA} and'
+                   f' when max_debt_value = {max_debt_value / EXA},'
                    f' new_debt_value = {new_debt_value / EXA},'
-                   f' plus a fee of {fee / EXA} {_asset},'
-                   f' and an existing loan value of {pos._total_debt() / EXA}.')
+                   f' which includes a fee of {fee / EXA} {_asset},'
+                   f' given an existing loan value of {total_debt / EXA}.')
 
         # Originate loan
-        if new_borrower and not pos.has_debt():
+        if total_debt == 0:
             self._positions.add_nonzero(pos_id)
         new_debt = _amount + fee
         pos[_asset] += new_debt
@@ -793,8 +792,7 @@ class Loans(IconScoreBase):
 
         # Pay fee
         self._assets[_asset].mint(self._dividends.get(), fee)
-        self.FeePaid(_asset, fee, "origination", "")
-        pos.update_standing()
+        self.FeePaid(_asset, fee, "origination")
 
     @external
     def withdrawCollateral(self, _value: int) -> None:
@@ -815,7 +813,7 @@ class Loans(IconScoreBase):
 
         if pos['sICX'] < _value:
             revert(f'Position holds less collateral than the requested withdrawal.')
-        asset_value = pos._total_debt()  # Value in ICX
+        asset_value = pos.total_debt()  # Value in ICX
         remaining_sicx = pos['sICX'] - _value
         remaining_coll = remaining_sicx * self._assets['sICX'].priceInLoop() // EXA
         locking_value = self._locking_ratio.get() * asset_value // POINTS
@@ -826,28 +824,6 @@ class Loans(IconScoreBase):
                    f'locking value (max debt): {locking_value} ICX')
         pos['sICX'] = remaining_sicx
         self._send_token('sICX', _from, _value, "Collateral withdrawn.")
-        pos.update_standing()
-
-    @external
-    def updateStanding(self, _owner: Address) -> int:
-        """
-        Update the standing of the position given current asset prices.
-
-        :param _owner: Address of position to update.
-        :type _owner: :class:`iconservice.base.address.Address`
-        """
-        if not self._positions._exists(_owner):
-            revert(f'This address does not have a position on Balanced.')
-        day, new_day = self.checkForNewDay()
-        self.checkDistributions(day, new_day)
-        pos = self._positions.get_pos(_owner)
-        standing = pos.update_standing()
-        total_debt = pos._total_debt()
-        self.PositionStanding(_owner,
-                              Standing.STANDINGS[standing],
-                              0 if total_debt == 0 else pos._collateral_value() * EXA // total_debt,
-                              "Position up to date.")
-        return standing
 
     @external
     def liquidate(self, _owner: Address) -> None:
@@ -859,18 +835,18 @@ class Loans(IconScoreBase):
         """
         if not self._positions._exists(_owner):
             revert(f'This address does not have a position on Balanced.')
-        _standing = self.updateStanding(_owner)
+        pos = self._positions.get_pos(_owner)
+        _standing = pos.update_standing()
         if _standing == Standing.LIQUIDATE:
-            pos = self._positions.get_pos(_owner)
             pos_id = pos.id.get()
             collateral = pos['sICX']
             reward = collateral * self._liquidation_reward.get() // POINTS
             for_pool = collateral - reward
-            total_debt = pos._total_debt()
+            total_debt = pos.total_debt()
             for symbol in self._assets.slist:
                 asset = self._assets[symbol]
-                is_collateral = asset.is_collateral.get()
-                active = asset.active.get()
+                is_collateral = asset.is_collateral()
+                active = asset.is_active()
                 debt = pos[symbol]
                 if not is_collateral and active and debt > 0:
                     bad_debt = asset.bad_debt.get()
@@ -884,7 +860,6 @@ class Loans(IconScoreBase):
                     del pos[symbol]
             pos['sICX'] = 0
             self._send_token('sICX', self.msg.sender, reward, "Liquidation reward of")
-            pos.update_standing()
             self.check_dead_markets()
             self._positions.remove_nonzero(pos_id)
             self.Liquidate(_owner, collateral, f'{collateral} liquidated from {_owner}')
@@ -895,7 +870,7 @@ class Loans(IconScoreBase):
         them accordingly.
         """
         for symbol in self._assets.slist:
-            self._assets[symbol].dead()
+            self._assets[symbol].is_dead()
 
     def _send_token(self, _token: str, _to: Address, _amount: int, msg: str) -> None:
         """
@@ -909,7 +884,7 @@ class Loans(IconScoreBase):
         :param msg: Message for the event log.
         :type msg: str
         """
-        address = self._assets[_token].asset_address.get()
+        address = self._assets[_token].get_address()
         try:
             token_score = self.create_interface_score(address, TokenInterface)
             token_score.transfer(_to, _amount)
@@ -921,9 +896,9 @@ class Loans(IconScoreBase):
     def fallback(self):
         pass
 
-    # -------------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     #   SETTERS AND GETTERS
-    # -------------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
     @external
     @only_owner
@@ -1021,9 +996,9 @@ class Loans(IconScoreBase):
             "time offset": self._time_offset.get()
         }
 
-    # -------------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     #   EVENT LOGS
-    # -------------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
     @eventlog(indexed=1)
     def ContractActive(self, _contract: str, _state: str):
@@ -1042,7 +1017,7 @@ class Loans(IconScoreBase):
         pass
 
     @eventlog(indexed=2)
-    def CollateralReceived(self, account: Address, symbol: str):
+    def CollateralReceived(self, account: Address, symbol: str, value: int):
         pass
 
     @eventlog(indexed=3)
@@ -1054,7 +1029,8 @@ class Loans(IconScoreBase):
         pass
 
     @eventlog(indexed=3)
-    def AssetRetired(self, symbol: str, amount: int, price: int, note: str):
+    def AssetRetired(self, account: Address, symbol: str, amount: int, price: int,
+                     redeemed_from_batch: int, total_batch_debt: int, batch_dict: str):
         pass
 
     @eventlog(indexed=2)
@@ -1062,11 +1038,12 @@ class Loans(IconScoreBase):
         pass
 
     @eventlog(indexed=3)
-    def FeePaid(self, symbol: str, amount: int, type: str, note: str):
+    def FeePaid(self, symbol: str, amount: int, type: str):
         pass
 
     @eventlog(indexed=2)
-    def PositionStanding(self, address: Address, standing: str, ratio: int, note: str):
+    def PositionStanding(self, address: Address, standing: str,
+                         total_collateral: int, total_debt: int):
         pass
 
     @eventlog(indexed=1)
