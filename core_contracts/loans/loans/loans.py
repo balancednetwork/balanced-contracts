@@ -576,18 +576,13 @@ class Loans(IconScoreBase):
         :type _value: int
         """
         _from = self.msg.sender
-        if not self._positions._exists(_from):
-            revert(f'This address does not have a position on Balanced.')
-        if not _value > 0:
-            revert(f'Repayment requires a positive value.')
         asset = self._assets[_symbol]
         pos = self._positions.get_pos(_from)
 
         borrowed = pos[_symbol]
-        if borrowed == 0:
-            revert(f'No debt exists to be repaid.')
-        if borrowed - _value > 0:
-            pos[_symbol] -= _value
+        remaining = borrowed - _value
+        if remaining > 0:
+            pos[_symbol] = remaining
             repaid = _value
         else:
             repaid = borrowed
@@ -638,7 +633,7 @@ class Loans(IconScoreBase):
         fee = _value * self._redemption_fee.get() // POINTS
         redeemed = _value - fee
         bad_debt = asset.bad_debt.get()
-        asset.burn(_value)
+        asset.burnFrom(_from, _value)
         sicx: int = 0
         total_batch_debt = 0
         batch_dict = {}
