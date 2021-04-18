@@ -143,6 +143,18 @@ class Loans(IconScoreBase):
     def on_update(self) -> None:
         super().on_update()
 
+    @external(readonly=True)
+    def agetListMetadata(self) -> dict:
+        borrowers = self._assets['bnUSD'].get_borrowers()
+        nonzero = self._positions.get_nonzero()
+        return {'borrowers_head': borrowers._head_id,
+                'borrowers_tail': borrowers._tail_id,
+                'borrowers_length': borrowers._length,
+                'nonzero_head': nonzero._head_id,
+                'nonzero_tail': nonzero._tail_id,
+                'nonzero_length': nonzero._length,
+                }
+
     @payable
     @external
     def create_test_position(self, _address: Address, _asset: str, _amount: int) -> None:
@@ -160,7 +172,7 @@ class Loans(IconScoreBase):
         # Mint asset for this position.
         if _amount > 0:
             self._assets[_asset].mint(_address, _amount)
-            pos[_asset] += _amount
+            pos[_asset] = pos[_asset] + _amount
         pos.update_standing()
         self.check_dead_markets()
 
@@ -252,7 +264,7 @@ class Loans(IconScoreBase):
         """
         asset = self._assets[_symbol]
         batch_size = self._redeem_batch.get()
-        borrowers = asset.borrowers
+        borrowers = asset.get_borrowers()
         node_id = borrowers.get_head_id()
         tail_id = borrowers.get_tail_id()
         total_batch_debt: int = 0
@@ -286,7 +298,7 @@ class Loans(IconScoreBase):
         """
         pos = self._positions
         snap = pos._snapshot_db[-1]
-        nonzero = len(pos.nonzero) + len(snap.add_to_nonzero) - len(snap.remove_from_nonzero)
+        nonzero = len(pos.get_nonzero()) + len(snap.add_to_nonzero) - len(snap.remove_from_nonzero)
         if snap.snap_day.get() > 1:
             last_snap = pos._snapshot_db[-2]
             nonzero += len(last_snap.add_to_nonzero) - len(last_snap.remove_from_nonzero)
@@ -555,11 +567,13 @@ class Loans(IconScoreBase):
                 _value = received
                 self._sICX_received.set(0)
                 self._sICX_expected.set(False)
+            else:
+                _value = 0
         day, new_day = self.checkForNewDay()
         self.checkDistributions(day, new_day)
         pos = self._positions.get_pos(_from)
         if _value > 0:
-            pos['sICX'] += _value
+            pos['sICX'] = pos['sICX'] + _value
             self.CollateralReceived(_from, 'sICX', _value)
         if _asset == '' or _amount < 1:
             return
@@ -617,6 +631,8 @@ class Loans(IconScoreBase):
         asset = self._assets[_symbol]
         if not (asset and asset.is_active()) or asset.is_collateral():
             revert(f'{_symbol} is not an active, borrowable asset on Balanced.')
+        if asset.balanceOf(_from) < _value:
+            revert(f'Insufficient balance.')
         if self._positions._exists(_from):
             pos = self._positions.get_pos(_from)
             repay = min(pos[_symbol], _value)
@@ -659,7 +675,7 @@ class Loans(IconScoreBase):
 
     def _retire_redeem(self, _symbol: str, _redeemed: int, _sicx_from_lenders: int) -> dict:
         batch_size = self._redeem_batch.get()
-        borrowers = self._assets[_symbol].borrowers
+        borrowers = self._assets[_symbol].get_borrowers()
         node_id = borrowers.get_head_id()
         total_batch_debt: int = 0
         positions_dict = {}
@@ -670,6 +686,7 @@ class Loans(IconScoreBase):
             total_batch_debt += user_debt
             borrowers.move_head_to_tail()
             node_id = borrowers.get_head_id()
+        borrowers.serialize()
 
         if POINTS * _redeemed > self._max_retire_percent.get() * total_batch_debt:
             revert(f'Retired amount is greater than the current maximum allowed.')
@@ -780,7 +797,7 @@ class Loans(IconScoreBase):
         if total_debt == 0:
             self._positions.add_nonzero(pos_id)
         new_debt = _amount + fee
-        pos[_asset] += new_debt
+        pos[_asset] = pos[_asset] + new_debt
         self.OriginateLoan(_from, _asset, _amount,
             f'Loan of {_amount} {_asset} from Balanced.')
         self._assets[_asset].mint(_from, _amount)

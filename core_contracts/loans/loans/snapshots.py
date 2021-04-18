@@ -123,7 +123,7 @@ class SnapshotDB:
             return self._indexes[low - 1]
 
     def start_new_snapshot(self) -> None:
-        _day: int = self._loans._current_day.get()
+        _day: int = self._loans.getDay()
         if len(self._indexes) == 0 or _day > self._indexes[-1]:  # Ensures that the sequence in
             self._indexes.put(_day)                              # _indexes is monotonically increasing.
             snapshot = self._get_snapshot(_day, _day)

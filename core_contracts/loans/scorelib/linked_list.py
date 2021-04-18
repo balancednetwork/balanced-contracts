@@ -46,7 +46,7 @@ class _Node:
         self._name = var_key + _Node._NAME
         self._node_data = VarDB(f'{self._name}_node_data', db, str)
         self._data_string = ""
-        self._value = 0
+        self._value = None
         self._next = 0
         self._prev = 0
         self.unpack()
@@ -90,7 +90,7 @@ class _Node:
         self._node_data.set('|'.join(nodedata))
 
     @staticmethod
-    def default_value(value_type: str):
+    def default_value(value_type: type):
         if value_type == int:
             return 0
         if value_type == str:
@@ -210,11 +210,10 @@ class LinkedListDB:
 
         # Check if node already exists
         if node.exists():
-            revert(f'Dupe Node! name: {self._name}, node_id: {node_id}')
             raise LinkedNodeAlreadyExists(self._name, node_id)
 
         node.set_value(value)
-        return (node_id, node)
+        return node_id, node
 
     def set_node_value(self, value, node_id: int) -> None:
         node = self._get_node(node_id)
@@ -227,13 +226,13 @@ class LinkedListDB:
             self.__cachedb[node_id] = node
         node = self.__cachedb[node_id]
         if not node.exists():
-            self.append(node.default_value(node._value_type), node_id)
+            self.append(node.default_value(self._value_type), node_id)
         return node
 
     def _get_tail_node(self) -> _Node:
         node_id = self._tail_id
         if not node_id:
-            raise EmptyLinkedListException(self._name)
+            raise EmptyLinkedListException(self._name')
         if node_id not in self.__cachedb:
             node = self._get_node(node_id)
             self.__cachedb[node_id] = node
@@ -336,7 +335,7 @@ class LinkedListDB:
 
         self._length = self._length + 1
         cur.repack()
-
+        self.serialize()
         return cur_id
 
     def prepend(self, value, node_id: int = None) -> int:
@@ -359,7 +358,7 @@ class LinkedListDB:
 
         self._length = self._length + 1
         cur.repack()
-
+        self.serialize()
         return cur_id
 
     def move_head_to_tail(self) -> None:
@@ -402,7 +401,6 @@ class LinkedListDB:
         tail.repack()
         cur.repack()
 
-
     def move_node_head(self, cur_id: int) -> None:
         """ Move an existing node at the head of the linkedlist """
         if cur_id == self._head_id:
@@ -437,7 +435,6 @@ class LinkedListDB:
         head.repack()
         cur.repack()
 
-
     def remove_head(self) -> None:
         """ Remove the current head from the linkedlist """
         if self._length == 1:
@@ -466,7 +463,6 @@ class LinkedListDB:
             self._length = self._length - 1
             tail.repack()
 
-
     def remove(self, cur_id: int) -> None:
         """ Remove a given node from the linkedlist """
         if cur_id == self._head_id:
@@ -487,3 +483,4 @@ class LinkedListDB:
             self._length = self._length - 1
             curnext.repack()
             curprev.repack()
+        self.serialize()

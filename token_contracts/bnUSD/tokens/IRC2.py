@@ -192,8 +192,6 @@ class IRC2(TokenStandard, IconScoreBase):
 		if self._balances[_from] < _value:
 			raise InsufficientBalanceError("Insufficient balance.")
 
-		self._beforeTokenTransfer(_from, _to, _value)
-
 		self._balances[_from] -= _value
 		self._balances[_to] += _value
 

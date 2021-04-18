@@ -31,9 +31,9 @@ class Position(object):
         day = self.check_snap()
         self.assets[day][key] = value
         if key in self.asset_db.aalist:
-            borrowers = self.asset_db[key].borrowers
+            borrowers = self.asset_db[key].get_borrowers()
+            # if id does not exist in borrowers a new node is created.
             borrowers[self.id.get()] = value
-            borrowers.serialize()
 
     def __delitem__(self, _symbol: str):
         self.assets[self.snaps[-1]].remove(_symbol)
@@ -48,7 +48,7 @@ class Position(object):
         :return: index for the current day.
         :rtype: int
         """
-        day = self._loans._current_day.get()
+        day = self._loans.getDay()
         if day > self.snaps[-1]:
             self.snaps.put(day)
             previous = self.snaps[-2]
@@ -118,7 +118,7 @@ class Position(object):
         for symbol in self.asset_db.aclist:
             asset = self.asset_db[symbol]
             amount = self.assets[_id][symbol]
-            if _day == -1 or _day == self.snaps[-1]:
+            if _day == -1 or _day == self._loans.getDay():
                 price = asset.priceInLoop()
             else:
                 price = self.snaps_db[_day].prices[symbol]
@@ -140,7 +140,7 @@ class Position(object):
         for symbol in self.asset_db.aalist:
             amount = self.assets[_id][symbol]
             if amount > 0:
-                if _day == -1 or _day == self.snaps[-1]:
+                if _day == -1 or _day == self._loans.getDay():
                     if _readonly:
                         price = self.asset_db[symbol].lastPriceInLoop()
                     else:
@@ -174,17 +174,16 @@ class Position(object):
 
         ratio = collateral * EXA // debt
 
-        if _day == -1 or _day == self.snaps[-1]:
-            if _readonly:
-                price = self.asset_db["bnUSD"].lastPriceInLoop()
-            else:
-                price = self.asset_db["bnUSD"].priceInLoop()
-        else:
-            price = self.snaps_db[_day].prices["bnUSD"]
-
-        bnUSD_debt: int = debt * EXA // price
-
         if ratio > MINING_RATIO * EXA // POINTS:
+            if _day == -1 or _day == self._loans.getDay():
+                if _readonly:
+                    price = self.asset_db["bnUSD"].lastPriceInLoop()
+                else:
+                    price = self.asset_db["bnUSD"].priceInLoop()
+            else:
+                price = self.snaps_db[_day].prices["bnUSD"]
+
+            bnUSD_debt: int = debt * EXA // price
             if bnUSD_debt < self._loans._min_mining_debt.get():
                 standing = Standing.NOT_MINING
             else:
@@ -226,7 +225,7 @@ class Position(object):
         :rtype dict
         """
         _id = self.get_snapshot_id(_day)
-        if _id == -1 or _day > self._loans._current_day.get():
+        if _id == -1 or _day > self._loans.getDay():
             return {}
         assets = {}
         for asset in self.asset_db.slist:
@@ -265,8 +264,6 @@ class PositionsDB:
         self._items = {}
         self._id_factory = IdFactory(self.IDFACTORY, db)
         self.addressID = DictDB(self.ADDRESSID, db, value_type=int)
-        # list of nonzero positions will be brought up to date at the end of each day.
-        self.nonzero = LinkedListDB(self.NONZERO, db, value_type=int)
         self.next_node = VarDB(self.NEXT_NODE, db, value_type=int)
 
         # The mining list is updated each day for the most recent snapshot.
@@ -302,6 +299,9 @@ class PositionsDB:
 
     def get_id_for(self, _owner: Address) -> int:
         return self.addressID[_owner]
+
+    def get_nonzero(self) -> LinkedListDB:
+        return LinkedListDB(self.NONZERO, self._db, value_type=int)
 
     def add_nonzero(self, _owner_id: int) -> None:
         current_snapshot = self._snapshot_db[-1]
@@ -339,7 +339,7 @@ class PositionsDB:
         _id = self._id_factory.get_uid()
         self.addressID[_address] = _id
         now = self._loans.now()
-        snap_id = self._loans._current_day.get()
+        snap_id = self._loans.getDay()
         _new_pos = self.__getitem__(_id)
         _new_pos.id.set(_id)
         _new_pos.created.set(now)
@@ -360,7 +360,7 @@ class PositionsDB:
             if assets[symbol].is_active():
                 snapshot.prices[symbol] = assets[symbol].priceInLoop()
         snapshot.snap_time.set(self._loans.now())
-        self._loans.Snapshot(self._loans._current_day.get())
+        self._loans.Snapshot(self._loans.getDay())
         self._snapshot_db.start_new_snapshot()
 
     def _calculate_snapshot(self, _day: int, batch_size: int) -> bool:
@@ -385,24 +385,25 @@ class PositionsDB:
         add = len(snapshot.add_to_nonzero)
         remove = len(snapshot.remove_from_nonzero)
         nonzero_deltas = add + remove
+        nonzero = self.get_nonzero()
         if nonzero_deltas > 0:  # Bring the list of all nonzero positions up to date.
             _iter = self._loans._snap_batch_size.get()  # Starting default is 200.
             loops = min(_iter, remove)
             for _ in range(loops):
-                self.nonzero.remove(snapshot.remove_from_nonzero.pop())
+                nonzero.remove(snapshot.remove_from_nonzero.pop())
                 _iter -= 1
             if _iter > 0:
                 loops = min(_iter, add)
                 for _ in range(loops):
-                    self.nonzero.append(0, snapshot.add_to_nonzero.pop())
-            self.nonzero.serialize()
+                    nonzero.append(0, snapshot.add_to_nonzero.pop())
+            nonzero.serialize()
             return Complete.NOT_DONE
 
         index = snapshot.precompute_index.get()  # Tracks where the precompute is over multiple calls.
-        total_nonzero = len(self.nonzero)
+        total_nonzero = len(nonzero)
         next_node = self.next_node.get()
         if next_node == 0:
-            next_node = self.nonzero._head_id
+            next_node = nonzero.get_head_id()
         remaining = total_nonzero - index
         batch_mining_debt = 0
         for _ in range(min(remaining, batch_size)):  # Update standing for all nonzero positions.
@@ -415,10 +416,10 @@ class PositionsDB:
                     snapshot.mining.put(account_id)
                     batch_mining_debt += snapshot.pos_state[account_id]['total_debt']
             index += 1
-            if next_node == self.nonzero._tail_id:
+            if next_node == nonzero.get_tail_id():
                 next_node = 0
             else:
-                next_node = self.nonzero.next(next_node)
+                next_node = nonzero.next(next_node)
         snapshot.total_mining_debt.set(snapshot.total_mining_debt.get() + batch_mining_debt)
         snapshot.precompute_index.set(index)
         self.next_node.set(next_node)
