@@ -40,6 +40,14 @@ class DexInterface(InterfaceScore):
     def getTotalValue(self, _name: str, _snapshot_id: int) -> int:
         pass
 
+    @interface
+    def getBalnSnapshot(self, _name: str, _snapshot_id: int) -> int:
+        pass
+
+    @interface
+    def getDataBatch(self, _name: str, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
+        pass
+
 
 class BalnTokenInterface(InterfaceScore):
 
@@ -79,6 +87,7 @@ class Dividends(IconScoreBase):
     _LOANS_SCORE = 'loans_score'
     _DAOFUND = 'daofund'
     _BALN_SCORE = "baln_score"
+    _DEX_SCORE = "dex_score"
 
     _ACCEPTED_TOKENS = "accepted_tokens"
     _AMOUNT_TO_DISTRIBUTE = "amount_to_distribute"
@@ -95,6 +104,7 @@ class Dividends(IconScoreBase):
 
     _BALN_IN_DEX = "baln_in_dex"
     _TOTAL_LP_TOKENS = "total_lp_tokens"
+    _LP_HOLDERS_INDEX = "lp_holders_index"
 
     _USERS_BALANCE = "users_balance"
 
@@ -116,6 +126,7 @@ class Dividends(IconScoreBase):
         self._loans_score = VarDB(self._LOANS_SCORE, db, value_type=Address)
         self._daofund = VarDB(self._DAOFUND, db, value_type=Address)
         self._baln_score = VarDB(self._BALN_SCORE, db, value_type=Address)
+        self._dex_score = VarDB(self._DEX_SCORE, db, value_type=Address)
 
         # Accepted tokens store all the tokens that dividends can distribute and accept, store cx00.. for ICX
         self._accepted_tokens = ArrayDB(self._ACCEPTED_TOKENS, db, value_type=Address)
@@ -137,6 +148,7 @@ class Dividends(IconScoreBase):
 
         self._baln_in_dex = VarDB(self._BALN_IN_DEX, db, value_type=int)
         self._total_lp_tokens = VarDB(self._TOTAL_LP_TOKENS, db, value_type=int)
+        self._lp_holders_index = VarDB(self._LP_HOLDERS_INDEX, db, value_type=int)
 
         self._users_balance = DictDB(self._USERS_BALANCE, db, value_type=int, depth=2)
 
@@ -212,6 +224,17 @@ class Dividends(IconScoreBase):
     @external(readonly=True)
     def getBalnTokenAddress(self) -> Address:
         return self._baln_score.get()
+
+    @external
+    @only_admin
+    def setDexAddress(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is EOA address. Should be a contract address.")
+        self._dex_score.set(_address)
+
+    @external(readonly=True)
+    def getDexAddress(self) -> Address:
+        return self._dex_score.get()
 
     @external
     @only_admin
@@ -311,9 +334,11 @@ class Dividends(IconScoreBase):
             self._check_eligibility_against_debt_value()
 
         elif self._dividends_distribution_status.get() == Status.TOTAL_DATA_FROM_BALN_LP_POOL:
-            pass
+            self._update_total_lp_tokens()
+
         elif self._dividends_distribution_status.get() == Status.COMPUTE_BALN_FOR_LP_HOLDER:
-            pass
+            self._update_lp_holders_balance()
+
         elif self._dividends_distribution_status.get() == Status.DAOFUND_DISTRIBUTION:
             pass
         elif self._dividends_distribution_status.get() == Status.DISTRIBUTE_FUND_TO_HOLDERS:
@@ -370,8 +395,12 @@ class Dividends(IconScoreBase):
 
     def _update_total_lp_tokens(self) -> None:
         # update the total lp tokens and baln tokens in the pool
-
-        pass
+        dex_score = self.create_interface_score(self._dex_score.get(), DexInterface)
+        baln_in_dex = dex_score.getBalnSnapshot(BALNBNUSD, self._snapshot_id.get() - 1)
+        total_lp_tokens = dex_score.getTotalValue(BALNBNUSD, self._snapshot_id.get() - 1)
+        self._baln_in_dex.set(baln_in_dex)
+        self._total_lp_tokens.set(total_lp_tokens)
+        self._dividends_distribution_status.set(Status.COMPUTE_BALN_FOR_LP_HOLDER)
 
     def _update_lp_holders_balance(self) -> None:
         # Update the lp holders balance of baln tokens
