@@ -4,13 +4,17 @@ from .scorelib import *
 
 TAG = 'ReserveFund'
 
-UNITS_PER_TOKEN = 1000000000000000000
+UNITS_PER_TOKEN = 10 ** 18
 
 
 # An interface of token
 class TokenInterface(InterfaceScore):
     @interface
-    def transfer(self, _to: Address, _value: int, _data: bytes=None):
+    def symbol(self) -> str:
+        pass
+
+    @interface
+    def transfer(self, _to: Address, _value: int, _data: bytes = None):
         pass
 
     @interface
@@ -44,7 +48,7 @@ class ReserveFund(IconScoreBase):
         pass
 
     @eventlog(indexed=1)
-    def RedeemFail(self, _to: Address, _value: int):
+    def RedeemFail(self, _to: Address, _symbol: str, _value: int):
         pass
 
     _GOVERNANCE = 'governance'
@@ -54,7 +58,6 @@ class ReserveFund(IconScoreBase):
     _SICX_TOKEN = 'sicx_token'
     _BALN = 'baln'
     _SICX = 'sicx'
-
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
@@ -75,7 +78,7 @@ class ReserveFund(IconScoreBase):
 
     @external(readonly=True)
     def name(self) -> str:
-        return "ReserveFund"
+        return "Balanced Reserve Fund"
 
     @external
     @only_owner
@@ -135,7 +138,7 @@ class ReserveFund(IconScoreBase):
         return balances
 
     @external
-    def redeem(self, _to: Address, _amount: int, _sicx_rate: int) -> int:
+    def redeem(self, _to: Address, _amount: int, _sicx_rate: int) -> None:
         if self.msg.sender != self._loans_score.get():
             revert(f'The redeem method can only be called by the Loans SCORE.')
         sicx = self._sicx.get()
@@ -146,9 +149,9 @@ class ReserveFund(IconScoreBase):
             baln_address = self._baln_token.get()
             baln = self.create_interface_score(baln_address, TokenInterface)
             baln_rate = baln.priceInLoop()
-            baln_to_send = (_amount - sicx) * sicx_rate // baln_rate
+            baln_to_send = (_amount - sicx) * _sicx_rate // baln_rate
             baln_remaining = self._baln.get() - baln_to_send
-            if baln_remaining < 0: # Revert in case where there is not enough BALN.
+            if baln_remaining < 0:  # Revert in case where there is not enough BALN.
                 revert(f'Unable to process request at this time.')
                 self.RedeemFail(self.tx.origin, 'BALN', baln_to_send)
             self._send_token(baln_address, _to, baln_to_send, 'Redeemed:')
@@ -161,7 +164,7 @@ class ReserveFund(IconScoreBase):
         """
         Used to receive sICX and BALN tokens.
 
-        :param _from: Token orgination address.
+        :param _from: Token origination address.
         :type _from: :class:`iconservice.base.address.Address`
         :param _value: Number of tokens sent.
         :type _value: int
@@ -174,9 +177,9 @@ class ReserveFund(IconScoreBase):
             self._sicx.set(self._sicx.get() + _value)
         else:
             revert(f'The Reserve Fund can only accept BALN or sICX tokens. '
-                   f'Deposit not accepted from {str(self.msg.sender) }'
-                   f'Only accepted from BALN = {str(self._baln_token.get()) }'
-                   f'Or sICX = {str(self._sicx_token.get())}')
+                   f'Deposit not accepted from {self.msg.sender}'
+                   f'Only accepted from BALN = {self._baln_token.get()}'
+                   f'Or sICX = {self._sicx_token.get()}')
 
     def _send_token(self, _token_address: Address, _to: Address, _amount: int, msg: str) -> None:
         """
@@ -191,11 +194,12 @@ class ReserveFund(IconScoreBase):
         :param msg: Message for the event log.
         :type msg: str
         """
+        symbol = "unknown"
         try:
             token_score = self.create_interface_score(_token_address, TokenInterface)
-            token_score.transfer(_to, _amount)
             symbol = token_score.symbol()
-            self.TokenTransfer(_to, _amount, msg + f' {_amount} {symbol} sent to {_to}.')
+            token_score.transfer(_to, _amount)
+            self.TokenTransfer(_to, _amount, f'{msg} {_amount} {symbol} sent to {_to}.')
         except BaseException as e:
             revert(f'{_amount} {symbol} not sent to {_to}. '
                    f'Exception: {e}')

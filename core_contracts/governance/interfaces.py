@@ -1,11 +1,9 @@
 from iconservice import *
-from .utils.checks import *
-from .utils.consts import *
 
 
 class DistPercentDict(TypedDict):
-    recipient_name : str
-    bal_token_dist_percent: int
+    recipient_name: str
+    dist_percent: int
 
 
 # An interface to the Loans SCORE
@@ -16,6 +14,10 @@ class LoansInterface(InterfaceScore):
 
     @interface
     def turnLoansOn(self) -> None:
+        pass
+
+    @interface
+    def toggleLoansOn(self) -> None:
         pass
 
     @interface
@@ -95,6 +97,10 @@ class DexInterface(InterfaceScore):
     def setBaln(self, _address: Address) -> None:
         pass
 
+    @interface
+    def addQuoteCoin(self, _address: Address) -> None:
+        pass
+
 
 # An interface to the Rewards SCORE
 class RewardsInterface(InterfaceScore):
@@ -119,7 +125,7 @@ class RewardsInterface(InterfaceScore):
         pass
 
     @interface
-    def updateBalTokenDistPercentage(self, _recipient_list : List[DistPercentDict]) -> None:
+    def updateBalTokenDistPercentage(self, _recipient_list: List[DistPercentDict]) -> None:
         pass
 
 
@@ -176,4 +182,61 @@ class SetAddressesInterface(InterfaceScore):
 
     @interface
     def setBwt(self, _address: Address) -> None:
+        pass
+
+
+class BalancedInterface(InterfaceScore):
+
+    @interface
+    def setbnUSD(self, _address):
+        pass
+
+    @interface
+    def setDividends(self, _score):
+        pass
+
+    @interface
+    def setDex(self, _address):
+        pass
+
+    @interface
+    def setOracleName(self, _name):
+        pass
+
+    @interface
+    def toggleStakingEnabled(self):
+        pass
+
+    @interface
+    def setMinimumStake(self, _amount):
+        pass
+
+    @interface
+    def setUnstakingPeriod(self, _time):
+        pass
+
+    @interface
+    def setMinInterval(self, _interval):
+        pass
+
+
+class DAOfundInterface(InterfaceScore):
+
+    @interface
+    def disburse(self, _recipient, _amounts):
+        pass
+
+
+class BalancedDollarInterface(InterfaceScore):
+
+    @interface
+    def setOracleName(self, _address):
+        pass
+
+    @interface
+    def setOracle(self, _address):
+        pass
+
+    @interface
+    def setMinInterval(self, _interval):
         pass

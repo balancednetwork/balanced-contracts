@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from iconservice import *
 from .consts import *
 
 
@@ -73,7 +72,7 @@ class BagDB(object):
         return item in self._items
 
     def check_exists(self, item) -> None:
-        if not item in self:
+        if item not in self:
             raise ItemNotFound(self._name, str(item))
 
     def count(self, item) -> int:

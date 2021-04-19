@@ -5,13 +5,13 @@ from .utils.checks import *
 
 TAG = 'bnUSD'
 
-TOKEN_NAME = 'ICONDollar'
+TOKEN_NAME = 'BalancedDollar'
 SYMBOL_NAME = 'bnUSD'
 DEFAULT_PEG = 'USD'
 DEFAULT_ORACLE_ADDRESS = 'cx61a36e5d10412e03c907a507d1e8c6c3856d9964'
 DEFAULT_ORACLE_NAME = 'BandChain'
 INITIAL_PRICE_ESTIMATE = 125 * 10**16
-MIN_UPDATE_TIME = 30000000 # 30 seconds
+MIN_UPDATE_TIME = 30_000_000 # 30 seconds
 
 # An interface to the Band Price Oracle
 class OracleInterface(InterfaceScore):
@@ -71,7 +71,7 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
         """
         Sets the authorized address.
 
-        :param account: The authorized admin address.
+        :param _admin: The authorized admin address.
         """
         return self._admin.set(_admin)
 
@@ -121,7 +121,12 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
         """
         Returns the latest price of the asset in loop.
         """
-        return self._last_price.get()
+        base = self._peg.get()
+        quote = "ICX"
+        oracle_address = self._oracle_address.get()
+        oracle = self.create_interface_score(oracle_address, OracleInterface)
+        priceData = oracle.get_reference_data(base, quote)
+        return priceData['rate']
 
     def update_asset_value(self) -> None:
         """
@@ -138,20 +143,11 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
             self._price_update_time.set(self.now())
             self.OraclePrice(base + quote, self._oracle_name.get(), oracle_address, priceData['rate'])
         except BaseException as e:
-            self.OraclePriceUpdateFailed(base + quote, self._oracle_name.get(), oracle_address, f'Exception: {e}')
-
-    @external
-    def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
-        if self.msg.sender != self.address:
-            revert(f'Only accepts bnUSD tokens.')
+            revert(f'{base + quote}, {self._oracle_name.get()}, {oracle_address}, Exception: {e}')
 
     # ------------------------------------------------------------------------------------------------------------------
     # EVENTS
     # ------------------------------------------------------------------------------------------------------------------
-
-    @eventlog(indexed=3)
-    def OraclePriceUpdateFailed(self, market: str, oracle_name: str, oracle_address: Address, msg: str):
-        pass
 
     @eventlog(indexed=3)
     def OraclePrice(self, market: str, oracle_name: str, oracle_address: Address, price: int):

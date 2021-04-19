@@ -2,7 +2,15 @@ from iconservice import *
 from .utils.consts import *
 from .interfaces import *
 
-class BalancedAddresses(TypedDict, total=False):
+
+# TypedDict for disbursement specs
+class Disbursement(TypedDict):
+    address: Address
+    amount: int
+    symbol: str
+
+
+class BalancedAddresses(TypedDict):
     loans: Address
     dex: Address
     staking: Address
@@ -19,7 +27,7 @@ class BalancedAddresses(TypedDict, total=False):
 
 class Addresses(object):
 
-    def __init__(self, db:IconScoreDatabase, gov: IconScoreBase) -> None:
+    def __init__(self, db: IconScoreDatabase, gov: IconScoreBase) -> None:
         self._db = db
         self._gov = gov
         self._loans = VarDB('loans', db, Address)
@@ -43,7 +51,7 @@ class Addresses(object):
     def __setitem__(self, key, value):
         revert('illegal access')
 
-    def setAddresses(self, addresses: TypedDict) -> None:
+    def setAddresses(self, addresses: BalancedAddresses) -> None:
         """
         Takes a TypedDict with 1 to 11 addresses and sets them.
         """
@@ -59,8 +67,8 @@ class Addresses(object):
                           'bnUSD': self._bnUSD.set,
                           'baln': self._baln.set,
                           'bwt': self._bwt.set}
-        for key in addresses.keys():
-            set_func[key](addresses[key])
+        for key, value in addresses.items():
+            set_func[key](value)
 
     def getAddresses(self) -> dict:
         return {
@@ -90,7 +98,7 @@ class Addresses(object):
                            'reserve': score.setReserve, 'dividends': score.setDividends,
                            'daofund': score.setDaofund, 'oracle': score.setOracle,
                            'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
-                           'baln': score.setBaln, 'bwt': score.setBwt}
+                           'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex}
             for method in ADDRESSES[contract]:
                 try:
                     set_methods[method](self[method])

@@ -4,15 +4,12 @@
 #### and the underlying source code used to format and display that content is licensed under the GNU AGLPL license.  #####
 ##### Check the LICENSE file for more info #####
 
-from .scorelib.utils import *
-from .scorelib.id_factory import *
-from .scorelib.linked_list import *
-from .scorelib.bag import *
-from .scorelib.set import *
 from .scorelib.iterable_dict import *
-from iconservice import *
+from .scorelib.linked_list import *
+from .scorelib.utils import *
 from .utils.checks import *
 from .utils.consts import *
+from .lp_metadata import *
 
 
 # An interface to the Rewards SCORE
@@ -45,7 +42,7 @@ class DEX(IconScoreBase):
     _TAG = 'DEX'
     _ACCOUNT_BALANCE_SNAPSHOT = 'account_balance_snapshot'
     _TOTAL_SUPPLY_SNAPSHOT = 'total_supply_snapshot'
-    _FUNDED_ADDRESSES = 'funded_addresses'
+    _QUOTE_COINS = 'quote_coins'
     _ICX_QUEUE_TOTAL = 'icx_queue_total'
     _SICX_ADDRESS = 'sicx_address'
     _bnUSD_ADDRESS = 'bnUSD_address'
@@ -63,22 +60,25 @@ class DEX(IconScoreBase):
     _REWARDS_DONE = 'rewards_done'
     _DIVIDENDS_DONE = 'dividends_done'
     _NAME = 'BalancedDex'
+    _SICXICX_POOL_ID = 1
 
     ####################################
     # Events
     @eventlog(indexed=2)
-    def Swap(self, _fromToken: Address, _toToken: Address, _sender: Address,
-             _receiver: Address, _fromValue: int, _toValue: int, _lpFees: int, _balnFees: int): pass
+    def Swap(self, _pid: int, _baseToken: Address, _fromToken: Address, _toToken: Address,
+             _sender: Address, _receiver: Address, _fromValue: int, _toValue: int,
+             _timestamp: int, _lpFees: int, _balnFees: int, _poolBase: int,
+             _poolQuote: int, _endingPrice: int, _effectiveFillPrice: int): pass
 
     @eventlog(indexed=3)
     def MarketAdded(self, _pid: int, _baseToken: Address,
                     _quoteToken: Address, _baseValue: int, _quoteValue: int): pass
 
-    @eventlog(indexed=2)
-    def Add(self, _pid: int, _owner: Address, _value: int): pass
+    @eventlog(indexed=3)
+    def Add(self, _pid: int, _owner: Address, _value: int, _base: int, _quote: int): pass
 
-    @eventlog(indexed=2)
-    def Remove(self, _pid: int, _owner: Address, _value: int): pass
+    @eventlog(indexed=3)
+    def Remove(self, _pid: int, _owner: Address, _value: int, _base: int, _quote: int): pass
 
     @eventlog(indexed=2)
     def Deposit(self, _token: Address, _owner: Address, _value: int): pass
@@ -188,9 +188,10 @@ class DEX(IconScoreBase):
         self._rewards_done = VarDB(self._REWARDS_DONE, db, value_type=bool)
         self._dividends_done = VarDB(self._DIVIDENDS_DONE, db, value_type=bool)
 
-        # Previously mapped addresses, for iteration purposes
-        self._funded_addresses = SetDB(
-            self._FUNDED_ADDRESSES, db, value_type=Address, order=True)
+        self._active_addresses = LPMetadataDB(db)
+
+        # Pools must use one of these as a quote currency
+        self._quote_coins = SetDB(self._QUOTE_COINS, db, value_type=Address)
 
         # All fees are divided by `FEE_SCALE` in consts
         self._pool_lp_fee = VarDB('pool_lp_fee', db, value_type=int)
@@ -210,9 +211,6 @@ class DEX(IconScoreBase):
         # poolTotal[nonce][tokenAddress] = intAmount
         self._pool_total = DictDB('poolTotal', db, value_type=int, depth=2)
 
-        self._withdraw_lock = DictDB(
-            'withdrawLock', db, value_type=int, depth=2)
-
         # Swap queue for sicxicx
         self._icx_queue = LinkedListDB(
             'icxQueue', db, value1_type=int, value2_type=Address)
@@ -223,14 +221,14 @@ class DEX(IconScoreBase):
         self._icx_queue_total = VarDB(
             self._ICX_QUEUE_TOTAL, db, value_type=int)
 
-        # Withdraw lock for sicxicx
-        self._icx_withdraw_lock = DictDB('icxWithdrawLock', db, value_type=int)
-
         # Approvals for token transfers (map[grantor][grantee] = T/F)
         self._approvals = DictDB('approvals', db, value_type=bool, depth=2)
 
         self._named_markets = IterableDictDB(
             self._NAMED_MARKETS, db, value_type=int, key_type=str, order=True)
+
+        # Cache of token precisions, filled on first call of `deposit`
+        self._token_precisions = DictDB('token_precisions', db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
@@ -244,7 +242,7 @@ class DEX(IconScoreBase):
         # 2+ = pools
         self._nonce.set(2)
         self._current_day.set(0)
-        self._named_markets[self._SICXICX_MARKET_NAME] = 1
+        self._named_markets[self._SICXICX_MARKET_NAME] = self._SICXICX_POOL_ID
 
     def on_update(self) -> None:
         super().on_update()
@@ -265,7 +263,7 @@ class DEX(IconScoreBase):
     @external
     def setAdmin(self, _admin: Address) -> None:
         """
-        :param _address: The new admin address to set.
+        :param _admin: The new admin address to set.
         Can make calls with the `@only_admin` decorator.
         Should be called before DEX use.
         """
@@ -286,6 +284,7 @@ class DEX(IconScoreBase):
         Sets new SICX address. Should be called before DEX use.
         """
         self._sicx.set(_address)
+        self._quote_coins.add(_address)
 
     @only_admin
     @external
@@ -359,6 +358,7 @@ class DEX(IconScoreBase):
         Sets new bnUSD contract address. Should be called before dex use.
         """
         self._bnUSD.set(_address)
+        self._quote_coins.add(_address)
 
     @external
     def getbnUSD(self) -> Address:
@@ -410,6 +410,21 @@ class DEX(IconScoreBase):
         """
         return self._dex_on.get()
 
+    @only_governance
+    @external
+    def addQuoteCoin(self, _address: Address) -> None:
+        """
+        :param _address: Address of token to add as an allowed quote coin
+        """
+        self._quote_coins.add(_address)
+
+    @external(readonly=True)
+    def isQuoteCoinAllowed(self, _address: Address) -> bool:
+        """
+        :param _address: address of to check as allowable quote
+        """
+        return _address in self._quote_coins
+
     @external
     def getDay(self) -> int:
         """
@@ -436,6 +451,7 @@ class DEX(IconScoreBase):
         return self._time_offset.get()
 
     @payable
+    @dex_on
     def fallback(self):
         """
         Payable method called by sending ICX directly into the SCORE.
@@ -459,27 +475,28 @@ class DEX(IconScoreBase):
         self._check_distributions()
 
         order_id = self._icx_queue_order_id[self.msg.sender]
+        order_value = self.msg.value
+
         if order_id:
-            # First, modify our order
+            # TODO: Modify instead of cancel/replace, after debugging scorelib
             node = self._icx_queue._get_node(order_id)
-            node.set_value1(node.get_value1() + self.msg.value)
-            # Next, bump the user to the end of the line if it is not the tail
-            if self._icx_queue._length.get() > 1:
-                self._icx_queue.move_node_tail(order_id)
-        else:
-            order_id = self._icx_queue.append(self.msg.value, self.msg.sender)
-            self._icx_queue_order_id[self.msg.sender] = order_id
+            order_value += node.get_value1()
+            self._icx_queue.remove(order_id)
+
+        order_id = self._icx_queue.append(order_value, self.msg.sender)
+        self._icx_queue_order_id[self.msg.sender] = order_id
 
         current_icx_total = self._icx_queue_total.get() + self.msg.value
         self._icx_queue_total.set(current_icx_total)
 
-        self._icx_withdraw_lock[self.msg.sender] = self.now()
-        if self.msg.sender not in self._funded_addresses:
-            self._funded_addresses.add(self.msg.sender)
-        self._update_account_snapshot(self.msg.sender, 0)
-        self._update_total_supply_snapshot(0)
+        if order_value >= self._get_rewardable_amount(None):
+            self._active_addresses[self._SICXICX_POOL_ID].add(self.msg.sender)
+
+        self._update_account_snapshot(self.msg.sender, self._SICXICX_POOL_ID)
+        self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
 
     @external
+    @dex_on
     def cancelSicxicxOrder(self):
         """
         Cancels user's order in the SICXICX queue.
@@ -493,9 +510,6 @@ class DEX(IconScoreBase):
         if not self._icx_queue_order_id[self.msg.sender]:
             revert("No open order in SICXICX queue")
 
-        if self._icx_withdraw_lock[self.msg.sender] + WITHDRAW_LOCK_TIMEOUT > self.now():
-            revert("Withdraw lock not expired")
-
         order_id = self._icx_queue_order_id[self.msg.sender]
         order = self._icx_queue._get_node(order_id)
         withdraw_amount = order.get_value1()
@@ -506,8 +520,11 @@ class DEX(IconScoreBase):
         self._icx_queue.remove(order_id)
         self.icx.transfer(self.msg.sender, withdraw_amount)
         del self._icx_queue_order_id[self.msg.sender]
-        self._update_account_snapshot(self.msg.sender, 0)
-        self._update_total_supply_snapshot(0)
+
+        self._active_addresses[self._SICXICX_POOL_ID].discard(self.msg.sender)
+
+        self._update_account_snapshot(self.msg.sender, self._SICXICX_POOL_ID)
+        self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes):
@@ -543,6 +560,9 @@ class DEX(IconScoreBase):
         if unpacked_data["method"] == "_deposit":
             self._deposit[_fromToken][_from] += _value
             self.Deposit(_fromToken, _from, _value)
+            if _fromToken not in self._token_precisions:
+                from_token_score = self.create_interface_score(_fromToken, TokenInterface)
+                self._token_precisions[_fromToken] = from_token_score.decimals()
         elif unpacked_data["method"] == "_swap_icx":
             if _fromToken == self._sicx.get():
                 self._swap_icx(_from, _value)
@@ -581,7 +601,7 @@ class DEX(IconScoreBase):
         """
         if _data is None:
             _data = b'None'
-        self._transfer(self.msg.sender, _to, _value, _data)
+        self._transfer(self.msg.sender, _to, _value, _id, _data)
 
     def _transfer(self, _from: Address, _to: Address, _value: int, _id: int, _data: bytes):
         """
@@ -593,15 +613,21 @@ class DEX(IconScoreBase):
         if self._balance[_id][_from] < _value:
             revert("Out of balance")
 
-        if _to not in self._funded_addresses:
-            self._funded_addresses.add(_to)
-
         self._balance[_id][_from] = self._balance[_from] - _value
         self._balance[_id][_to] = self._balance[_to] + _value
 
         self.TransferSingle(self.msg.sender, _from, _to, _id, _value)
 
-        self._update_account_snapshot(self.msg.sender, _id)
+        self._update_account_snapshot(_from, _id)
+        self._update_account_snapshot(_to, _id)
+
+        pool_quote_coin = self.getPoolQuote(_id)
+
+        if self._balance[_id][_to] >= self._get_rewardable_amount(pool_quote_coin):
+            self._active_addresses[_id].add(_to)
+
+        if self._balance[_id][_from] < self._get_rewardable_amount(pool_quote_coin):
+            self._active_addresses[_id].discard(_from)
 
         # TODO: Implement token fallback for multitoken score
 
@@ -660,7 +686,7 @@ class DEX(IconScoreBase):
 
     @external(readonly=True)
     def totalSupply(self, _pid: int) -> int:
-        if _pid == 1:
+        if _pid == self._SICXICX_POOL_ID:
             return self._icx_queue_total.get()
         return self._total[_pid]
 
@@ -673,7 +699,7 @@ class DEX(IconScoreBase):
         :param _id: ID of the token/pool
         :return: the _owner's balance of the token type requested
         """
-        if _id == 1:
+        if _id == self._SICXICX_POOL_ID:
             order_id = self._icx_queue_order_id[self.msg.sender]
             if not order_id:
                 return 0
@@ -692,16 +718,20 @@ class DEX(IconScoreBase):
 
         All fees are divided by the `FEE_SCALE` constant
         """
-        fees = {}
-        fees['icx_total'] = self._icx_baln_fee.get() + \
-            self._icx_conversion_fee.get()
-        fees['pool_total'] = self._pool_baln_fee.get() + \
-            self._pool_lp_fee.get()
-        fees['pool_lp_fee'] = self._pool_lp_fee.get()
-        fees['pool_baln_fee'] = self._pool_baln_fee.get()
-        fees['icx_conversion_fee'] = self._icx_conversion_fee.get()
-        fees['icx_baln_fee'] = self._icx_baln_fee.get()
-        return fees
+
+        icx_baln_fee = self._icx_baln_fee.get()
+        icx_conversion_fee = self._icx_conversion_fee.get()
+        pool_baln_fee = self._pool_baln_fee.get()
+        pool_ip_fee = self._pool_lp_fee.get()
+
+        return {
+            'icx_total': icx_baln_fee + icx_conversion_fee,
+            'pool_total': pool_baln_fee + pool_ip_fee,
+            'pool_lp_fee': pool_ip_fee,
+            'pool_baln_fee': pool_baln_fee,
+            'icx_conversion_fee': icx_conversion_fee,
+            'icx_baln_fee': icx_baln_fee
+        }
 
     @external(readonly=True)
     def getPoolBase(self, _pid: int) -> Address:
@@ -716,10 +746,12 @@ class DEX(IconScoreBase):
         """
         e.g. USD/BTC, this is the inverse of the most common way to express price.
         """
-        if _pid < 1 or _pid > self._nonce.get():
-            return "Invalid pool id"
-        if _pid == 1:
+        if self._nonce.get() < _pid < 1:
+            revert("Invalid pool id")
+
+        if _pid == self._SICXICX_POOL_ID:
             return self._get_sicx_rate()
+
         return (self._pool_total[_pid][self._pool_base[_pid]] * EXA) // self._pool_total[_pid][self._pool_quote[_pid]]
 
     @external(readonly=True)
@@ -727,8 +759,12 @@ class DEX(IconScoreBase):
         """
         e.g. BTC/USD, this is the most common way to express price.
         """
-        if _pid < 1 or _pid > self._nonce.get():
-            return "Invalid pool id"
+        if self._nonce.get() < _pid < 1:
+            revert("Invalid pool id")
+        
+        if _pid == self._SICXICX_POOL_ID:
+            return EXA * EXA // self._get_sicx_rate()
+
         return (self._pool_total[_pid][self._pool_quote[_pid]] * EXA) // self._pool_total[_pid][self._pool_base[_pid]]
 
     @external(readonly=True)
@@ -739,11 +775,11 @@ class DEX(IconScoreBase):
         return self.getBasePriceInQuote(_pid)
 
     @external(readonly=True)
-    def getBalnPrice(self, _pid: int) -> int:
+    def getBalnPrice(self) -> int:
         """
         This method is an alias to the current price of BALN tokens
         """
-        return self.getBasePriceInQuote(self._pool_id[self._baln.get()][_token2Address])
+        return self.getBasePriceInQuote(self._pool_id[self._baln.get()][self._bnUSD.get()])
 
     @external(readonly=True)
     def getPriceByName(self, _name: str) -> int:
@@ -755,10 +791,35 @@ class DEX(IconScoreBase):
         if not order_id:
             return 0
         return self._icx_queue._get_node(order_id).get_value1()
-
+    
     @external(readonly=True)
-    def getICXWithdrawLock(self) -> int:
-        return self._icx_withdraw_lock[self.msg.sender]
+    def getPoolStats(self, _id: int) -> int:
+
+        if self._nonce.get() < _id < 1:
+            revert("Invalid pool id")
+        
+        if _id == self._SICXICX_POOL_ID:
+            return {
+                'base_token': self._sicx.get(),
+                'quote_token': None,
+                'base': 0,
+                'quote': self._icx_queue_total.get(),
+                'total_supply': self._icx_queue_total.get(),
+                'price': self.getPrice(_id)
+            }
+
+        else:
+            base_token = self._pool_base[_id]
+            quote_token = self._pool_quote[_id]
+
+            return {
+                'base': self._pool_total[_id][base_token],
+                'quote': self._pool_total[_id][quote_token],
+                'base_token': base_token,
+                'quote_token': quote_token,
+                'total_supply': self._total[_id],
+                'price': self.getPrice(_id)
+            }
 
     ####################################
     # Token Functionality
@@ -813,7 +874,7 @@ class DEX(IconScoreBase):
 
         if _data is None:
             _data = b'None'
-        self._transfer_from(self.msg.sender, _from, _to, _id, _value, _data)
+        self._transfer_from(_from, _to, _id, _value, _data)
 
     def _transfer_from(self, _from: Address, _to: Address, _id: int, _value: int, _data: bytes):
         if not self.isApprovedForAll(_from, self.msg.sender):
@@ -827,30 +888,34 @@ class DEX(IconScoreBase):
         self._balance[_id][_to] = self._balance[_to] + _value
         self.TransferSingle(self.msg.sender, _from, _to, _id, _value)
 
-        if _to not in self._funded_addresses:
-            self._funded_addresses.add(_to)
+        pool_quote_coin = self.getPoolQuote(_id)
+
+        if self._balance[_id][_to] >= self._get_rewardable_amount(pool_quote_coin):
+            self._active_addresses[_id].add(_to)
+
+        if self._balance[_id][_from] < self._get_rewardable_amount(pool_quote_coin):
+            self._active_addresses[_id].discard(_from)
 
         self._update_account_snapshot(_from, _id)
+        self._update_account_snapshot(_to, _id)
 
         # TODO: Implement onIRC31Received function
 
     @external(readonly=True)
-    def hasUsedDex(self, _user: Address) -> bool:
+    def isEarningRewards(self, _address: Address, _id: int) -> bool:
         """
-        Returns whether an address has previously used the dex.
+        Returns whether an address is currently eligible to earn rewards.
 
-        :param _user: Address to check
+        :param _address: Address to check
         """
-        return _user in self._funded_addresses
+        return _address in self._active_addresses[_id]
 
     @external(readonly=True)
-    def totalDexAddresses(self) -> int:
+    def totalDexAddresses(self, _id: int) -> int:
         """
         Returns total number of users that have used the dex.
-
-        :param _user: Address to check
         """
-        return self._funded_addresses.__len__()
+        return len(self._active_addresses[_id])
 
     def _get_exchange_rate(self) -> int:
         """
@@ -865,56 +930,103 @@ class DEX(IconScoreBase):
     ####################################
     # Internal exchange function
 
+    @dex_on
     def exchange(self, _fromToken: Address, _toToken: Address, _sender: Address, _receiver: Address, _value: int, _max_slippage: int = 250):
+
+        # All fees are scaled to FEE_SCALE
         lp_fees = (_value * self._pool_lp_fee.get()) // FEE_SCALE
         baln_fees = (_value * self._pool_baln_fee.get()) // FEE_SCALE
         fees = lp_fees + baln_fees
+
         original_value = _value
         _value -= fees
+
+        is_sell = False
+        
         _pid = self._pool_id[_fromToken][_toToken]
-        if _pid == 0:
+ 
+        if _pid <= 0:
             revert("Pool does not exist")
-        if _pid == 1:
+ 
+        if _pid == self._SICXICX_POOL_ID:
             revert("Not supported on this API, use the ICX swap API")
-        old_price = 0
+ 
         if _fromToken == self.getPoolQuote(_pid):
             old_price = self.getBasePriceInQuote(_pid)
+ 
         else:
             old_price = self.getQuotePriceInBase(_pid)
-        Logger.info("old_price: " + str(old_price), self._TAG)
+            is_sell = True
+
         if not self.active[_pid]:
             revert("Pool is not active")
+ 
         new_token1 = self._pool_total[_pid][_fromToken] + _value
+ 
         new_token2 = int(
             self._pool_total[_pid][_fromToken] * self._pool_total[_pid][_toToken] / new_token1)
+ 
         send_amt = self._pool_total[_pid][_toToken] - new_token2
 
-        self._pool_total[_pid][_fromToken] = new_token1 + lp_fees
+        new_token1 += lp_fees
+
+        self._pool_total[_pid][_fromToken] = new_token1
         self._pool_total[_pid][_toToken] = new_token2
 
-        send_price = ((EXA) * _value) // send_amt
+        total_base = new_token1 if is_sell else new_token2
+        total_quote = new_token2 if is_sell else new_token1
+
+        send_price = (EXA * _value) // send_amt
 
         max_slippage_price = (old_price * (10000 + _max_slippage)) // 10000
 
-        Logger.info("send price = " + str(send_price) + ", old price = " +
-                    str(old_price) + ", max slippage price = " + str(max_slippage_price), self._TAG)
-
-        if (send_price > max_slippage_price):
+        if send_price > max_slippage_price:
             revert("Passed Maximum slippage")
 
-        # Pay each of the user and the dividends score their share of the tokens
+        # Send the trader their funds
         to_token_score = self.create_interface_score(_toToken, TokenInterface)
         to_token_score.transfer(_receiver, send_amt)
+
+        # Send the dividends share to the dividends SCORE
         from_token_score = self.create_interface_score(
             _fromToken, TokenInterface)
         from_token_score.transfer(self._dividends.get(), baln_fees)
-        self.Swap(_fromToken, _toToken, _sender,
-                  _receiver, original_value, send_amt, lp_fees, baln_fees)
+
+        # Broadcast pool ending price
+        ending_price = self.getPrice(_pid)
+        effective_fill_price = send_price
+        if not is_sell:
+            effective_fill_price = (EXA * send_amt) // _value
+
+        self.Swap(_pid, self._pool_base[_pid], _fromToken, _toToken, _sender,
+                  _receiver, original_value, send_amt, self.now(), lp_fees,
+                  baln_fees, total_base, total_quote, ending_price, effective_fill_price)
 
     def _get_sicx_rate(self) -> int:
         staking_score = self.create_interface_score(
             self._staking.get(), stakingInterface)
         return staking_score.getTodayRate()
+
+    def _get_rewardable_amount(self, _token_address: Address = None) -> int:
+        """
+        Gets the minimum rewardable amount for a given coin.
+        Assumes that the pool is balanced, so the price at time of insert is the real price.
+        This won't be sensitive to 'impermanent losses', so use at your own risk.
+
+        :param _token_address: Token SCORE to check (None = ICX)
+        """
+        if self._sicx == _token_address:
+            return (50 * EXA * EXA) // self._get_sicx_rate()
+        elif self._bnUSD == _token_address:
+            return 25 * EXA
+        elif None == _token_address:
+            return 50 * EXA
+        elif _token_address in self._token_precisions:
+            # default to 25 units of precision 1, if we have the coin on deposit
+            return 25 * (10 ** self._token_precisions[_token_address])
+        else:
+            # Fallback to 18 digits of precision
+            return 25 * EXA
 
     def _swap_icx(self, _sender: Address, _value: int):
         """
@@ -935,28 +1047,28 @@ class DEX(IconScoreBase):
 
         while not filled:
 
-            if self._icx_queue._length.get() == 0:
+            if len(self._icx_queue) == 0:
                 Logger.info("Transferring remaining SICX", 'DEX')
                 sicx_score.transfer(_sender, remaining_sicx)
                 break
 
             counterparty_order = self._icx_queue._get_head_node()
             counterparty_address = counterparty_order.get_value2()
-            order_sicx_value = (int)(counterparty_order.get_value1() * EXA //
-                                     conversion_factor)
+            order_sicx_value = int(counterparty_order.get_value1() * EXA //
+                                   conversion_factor)
             # Perform match. Matched amount is up to order size
             matched_sicx = min(order_sicx_value, remaining_sicx)
-            matched_icx = (int)(matched_sicx * conversion_factor // EXA)
-            filled_icx += (int)((matched_icx * fee_ratio) // FEE_SCALE)
+            matched_icx = int(matched_sicx * conversion_factor // EXA)
+            filled_icx += int((matched_icx * fee_ratio) // FEE_SCALE)
             removed_icx += matched_icx
 
-            dividends_contribution = (int)(
+            dividends_contribution = int(
                 (matched_icx * self._icx_baln_fee.get()) // FEE_SCALE)
             self.icx.transfer(self._dividends.get(),
                               dividends_contribution)
 
             sicx_score.transfer(counterparty_address, matched_sicx)
-            self.icx.transfer(counterparty_address, (int)
+            self.icx.transfer(counterparty_address, int
                               ((matched_icx * self._icx_conversion_fee.get()) // FEE_SCALE))
 
             if matched_icx == counterparty_order.get_value1():
@@ -994,79 +1106,154 @@ class DEX(IconScoreBase):
 
     def _update_account_snapshot(self, _account: Address, _id: int) -> None:
         """
-        Updates a user's balance snapshot
+        Updates a user's balance 24h avg snapshot
+
         :param _account: Address to update
         :param _id: pool id to update
+
+        Note that an average contains 3 fields for each snapshot:
+        1. the current value
+        2. The weighted average up to that time, for the given window
+        3. The timestamp of the last update
+
+        The average value holds the expected average at the end of the day,
+        if nothing else changes
         """
         current_id = self._current_day.get()
+        current_time = self.now()
         current_value = self.balanceOf(_account, _id)
+
         length = self._account_balance_snapshot[_id][_account]['length'][0]
+        last_snapshot_id = 0
+
+        day_start_us = self._time_offset.get() + (U_SECONDS_DAY * current_id)
+        day_elapsed_us = current_time - day_start_us
+        day_remaining_us = U_SECONDS_DAY - day_elapsed_us
+
         if length == 0:
+            average = (current_value * day_remaining_us) // U_SECONDS_DAY
+
+            self._account_balance_snapshot[_id][_account]['ids'][length] = current_id
             self._account_balance_snapshot[_id][_account]['values'][length] = current_value
+            self._account_balance_snapshot[_id][_account]['avgs'][length] = average
+            self._account_balance_snapshot[_id][_account]['time'][length] = current_time
             self._account_balance_snapshot[_id][_account]['length'][0] += 1
             return
         else:
             last_snapshot_id = self._account_balance_snapshot[_id][_account]['ids'][length - 1]
 
+        # If there is a snapshot existing, it either falls before or in the current window.
         if last_snapshot_id < current_id:
+            # If the snapshot is before the current window, we should create a new entry
+            previous_value = self._account_balance_snapshot[_id][_account]['values'][length - 1]
+
+            average = ((day_elapsed_us * previous_value) + (day_remaining_us * current_value)) // U_SECONDS_DAY
+
             self._account_balance_snapshot[_id][_account]['ids'][length] = current_id
             self._account_balance_snapshot[_id][_account]['values'][length] = current_value
+            self._account_balance_snapshot[_id][_account]['avgs'][length] = average
+            self._account_balance_snapshot[_id][_account]['time'][length] = current_time
             self._account_balance_snapshot[_id][_account]['length'][0] += 1
         else:
-            self._account_balance_snapshot[_id][_account]['values'][length -
-                                                                    1] = current_value
+            # If the snapshot is in the current window, we should update the current entry
+            previous_average = self._account_balance_snapshot[_id][_account]['avgs'][length - 1]
+
+            average = ((previous_average * day_elapsed_us) + (current_value * day_remaining_us)) // U_SECONDS_DAY
+
+            self._account_balance_snapshot[_id][_account]['values'][length - 1] = current_value
+            self._account_balance_snapshot[_id][_account]['avgs'][length - 1] = average
+            self._account_balance_snapshot[_id][_account]['time'][length - 1] = current_time
 
     def _update_total_supply_snapshot(self, _id: int) -> None:
         """
-        Updates a an asset's total supply snapshot
+        Updates an asset's 24h avg total supply snapshot
+
         :param _id: pool id to update
         """
         current_id = self._current_day.get()
+        current_time = self.now()
         current_value = self.totalSupply(_id)
         length = self._total_supply_snapshot[_id]['length'][0]
+        last_snapshot_id = 0
+
+        day_start_us = self._time_offset.get() + (U_SECONDS_DAY * current_id)
+        day_elapsed_us = current_time - day_start_us
+        day_remaining_us = U_SECONDS_DAY - day_elapsed_us
+
         if length == 0:
+            average = (current_value * day_elapsed_us) // U_SECONDS_DAY
+
+            self._total_supply_snapshot[_id]['ids'][length] = current_id
             self._total_supply_snapshot[_id]['values'][length] = current_value
+            self._total_supply_snapshot[_id]['avgs'][length] = average
+            self._total_supply_snapshot[_id]['time'][length] = current_time
             self._total_supply_snapshot[_id]['length'][0] += 1
             return
         else:
             last_snapshot_id = self._total_supply_snapshot[_id]['ids'][length - 1]
 
+        # If there is a snapshot existing, it either falls before or in the current window.
         if last_snapshot_id < current_id:
+            # If the snapshot is before the current window, we should create a new entry
+            previous_value = self._total_supply_snapshot[_id]['values'][length - 1]
+
+            average = ((day_elapsed_us * previous_value) + (day_remaining_us * current_value)) // U_SECONDS_DAY
+
             self._total_supply_snapshot[_id]['ids'][length] = current_id
             self._total_supply_snapshot[_id]['values'][length] = current_value
+            self._total_supply_snapshot[_id]['avgs'][length] = average
+            self._total_supply_snapshot[_id]['time'][length] = current_time
+
             self._total_supply_snapshot[_id]['length'][0] += 1
         else:
-            self._total_supply_snapshot[_id]['values'][length -
-                                                       1] = current_value
+            # If the snapshot is in the current window, we should update the current entry
+            previous_average = self._total_supply_snapshot[_id]['avgs'][length - 1]
+
+            average = ((previous_average * day_elapsed_us) + (current_value * day_remaining_us)) // U_SECONDS_DAY
+
+            self._total_supply_snapshot[_id]['values'][length - 1] = current_value
+            self._total_supply_snapshot[_id]['avgs'][length - 1] = average
+            self._total_supply_snapshot[_id]['time'][length - 1] = current_time
 
     @external(readonly=True)
     def balanceOfAt(self, _account: Address, _id: int, _snapshot_id: int) -> int:
+        matched_index = 0
         if _snapshot_id < 0:
             revert(f'Snapshot id is equal to or greater then Zero')
         low = 0
         high = self._account_balance_snapshot[_id][_account]['length'][0]
 
-        while (low < high):
+        while low < high:
             mid = (low + high) // 2
             if self._account_balance_snapshot[_id][_account]['ids'][mid] > _snapshot_id:
                 high = mid
             else:
                 low = mid + 1
+
         if self._account_balance_snapshot[_id][_account]['ids'][0] == _snapshot_id:
-            return self._account_balance_snapshot[_id][_account]['values'][0]
+            # If the most recent snapshot is the requested snapshot, return the last average
+            return self._account_balance_snapshot[_id][_account]['avgs'][0]
         elif low == 0:
             return 0
         else:
-            return self._account_balance_snapshot[_id][_account]['values'][low - 1]
+            matched_index = low - 1
+
+        # If we matched the day before, weighted avg will be same as ending value.
+        # If we matched the day of, return the actual weighted average
+        if self._account_balance_snapshot[_id][_account]['ids'][matched_index] == _snapshot_id:
+            return self._account_balance_snapshot[_id][_account]['avgs'][matched_index]
+        else:
+            return self._account_balance_snapshot[_id][_account]['values'][matched_index]
 
     @external(readonly=True)
     def totalSupplyAt(self, _id: int, _snapshot_id: int) -> int:
+        matched_index = 0
         if _snapshot_id < 0:
             revert(f'Snapshot id is equal to or greater then Zero')
         low = 0
         high = self._total_supply_snapshot[_id]['length'][0]
 
-        while (low < high):
+        while low < high:
             mid = (low + high) // 2
             if self._total_supply_snapshot[_id]['ids'][mid] > _snapshot_id:
                 high = mid
@@ -1074,18 +1261,23 @@ class DEX(IconScoreBase):
                 low = mid + 1
 
         if self._total_supply_snapshot[_id]['ids'][0] == _snapshot_id:
-            return self._total_supply_snapshot[_id]['values'][0]
+            return self._total_supply_snapshot[_id]['avgs'][0]
         elif low == 0:
             return 0
         else:
-            return self._total_supply_snapshot[_id]['values'][low - 1]
+            matched_index = low - 1
+
+        if self._total_supply_snapshot[_id]['ids'][matched_index] == _snapshot_id:
+            return self._total_supply_snapshot[_id]['avgs'][matched_index]
+        else:
+            return self._total_supply_snapshot[_id]['values'][matched_index]
 
     @external(readonly=True)
     def getTotalValue(self, _name: str, _snapshot_id: int) -> int:
         return self.totalSupplyAt(self._named_markets[_name], _snapshot_id)
 
     @external(readonly=True)
-    def loadBalancesAtSnapshot(self, _pid: int, _snapshot_id: int, _limit: int,  _offset: int = 0) -> dict:
+    def loadBalancesAtSnapshot(self, _pid: int, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
         if _snapshot_id < 0:
             revert(f'Snapshot id is equal to or greater then Zero')
         if _pid < 0:
@@ -1093,7 +1285,7 @@ class DEX(IconScoreBase):
         if _offset < 0:
             revert(f'Offset must be equal to or greater than Zero')
         rv = {}
-        for addr in self._funded_addresses.select(_offset):
+        for addr in self._active_addresses[_pid].select(_offset):
             snapshot_balance = self.balanceOfAt(addr, _pid, _snapshot_id)
             if snapshot_balance:
                 rv[str(addr)] = snapshot_balance
@@ -1101,10 +1293,10 @@ class DEX(IconScoreBase):
 
     @external(readonly=True)
     def getDataBatch(self, _name: str, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
-        total = self.totalDexAddresses()
+        pid = self._named_markets[_name]
+        total = self.totalDexAddresses(pid)
         clamped_offset = min(_offset, total)
         clamped_limit = min(_limit, total - clamped_offset)
-        pid = self._named_markets[_name]
         rv = self.loadBalancesAtSnapshot(
             pid, _snapshot_id, clamped_limit, clamped_offset)
         Logger.info(len(rv), self._TAG)
@@ -1138,12 +1330,17 @@ class DEX(IconScoreBase):
         """
         if _value > self._deposit[_token][self.msg.sender]:
             revert("Insufficient balance")
+        
+        if _value <= 0:
+            revert("InvalidAmountError: Please send a positive amount")
+
         self._deposit[_token][self.msg.sender] -= _value
         token_score = self.create_interface_score(_token, TokenInterface)
         token_score.transfer(self.msg.sender, _value)
         self.Withdraw(_token, self.msg.sender, _value)
 
     @external
+    @dex_on
     def remove(self, _pid: int, _value: int, _withdraw: bool = False):
         """
         :param _pid: The pool ID the user wishes to stop contributing to
@@ -1153,91 +1350,170 @@ class DEX(IconScoreBase):
         This method can withdraw up to a user's holdings in a pool, but it cannot
         be called if the user has not passed their withdrawal lock time period.
         """
+
+        self._take_new_day_snapshot()
+        self._check_distributions()
+
         balance = self._balance[_pid][self.msg.sender]
+
         if not self.active[_pid]:
             revert("Pool is not active")
+
         if _value > balance:
             revert("Invalid input")
-        if self._withdraw_lock[self.msg.sender][_pid] + WITHDRAW_LOCK_TIMEOUT < self.now():
-            revert("Funds not yet unlocked")
-        token1 = self._pool_base[_pid]
-        token2 = self._pool_quote[_pid]
-        self._pool_total[_pid][token1] -= int(self._pool_total[_pid]
-                                              [token1] * (_value / self._total[_pid]))
-        self._pool_total[_pid][token2] -= int(self._pool_total[_pid]
-                                              [token2] * (_value / self._total[_pid]))
-        token1_amount = int(
-            self._pool_total[_pid][token1] * (_value / self._total[_pid]))
-        token2_amount = int(
-            self._pool_total[_pid][token2] * (_value / self._total[_pid]))
+
+        base_token = self._pool_base[_pid]
+        quote_token = self._pool_quote[_pid]
+
+        base_withdraw = self._pool_total[_pid][base_token] * _value // self._total[_pid]
+        quote_withdraw = self._pool_total[_pid][quote_token] * _value // self._total[_pid]
+
+        self._pool_total[_pid][base_token] -= base_withdraw
+        self._pool_total[_pid][quote_token] -= quote_withdraw
         self._balance[_pid][self.msg.sender] -= _value
         self._total[_pid] -= _value
-        self.Remove(_pid, self.msg.sender, _value)
+
+        if self._total[_pid] < MIN_LIQUIDITY:
+            minimum_possible = _value - (MIN_LIQUIDITY - self._total[_pid])
+            revert(f"MinimumLiquidityError: {minimum_possible} max withdraw size")
+
+        self.Remove(_pid, self.msg.sender, _value, base_withdraw, quote_withdraw)
         self.TransferSingle(self.msg.sender, self.msg.sender, Address.from_string(
-            ZERO_SCORE_ADDRESS), _pid, _value)
-        if not _withdraw:
-            self._deposit[token1][self.msg.sender] += token1_amount
-            self._deposit[token2][self.msg.sender] += token2_amount
-        else:
-            self.withdraw(token1, token1_amount)
-            self.withdraw(token2, token2_amount)
+            DEX_ZERO_SCORE_ADDRESS), _pid, _value)
+
+        self._deposit[base_token][self.msg.sender] += base_withdraw
+        self._deposit[quote_token][self.msg.sender] += quote_withdraw
+
+        user_pool_ratio = self._balance[_pid][self.msg.sender] / self.totalSupply(_pid)
+        user_quote_holdings = user_pool_ratio * self._pool_total[_pid][quote_token]
+
+        if user_quote_holdings < self._get_rewardable_amount(quote_token):
+            self._active_addresses[_pid].discard(self.msg.sender)
+
         self._update_account_snapshot(self.msg.sender, _pid)
         self._update_total_supply_snapshot(_pid)
 
+        if _withdraw:
+            self.withdraw(base_token, base_withdraw)
+            self.withdraw(quote_token, quote_withdraw)
+
     @external
-    def add(self, _baseToken: Address, _quoteToken: Address, _maxBaseValue: int, _quoteValue: int):
+    @dex_on
+    def add(self, _baseToken: Address, _quoteToken: Address, _baseValue: int, _quoteValue: int, _withdraw_unused: bool = True):
         """
         Adds liquidity to a pool for trading, or creates a new pool. Rules:
         - The quote coin of the pool must be one of the allowed quote currencies.
         - Tokens must be deposited in the pool's ratio.
         - If ratio is incorrect, it is advisable to call `swap` first.
+        - The pool will attempt to maximize the base and quote tokens to fit the pools ratio
+        - If there is no deposits, the initial ratio will equal the deposit
+
+        :param _baseToken: Base Token to apply to the pool
+        :param _quoteToken: Quote Token to apply to the pool
+        :param _baseValue: Amount of base token (at most) to commit to the pool
+        :param _quoteValue: Amount of qutoe token (at most) to commit to the pool
         """
+
+        self._take_new_day_snapshot()
+        self._check_distributions()
+
         _owner = self.msg.sender
         _pid = self._pool_id[_baseToken][_quoteToken]
+
         if _baseToken == _quoteToken:
             revert("Pool must contain two token contracts")
-        if not _maxBaseValue:
+        if not _baseValue:
             revert("Please send initial value for first currency")
         if not _quoteValue:
             revert("Please send initial value for second currency")
-        if self._deposit[_baseToken][self.msg.sender] < _maxBaseValue:
+        if self._deposit[_baseToken][self.msg.sender] < _baseValue:
             revert("Insufficient base asset funds deposited")
         if self._deposit[_quoteToken][self.msg.sender] < _quoteValue:
             revert("insufficient quote asset funds deposited")
 
-        # By default on new pools, use the maximum sent _maxBaseValue for supplied liquidity
-        base_to_commit = _maxBaseValue
+        # By default on new pools, use the supplied parameters
+        # If a pool id already exists (non-zero), apply in the pool ratio instead
+        base_to_commit = _baseValue
+        quote_to_commit = _quoteValue
 
         if _pid == 0:
-            if not (_quoteToken == self._bnUSD.get()) and not (_quoteToken == self._sicx.get()):
-                revert("Second currency must be bnUSD or sICX")
+
+            if _quoteToken not in self._quote_coins:
+                revert("QuoteNotAllowed: Supplied quote token not in permitted set")
+
             self._pool_id[_baseToken][_quoteToken] = self._nonce.get()
             self._pool_id[_quoteToken][_baseToken] = self._nonce.get()
             _pid = self._nonce.get()
-            liquidity = DEFAULT_INITAL_LP
+
             self._nonce.set(self._nonce.get() + 1)
             self.active[_pid] = True
+
             self._pool_base[_pid] = _baseToken
             self._pool_quote[_pid] = _quoteToken
+
+            liquidity = DEFAULT_INITAL_LP
             self.MarketAdded(_pid, _baseToken, _quoteToken,
-                             _maxBaseValue, _quoteValue)
+                             _baseValue, _quoteValue)
 
         else:
-            base_to_commit = (_quoteValue * self._pool_total[_pid][self._pool_base[_pid]]) // (self._pool_total[_pid][self._pool_quote[_pid]])
-            if base_to_commit > _maxBaseValue:
-                revert('Proportionate base amount is {}, but sent {}'.format(base_to_commit, _maxBaseValue))
-            liquidity = (self._total[_pid] * base_to_commit) // self._pool_total[_pid][_baseToken]
+            
+            # We will commit up to the supplied assets, and refund the rest
+            base_from_quote = (_quoteValue * self._pool_total[_pid][self._pool_base[_pid]]) // (self._pool_total[_pid][self._pool_quote[_pid]])
+
+            quote_from_base = (_baseValue * self._pool_total[_pid][self._pool_quote[_pid]]) // (self._pool_total[_pid][self._pool_base[_pid]])
+
+            Logger.info(f"Pre Total Base: {self._pool_total[_pid][_baseToken]}, quote: {self._pool_total[_pid][_quoteToken]}", self._TAG)
+
+            Logger.info(f"Base: {_baseValue} (supplied), {base_from_quote} (computed); Quote: {_quoteValue} (supplied), {quote_from_base} (computed)", self._TAG)
+
+            if quote_from_base <= _quoteValue:
+                quote_to_commit = quote_from_base
+
+            else:
+                base_to_commit = base_from_quote
+
+            liquidity_from_base = (self._total[_pid] * base_to_commit) // self._pool_total[_pid][_baseToken]
+            liquidity_from_quote = (self._total[_pid] * quote_to_commit) // self._pool_total[_pid][_quoteToken]
+
+            liquidity = min(liquidity_from_base, liquidity_from_quote)
+
+        # Apply the funds to the pool and add LP tokens
         self._pool_total[_pid][_baseToken] += base_to_commit
-        self._pool_total[_pid][_quoteToken] += _quoteValue
+        self._pool_total[_pid][_quoteToken] += quote_to_commit
+
+        Logger.info(f"Committing: {base_to_commit} base, {quote_to_commit} quote for {liquidity} LP tokens", self._TAG)
+
         self._deposit[_baseToken][self.msg.sender] -= base_to_commit
-        self._deposit[_quoteToken][self.msg.sender] -= _quoteValue
+        self._deposit[_quoteToken][self.msg.sender] -= quote_to_commit
+
         self._balance[_pid][_owner] += liquidity
         self._total[_pid] += liquidity
-        self.Add(_pid, _owner, liquidity)
+
+        self.Add(_pid, _owner, liquidity, base_to_commit, quote_to_commit)
+
         self.TransferSingle(_owner, Address.from_string(
-            ZERO_SCORE_ADDRESS), _owner, _pid, liquidity)
-        self._withdraw_lock[self.msg.sender][_pid] = self.now()
-        if self.msg.sender not in self._funded_addresses:
-            self._funded_addresses.add(self.msg.sender)
+            DEX_ZERO_SCORE_ADDRESS), _owner, _pid, liquidity)
+
+        user_pool_ratio = self._balance[_pid][self.msg.sender] / self.totalSupply(_pid)
+        user_quote_holdings = user_pool_ratio * self._pool_total[_pid][_quoteToken]
+
+        if user_quote_holdings >= self._get_rewardable_amount(_quoteToken):
+            self._active_addresses[_pid].add(self.msg.sender)
+
         self._update_account_snapshot(_owner, _pid)
         self._update_total_supply_snapshot(_pid)
+
+        Logger.info(f"Post Total Base: {self._pool_total[_pid][_baseToken]}, quote: {self._pool_total[_pid][_quoteToken]}", self._TAG)
+
+        # If set to withdraw unused funds, check if any are left on deposit
+        # If yes, then send back to the msg.sender address
+        if _withdraw_unused:
+            remaining_base = self._deposit[_baseToken][self.msg.sender]
+
+            if remaining_base > 0:
+                self.withdraw(_baseToken, remaining_base)
+
+            remaining_quote = self._deposit[_quoteToken][self.msg.sender]
+
+            if remaining_quote > 0:
+                self.withdraw(_quoteToken, remaining_quote)

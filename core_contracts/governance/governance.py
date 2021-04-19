@@ -1,16 +1,7 @@
-from iconservice import *
-from .scorelib import *
-from .utils.checks import *
-from .utils.consts import *
-from .interfaces import *
 from .data_objects import *
+from .utils.checks import *
 
 TAG = 'Governance'
-
-
-class DistPercentDict(TypedDict):
-    recipient_name : str
-    bal_token_dist_percent: int
 
 
 class Governance(IconScoreBase):
@@ -20,15 +11,9 @@ class Governance(IconScoreBase):
     and parameter values here.
     """
 
-    _ADMIN = 'admin'
-    _LAUNCH_DAY = 'launch_day'
-    _LAUNCHED = 'launched'
-
-
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self.addresses = Addresses(db, self)
-        self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._launch_day = VarDB('launch_day', db, int)
         self._launch_time = VarDB('launch_time', db, int)
         self._launched = VarDB('launched', db, bool)
@@ -42,30 +27,32 @@ class Governance(IconScoreBase):
 
     @external(readonly=True)
     def name(self) -> str:
-        return "Governance"
+        return "Balanced Governance"
 
     @external
     @only_owner
     def launchBalanced(self) -> None:
         if not self._launched.get():
-            loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
-            dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
-            rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+            self._launched.set(True)
+            loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+            dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+            rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
             self.addresses.setAdmins()
             self.addresses.setContractAddresses()
             self._set_launch_day(self.getDay())
             self._set_launch_time(self.now())
-             # Minimum day value is 1 since 0 is the default value for uninitialized storage.
+            # Minimum day value is 1 since 0 is the default value for uninitialized storage.
             time_delta = DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1)
             loans.setTimeOffset(time_delta)
             dex.setTimeOffset(time_delta)
             rewards.setTimeOffset(time_delta)
+            _addresses: dict = self.addresses.getAddresses()
             for asset in ASSETS:
-                loans.addAsset(self.addresses.getAddresses()[asset['address']],
+                loans.addAsset(_addresses[asset['address']],
                                asset['active'], asset['collateral'])
             for source in DATA_SOURCES:
                 rewards.addNewDataSource(source['name'],
-                                         self.addresses.getAddresses()[source['address']])
+                                         _addresses[source['address']])
             rewards.updateBalTokenDistPercentage(RECIPIENTS)
             loans.turnLoansOn()
             dex.turnDexOn()
@@ -87,7 +74,7 @@ class Governance(IconScoreBase):
     @external
     @only_owner
     def toggleBalancedOn(self) -> None:
-        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         loans.toggleLoansOn()
 
     def _set_launch_day(self, _day: int) -> None:
@@ -117,39 +104,45 @@ class Governance(IconScoreBase):
         """
         Adds a token to the assets dictionary on the Loans contract.
         """
-        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         loans.addAsset(_token_address, _active, _collateral)
 
     @external
     @only_owner
     def toggleAssetActive(self, _symbol) -> None:
-        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         loans.toggleAssetActive(_symbol)
 
     @external
     @only_owner
-    def addRewardsDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
+    def addNewDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
         """
         Add a new data source to receive BALN tokens. Starts with a default of
         zero percentage of the distribution.
         """
-        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
-        rewards.addRewardsDataSource(_data_source_name, _contract_address)
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
+        rewards.addNewDataSource(_data_source_name, _contract_address)
 
     @external
     @only_owner
-    def updateBalTokenDistPercentage(self, _recipient_list : List[DistPercentDict]) -> None:
+    def updateBalTokenDistPercentage(self, _recipient_list: List[DistPercentDict]) -> None:
         """
         Assign percentages for distribution to the data sources. Must sum to 100%.
         """
-        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.updateBalTokenDistPercentage(_recipient_list)
 
     @external
     @only_owner
     def dexPermit(self, _pid: int, _permission: bool):
-        dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
         dex.permit(_pid, _permission)
+
+    @external
+    @only_owner
+    def dexAddQuoteCoin(self, _address: Address) -> None:
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        dex.addQuoteCoin(_address)
 
     @external
     @only_owner
@@ -160,11 +153,83 @@ class Governance(IconScoreBase):
         Links a pool ID to a name, so users can look up platform-defined
         markets more easily.
         """
-        dex_address = self.addresses._dex.get()
+        dex_address = self.addresses['dex']
         dex = self.create_interface_score(dex_address, DexInterface)
         dex.setMarketName(_pid, _name)
-        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.addNewDataSource(_name, dex_address)
+
+    @external
+    @only_owner
+    def setbnUSD(self, _address: Address) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setbnUSD(_address)
+
+    @external
+    @only_owner
+    def setDividends(self, _score: Address) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setDividends(_score)
+
+    @external
+    @only_owner
+    def balancesetDex(self, _address: Address) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setDex(_address)
+
+    @external
+    @only_owner
+    def balancesetOracleName(self, _name: str) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setOracleName(_name)
+
+    @external
+    @only_owner
+    def balancesetMinInterval(self,  _interval: int) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setMinInterval(_interval)
+
+    @external
+    @only_owner
+    def balancetoggleStakingEnabled(self) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.toggleStakingEnabled()
+
+    @external
+    @only_owner
+    def balancesetMinimumStake(self, _amount: int) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setMinimumStake(_amount)
+
+    @external
+    @only_owner
+    def balancesetUnstakingPeriod(self, _time: int) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setUnstakingPeriod(_time)
+
+    @external
+    @only_owner
+    def dAodisburse(self, _recipient: Address, _amounts: List[Disbursement]) -> bool:
+        dao = self.create_interface_score(self.addresses['daofund'], DAOfundInterface)
+        dao.disburse(_recipient, _amounts)
+
+    @external
+    @only_owner
+    def bnUSDsetOracle(self, _address: Address) -> None:
+        bnUSD = self.create_interface_score(self.addresses['bnUSD'], BalancedDollarInterface)
+        bnUSD.setOracle(_address)
+
+    @external
+    @only_owner
+    def bnUSDsetOracleName(self, _name: str) -> None:
+        bnUSD = self.create_interface_score(self.addresses['bnUSD'], BalancedDollarInterface)
+        bnUSD.setOracleName(_name)
+
+    @external
+    @only_owner
+    def dnUSDsetMinInterval(self, _interval: int) -> None:
+        bnUSD = self.create_interface_score(self.addresses['bnUSD'], BalancedDollarInterface)
+        bnUSD.setMinInterval(_interval)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
@@ -182,7 +247,3 @@ class Governance(IconScoreBase):
     @payable
     def fallback(self):
         pass
-
-#-------------------------------------------------------------------------------
-# EVENT LOGS
-#-------------------------------------------------------------------------------
