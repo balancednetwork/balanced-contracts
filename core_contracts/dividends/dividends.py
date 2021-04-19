@@ -535,7 +535,7 @@ class Dividends(IconScoreBase):
             # Maintain account balance of each user for different tokens to distribute
             for token in self._accepted_tokens:
                 token_key = str(token)
-                if amount_being_distributed[token_key] > 0 and total_baln_token > 0:
+                if amount_being_distributed[token_key] > 0 and total_baln_token > 0 and baln_token > 0:
                     share_amount = (baln_token * amount_being_distributed[token_key]) // total_baln_token
                     amount_being_distributed[token_key] -= share_amount
                     self._users_balance[token_key][address] += share_amount
