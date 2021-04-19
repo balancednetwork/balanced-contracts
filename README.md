@@ -4,7 +4,7 @@ This is a repository holding the smart contracts layer of the balanced project. 
 
 Oracles and price data for the synthetic assets are provided by [BAND](https://bandprotocol.com/).
 
-In development, a day can be configured by the U_SECONDS_DAY params in each of the SCORE's constants file (consts.py). Dividing this by 24 makes daily actions occur every hour to speed testing.
+In development, a day can be configured by the U_SECONDS_DAY param in each SCORE's constants file (consts.py). Dividing this by 24 makes daily actions occur every hour to speed testing.
 
 The repository structure is:
 
