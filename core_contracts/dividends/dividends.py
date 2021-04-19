@@ -30,6 +30,10 @@ class LoansInterface(InterfaceScore):
     def getDebts(self, _address_list: List[str], _day: int) -> dict:
         pass
 
+    @interface
+    def getDay(self) -> int:
+        pass
+
 
 class DexInterface(InterfaceScore):
     @interface
@@ -280,8 +284,8 @@ class Dividends(IconScoreBase):
         baln_score = self.create_interface_score(self._baln_score.get(), BalnTokenInterface)
 
         if self._dividends_distribution_status.get() == Status.DIVIDENDS_DISTRIBUTION_COMPLETE:
-            # TODO get the current snapshot being used in other contracts
-            current_snapshot_id = 0
+            loans_score = self.create_interface_score(self._loans_score.get(), LoansInterface)
+            current_snapshot_id = loans_score.getDay()
 
             increased_snapshot = self._snapshot_id.get() + DAYS_IN_A_WEEK
             if increased_snapshot <= current_snapshot_id:
