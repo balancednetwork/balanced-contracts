@@ -4,6 +4,8 @@ This is a repository holding the smart contracts layer of the balanced project. 
 
 Oracles and price data for the synthetic assets are provided by [BAND](https://bandprotocol.com/).
 
+In development, a day can be configured by the U_SECONDS_DAY params in each of the SCORE's consts. Dividing this by 24 will make daily actions occur each 24h, to speed testing.
+
 The repository structure is:
 
 - `core_contracts` - This folder holds all of the core smart contracts deployed for use in Balanced. It contains: 
