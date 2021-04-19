@@ -184,14 +184,14 @@ class LinkedListDB:
             return iter(())
 
         node = self._get_node(cur_id)
-        yield (cur_id, node.get_value())
+        yield cur_id, node.get_value()
         tail_id = self._tail_id
 
         # Iterate until tail
         while cur_id != tail_id:
             cur_id = node.get_next()
             node = self._get_node(cur_id)
-            yield (cur_id, node.get_value())
+            yield cur_id, node.get_value()
             tail_id = self._tail_id
 
     def __getitem__(self, node_id: int):
@@ -232,7 +232,7 @@ class LinkedListDB:
     def _get_tail_node(self) -> _Node:
         node_id = self._tail_id
         if not node_id:
-            raise EmptyLinkedListException(self._name')
+            raise EmptyLinkedListException(self._name)
         if node_id not in self.__cachedb:
             node = self._get_node(node_id)
             self.__cachedb[node_id] = node
@@ -315,27 +315,28 @@ class LinkedListDB:
         self._head_id = 0
         self._length = 0
 
-    def append(self, value, node_id: int = None) -> int:
+    def append(self, value, cur_id: int = None) -> int:
         """ Append an element at the end of the linkedlist """
-        cur_id, cur = self._create_node(value, node_id)
-        self.__cachedb[cur_id] = cur
+        cur = self.__cachedb[cur_id]
 
         if self._length == 0:
             # Empty LinkedList
             self._head_id = cur_id
             self._tail_id = cur_id
+            self._length = self._length + 1
+            self.serialize()
         else:
             # Append to tail
             tail = self._get_tail_node()
             tail.set_next(cur_id)
             tail.repack()
             cur.set_prev(self._tail_id)
+            cur.repack()
             # Update tail to cur node
             self._tail_id = cur_id
+            self._length = self._length + 1
+            self.serialize()
 
-        self._length = self._length + 1
-        cur.repack()
-        self.serialize()
         return cur_id
 
     def prepend(self, value, node_id: int = None) -> int:

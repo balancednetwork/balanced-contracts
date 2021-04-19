@@ -144,6 +144,15 @@ class Loans(IconScoreBase):
         super().on_update()
 
     @external(readonly=True)
+    def agetBorrowerNodes(self) -> dict:
+        borrowers = self._assets['bnUSD'].get_borrowers()
+        return {node[0]: {'value': node[1],
+                          'prev': borrowers._node(node[0]).get_prev(),
+                          'next': borrowers._node(node[0]).get_next(),
+                          'data_string': borrowers._node(node[0])._data_string,
+                          'node_data': borrowers._node(node[0])._node_data.get()} for node in borrowers}
+
+    @external(readonly=True)
     def agetListMetadata(self) -> dict:
         borrowers = self._assets['bnUSD'].get_borrowers()
         nonzero = self._positions.get_nonzero()
