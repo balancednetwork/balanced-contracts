@@ -52,7 +52,7 @@ class _Node:
         self.unpack()
 
     ######### LinkedListDB 2.0 Compatibility Layer #########
-    def serialize_value(self) -> None:
+    def serialize_value(self) -> str:
         if self._value_type == int:
             return str(self._value)
         if self._value_type == str:
