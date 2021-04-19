@@ -10,9 +10,6 @@ connections = {
 
 env = connections[network]
 
-
-# Cell 1
-
 from iconsdk.exception import JSONRPCException
 from iconsdk.libs.in_memory_zip import gen_deploy_data_content
 from iconsdk.icon_service import IconService
@@ -39,12 +36,8 @@ def get_tx_result(_tx_hash):
     tx_result = icon_service.get_transaction_result(_tx_hash)
     return tx_result
 
-# Cell 2
-
 icon_service = IconService(HTTPProvider(env["iconservice"], 3))
 NID = env["nid"]
-
-# Cell 3
 
 wallet = KeyWallet.load("../../keystores/keystore_test1.json", "test1_Account")
 # Balanced test wallet
@@ -103,8 +96,6 @@ contracts = {'loans': {'zip': 'core_contracts/loans.zip',
  'bwt': {'zip': 'token_contracts/bwt.zip',
   'SCORE': 'cx140b49ea041457ebc4cd5e199f5723916bb50021'}}
 
-
-# Cell 6
 # Define deploy and send_tx functions
 
 def compress():
@@ -225,8 +216,8 @@ def call_tx(dest: str, method: str, params: dict = {}):
     print(icon_service.call(call))
     return icon_service.call(call)
 
-# Deploy and configure Balanced. Print results if anything goes wrong.
 
+# Deploy and configure Balanced. Print results if anything goes wrong.
 results = {}
 deploy_all(btest_wallet)
 print('------------------------------------------------------------------------------------------------------------------')

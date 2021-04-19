@@ -1,12 +1,13 @@
 # Balanced Test Guide
 
 This file is  a complete guide to run tests  of Balanced Scores locally.
+All the tests for Balanced are inside `tests` directory under specific folders. In order to run tests in different environment follow the below steps : 
 
 Step 1 : Clone the repository
 
 Testing in t-bears
-- Step 1 : Test files are inside `core_contracts` `tests` .
-- Step 2 : Now you just need to change the file path for tests files and test-scenarios files.
+- Step 1 : T-Bears test files are inside `tests` `tbears_tests` and the test scenarios are inside `test_scenarios` directory.
+- Step 2 : To run the test , go to `tests` directory.  
 - Step 3 : You can run tests in t-bears using a command in terminal: tbears test test_file_name . Here, test_file_name is tests.
     If you want to run some specific tests only then you can comment out other test files and run that test.
 - Test files:
@@ -17,7 +18,7 @@ Testing in t-bears
 
 Testing in NoteBook
 
-- Step 1 : Test files are outside of  `core_contracts`.
+- Step 1 : Test files are inside `tests` `notebook_tests`.
 - Step 2 : These are the tests written in jupyter notebook . You just need to run Jupyter Notebook in the folder 
     that contains these test files. 
 
@@ -31,6 +32,18 @@ Testing in NoteBook
         and lp token distributions.
     - balance_test.ipynb - This file tests the functionality of balance token.
     
-      
+Testing in Python imported from Notebook
+
+- Step 1 : Test files are inside `tests` `tests_py`.
+- Step 2 : These are the python test files imported from jupyter notebook . In order to run this test we need to run the
+python file using a python command : python3 test_file_name.
+  
+- Test files:
+    - test_loans_liquidation.py - This file tests the liquidation condition of an account in loan score, if an account
+        is in liquidate state it liquidates that account.
+    - test_loans_OriginateLoans.py - This  file tests different conditions for originanteLoan method in loans score.
+    - test_loan_retireAssets.py - This file tests different condition for retireAsset method in loans score.
+    - balance_test.py - This file tests the stake functionality of balance token.
+    - test_staking - This file tests the functionality of staking .
 
         
