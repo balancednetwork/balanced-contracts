@@ -1,12 +1,10 @@
 from .utils.checks import *
-from .scorelib import *
 from .utils.consts import *
 from .utils.arraydb_helpers import *
 
 TAG = 'Dividends'
 
 UNITS_PER_TOKEN = 10 ** 18
-
 
 
 class DistPercentDict(TypedDict):
