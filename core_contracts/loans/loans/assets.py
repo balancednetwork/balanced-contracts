@@ -31,6 +31,10 @@ class TokenInterface(InterfaceScore):
         pass
 
     @interface
+    def burnFrom(self, _account: Address, _amount: int) -> None:
+        pass
+
+    @interface
     def priceInLoop(self) -> int:
         pass
 
@@ -48,8 +52,9 @@ class Asset(object):
         self.asset_address = VarDB('address', db, value_type=Address)
         self.bad_debt = VarDB('bad_debt', db, value_type=int)
         self.liquidation_pool = VarDB('liquidation_pool', db, value_type=int)
-        self.is_collateral = VarDB('is_collateral', db, value_type=bool)
-        self.active = VarDB('active', db, value_type=bool)
+        self._burned = VarDB('burned', db, value_type=int)
+        self._is_collateral = VarDB('is_collateral', db, value_type=bool)
+        self._active = VarDB('active', db, value_type=bool)
         self.dead_market = VarDB('dead_market', db, value_type=bool)
 
     def symbol(self) -> str:
@@ -87,6 +92,18 @@ class Asset(object):
         try:
             token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
             token.burn(_amount)
+            self._burned.set(self._burned.get() + _amount)
+        except BaseException as e:
+            revert(f'Trouble burning {self.symbol()} tokens. Exception: {e}')
+
+    def burnFrom(self, _account: Address, _amount: int) -> None:
+        """
+        Burn asset.
+        """
+        try:
+            token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
+            token.burnFrom(_account, _amount)
+            self._burned.set(self._burned.get() + _amount)
         except BaseException as e:
             revert(f'Trouble burning {self.symbol()} tokens. Exception: {e}')
 
@@ -98,16 +115,25 @@ class Asset(object):
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
         return token.lastPriceInLoop()
 
-    def dead(self) -> bool:
+    def get_address(self) -> Address:
+        return self.asset_address.get()
+
+    def is_collateral(self) -> bool:
+        return self._is_collateral.get()
+
+    def is_active(self) -> bool:
+        return self._active.get()
+
+    def is_dead(self) -> bool:
         """
-        Calculates whether the market is dead and set the dead market flag. A
+        Calculates whether the market is dead and sets the dead market flag. A
         dead market is defined as being below the point at which total debt
-        equals the minimum value of collateral backing it.
+        equals the minimum value of collateral that could be backing it.
 
         :return: Dead status
         :rtype: bool
         """
-        if self.is_collateral.get() or not self.active.get():
+        if self._is_collateral.get() or not self._active.get():
             return False
         bad_debt = self.bad_debt.get()
         outstanding = self.totalSupply() - bad_debt
@@ -127,7 +153,6 @@ class Asset(object):
         """
         borrowers = self.get_borrowers()
         borrowers.remove(_pos_id)
-        borrowers.serialize()
 
     def add_borrower(self, _new_debt: int, _pos_id: int) -> None:
         """
@@ -135,7 +160,6 @@ class Asset(object):
         """
         borrowers = self.get_borrowers()
         borrowers.append(_new_debt, _pos_id)
-        borrowers.serialize()
 
     def to_dict(self) -> dict:
         """
@@ -150,9 +174,11 @@ class Asset(object):
             'address': str(self.asset_address.get()),
             'peg': self.getPeg(),
             'added': self.added.get(),
-            'is_collateral': self.is_collateral.get(),
-            'active': self.active.get(),
+            'is_collateral': self._is_collateral.get(),
+            'active': self._active.get(),
             'borrowers': len(self.get_borrowers()),
+            'total_supply': self.totalSupply(),
+            'total_burned': self._burned.get(),
             'bad_debt': self.bad_debt.get(),
             'liquidation_pool': self.liquidation_pool.get(),
             'dead_market': self.dead_market.get()
@@ -221,12 +247,13 @@ class AssetsDB:
         symbol = asset.symbol()
         self.slist.put(symbol)
         self.symboldict[symbol] = address
-        if is_active and not is_collateral:
-            asset.active.set(is_active)
-            self.aalist.put(symbol)
-        if is_collateral:
-            asset.is_collateral.set(is_collateral)
-            self.collateral.put(symbol)
-            if is_active:
+        if is_active:
+            asset._active.set(is_active)
+            if is_collateral:
                 self.aclist.put(symbol)
+            else:
+                self.aalist.put(symbol)
+        if is_collateral:
+            asset._is_collateral.set(is_collateral)
+            self.collateral.put(symbol)
         self._items[symbol] = asset
