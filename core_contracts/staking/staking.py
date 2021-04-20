@@ -1,6 +1,7 @@
 from iconservice import *
 from .scorelib.linked_list import *
-from .scorelib.consts import *
+from .utils.consts import *
+from .utils.checks import *
 
 TAG = 'StakedICXManager'
 
@@ -90,6 +91,7 @@ class Staking(IconScoreBase):
     _PREP_DELEGATIONS = '_prep_delegations'
     _TOTAL_UNSTAKE_AMOUNT = '_total_unstake_amount'
     _UNSTAKE_BATCH_LIMIT = '_unstake_batch_limit'
+    _STAKING_ON = 'staking_on'
 
     @eventlog(indexed=3)
     def Transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
@@ -142,6 +144,7 @@ class Staking(IconScoreBase):
         # initialize the linked list
         self._linked_list_var = LinkedListDB("unstake_dict", db)
         self._unstake_batch_limit = VarDB(self._UNSTAKE_BATCH_LIMIT, db, value_type=int)
+        self._staking_on = VarDB(self._STAKING_ON, db, value_type=bool)
 
     def on_install(self) -> None:
         super().on_install()
@@ -155,6 +158,7 @@ class Staking(IconScoreBase):
         self._distributing.set(False)
         self._set_top_preps()
         self._unstake_batch_limit.set(DEFAULT_UNSTAKE_BATCH_LIMIT)
+        self._staking_on.set(False)
 
     def on_update(self) -> None:
         super().on_update()
@@ -167,6 +171,11 @@ class Staking(IconScoreBase):
     @external(readonly=True)
     def getTodayRate(self) -> int:
         return self._rate.get()
+
+    @external
+    @only_owner
+    def toggleStakingOn(self) -> None:
+        self._staking_on.set(not self._staking_on.get())
 
     def get_sICX_score(self) -> sICXTokenInterface:
         if self._sICX_score is None:
@@ -185,6 +194,7 @@ class Staking(IconScoreBase):
         return rate
 
     @external
+    @only_owner
     def setSicxSupply(self) -> None:
         """
         Only necessary for the dummy contract.
@@ -196,9 +206,12 @@ class Staking(IconScoreBase):
         """
         Get the address of sICX token contract.
         """
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         return self._sICX_address.get()
 
     @external
+    @only_owner
     def setUnstakeBatchLimit(self, _limit: int) -> None:
         self._unstake_batch_limit.set(_limit)
 
@@ -289,11 +302,14 @@ class Staking(IconScoreBase):
         return {str(prep): self._prep_delegations[str(prep)] for prep in self._prep_list}
 
     @external
+    @only_owner
     def setSicxAddress(self, _address: Address) -> None:
         """
         Sets the sICX address from staking contract.
         :params _address : the address of sICX token contract.
         """
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._sICX_address.set(_address)
 
     @external(readonly=True)
@@ -341,10 +357,10 @@ class Staking(IconScoreBase):
             if single_prep["_address"] not in self._prep_list:
                 self._prep_list.put(single_prep["_address"])
             if single_prep["_address"] in similar_prep_list_check:
-                revert(f'You can not delegate same Prep twice in a transaction')
+                revert(f'{TAG}: You can not delegate same Prep twice in a transaction.')
             if single_prep["_votes_in_per"] < 10 ** 15:
                 revert(
-                    f'You should provide delegation percentage more than 0.001. Your delegation preference is {_user_delegations} ')
+                    f'{TAG}: You should provide delegation percentage more than 0.001. Your delegation preference is {_user_delegations}.')
             similar_prep_list_check.append(single_prep["_address"])
             amount_to_stake += single_prep["_votes_in_per"]
             self._set_address_delegations(_to, single_prep['_address'],
@@ -489,6 +505,7 @@ class Staking(IconScoreBase):
                     return
 
     @payable
+    @staking_on
     @external
     def stakeICX(self, _to: Address = None, _data: bytes = None) -> None:
         """
@@ -544,6 +561,7 @@ class Staking(IconScoreBase):
         """
         return (_voting_percentage * _total_amount) // (100 * DENOMINATOR)
 
+    @staking_on
     @external
     def transferUpdateDelegations(self, _from: Address, _to: Address, _value: int) -> None:
         """
@@ -557,7 +575,7 @@ class Staking(IconScoreBase):
         :params _value : Amount of token to be transferred.
         """
         if self.msg.sender != self._sICX_address.get():
-            revert('Only sicx token contract can call this function')
+            revert(f'{TAG}: Only sicx token contract can call this function.')
         sicx_to_icx_conversion = _value * self._rate.get() // DENOMINATOR
         receiver_delegation_preference_in_per = self._get_address_delegations_in_per(_to)
         sender_delegation_preference_in_per = self._get_address_delegations_in_per(_from)
@@ -605,6 +623,7 @@ class Staking(IconScoreBase):
         self._check_for_iscore()
         self._checkForBalance()
 
+    @staking_on
     @external
     def delegate(self, _user_delegations: List[PrepDelegations]):
         """
@@ -617,10 +636,11 @@ class Staking(IconScoreBase):
         previous_address_delegations = self._remove_previous_delegations(_to)
         amount_to_stake_in_per = self._delegate_votes(_to, _user_delegations)
         if amount_to_stake_in_per != 100 * DENOMINATOR:
-            revert('Total delegations should be 100 %')
+            revert(f'{TAG}: Total delegations should be 100%.')
         if previous_address_delegations != {}:
             self._stake_and_delegate(self._check_for_week())
 
+    @staking_on
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
@@ -633,19 +653,19 @@ class Staking(IconScoreBase):
         :type _data: bytes
         """
         if self.msg.sender != self._sICX_address.get():
-            revert(f'The Staking contract only accepts sICX tokens.')
+            revert(f'{TAG}: The Staking contract only accepts sICX tokens.')
         Logger.debug(f'({_value}) tokens received from {_from}.', TAG)
         try:
             d = json_loads(_data.decode("utf-8"))
         except BaseException as e:
-            revert(f'Invalid data: {_data}. Exception: {e}')
+            revert(f'{TAG}: Invalid data: {_data}. Exception: {e}')
         if 'method' in d and d["method"] == "unstake":
             if "user" in d:
                 self._unstake(_from, _value, Address.from_string(d["user"]))
             else:
                 self._unstake(_from, _value)
         else:
-            revert(f'Invalid Parameters.')
+            revert(f'{TAG}: Invalid Parameters.')
 
     def _delegations(self, evenly_distribute_value: int) -> None:
         """
@@ -711,7 +731,7 @@ class Staking(IconScoreBase):
             self.icx.transfer(_to, amount)
             self.FundTransfer(_to, amount, msg + f' {amount} ICX sent to {_to}.')
         except BaseException as e:
-            revert(f'{amount} ICX not sent to {_to}. '
+            revert(f'{TAG}: {amount} ICX not sent to {_to}. '
                    f'Exception: {e}')
 
     @payable
