@@ -756,12 +756,12 @@ class Loans(IconScoreBase):
         """
         reserve_address = self._reserve.get()
         in_pool = _asset.liquidation_pool.get()
+        bad_debt = _asset.bad_debt.get() - _bd_value
+        _asset.bad_debt.set(bad_debt)
         bd_sicx = ((POINTS + self._retirement_bonus.get())
                    * _bd_value * _price // (POINTS * _sicx_rate))
         if in_pool > bd_sicx:
             _asset.liquidation_pool.set(in_pool - bd_sicx)
-            bad_debt = _asset.bad_debt.get() - _bd_value
-            _asset.bad_debt.set(bad_debt)
             if bad_debt == 0:
                 self._send_token('sICX', reserve_address,
                                  in_pool - bd_sicx, "Sweep to ReserveFund:")
