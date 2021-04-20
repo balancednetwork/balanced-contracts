@@ -182,7 +182,7 @@ class Dividends(IconScoreBase):
         super().on_install()
         self._governance.set(_governance)
 
-        self._accepted_tokens.put(Address.from_string(ZERO_SCORE_ADDRESS))
+        self._accepted_tokens.put(ZERO_SCORE_ADDRESS)
         self._snapshot_id.set(1)
         self._max_loop_count.set(MAX_LOOP)
         self._minimum_eligible_debt.set(MINIMUM_ELIGIBLE_DEBT)
@@ -504,7 +504,7 @@ class Dividends(IconScoreBase):
             self._amount_being_distributed[str(token)] -= amount
             if amount <= 0:
                 continue
-            if token == Address.from_string(ZERO_SCORE_ADDRESS):
+            if token == ZERO_SCORE_ADDRESS:
                 self._send_ICX(daofund_address, amount, "Dividends distribution to DAOfund address")
             else:
                 self._send_token(daofund_address, amount, token, "Dividends distribution to DAOfund address")
@@ -619,7 +619,7 @@ class Dividends(IconScoreBase):
 
     @payable
     def fallback(self):
-        self._amount_to_distribute[ZERO_SCORE_ADDRESS] += self.msg.value
+        self._amount_to_distribute[str(ZERO_SCORE_ADDRESS)] += self.msg.value
         self.DividendsReceived(self.msg.value, f"{self.msg.value} ICX received as dividends")
         self._amount_received_status.set(True)
 
