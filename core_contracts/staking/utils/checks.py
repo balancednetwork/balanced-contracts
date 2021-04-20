@@ -1,5 +1,8 @@
 from iconservice import *
+<<<<<<< HEAD
 from .consts import *
+=======
+>>>>>>> development
 
 # ================================================
 #  Exceptions
