@@ -185,6 +185,9 @@ class DEX(IconScoreBase):
             self._ACCOUNT_BALANCE_SNAPSHOT, db, value_type=int, depth=4)
         self._total_supply_snapshot = DictDB(
             self._TOTAL_SUPPLY_SNAPSHOT, db, value_type=int, depth=3)
+        
+        # BALN token snapshot for use in dividends SCORE
+        self._baln_snapshot = DictDB('balnSnapshot', db, value_type=int, depth=3)
 
         # Rewards/timekeeping logic
         self._current_day = VarDB(self._CURRENT_DAY, db, value_type=int)
@@ -1033,6 +1036,9 @@ class DEX(IconScoreBase):
         effective_fill_price = send_price
         if not is_sell:
             effective_fill_price = (EXA * send_amt) // _value
+        
+        if (_fromToken == self._baln.get()) or (_toToken == self._baln.get()):
+            self._update_baln_snapshot(_pid)
 
         self.Swap(_pid, self._pool_base[_pid], _fromToken, _toToken, _sender,
                   _receiver, original_value, send_amt, self.now(), lp_fees,
@@ -1225,6 +1231,62 @@ class DEX(IconScoreBase):
             self._account_balance_snapshot[_id][_account]['avgs'][length - 1] = average
             self._account_balance_snapshot[_id][_account]['time'][length - 1] = current_time
 
+    def _update_baln_snapshot(self, _id: int) -> None:
+        """
+        The application tracks the amount of BALN in particular pools,
+        in order to give awards. At the time of launch, it will be
+        BALN/bnUSD as the tracked pool.
+
+        :param _id: pool id to update
+
+        TODO: This better, it is a last minute requirement.
+        """
+        current_id = self._current_day.get()
+        current_time = self.now()
+        current_value = self._pool_total[_id][self._baln.get()]
+        length = self._baln_snapshot[_id]['length'][0]
+        last_snapshot_id = 0
+
+        day_start_us = self._time_offset.get() + (U_SECONDS_DAY * current_id)
+        day_elapsed_us = current_time - day_start_us
+        day_remaining_us = U_SECONDS_DAY - day_elapsed_us
+
+        if length == 0:
+            average = (current_value * day_elapsed_us) // U_SECONDS_DAY
+
+            self._baln_snapshot[_id]['ids'][length] = current_id
+            self._baln_snapshot[_id]['values'][length] = current_value
+            self._baln_snapshot[_id]['avgs'][length] = average
+            self._baln_snapshot[_id]['time'][length] = current_time
+            self._baln_snapshot[_id]['length'][0] += 1
+            return
+        else:
+            last_snapshot_id = self._baln_snapshot[_id]['ids'][length - 1]
+
+        # If there is a snapshot existing, it either falls before or in the current window.
+        if last_snapshot_id < current_id:
+            # If the snapshot is before the current window, we should create a new entry
+            previous_value = self._baln_snapshot[_id]['values'][length - 1]
+
+            average = ((day_elapsed_us * previous_value) + (day_remaining_us * current_value)) // U_SECONDS_DAY
+
+            self._baln_snapshot[_id]['ids'][length] = current_id
+            self._baln_snapshot[_id]['values'][length] = current_value
+            self._baln_snapshot[_id]['avgs'][length] = average
+            self._baln_snapshot[_id]['time'][length] = current_time
+
+            self._baln_snapshot[_id]['length'][0] += 1
+        else:
+            # If the snapshot is in the current window, we should update the current entry
+            previous_average = self._baln_snapshot[_id]['avgs'][length - 1]
+
+            average = ((previous_average * day_elapsed_us) + (current_value * day_remaining_us)) // U_SECONDS_DAY
+
+            self._baln_snapshot[_id]['values'][length - 1] = current_value
+            self._baln_snapshot[_id]['avgs'][length - 1] = average
+            self._baln_snapshot[_id]['time'][length - 1] = current_time
+
+
     def _update_total_supply_snapshot(self, _id: int) -> None:
         """
         Updates an asset's 24h avg total supply snapshot
@@ -1334,8 +1396,40 @@ class DEX(IconScoreBase):
             return self._total_supply_snapshot[_id]['values'][matched_index]
 
     @external(readonly=True)
+    def totalBalnAt(self, _id: int, _snapshot_id: int) -> int:
+        matched_index = 0
+        if _snapshot_id < 0:
+            revert(f'Snapshot id is equal to or greater then Zero')
+        low = 0
+        high = self._baln_snapshot[_id]['length'][0]
+
+        while low < high:
+            mid = (low + high) // 2
+            if self._baln_snapshot[_id]['ids'][mid] > _snapshot_id:
+                high = mid
+            else:
+                low = mid + 1
+
+        if self._baln_snapshot[_id]['ids'][0] == _snapshot_id:
+            return self._baln_snapshot[_id]['avgs'][0]
+        elif low == 0:
+            return 0
+        else:
+            matched_index = low - 1
+
+        if self._baln_snapshot[_id]['ids'][matched_index] == _snapshot_id:
+            return self._baln_snapshot[_id]['avgs'][matched_index]
+        else:
+            return self._baln_snapshot[_id]['values'][matched_index]
+
+
+    @external(readonly=True)
     def getTotalValue(self, _name: str, _snapshot_id: int) -> int:
         return self.totalSupplyAt(self._named_markets[_name], _snapshot_id)
+
+    @external(readonly=True)
+    def getBalnSnapshot(self, _name: str, _snapshot_id: int) -> int:
+        return self.totalBalnAt(self._named_markets[_name], _snapshot_id)
 
     @external(readonly=True)
     def loadBalancesAtSnapshot(self, _pid: int, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
@@ -1454,6 +1548,8 @@ class DEX(IconScoreBase):
 
         self._update_account_snapshot(self.msg.sender, _pid)
         self._update_total_supply_snapshot(_pid)
+        if base_token == self._baln.get():
+            self._update_baln_snapshot(_pid)
 
         if _withdraw:
             self.withdraw(base_token, base_withdraw)
@@ -1569,6 +1665,8 @@ class DEX(IconScoreBase):
 
         self._update_account_snapshot(_owner, _pid)
         self._update_total_supply_snapshot(_pid)
+        if _baseToken == self._baln.get():
+            self._update_baln_snapshot(_pid)
 
         Logger.info(f"Post Total Base: {self._pool_total[_pid][_baseToken]}, quote: {self._pool_total[_pid][_quoteToken]}", TAG)
 
