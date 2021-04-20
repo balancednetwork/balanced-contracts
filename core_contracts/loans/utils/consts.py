@@ -1,5 +1,7 @@
 from iconservice import *
 
+TAG = 'BalancedLoans'
+
 EXA = 10**18
 
 U_SECONDS_DAY = 86400 * 10**6  // 24 # Microseconds in a day.
@@ -22,8 +24,6 @@ MIN_MINING_DEBT = 50 * EXA # USD
 MAX_DEBTS_LIST_LENGTH = 400
 SNAP_BATCH_SIZE = 50
 REDEEM_BATCH_SIZE = 50
-
-POSITION_DB_PREFIX = b'position'
 
 
 class Standing:

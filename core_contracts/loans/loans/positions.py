@@ -5,7 +5,8 @@ from ..utils.consts import *
 from .assets import AssetsDB
 from .snapshots import SnapshotDB
 
-TAG = 'BalancedPositions'
+TAG = 'BalancedLoansPositions'
+POSITION_DB_PREFIX = b'position'
 
 
 class Position(object):
@@ -25,7 +26,7 @@ class Position(object):
         if _symbol in self.asset_db.slist:
             return self.assets[self.snaps[-1]][_symbol]
         else:
-            revert(f'{_symbol} is not a supported asset on Balanced.')
+            revert(f'{TAG}: {_symbol} is not a supported asset on Balanced.')
 
     def __setitem__(self, key: str, value: int):
         day = self.check_snap()
@@ -272,17 +273,17 @@ class PositionsDB:
         if _id < 0:
             _id = self._id_factory.get_last_uid() + _id + 1
         if _id < 1:
-            revert(f'That is not a valid key.')
+            revert(f'{TAG}: That is not a valid key.')
         if _id not in self._items:
             if _id > self._id_factory.get_last_uid():
-                revert(f'That key does not exist yet.')
+                revert(f'{TAG}: That key does not exist yet.')
             sub_db = self._db.get_sub_db(b'|'.join([POSITION_DB_PREFIX, str(_id).encode()]))
             self._items[_id] = Position(sub_db, self._db, self._loans)
 
         return self._items[_id]
 
     def __setitem__(self, key, value):
-        revert('illegal access')
+        revert(f'{TAG}: Illegal access.')
 
     def __len__(self):
         return self._id_factory.get_last_uid()
@@ -334,7 +335,7 @@ class PositionsDB:
 
     def new_pos(self, _address: Address) -> Position:
         if self.addressID[_address] != 0:
-            revert(f'A position already exists for that address.')
+            revert(f'{TAG}: A position already exists for that address.')
         _id = self._id_factory.get_uid()
         self.addressID[_address] = _id
         now = self._loans.now()

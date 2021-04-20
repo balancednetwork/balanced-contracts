@@ -1,6 +1,17 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2020 ICONation
+# Copyright 2021 BalancedDAO
+#
+# Modified from the original ICONation LinkedList implementation.
+# 1. Serialization of data in each node and metadata for the list in order to
+#    reduce database reads and writes.
+# 2. IdFactory removed. This version relies on external tracking to maintain
+#    unique node IDs.
+# 3. Methods not necessary for Balanced were removed.
+# 4. __setitem__ and __getitem__ methods were introduced to allow for key
+#    access to individual nodes.
+#
+# Original work Copyright 2020 ICONation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -226,7 +237,7 @@ class LinkedListDB:
             self.__cachedb[node_id] = node
         node = self.__cachedb[node_id]
         if not node.exists():
-            self.append(node.default_value(self._value_type), node_id)
+            self._append(node.default_value(self._value_type), node_id)
         return node
 
     def _get_tail_node(self) -> _Node:
@@ -315,7 +326,7 @@ class LinkedListDB:
         self._head_id = 0
         self._length = 0
 
-    def append(self, value, cur_id: int = None) -> int:
+    def _append(self, value, cur_id: int = None) -> int:
         """ Append an element at the end of the linkedlist """
         cur = self.__cachedb[cur_id]
 

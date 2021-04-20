@@ -1,7 +1,6 @@
 from iconservice import *
 
-TAG = 'LoansSnapshots'
-
+TAG = 'BalancedLoansSnapshots'
 SNAP_DB_PREFIX = b'snaps'
 
 
@@ -76,10 +75,10 @@ class SnapshotDB:
                 return self._get_snapshot(_day, index)
             return self._items[_day]
         else:
-            revert(f'No snapshot exists for {_day}, input_day: {input_day}.')
+            revert(f'{TAG}: No snapshot exists for {_day}, input_day: {input_day}.')
 
     def __setitem__(self, key, value):
-        revert('illegal access')
+        revert(f'{TAG}: Illegal access.')
 
     def __len__(self) -> int:
         return self._indexes[-1] - self._indexes[0]
@@ -103,7 +102,7 @@ class SnapshotDB:
         if _day < 0:
             index = _day + len(self._indexes)
             if index < 0:
-                revert(f'Snapshot index {_day} out of range.')
+                revert(f'{TAG}: Snapshot index {_day} out of range.')
             return self._indexes[index]
         low = 0
         high = len(self._indexes)
@@ -129,4 +128,4 @@ class SnapshotDB:
             snapshot = self._get_snapshot(_day, _day)
             snapshot.snap_day.set(_day)
         else:
-            revert(f'New snapshot called for a day less than the previous snapshot.')
+            revert(f'{TAG}: New snapshot called for a day less than the previous snapshot.')
