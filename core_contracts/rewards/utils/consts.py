@@ -1,5 +1,7 @@
 from iconservice import *
 
+TAG = 'BalancedRewards'
+
 EXA = 10**18
 
 DATASOURCE_DB_PREFIX = b'datasource'

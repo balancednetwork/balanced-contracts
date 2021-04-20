@@ -1,7 +1,6 @@
 from ..scorelib.linked_list import *
 
-TAG = 'BalancedAssets'
-
+TAG = 'BalancedLoansAssets'
 ASSET_DB_PREFIX = b'asset'
 
 # An interface of token to distribute daily rewards
@@ -83,7 +82,7 @@ class Asset(object):
             token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
             token.mintTo(_to, _amount, _data)
         except BaseException as e:
-            revert(f'Trouble minting {self.symbol()} tokens to {_to}. Exception: {e}')
+            revert(f'{TAG}: Trouble minting {self.symbol()} tokens to {_to}. Exception: {e}')
 
     def burn(self, _amount: int) -> None:
         """
@@ -94,7 +93,7 @@ class Asset(object):
             token.burn(_amount)
             self._burned.set(self._burned.get() + _amount)
         except BaseException as e:
-            revert(f'Trouble burning {self.symbol()} tokens. Exception: {e}')
+            revert(f'{TAG}: Trouble burning {self.symbol()} tokens. Exception: {e}')
 
     def burnFrom(self, _account: Address, _amount: int) -> None:
         """
@@ -105,7 +104,7 @@ class Asset(object):
             token.burnFrom(_account, _amount)
             self._burned.set(self._burned.get() + _amount)
         except BaseException as e:
-            revert(f'Trouble burning {self.symbol()} tokens. Exception: {e}')
+            revert(f'{TAG}: Trouble burning {self.symbol()} tokens. Exception: {e}')
 
     def priceInLoop(self) -> int:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
@@ -154,13 +153,6 @@ class Asset(object):
         borrowers = self.get_borrowers()
         borrowers.remove(_pos_id)
 
-    def add_borrower(self, _new_debt: int, _pos_id: int) -> None:
-        """
-        Adds a borrower to the asset nonzero list.
-        """
-        borrowers = self.get_borrowers()
-        borrowers.append(_new_debt, _pos_id)
-
     def to_dict(self) -> dict:
         """
         Return object data as a dict.
@@ -204,11 +196,11 @@ class AssetsDB:
             if _symbol not in self._items:
                 self._items[_symbol] = self._get_asset(self.symboldict[_symbol])
         else:
-            revert(f'{_symbol} is not a supported asset.')
+            revert(f'{TAG}: {_symbol} is not a supported asset.')
         return self._items[_symbol]
 
     def __setitem__(self, key, value):
-        revert('illegal access')
+        revert(f'{TAG}: Illegal access.')
 
     def __len__(self) -> int:
         return len(self.alist)
@@ -239,7 +231,7 @@ class AssetsDB:
     def add_asset(self, _address: Address, is_active: bool = True, is_collateral: bool = False) -> None:
         address = str(_address)
         if _address in self.alist:
-            revert(f'{address} already exists in the database.')
+            revert(f'{TAG}: {address} already exists in the database.')
         self.alist.put(_address)
         asset = self._get_asset(address)
         asset.asset_address.set(_address)

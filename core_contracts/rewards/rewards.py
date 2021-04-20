@@ -3,8 +3,6 @@ from .utils.checks import *
 from .utils.consts import *
 from .RewardData import *
 
-TAG = 'Rewards'
-
 
 class DistPercentDict(TypedDict):
     recipient_name: str
@@ -65,7 +63,7 @@ class Rewards(IconScoreBase):
     @external(readonly=True)
     def getEmission(self, _day: int = -1) -> int:
         if _day < 1:
-            revert(f'Invalid day.')
+            revert(f'{TAG}: Invalid day.')
         return self._daily_dist(_day)
 
     @external(readonly=True)
@@ -100,13 +98,13 @@ class Rewards(IconScoreBase):
         :type _recipient_list: List[TypedDict]
         """
         if len(_recipient_list) != len(self._recipients):
-            revert(f"Recipient lists lengths mismatched!")
+            revert(f'{TAG}: Recipient lists lengths mismatched!')
         total_percentage = 0
         day = self._get_day()
         for recipient in _recipient_list:
             name = recipient['recipient_name']
             if name not in self._recipients:
-                revert(f"Recipient {name} doesn't exist")
+                revert(f'{TAG}: Recipient {name} does not exist.')
 
             percent = recipient['dist_percent']
             self._recipient_split[name] = percent
@@ -118,7 +116,7 @@ class Rewards(IconScoreBase):
             total_percentage += percent
 
         if total_percentage != 10 ** 18:
-            revert(f"Total percentage doesn't sum up to 100")
+            revert(f'{TAG}: Total percentage does not sum up to 100.')
 
     @external(readonly=True)
     def getDataSourceNames(self) -> list:
@@ -168,7 +166,7 @@ class Rewards(IconScoreBase):
         if _name in self._recipients:
             return
         if not _address.is_contract:
-            revert(f'Data source must be a contract.')
+            revert(f'{TAG}: Data source must be a contract.')
         self._recipients.put(_name)
         self._recipient_split[_name] = 0
         self._data_source_db.new_source(_name, _address)
@@ -247,7 +245,7 @@ class Rewards(IconScoreBase):
         :type _data: bytes
         """
         if self.msg.sender != self._baln_address.get():
-            revert(f'The Rewards SCORE can only accept BALN tokens. '
+            revert(f'{TAG}: The Rewards SCORE can only accept BALN tokens. '
                    f'Deposit not accepted from {self.msg.sender} '
                    f'Only accepted from BALN = {self._baln_address.get()}')
 
@@ -258,6 +256,8 @@ class Rewards(IconScoreBase):
     @external
     @only_owner
     def setGovernance(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._governance.set(_address)
 
     @external(readonly=True)
@@ -276,6 +276,8 @@ class Rewards(IconScoreBase):
     @external
     @only_admin
     def setBaln(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._baln_address.set(_address)
 
     @external(readonly=True)
@@ -285,6 +287,8 @@ class Rewards(IconScoreBase):
     @external
     @only_admin
     def setBwt(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._bwt_address.set(_address)
 
     @external(readonly=True)
@@ -294,6 +298,8 @@ class Rewards(IconScoreBase):
     @external
     @only_admin
     def setReserve(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._reserve_fund.set(_address)
 
     @external(readonly=True)
@@ -303,6 +309,8 @@ class Rewards(IconScoreBase):
     @external
     @only_admin
     def setDaofund(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._daofund.set(_address)
 
     @external(readonly=True)
