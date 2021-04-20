@@ -36,7 +36,7 @@ Testing in Python imported from Notebook
 
 - Step 1 : Test files are inside `tests` `tests_py`.
 - Step 2 : These are the python test files imported from jupyter notebook . In order to run this test we need to run the
-python file using a python command : python3 test_file_name.
+python file using a python command : python3 test_file_name. We can see output in the terminal.
   
 - Test files:
     - test_loans_liquidation.py - This file tests the liquidation condition of an account in loan score, if an account
