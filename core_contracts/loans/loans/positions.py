@@ -313,17 +313,18 @@ class PositionsDB:
         if not self._remove(_owner_id, current_snapshot.add_to_nonzero):
             current_snapshot.remove_from_nonzero.put(_owner_id)
 
-    def _remove(self, item: int, array: ArrayDB) -> bool:
-        if len(array) == 0:
+    def _remove(self, _item: int, _array: ArrayDB) -> bool:
+        length = len(_array)
+        if length == 0:
             return False
-        top = array[-1]
-        if top == item:
-            array.pop()
+        top = _array[-1]
+        if top == _item:
+            _array.pop()
             return True
-        for i in range(len(array)):
-            if array[i] == item:
-                array[i] = top
-                array.pop()
+        for i in range(length - 1):
+            if _array[i] == _item:
+                _array[i] = top
+                _array.pop()
                 return True
         return False
 

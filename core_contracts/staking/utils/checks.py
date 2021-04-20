@@ -1,8 +1,9 @@
-from iconservice import *
+from .consts import *
 
 # ================================================
 #  Exceptions
 # ================================================
+
 class SenderNotScoreOwnerError(Exception):
 	pass
 
