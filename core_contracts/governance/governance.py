@@ -150,6 +150,7 @@ class Governance(IconScoreBase):
         """
         :param _pid: Pool ID to map to the name
         :param _name: Name to associate
+
         Links a pool ID to a name, so users can look up platform-defined
         markets more easily.
         """
@@ -158,6 +159,18 @@ class Governance(IconScoreBase):
         dex.setMarketName(_pid, _name)
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.addNewDataSource(_name, dex_address)
+
+    @external
+    @only_owner
+    def delegate(self, _delegations: List[PrepDelegations]):
+        """
+        Sets the delegation preference for the sICX held on the Loans contract.
+
+        :param _delegations: List of dictionaries with two keys, Address and percent.
+        :type _delegations: List[PrepDelegations]
+        """
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.delegate(_delegations)
 
     @external
     @only_owner
