@@ -1,4 +1,5 @@
 from iconservice import *
+TAG = 'StakedICXManager'
 
 # ================================================
 #  Exceptions
