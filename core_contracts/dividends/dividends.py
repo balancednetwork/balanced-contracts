@@ -3,7 +3,7 @@ from .utils.consts import *
 from .utils.arraydb_helpers import *
 from .utils.linked_list import *
 
-TAG = 'Dividends'
+TAG = 'Balanced Dividends'
 
 UNITS_PER_TOKEN = 10 ** 18
 
@@ -196,7 +196,7 @@ class Dividends(IconScoreBase):
 
     @external(readonly=True)
     def name(self) -> str:
-        return "Dividends"
+        return "Balanced Dividends"
 
     @external
     @only_owner
