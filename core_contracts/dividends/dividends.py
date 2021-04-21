@@ -1,6 +1,7 @@
 from .utils.checks import *
 from .utils.consts import *
 from .utils.arraydb_helpers import *
+from .utils.linked_list import *
 
 TAG = 'Dividends'
 
@@ -104,12 +105,10 @@ class Dividends(IconScoreBase):
     _AMOUNT_BEING_DISTRIBUTED = "amount_being_distributed"
 
     _ELIGIBLE_BALN_HOLDERS = "eligible_baln_holders"
-    _ELIGIBLE_BALN_BALANCES = "eligible_baln_balances"
     _TOTAL_ELIGIBILE_BALN_TOKENS = "total_eligible_baln_tokens"
     _BALN_DIST_INDEX = "baln_dist_index"
 
     _STAKED_BALN_HOLDERS = "staked_baln_holders"
-    _STAKED_BALN_BALANCES = "staked_baln_balances"
     _STAKED_DIST_INDEX = "staked_dist_index"
 
     _BALN_IN_DEX = "baln_in_dex"
@@ -149,15 +148,13 @@ class Dividends(IconScoreBase):
         self._amount_being_distributed = DictDB(self._AMOUNT_BEING_DISTRIBUTED, db, value_type=int)
 
         # Eligible baln token holders retrieved from staked baln token and from baln pool
-        self._eligible_baln_holders = ArrayDB(self._ELIGIBLE_BALN_HOLDERS, db, value_type=str)
-        self._eligible_baln_balances = DictDB(self._ELIGIBLE_BALN_BALANCES, db, value_type=int)
+        self._eligible_baln_holders = LinkedListDB(self._ELIGIBLE_BALN_HOLDERS, db, value_type=int)
         self._total_eligible_baln_tokens = VarDB(self._TOTAL_ELIGIBILE_BALN_TOKENS, db, value_type=int)
-        self._baln_dist_index = VarDB(self._BALN_DIST_INDEX, db, value_type=int)
+        self._baln_dist_index = VarDB(self._BALN_DIST_INDEX, db, value_type=str)
 
         # Staked baln token holders and their balance retrieved from baln token contract
-        self._staked_baln_holders = ArrayDB(self._STAKED_BALN_HOLDERS, db, value_type=str)
-        self._staked_baln_balances = DictDB(self._STAKED_BALN_BALANCES, db, value_type=int)
-        self._staked_dist_index = VarDB(self._STAKED_DIST_INDEX, db, value_type=int)
+        self._staked_baln_holders = LinkedListDB(self._STAKED_BALN_HOLDERS, db, value_type=int)
+        self._staked_dist_index = VarDB(self._STAKED_DIST_INDEX, db, value_type=str)
 
         self._baln_in_dex = VarDB(self._BALN_IN_DEX, db, value_type=int)
         self._total_lp_tokens = VarDB(self._TOTAL_LP_TOKENS, db, value_type=int)
@@ -429,35 +426,39 @@ class Dividends(IconScoreBase):
         if len(staked_baln_balances) == 0:
             return True
         for address, balance in staked_baln_balances.items():
-            if address not in self._staked_baln_holders:
-                self._staked_baln_holders.put(address)
-            self._staked_baln_balances[address] = balance
+            self._staked_baln_holders[address] = balance
         return False
 
     def _check_eligibility_against_debt_value(self) -> None:
         # Checks if the staked BALN token holders still maintain the debt criteria
         # get debt data in batch and process only those addresses
-        baln_stake_holders = get_array_items(self._staked_baln_holders, self._staked_dist_index.get(),
-                                             self._max_loop_count.get())
 
-        count_of_remaining_baln_stake_holders = len(baln_stake_holders)
-        dist_index = self._staked_dist_index.get() + count_of_remaining_baln_stake_holders
-        if dist_index >= len(self._staked_baln_holders):
-            # Filter process has been complete, can be changed to next state
-            self._staked_dist_index.set(0)
+        cursor = self._staked_dist_index.get()
+        if cursor == "":
+            cursor = self._staked_baln_holders.head
+
+        if cursor == "":
             self._dividends_distribution_status.set(Status.TOTAL_DATA_FROM_BALN_LP_POOL)
             return
-        else:
-            self._staked_dist_index.set(dist_index)
+
+        baln_stake_holders = []
+        for idx in range(self._max_loop_count.get()):
+            address = cursor
+            baln_stake_holders.append(address)
+            if cursor == self._staked_baln_holders.tail:
+                cursor = ""
+                break
+            else:
+                cursor = self._staked_baln_holders.get_node(address).next_
+
+        self._staked_dist_index.set(cursor)
 
         loan_score = self.create_interface_score(self._loans_score.get(), LoansInterface)
         baln_stake_holders_debts = loan_score.getDebts(baln_stake_holders, self._snapshot_id.get() - 1)
         for address, debt in baln_stake_holders_debts.items():
             if debt >= self._minimum_eligible_debt.get():
-                if address not in self._eligible_baln_holders:
-                    self._eligible_baln_holders.put(address)
-                baln_token = self._staked_baln_balances[address]
-                self._eligible_baln_balances[address] = baln_token
+                baln_token = self._staked_baln_holders[address]
+                self._eligible_baln_holders[address] = baln_token
                 self._total_eligible_baln_tokens.set(self._total_eligible_baln_tokens.get() + baln_token)
 
     def _update_total_lp_tokens(self) -> None:
@@ -482,9 +483,7 @@ class Dividends(IconScoreBase):
 
         for address, lp_token in lp_holders.items():
             equivalent_baln = (lp_token * baln_in_dex) // total_lp_tokens
-            if address not in self._eligible_baln_holders:
-                self._eligible_baln_holders.put(address)
-            self._eligible_baln_balances[address] += equivalent_baln
+            self._eligible_baln_holders[address] = self._eligible_baln_holders[address] + equivalent_baln
             baln_in_dex -= equivalent_baln
             total_lp_tokens -= lp_token
 
@@ -516,22 +515,23 @@ class Dividends(IconScoreBase):
             return
 
         batch_size = self._max_loop_count.get() // len(self._accepted_tokens)
-        total_holders = len(self._eligible_baln_holders)
-        start_index = self._baln_dist_index.get()
-        remaining_addresses = total_holders - start_index
+        cursor = self._baln_dist_index.get()
 
-        if batch_size > remaining_addresses:
-            batch_size = remaining_addresses
-        end_index = start_index + batch_size
-
-        # Read once for all addresses
+        # Read once for all token addresses
         amount_being_distributed = {str(token): self._amount_being_distributed[str(token)]
                                     for token in self._accepted_tokens}
         total_baln_token = self._total_eligible_baln_tokens.get()
 
-        for idx in range(start_index, end_index):
-            address = self._eligible_baln_holders[idx]
-            baln_token = self._eligible_baln_balances[address]
+        if cursor == "":
+            cursor = self._eligible_baln_holders.head
+
+        if cursor == "":
+            self._dividends_distribution_status.set(Status.DIVIDENDS_DISTRIBUTION_COMPLETE)
+            return
+
+        for idx in range(batch_size):
+            address = cursor
+            baln_token = self._eligible_baln_holders[cursor]
             # Maintain account balance of each user for different tokens to distribute
             for token in self._accepted_tokens:
                 token_key = str(token)
@@ -540,20 +540,23 @@ class Dividends(IconScoreBase):
                     amount_being_distributed[token_key] -= share_amount
                     self._users_balance[token_key][address] += share_amount
 
-            # Reset the balance so that the amount is being re-calculated in next distribution cycle
-            self._eligible_baln_balances[address] = 0
             total_baln_token -= baln_token
+            if cursor == self._eligible_baln_holders.tail:
+                self._dividends_distribution_status.set(Status.DIVIDENDS_DISTRIBUTION_COMPLETE)
+                cursor = ""
+                break
+            else:
+                cursor = self._eligible_baln_holders.get_node(address).next_
+
+            # Reset the balance so that the amount is being re-calculated in next distribution cycle
+            self._eligible_baln_holders.remove(address)
 
         # Write once after distribution to all addresses
         for token, amount in amount_being_distributed.items():
             self._amount_being_distributed[token] = amount
         self._total_eligible_baln_tokens.set(total_baln_token)
 
-        if end_index == total_holders:
-            self._baln_dist_index.set(0)
-            self._dividends_distribution_status.set(Status.DIVIDENDS_DISTRIBUTION_COMPLETE)
-        else:
-            self._baln_dist_index.set(start_index + batch_size)
+        self._baln_dist_index.set(cursor)
 
     @external
     def claim(self) -> None:
