@@ -125,7 +125,6 @@ class LinkedListDB:
         self.__length: int = 0
 
         self._db = db
-        self.__cache_db = {}
         self.__value_type = value_type
         self.__composite_key = f"{var_key}_{self._LINKED_LIST_KEY}"
         self.__metadata_db = VarDB(self.__composite_key, db, str)
