@@ -1554,8 +1554,8 @@ class DEX(IconScoreBase):
         self._deposit[base_token][self.msg.sender] += base_withdraw
         self._deposit[quote_token][self.msg.sender] += quote_withdraw
 
-        user_pool_ratio = self._balance[_id][self.msg.sender] / self.totalSupply(_id)
-        user_quote_holdings = user_pool_ratio * self._pool_total[_id][quote_token]
+        user_quote_holdings = self._balance[_id][self.msg.sender] \
+            * self._pool_total[_id][quote_token] // self.totalSupply(_id)
 
         if user_quote_holdings < self._get_rewardable_amount(quote_token):
             self._active_addresses[_id].discard(self.msg.sender)
@@ -1671,8 +1671,8 @@ class DEX(IconScoreBase):
         self.TransferSingle(_owner, Address.from_string(
             DEX_ZERO_SCORE_ADDRESS), _owner, _id, liquidity)
 
-        user_pool_ratio = self._balance[_id][self.msg.sender] / self.totalSupply(_id)
-        user_quote_holdings = user_pool_ratio * self._pool_total[_id][_quoteToken]
+        user_quote_holdings = self._balance[_id][self.msg.sender] \
+            * self._pool_total[_id][_quoteToken] // self.totalSupply(_id)
 
         if user_quote_holdings >= self._get_rewardable_amount(_quoteToken):
             self._active_addresses[_id].add(self.msg.sender)
