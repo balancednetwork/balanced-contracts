@@ -584,25 +584,33 @@ class DEX(IconScoreBase):
 
         unpacked_data = json_loads(_data.decode('utf-8'))
         _fromToken = self.msg.sender
+
         if unpacked_data["method"] == "_deposit":
             self._deposit[_fromToken][_from] += _value
             self.Deposit(_fromToken, _from, _value)
+
             if _fromToken not in self._token_precisions:
                 from_token_score = self.create_interface_score(_fromToken, TokenInterface)
                 self._token_precisions[_fromToken] = from_token_score.decimals()
+
         elif unpacked_data["method"] == "_swap_icx":
             if _fromToken == self._sicx.get():
                 self._swap_icx(_from, _value)
+            else:
+                revert(f"{TAG}: InvalidAsset: _swap_icx can only be called with sICX")
+
         elif unpacked_data["method"] == "_swap":
-            max_slippage = 250
-            if "maxSlippage" in unpacked_data["params"]:
-                max_slippage = int(unpacked_data["params"]["maxSlippage"])
-                if max_slippage > MAX_SLIPPAGE:
-                    revert(f"{TAG}: Slippage cannot exceed 10% (1000 basis points.)")
-                if max_slippage <= 0:
-                    revert(f"{TAG}: Max slippage must be a positive number.")
+            minimum_receive = 0
+
+            if "minimumReceive" in unpacked_data["params"]:
+                minimum_receive = int(unpacked_data["params"]["minimumReceive"])
+
+                if minimum_receive < 0:
+                    revert(f"{TAG}: Must specify a positive number for minimum to receive")
+
             self.exchange(_fromToken, Address.from_string(
-                unpacked_data["params"]["toToken"]), _from, _from, _value, max_slippage)
+                unpacked_data["params"]["toToken"]), _from, _from, _value, minimum_receive)
+
         else:
             revert(f"{TAG}: Fallback directly not allowed.")
 
@@ -970,7 +978,7 @@ class DEX(IconScoreBase):
     ####################################
     # Internal exchange function
 
-    def exchange(self, _fromToken: Address, _toToken: Address, _sender: Address, _receiver: Address, _value: int, _max_slippage: int = 250):
+    def exchange(self, _fromToken: Address, _toToken: Address, _sender: Address, _receiver: Address, _value: int, _minimum_receive: int = 0):
 
         # All fees are scaled to FEE_SCALE
         lp_fees = (_value * self._pool_lp_fee.get()) // FEE_SCALE
@@ -1007,6 +1015,9 @@ class DEX(IconScoreBase):
 
         send_amt = self._pool_total[_pid][_toToken] - new_token2
 
+        if send_amt < _minimum_receive:
+            revert(f"{TAG}: MinimumReceiveError: Receive amount {send_amt} below supplied minimum")
+
         new_token1 += lp_fees
 
         self._pool_total[_pid][_fromToken] = new_token1
@@ -1016,11 +1027,6 @@ class DEX(IconScoreBase):
         total_quote = new_token2 if is_sell else new_token1
 
         send_price = (EXA * _value) // send_amt
-
-        max_slippage_price = (old_price * (10000 + _max_slippage)) // 10000
-
-        if send_price > max_slippage_price:
-            revert(f"{TAG}: Passed Maximum slippage.")
 
         # Send the trader their funds
         to_token_score = self.create_interface_score(_toToken, TokenInterface)
