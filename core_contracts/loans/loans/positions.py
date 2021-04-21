@@ -5,7 +5,8 @@ from ..utils.consts import *
 from .assets import AssetsDB
 from .snapshots import SnapshotDB
 
-TAG = 'BalancedPositions'
+TAG = 'BalancedLoansPositions'
+POSITION_DB_PREFIX = b'position'
 
 
 class Position(object):
@@ -25,15 +26,15 @@ class Position(object):
         if _symbol in self.asset_db.slist:
             return self.assets[self.snaps[-1]][_symbol]
         else:
-            revert(f'{_symbol} is not a supported asset on Balanced.')
+            revert(f'{TAG}: {_symbol} is not a supported asset on Balanced.')
 
     def __setitem__(self, key: str, value: int):
         day = self.check_snap()
         self.assets[day][key] = value
         if key in self.asset_db.aalist:
             borrowers = self.asset_db[key].get_borrowers()
+            # if id does not exist in borrowers a new node is created.
             borrowers[self.id.get()] = value
-            borrowers.serialize()
 
     def __delitem__(self, _symbol: str):
         self.assets[self.snaps[-1]].remove(_symbol)
@@ -48,7 +49,7 @@ class Position(object):
         :return: index for the current day.
         :rtype: int
         """
-        day = self._loans._current_day.get()
+        day = self._loans.getDay()
         if day > self.snaps[-1]:
             self.snaps.put(day)
             previous = self.snaps[-2]
@@ -99,8 +100,8 @@ class Position(object):
         _id = self.get_snapshot_id(_day)
         if _id == -1:
             return False
-        for _symbol in self.asset_db.aalist:
-            if self.assets[_id][_symbol] != 0:
+        for symbol in self.asset_db.aalist:
+            if self.assets[_id][symbol] != 0:
                 return True
         return False
 
@@ -115,17 +116,17 @@ class Position(object):
         if _id == -1:
             return 0
         value = 0
-        for _symbol in self.asset_db.aclist:
-            asset = self.asset_db[_symbol]
-            amount = self.assets[_id][_symbol]
-            if _day == -1 or _day == self.snaps[-1]:
+        for symbol in self.asset_db.aclist:
+            asset = self.asset_db[symbol]
+            amount = self.assets[_id][symbol]
+            if _day == -1 or _day == self._loans.getDay():
                 price = asset.priceInLoop()
             else:
-                price = self.snaps_db[_day].prices[_symbol]
+                price = self.snaps_db[_day].prices[symbol]
             value += amount * price // EXA
         return value
 
-    def _total_debt(self, _day: int = -1, _readonly: bool = False) -> int:
+    def total_debt(self, _day: int = -1, _readonly: bool = False) -> int:
         """
         Returns the total value of all outstanding debt in loop. Only valid
         for updated positions.
@@ -140,7 +141,7 @@ class Position(object):
         for symbol in self.asset_db.aalist:
             amount = self.assets[_id][symbol]
             if amount > 0:
-                if _day == -1 or _day == self.snaps[-1]:
+                if _day == -1 or _day == self._loans.getDay():
                     if _readonly:
                         price = self.asset_db[symbol].lastPriceInLoop()
                     else:
@@ -159,7 +160,7 @@ class Position(object):
         :rtype: dict
         """
         status = {}
-        debt = self._total_debt(_day, _readonly)
+        debt = self.total_debt(_day, _readonly)
         status['debt'] = debt
         collateral = self._collateral_value(_day)
         status['collateral'] = collateral
@@ -174,24 +175,23 @@ class Position(object):
 
         ratio = collateral * EXA // debt
 
-        if _day == -1 or _day == self.snaps[-1]:
-            if _readonly:
-                price = self.asset_db["bnUSD"].lastPriceInLoop()
+        if ratio > MINING_RATIO * EXA // POINTS:
+            if _day == -1 or _day == self._loans.getDay():
+                if _readonly:
+                    price = self.asset_db["bnUSD"].lastPriceInLoop()
+                else:
+                    price = self.asset_db["bnUSD"].priceInLoop()
             else:
-                price = self.asset_db["bnUSD"].priceInLoop()
-        else:
-            price = self.snaps_db[_day].prices["bnUSD"]
+                price = self.snaps_db[_day].prices["bnUSD"]
 
-        bnUSD_debt: int = debt * EXA // price
-
-        if ratio > DEFAULT_MINING_RATIO * EXA // POINTS:
+            bnUSD_debt: int = debt * EXA // price
             if bnUSD_debt < self._loans._min_mining_debt.get():
                 standing = Standing.NOT_MINING
             else:
                 standing = Standing.MINING
-        elif ratio > DEFAULT_LOCKING_RATIO * EXA // POINTS:
+        elif ratio > LOCKING_RATIO * EXA // POINTS:
             standing = Standing.NOT_MINING
-        elif ratio > DEFAULT_LIQUIDATION_RATIO * EXA // POINTS:
+        elif ratio > LIQUIDATION_RATIO * EXA // POINTS:
             standing = Standing.LOCKED
         else:
             standing = Standing.LIQUIDATE
@@ -226,7 +226,7 @@ class Position(object):
         :rtype dict
         """
         _id = self.get_snapshot_id(_day)
-        if _id == -1 or _day > self._loans._current_day.get():
+        if _id == -1 or _day > self._loans.getDay():
             return {}
         assets = {}
         for asset in self.asset_db.slist:
@@ -273,17 +273,17 @@ class PositionsDB:
         if _id < 0:
             _id = self._id_factory.get_last_uid() + _id + 1
         if _id < 1:
-            revert(f'That is not a valid key.')
+            revert(f'{TAG}: That is not a valid key.')
         if _id not in self._items:
             if _id > self._id_factory.get_last_uid():
-                revert(f'That key does not exist yet.')
+                revert(f'{TAG}: That key does not exist yet.')
             sub_db = self._db.get_sub_db(b'|'.join([POSITION_DB_PREFIX, str(_id).encode()]))
             self._items[_id] = Position(sub_db, self._db, self._loans)
 
         return self._items[_id]
 
     def __setitem__(self, key, value):
-        revert('illegal access')
+        revert(f'{TAG}: Illegal access.')
 
     def __len__(self):
         return self._id_factory.get_last_uid()
@@ -313,17 +313,18 @@ class PositionsDB:
         if not self._remove(_owner_id, current_snapshot.add_to_nonzero):
             current_snapshot.remove_from_nonzero.put(_owner_id)
 
-    def _remove(self, item: int, array: ArrayDB) -> bool:
-        if len(array) == 0:
+    def _remove(self, _item: int, _array: ArrayDB) -> bool:
+        length = len(_array)
+        if length == 0:
             return False
-        top = array[-1]
-        if top == item:
-            array.pop()
+        top = _array[-1]
+        if top == _item:
+            _array.pop()
             return True
-        for i in range(len(array)):
-            if array[i] == item:
-                array[i] = top
-                array.pop()
+        for i in range(length - 1):
+            if _array[i] == _item:
+                _array[i] = top
+                _array.pop()
                 return True
         return False
 
@@ -335,17 +336,18 @@ class PositionsDB:
 
     def new_pos(self, _address: Address) -> Position:
         if self.addressID[_address] != 0:
-            revert(f'A position already exists for that address.')
+            revert(f'{TAG}: A position already exists for that address.')
         _id = self._id_factory.get_uid()
         self.addressID[_address] = _id
         now = self._loans.now()
-        snap_id = self._loans._current_day.get()
+        snap_id = self._loans.getDay()
         _new_pos = self.__getitem__(_id)
         _new_pos.id.set(_id)
         _new_pos.created.set(now)
         _new_pos.address.set(_address)
         _new_pos.snaps.put(snap_id)
         _new_pos.assets[snap_id]['sICX'] = 0
+        self._items[_id] = _new_pos
         return _new_pos
 
     def _take_snapshot(self) -> None:
@@ -356,10 +358,10 @@ class PositionsDB:
         snapshot = self._snapshot_db[-1]
         assets = self._loans._assets
         for symbol in assets.slist:
-            if assets[symbol].active.get():
+            if assets[symbol].is_active():
                 snapshot.prices[symbol] = assets[symbol].priceInLoop()
         snapshot.snap_time.set(self._loans.now())
-        self._loans.Snapshot(self._loans._current_day.get())
+        self._loans.Snapshot(self._loans.getDay())
         self._snapshot_db.start_new_snapshot()
 
     def _calculate_snapshot(self, _day: int, batch_size: int) -> bool:
@@ -385,6 +387,7 @@ class PositionsDB:
         remove = len(snapshot.remove_from_nonzero)
         nonzero = self.get_nonzero()
         nonzero_deltas = add + remove
+        nonzero = self.get_nonzero()
         if nonzero_deltas > 0:  # Bring the list of all nonzero positions up to date.
             _iter = self._loans._snap_batch_size.get()  # Starting default is 200.
             loops = min(_iter, remove)
@@ -402,7 +405,7 @@ class PositionsDB:
         total_nonzero = len(nonzero)
         next_node = self.next_node.get()
         if next_node == 0:
-            next_node = nonzero._head_id
+            next_node = nonzero.get_head_id()
         remaining = total_nonzero - index
         batch_mining_debt = 0
         for _ in range(min(remaining, batch_size)):  # Update standing for all nonzero positions.
@@ -415,7 +418,7 @@ class PositionsDB:
                     snapshot.mining.put(account_id)
                     batch_mining_debt += snapshot.pos_state[account_id]['total_debt']
             index += 1
-            if next_node == nonzero._tail_id:
+            if next_node == nonzero.get_tail_id():
                 next_node = 0
             else:
                 next_node = nonzero.next(next_node)

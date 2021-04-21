@@ -1,6 +1,17 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2020 ICONation
+# Copyright 2021 BalancedDAO
+#
+# Modified from the original ICONation LinkedList implementation.
+# 1. Serialization of data in each node and metadata for the list in order to
+#    reduce database reads and writes.
+# 2. IdFactory removed. This version relies on external tracking to maintain
+#    unique node IDs.
+# 3. Methods not necessary for Balanced were removed.
+# 4. __setitem__ and __getitem__ methods were introduced to allow for key
+#    access to individual nodes.
+#
+# Original work Copyright 2020 ICONation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -90,7 +101,7 @@ class _Node:
         self._node_data.set('|'.join(nodedata))
 
     @staticmethod
-    def default_value(value_type: str):
+    def default_value(value_type: type):
         if value_type == int:
             return 0
         if value_type == str:
@@ -210,7 +221,6 @@ class LinkedListDB:
 
         # Check if node already exists
         if node.exists():
-            revert(f'Dupe Node! name: {self._name}, node_id: {node_id}')
             raise LinkedNodeAlreadyExists(self._name, node_id)
 
         node.set_value(value)
@@ -227,7 +237,7 @@ class LinkedListDB:
             self.__cachedb[node_id] = node
         node = self.__cachedb[node_id]
         if not node.exists():
-            self.append(node.default_value(self._value_type), node_id)
+            self._append(node_id)
         return node
 
     def _get_tail_node(self) -> _Node:
@@ -320,22 +330,29 @@ class LinkedListDB:
         """ Append an element at the end of the linkedlist """
         cur_id, cur = self._create_node(value, node_id)
         self.__cachedb[cur_id] = cur
+        return self._append(cur_id)
+
+    def _append(self, cur_id: int = None) -> int:
+        """ Append an existing node at the end of the linkedlist """
+        cur = self.__cachedb[cur_id]
 
         if self._length == 0:
             # Empty LinkedList
             self._head_id = cur_id
             self._tail_id = cur_id
+            self._length = self._length + 1
+            self.serialize()
         else:
             # Append to tail
             tail = self._get_tail_node()
             tail.set_next(cur_id)
             tail.repack()
             cur.set_prev(self._tail_id)
+            cur.repack()
             # Update tail to cur node
             self._tail_id = cur_id
-
-        self._length = self._length + 1
-        cur.repack()
+            self._length = self._length + 1
+            self.serialize()
 
         return cur_id
 
@@ -359,7 +376,7 @@ class LinkedListDB:
 
         self._length = self._length + 1
         cur.repack()
-
+        self.serialize()
         return cur_id
 
     def move_head_to_tail(self) -> None:
@@ -484,3 +501,4 @@ class LinkedListDB:
             self._length = self._length - 1
             curnext.repack()
             curprev.repack()
+        self.serialize()

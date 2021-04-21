@@ -88,6 +88,8 @@ class DAOfund(IconScoreBase):
     @external
     @only_admin
     def setLoans(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._loans_score.set(_address)
 
     @external(readonly=True)
@@ -118,7 +120,7 @@ class DAOfund(IconScoreBase):
         """
         for asset in _amounts:
             if self._fund[asset['symbol']] < asset['amount']:
-                revert(f'Insufficient balance of asset {asset["symbol"]} in DAOfund.')
+                revert(f'{TAG}: Insufficient balance of asset {asset["symbol"]} in DAOfund.')
             self._awards[_recipient][asset['symbol']] += asset['amount']
             self._fund[asset['symbol']] -= asset['amount']
         return True
@@ -161,7 +163,7 @@ class DAOfund(IconScoreBase):
             if assets[symbol] == address:
                 self._fund[symbol] += _value
                 return
-        revert(f'The DAOfund can only accept tokens that are among the Balanced Assets.')
+        revert(f'{TAG}: The DAOfund can only accept tokens that are among the Balanced Assets.')
 
     def _send_ICX(self, _to: Address, amount: int, msg: str) -> None:
         """
@@ -175,9 +177,9 @@ class DAOfund(IconScoreBase):
         """
         try:
             self.icx.transfer(_to, amount)
-            self.FundTransfer(_to, amount, msg + f' {amount} ICX sent to {_to}.')
+            self.FundTransfer(_to, amount, f'{msg} {amount} ICX sent to {_to}.')
         except BaseException as e:
-            revert(f'{amount} ICX not sent to {_to}. '
+            revert(f'{TAG}: {amount} ICX not sent to {_to}. '
                    f'Exception: {e}')
 
     def _send_token(self, _symbol: str, _token: Address, _to: Address,
@@ -198,9 +200,9 @@ class DAOfund(IconScoreBase):
         try:
             token_score = self.create_interface_score(_token, TokenInterface)
             token_score.transfer(_to, _amount)
-            self.TokenTransfer(_to, _amount, msg + f' {_amount} {_symbol} sent to {_to}.')
+            self.TokenTransfer(_to, _amount, f'{msg} {_amount} {_symbol} sent to {_to}.')
         except BaseException as e:
-            revert(f'{_amount} {_symbol} not sent to {_to}. '
+            revert(f'{TAG}: {_amount} {_symbol} not sent to {_to}. '
                    f'Exception: {e}')
 
     @payable

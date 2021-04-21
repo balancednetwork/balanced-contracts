@@ -37,7 +37,6 @@ class DataSource(object):
         day = self.day.get()
         data_source = self._rewards.create_interface_score(self.contract_address.get(), DataSourceInterface)
         precomp_done = data_source.precompute(day, batch_size)
-        # revert(f'Source: {self.name.get()}, day: {day}, precomp_done: {precomp_done}')
         if not self.precomp.get() and precomp_done:
             self.precomp.set(True)
             self.total_value[day] = data_source.getTotalValue(self.name.get(), day)
@@ -57,7 +56,7 @@ class DataSource(object):
             for address in data_batch:
                 if shares <= 0:
                     revert(
-                        f'zero or negative divisor for {self.name.get()}, '
+                        f'{TAG}: zero or negative divisor for {self.name.get()}, '
                         f'sum: {batch_sum}, '
                         f'total: {shares}, '
                         f'starting: {original_shares}'
@@ -102,7 +101,7 @@ class DataSourceDB:
         return self._items[_name]
 
     def __setitem__(self, key, value):
-        revert('illegal access')
+        revert(f'{TAG}: Illegal access.')
 
     def __iter__(self):
         for name in self._names:

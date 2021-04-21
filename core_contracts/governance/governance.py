@@ -150,6 +150,7 @@ class Governance(IconScoreBase):
         """
         :param _pid: Pool ID to map to the name
         :param _name: Name to associate
+
         Links a pool ID to a name, so users can look up platform-defined
         markets more easily.
         """
@@ -158,6 +159,18 @@ class Governance(IconScoreBase):
         dex.setMarketName(_pid, _name)
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.addNewDataSource(_name, dex_address)
+
+    @external
+    @only_owner
+    def delegate(self, _delegations: List[PrepDelegations]):
+        """
+        Sets the delegation preference for the sICX held on the Loans contract.
+
+        :param _delegations: List of dictionaries with two keys, Address and percent.
+        :type _delegations: List[PrepDelegations]
+        """
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.delegate(_delegations)
 
     @external
     @only_owner
@@ -173,61 +186,61 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def balancesetDex(self, _address: Address) -> None:
+    def balanceSetDex(self, _address: Address) -> None:
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         baln.setDex(_address)
 
     @external
     @only_owner
-    def balancesetOracleName(self, _name: str) -> None:
+    def balanceSetOracleName(self, _name: str) -> None:
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         baln.setOracleName(_name)
 
     @external
     @only_owner
-    def balancesetMinInterval(self,  _interval: int) -> None:
+    def balanceSetMinInterval(self,  _interval: int) -> None:
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         baln.setMinInterval(_interval)
 
     @external
     @only_owner
-    def balancetoggleStakingEnabled(self) -> None:
+    def balanceToggleStakingEnabled(self) -> None:
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         baln.toggleStakingEnabled()
 
     @external
     @only_owner
-    def balancesetMinimumStake(self, _amount: int) -> None:
+    def balanceSetMinimumStake(self, _amount: int) -> None:
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         baln.setMinimumStake(_amount)
 
     @external
     @only_owner
-    def balancesetUnstakingPeriod(self, _time: int) -> None:
+    def balanceSetUnstakingPeriod(self, _time: int) -> None:
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         baln.setUnstakingPeriod(_time)
 
     @external
     @only_owner
-    def dAodisburse(self, _recipient: Address, _amounts: List[Disbursement]) -> bool:
+    def daoDisburse(self, _recipient: Address, _amounts: List[Disbursement]) -> bool:
         dao = self.create_interface_score(self.addresses['daofund'], DAOfundInterface)
         dao.disburse(_recipient, _amounts)
 
     @external
     @only_owner
-    def bnUSDsetOracle(self, _address: Address) -> None:
+    def bnUSDSetOracle(self, _address: Address) -> None:
         bnUSD = self.create_interface_score(self.addresses['bnUSD'], BalancedDollarInterface)
         bnUSD.setOracle(_address)
 
     @external
     @only_owner
-    def bnUSDsetOracleName(self, _name: str) -> None:
+    def bnUSDSetOracleName(self, _name: str) -> None:
         bnUSD = self.create_interface_score(self.addresses['bnUSD'], BalancedDollarInterface)
         bnUSD.setOracleName(_name)
 
     @external
     @only_owner
-    def dnUSDsetMinInterval(self, _interval: int) -> None:
+    def bnUSDSetMinInterval(self, _interval: int) -> None:
         bnUSD = self.create_interface_score(self.addresses['bnUSD'], BalancedDollarInterface)
         bnUSD.setMinInterval(_interval)
 

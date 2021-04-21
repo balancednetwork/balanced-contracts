@@ -1,7 +1,6 @@
 from iconservice import *
 
-TAG = 'LoansSnapshots'
-
+TAG = 'BalancedLoansSnapshots'
 SNAP_DB_PREFIX = b'snaps'
 
 
@@ -44,7 +43,7 @@ class Snapshot(object):
         prices = {}
         assets = self._loans._assets
         for symbol in assets.slist:
-            if assets[symbol].added.get() < self.snap_time.get() and assets[symbol].active.get():
+            if assets[symbol].added.get() < self.snap_time.get() and assets[symbol].is_active():
                 prices[symbol] = self.prices[symbol]
         snap = {
             'snap_day': self.snap_day.get(),
@@ -76,10 +75,10 @@ class SnapshotDB:
                 return self._get_snapshot(_day, index)
             return self._items[_day]
         else:
-            revert(f'No snapshot exists for {_day}, input_day: {input_day}.')
+            revert(f'{TAG}: No snapshot exists for {_day}, input_day: {input_day}.')
 
     def __setitem__(self, key, value):
-        revert('illegal access')
+        revert(f'{TAG}: Illegal access.')
 
     def __len__(self) -> int:
         return self._indexes[-1] - self._indexes[0]
@@ -103,7 +102,7 @@ class SnapshotDB:
         if _day < 0:
             index = _day + len(self._indexes)
             if index < 0:
-                revert(f'Snapshot index {_day} out of range.')
+                revert(f'{TAG}: Snapshot index {_day} out of range.')
             return self._indexes[index]
         low = 0
         high = len(self._indexes)
@@ -123,10 +122,10 @@ class SnapshotDB:
             return self._indexes[low - 1]
 
     def start_new_snapshot(self) -> None:
-        _day: int = self._loans._current_day.get()
+        _day: int = self._loans.getDay()
         if len(self._indexes) == 0 or _day > self._indexes[-1]:  # Ensures that the sequence in
             self._indexes.put(_day)                              # _indexes is monotonically increasing.
             snapshot = self._get_snapshot(_day, _day)
             snapshot.snap_day.set(_day)
         else:
-            revert(f'New snapshot called for a day less than the previous snapshot.')
+            revert(f'{TAG}: New snapshot called for a day less than the previous snapshot.')
