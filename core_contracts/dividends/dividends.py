@@ -304,7 +304,7 @@ class Dividends(IconScoreBase):
 
     @external(readonly=True)
     def getUserDividends(self, _account: Address) -> dict:
-        return {token: self._users_balance[str(_account)][str(token)] for token in self._accepted_tokens}
+        return {str(token): self._users_balance[str(_account)][str(token)] for token in self._accepted_tokens}
 
     @external(readonly=True)
     def getAmountToDistribute(self) -> dict:
