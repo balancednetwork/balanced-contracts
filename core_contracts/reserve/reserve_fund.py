@@ -146,7 +146,7 @@ class ReserveFund(IconScoreBase):
         return balances
 
     @external
-    def redeem(self, _to: Address, _amount: int, _sicx_rate: int) -> None:
+    def redeem(self, _to: Address, _amount: int, _sicx_rate: int) -> int:
         if self.msg.sender != self._loans_score.get():
             revert(f'{TAG}: The redeem method can only be called by the Loans SCORE.')
         sicx = self._sicx.get()
@@ -165,7 +165,9 @@ class ReserveFund(IconScoreBase):
             self._send_token(baln_address, _to, baln_to_send, 'Redeemed:')
             self._baln.set(baln_remaining)
         self._sicx.set(sicx - sicx_to_send)
-        self._send_token(self._sicx_token.get(), self._loans_score.get(), sicx_to_send, 'To Loans:')
+        if sicx_to_send > 0:
+            self._send_token(self._sicx_token.get(), self._loans_score.get(), sicx_to_send, 'To Loans:')
+        return sicx_to_send
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
