@@ -91,6 +91,8 @@ class BalancedToken(IRC2):
         self._oracle_name.set(DEFAULT_ORACLE_NAME)
         self._last_price.set(INITIAL_PRICE_ESTIMATE)
         self._min_interval.set(MIN_UPDATE_TIME)
+        self._minimum_stake.set(MINIMUM_STAKE)
+        self._unstaking_period.set(DEFAULT_UNSTAKING_PERIOD)
 
     def on_update(self) -> None:
         super().on_update()
@@ -150,7 +152,7 @@ class BalancedToken(IRC2):
         """
         Sets the authorized address.
 
-        :param account: The authorized admin address.
+        :param _admin: The authorized admin address.
         """
         return self._admin.set(_admin)
 

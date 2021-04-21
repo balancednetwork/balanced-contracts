@@ -1,4 +1,5 @@
 from iconservice import *
+from .consts import *
 
 # ================================================
 #  Exceptions
@@ -31,6 +32,7 @@ def only_governance(func):
 		return func(self, *args, **kwargs)
 	return __wrapper
 
+
 def only_admin(func):
 	if not isfunction(func):
 		raise NotAFunctionError
@@ -42,6 +44,7 @@ def only_admin(func):
 
 		return func(self, *args, **kwargs)
 	return __wrapper
+
 
 def only_owner(func):
 	if not isfunction(func):
@@ -55,21 +58,15 @@ def only_owner(func):
 		return func(self, *args, **kwargs)
 	return __wrapper
 
-def catch_error(func):
+
+def loans_on(func):
 	if not isfunction(func):
-		raise NotAFunctionError
+		revert(f"NotAFunctionError")
 
 	@wraps(func)
 	def __wrapper(self: object, *args, **kwargs):
-		try:
-			return func(self, *args, **kwargs)
-		except BaseException as e:
-			Logger.error(repr(e), TAG)
-			try:
-				# readonly methods cannot emit eventlogs
-				self.ShowException(repr(e))
-			except:
-				pass
-			revert(repr(e))
+		if not self._loans_on.get():
+			revert(f'{TAG}: Balanced Loans SCORE is not active.')
 
+		return func(self, *args, **kwargs)
 	return __wrapper

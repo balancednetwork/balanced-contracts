@@ -10,7 +10,7 @@ class InsufficientBalanceError(Exception):
 	pass
 
 
-class ZeroValueError(Exception):
+class NegativeValueError(Exception):
 	pass
 
 
@@ -69,22 +69,18 @@ class IRC2(TokenStandard, IconScoreBase):
 		Raise
 		InvalidNameError
 			If the length of strings `_symbolName` and `_tokenName` is 0 or less.
-		ZeroValueError
-			If `_initialSupply` is 0 or less.
-			If `_decimals` value is 0 or less.
+		NegativeValueError
+			If `_initialSupply` is less than 0.
+			If `_decimals` value is less than 0.
 		"""
-		if (len(_symbolName) <= 0):
+		if len(_symbolName) <= 0:
 			raise InvalidNameError("Invalid Symbol name")
-			pass
-		if (len(_tokenName) <= 0):
+		if len(_tokenName) <= 0:
 			raise InvalidNameError("Invalid Token Name")
-			pass
 		if _initialSupply < 0:
-			raise ZeroValueError("Initial Supply cannot be less than zero")
-			pass
+			raise NegativeValueError("Initial Supply cannot be less than zero")
 		if _decimals < 0:
-			raise ZeroValueError("Decimals cannot be less than zero")
-			pass
+			raise NegativeValueError("Decimals cannot be less than zero")
 
 		super().on_install()
 
@@ -134,7 +130,7 @@ class IRC2(TokenStandard, IconScoreBase):
 		"""
 		Returns the amount of tokens owned by the account.
 
-		:param account: The account whose balance is to be checked.
+		:param _owner: The account whose balance is to be checked.
 		:return Amount of tokens owned by the `account` with the given address.
 		"""
 		return self._balances[_owner]
@@ -145,7 +141,7 @@ class IRC2(TokenStandard, IconScoreBase):
 		"""
 		Sets the authorized address.
 
-		:param account: The authorized admin address.
+		:param _admin: The authorized admin address.
 		"""
 		return self._admin.set(_admin)
 
@@ -185,20 +181,16 @@ class IRC2(TokenStandard, IconScoreBase):
 		:param _data: Any information or message
 
 		Raises
-		ZeroValueError
+		NegativeValueError
 			if the value to be transferrd is less than 0
 		InsufficientBalanceError
 			if the sender has less balance than the value to be transferred
 		"""
-		if _value < 0 :
-			raise ZeroValueError("Transferring value cannot be less than 0.")
-			return
+		if _value < 0:
+			raise NegativeValueError("Transferring value cannot be less than 0.")
 
-		if self._balances[_from] < _value :
+		if self._balances[_from] < _value:
 			raise InsufficientBalanceError("Insufficient balance.")
-			return
-
-		self._beforeTokenTransfer(_from, _to, _value)
 
 		self._balances[_from] -= _value
 		self._balances[_to] += _value
@@ -221,20 +213,17 @@ class IRC2(TokenStandard, IconScoreBase):
 		Increases the balance of that account and total supply.
 		This is an internal function
 
-		:param account: The account at whhich token is to be created.
+		:param account: The account at which token is to be created.
 		:param amount: Number of tokens to be created at the `account`.
 		:param _data: Any information or message
 
 		Raises
-		ZeroValueError
-			if the `amount` is less than or equal to zero.
+		NegativeValueError
+			if the `amount` is less than zero.
 		"""
 
-		if amount <= 0:
-			raise ZeroValueError("Invalid Value")
-			pass
-
-		self._beforeTokenTransfer(0, account, amount)
+		if amount < 0:
+			raise NegativeValueError("Invalid Value")
 
 		self._total_supply.set(self._total_supply.get() + amount)
 		self._balances[account] += amount
@@ -264,15 +253,15 @@ class IRC2(TokenStandard, IconScoreBase):
 		:param amount: The `amount` of tokens of `account` to be destroyed.
 
 		Raises
-		ZeroValueError
-			if the `amount` is less than or equal to zero
+		NegativeValueError
+			if the `amount` is less than zero
 		"""
 
-		if amount <= 0:
-			raise ZeroValueError("Invalid Value")
-			pass
+		if amount < 0:
+			raise NegativeValueError("Invalid Value")
 
-		self._beforeTokenTransfer(account, 0, amount)
+		if amount > self._balances[account]:
+			raise InsufficientBalanceError(f"Burn amount {amount} larger than available balance.")
 
 		self._total_supply.set(self._total_supply.get() - amount)
 		self._balances[account] -= amount
@@ -282,19 +271,3 @@ class IRC2(TokenStandard, IconScoreBase):
 
 		# Emits an event log `Transfer`
 		self.Transfer(account, EOA_ZERO, amount, b'None')
-
-	def _beforeTokenTransfer(self, _from: Address, _to: Address,_value: int) -> None:
-		"""
-		Called before transfer of tokens.
-		This is an internal function.
-
-		If `_from` and `_to` are both non zero, `_value` number of tokens
-		of `_from` will be transferred to `_to`
-
-		If `_from` is zero `_value` tokens will be minted to `_to`.
-
-		If `_to` is zero `_value` tokens will be destroyed from `_from`.
-
-		Both `_from` and `_to` are never both zero at once.
-		"""
-		pass

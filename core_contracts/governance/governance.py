@@ -1,8 +1,5 @@
-from iconservice import *
-from .utils.checks import *
-from .utils.consts import *
-from .interfaces import *
 from .data_objects import *
+from .utils.checks import *
 
 TAG = 'Governance'
 
@@ -88,7 +85,7 @@ class Governance(IconScoreBase):
     @external
     @only_owner
     def toggleBalancedOn(self) -> None:
-        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         loans.toggleLoansOn()
 
     def _set_launch_day(self, _day: int) -> None:
@@ -118,13 +115,13 @@ class Governance(IconScoreBase):
         """
         Adds a token to the assets dictionary on the Loans contract.
         """
-        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         loans.addAsset(_token_address, _active, _collateral)
 
     @external
     @only_owner
     def toggleAssetActive(self, _symbol) -> None:
-        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         loans.toggleAssetActive(_symbol)
 
     @external
@@ -134,7 +131,7 @@ class Governance(IconScoreBase):
         Add a new data source to receive BALN tokens. Starts with a default of
         zero percentage of the distribution.
         """
-        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.addNewDataSource(_data_source_name, _contract_address)
 
     @external
@@ -143,19 +140,19 @@ class Governance(IconScoreBase):
         """
         Assign percentages for distribution to the data sources. Must sum to 100%.
         """
-        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.updateBalTokenDistPercentage(_recipient_list)
 
     @external
     @only_owner
     def dexPermit(self, _pid: int, _permission: bool):
-        dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
         dex.permit(_pid, _permission)
 
     @external
     @only_owner
     def dexAddQuoteCoin(self, _address: Address) -> None:
-        dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
         dex.addQuoteCoin(_address)
 
     @external
@@ -164,14 +161,99 @@ class Governance(IconScoreBase):
         """
         :param _pid: Pool ID to map to the name
         :param _name: Name to associate
+
         Links a pool ID to a name, so users can look up platform-defined
         markets more easily.
         """
-        dex_address = self.addresses._dex.get()
+        dex_address = self.addresses['dex']
         dex = self.create_interface_score(dex_address, DexInterface)
         dex.setMarketName(_pid, _name)
-        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.addNewDataSource(_name, dex_address)
+
+    @external
+    @only_owner
+    def delegate(self, _delegations: List[PrepDelegations]):
+        """
+        Sets the delegation preference for the sICX held on the Loans contract.
+
+        :param _delegations: List of dictionaries with two keys, Address and percent.
+        :type _delegations: List[PrepDelegations]
+        """
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.delegate(_delegations)
+
+    @external
+    @only_owner
+    def setbnUSD(self, _address: Address) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setbnUSD(_address)
+
+    @external
+    @only_owner
+    def setDividends(self, _score: Address) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setDividends(_score)
+
+    @external
+    @only_owner
+    def balanceSetDex(self, _address: Address) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setDex(_address)
+
+    @external
+    @only_owner
+    def balanceSetOracleName(self, _name: str) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setOracleName(_name)
+
+    @external
+    @only_owner
+    def balanceSetMinInterval(self,  _interval: int) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setMinInterval(_interval)
+
+    @external
+    @only_owner
+    def balanceToggleStakingEnabled(self) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.toggleStakingEnabled()
+
+    @external
+    @only_owner
+    def balanceSetMinimumStake(self, _amount: int) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setMinimumStake(_amount)
+
+    @external
+    @only_owner
+    def balanceSetUnstakingPeriod(self, _time: int) -> None:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln.setUnstakingPeriod(_time)
+
+    @external
+    @only_owner
+    def daoDisburse(self, _recipient: Address, _amounts: List[Disbursement]) -> bool:
+        dao = self.create_interface_score(self.addresses['daofund'], DAOfundInterface)
+        dao.disburse(_recipient, _amounts)
+
+    @external
+    @only_owner
+    def bnUSDSetOracle(self, _address: Address) -> None:
+        bnUSD = self.create_interface_score(self.addresses['bnUSD'], BalancedDollarInterface)
+        bnUSD.setOracle(_address)
+
+    @external
+    @only_owner
+    def bnUSDSetOracleName(self, _name: str) -> None:
+        bnUSD = self.create_interface_score(self.addresses['bnUSD'], BalancedDollarInterface)
+        bnUSD.setOracleName(_name)
+
+    @external
+    @only_owner
+    def bnUSDSetMinInterval(self, _interval: int) -> None:
+        bnUSD = self.create_interface_score(self.addresses['bnUSD'], BalancedDollarInterface)
+        bnUSD.setMinInterval(_interval)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:

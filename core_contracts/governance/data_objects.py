@@ -2,6 +2,14 @@ from iconservice import *
 from .utils.consts import *
 from .interfaces import *
 
+
+# TypedDict for disbursement specs
+class Disbursement(TypedDict):
+    address: Address
+    amount: int
+    symbol: str
+
+
 class BalancedAddresses(TypedDict):
     loans: Address
     dex: Address
@@ -19,7 +27,7 @@ class BalancedAddresses(TypedDict):
 
 class Addresses(object):
 
-    def __init__(self, db:IconScoreDatabase, gov: IconScoreBase) -> None:
+    def __init__(self, db: IconScoreDatabase, gov: IconScoreBase) -> None:
         self._db = db
         self._gov = gov
         self._loans = VarDB('loans', db, Address)
@@ -59,8 +67,8 @@ class Addresses(object):
                           'bnUSD': self._bnUSD.set,
                           'baln': self._baln.set,
                           'bwt': self._bwt.set}
-        for key in addresses.keys():
-            set_func[key](addresses[key])
+        for key, value in addresses.items():
+            set_func[key](value)
 
     def getAddresses(self) -> dict:
         return {

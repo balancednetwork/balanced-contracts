@@ -3,8 +3,6 @@ from .utils.checks import *
 from .utils.consts import *
 from .RewardData import *
 
-TAG = 'Rewards'
-
 
 class DistPercentDict(TypedDict):
     recipient_name: str
@@ -58,38 +56,35 @@ class Rewards(IconScoreBase):
     def on_update(self) -> None:
         super().on_update()
 
-    @external(readonly = True)
+    @external(readonly=True)
     def name(self) -> str:
         return "Balanced Rewards"
 
-    @external(readonly = True)
+    @external(readonly=True)
     def getEmission(self, _day: int = -1) -> int:
-        today = self._get_day()
-        if _day < -1 or _day > today:
-            revert(f'Invalid day.')
-        if _day == -1:
-            _day = today
+        if _day < 1:
+            _day += self._get_day() + 1
+        if _day < 1:
+            revert(f'{TAG}: Invalid day.')
         return self._daily_dist(_day)
 
-    @external(readonly = True)
+    @external(readonly=True)
     def getBalnHoldings(self, _holders: List[str]) -> dict:
-        holdings = {}
-        for holder in _holders:
-            holdings[holder] = self._baln_holdings[holder]
-        return holdings
+        return {holder: self._baln_holdings[holder] for holder in _holders}
 
-    @external(readonly = True)
+    @external(readonly=True)
     def getBalnHolding(self, _holder: str) -> int:
         return self._baln_holdings[_holder]
 
-    @external(readonly = True)
+    @external(readonly=True)
     def distStatus(self) -> dict:
-        status = {}
-        status['platform_day'] = self._platform_day.get()
-        status['source_days'] = {}
-        for source in self._data_source_db._names:
-            status['source_days'][source] = self._data_source_db[source].day.get()
-        return status
+        return {
+            'platform_day': self._platform_day.get(),
+            'source_days': {
+                source: self._data_source_db[source].day.get()
+                for source in self._data_source_db
+            }
+        }
 
     # Methods to update the states of a data_source_name object
     @external
@@ -105,24 +100,25 @@ class Rewards(IconScoreBase):
         :type _recipient_list: List[TypedDict]
         """
         if len(_recipient_list) != len(self._recipients):
-            revert(f"Recipient lists lengths mismatched!")
+            revert(f'{TAG}: Recipient lists lengths mismatched!')
         total_percentage = 0
+        day = self._get_day()
         for recipient in _recipient_list:
             name = recipient['recipient_name']
             if name not in self._recipients:
-                revert(f"Recipient {name} doesn't exist")
+                revert(f'{TAG}: Recipient {name} does not exist.')
 
             percent = recipient['dist_percent']
             self._recipient_split[name] = percent
 
             source = self._data_source_db[name]
             if source.get_data()['dist_percent'] == 0:
-                source.set_day(self._get_day())
+                source.set_day(day)
             source.set_dist_percent(percent)
             total_percentage += percent
 
-        if total_percentage != 10**18:
-            revert(f"Total percentage doesn't sum up to 100")
+        if total_percentage != 10 ** 18:
+            revert(f'{TAG}: Total percentage does not sum up to 100.')
 
     @external(readonly=True)
     def getDataSourceNames(self) -> list:
@@ -132,10 +128,7 @@ class Rewards(IconScoreBase):
         :return: list of data source names
         :rtype list
         """
-        data_source_names = []
-        for name in self._data_source_db._names:
-            data_source_names.append(name)
-        return data_source_names
+        return [name for name in self._data_source_db]
 
     @external(readonly=True)
     def getRecipients(self) -> list:
@@ -145,10 +138,7 @@ class Rewards(IconScoreBase):
         :return: list of recipient names
         :rtype list
         """
-        recipients = []
-        for recipient in self._recipients:
-            recipients.append(recipient)
-        return recipients
+        return [recipient for recipient in self._recipients]
 
     @external(readonly=True)
     def getRecipientsSplit(self) -> dict:
@@ -158,10 +148,7 @@ class Rewards(IconScoreBase):
         :return: dict of recipient {names: percent}
         :rtype dict
         """
-        recipients = {}
-        for recipient in self._recipients:
-            recipients[recipient] = self._recipient_split[recipient]
-        return recipients
+        return {recipient: self._recipient_split[recipient] for recipient in self._recipients}
 
     @external
     @only_governance
@@ -181,7 +168,7 @@ class Rewards(IconScoreBase):
         if _name in self._recipients:
             return
         if not _address.is_contract:
-            revert(f'Data source must be a contract.')
+            revert(f'{TAG}: Data source must be a contract.')
         self._recipients.put(_name)
         self._recipient_split[_name] = 0
         self._data_source_db.new_source(_name, _address)
@@ -194,7 +181,8 @@ class Rewards(IconScoreBase):
     @external
     def distribute(self) -> bool:
         platform_day = self._platform_day.get()
-        if platform_day < self._get_day():
+        day = self._get_day()
+        if platform_day < day:
             if self._total_dist.get() == 0:
                 distribution = self._daily_dist(platform_day)
                 baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
@@ -204,21 +192,24 @@ class Rewards(IconScoreBase):
                 remaining = distribution
                 for name in self._recipients:
                     split = self._recipient_split[name]
-                    share =  remaining * split // shares
-                    if name in self._data_source_db._names:
+                    share = remaining * split // shares
+                    if name in self._data_source_db:
                         self._data_source_db[name].total_dist[platform_day] = share
                     else:
                         baln_token.transfer(self._platform_recipients[name].get(), share)
                     remaining -= share
                     shares -= split
+                    if shares == 0:
+                        break
                 self._total_dist.set(remaining) # remaining will be == 0 at this point.
                 self._platform_day.set(platform_day + 1)
                 return False
-        for name in self._data_source_db._names:
+        batch_size = self._batch_size.get()
+        for name in self._data_source_db:
             source_data = self.getSourceData(name)
-            if source_data['day'] < self._get_day():
+            if source_data['day'] < day:
                 source = self._data_source_db[name]
-                source._distribute(self._batch_size.get())
+                source._distribute(batch_size)
                 return False
         return True
 
@@ -238,17 +229,17 @@ class Rewards(IconScoreBase):
 
     def _daily_dist(self, _day: int) -> int:
         if _day <= 60:
-            return 10**23
+            return 10 ** 23
         else:
             index = _day - 60
-            return max(((995 ** index) * 10**23) // (1000 ** index), 1250 * 10**18)
+            return max(((995 ** index) * 10 ** 23) // (1000 ** index), 1250 * 10 ** 18)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
         Used to receive BALN tokens.
 
-        :param _from: Token orgination address.
+        :param _from: Token origination address.
         :type _from: :class:`iconservice.base.address.Address`
         :param _value: Number of tokens sent.
         :type _value: int
@@ -256,18 +247,19 @@ class Rewards(IconScoreBase):
         :type _data: bytes
         """
         if self.msg.sender != self._baln_address.get():
-            revert(f'The Rewards SCORE can only accept BALN tokens. '
-                   f'Deposit not accepted from {str(self.msg.sender)} '
-                   f'Only accepted from BALN = {str(self._baln_address.get())}')
+            revert(f'{TAG}: The Rewards SCORE can only accept BALN tokens. '
+                   f'Deposit not accepted from {self.msg.sender} '
+                   f'Only accepted from BALN = {self._baln_address.get()}')
 
-
-#-------------------------------------------------------------------------------
-#   SETTERS AND GETTERS
-#-------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------------
+    #   SETTERS AND GETTERS
+    # -------------------------------------------------------------------------------
 
     @external
     @only_owner
     def setGovernance(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._governance.set(_address)
 
     @external(readonly=True)
@@ -286,6 +278,8 @@ class Rewards(IconScoreBase):
     @external
     @only_admin
     def setBaln(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._baln_address.set(_address)
 
     @external(readonly=True)
@@ -295,6 +289,8 @@ class Rewards(IconScoreBase):
     @external
     @only_admin
     def setBwt(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._bwt_address.set(_address)
 
     @external(readonly=True)
@@ -304,6 +300,8 @@ class Rewards(IconScoreBase):
     @external
     @only_admin
     def setReserve(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._reserve_fund.set(_address)
 
     @external(readonly=True)
@@ -313,6 +311,8 @@ class Rewards(IconScoreBase):
     @external
     @only_admin
     def setDaofund(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._daofund.set(_address)
 
     @external(readonly=True)
@@ -337,10 +337,9 @@ class Rewards(IconScoreBase):
     def getTimeOffset(self) -> int:
         return self._start_timestamp.get()
 
-
-#-------------------------------------------------------------------------------
-#   EVENT LOGS
-#-------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------------
+    #   EVENT LOGS
+    # -------------------------------------------------------------------------------
 
     @eventlog(indexed=1)
     def RewardsClaimed(self, _address: Address, _amount: int):

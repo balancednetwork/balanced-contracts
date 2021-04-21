@@ -3,10 +3,12 @@ from .utils.checks import *
 
 TAG = 'DAOfund'
 
+
 # TypedDict for disbursement specs
 class Disbursement(TypedDict):
     address: Address
     amount: int
+    symbol: str
 
 
 # An interface of token to get balances.
@@ -16,7 +18,7 @@ class TokenInterface(InterfaceScore):
         pass
 
     @interface
-    def transfer(self, _to: Address, _value: int, _data: bytes=None):
+    def transfer(self, _to: Address, _value: int, _data: bytes = None):
         pass
 
 
@@ -86,6 +88,8 @@ class DAOfund(IconScoreBase):
     @external
     @only_admin
     def setLoans(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._loans_score.set(_address)
 
     @external(readonly=True)
@@ -116,7 +120,7 @@ class DAOfund(IconScoreBase):
         """
         for asset in _amounts:
             if self._fund[asset['symbol']] < asset['amount']:
-                revert(f'Insufficient balance of asset {asset["symbol"]} in DAOfund.')
+                revert(f'{TAG}: Insufficient balance of asset {asset["symbol"]} in DAOfund.')
             self._awards[_recipient][asset['symbol']] += asset['amount']
             self._fund[asset['symbol']] -= asset['amount']
         return True
@@ -134,19 +138,18 @@ class DAOfund(IconScoreBase):
             amount = disbursement[symbol]
             if amount > 0:
                 self._send_token(symbol, Address.from_string(assets[symbol]), self.msg.sender,
-                                 disbursement[symbol], 'Balanced DAOfund disbursement')
+                                 amount, 'Balanced DAOfund disbursement')
                 disbursement[symbol] = 0
         amount = disbursement['ICX']
         if amount > 0:
             self._send_ICX(self.msg.sender, amount, 'Balanced DAOfund disbursement')
             disbursement['ICX'] = 0
 
-
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
         Used only to receive portion of fees allocated to the DAOfund.
-        :param _from: Token orgination address.
+        :param _from: Token origination address.
         :type _from: :class:`iconservice.base.address.Address`
         :param _value: Number of tokens sent.
         :type _value: int
@@ -160,23 +163,23 @@ class DAOfund(IconScoreBase):
             if assets[symbol] == address:
                 self._fund[symbol] += _value
                 return
-        revert(f'The DAOfund can only accept tokens that are among the Balanced Assets.')
+        revert(f'{TAG}: The DAOfund can only accept tokens that are among the Balanced Assets.')
 
     def _send_ICX(self, _to: Address, amount: int, msg: str) -> None:
         """
         Sends ICX to an address.
         :param _to: ICX destination address.
         :type _to: :class:`iconservice.base.address.Address`
-        :param _amount: Number of ICX sent.
-        :type _amount: int
+        :param amount: Number of ICX sent.
+        :type amount: int
         :param msg: Message for the event log.
         :type msg: str
         """
         try:
             self.icx.transfer(_to, amount)
-            self.FundTransfer(_to, amount, msg + f' {amount} ICX sent to {_to}.')
+            self.FundTransfer(_to, amount, f'{msg} {amount} ICX sent to {_to}.')
         except BaseException as e:
-            revert(f'{amount} ICX not sent to {_to}. '
+            revert(f'{TAG}: {amount} ICX not sent to {_to}. '
                    f'Exception: {e}')
 
     def _send_token(self, _symbol: str, _token: Address, _to: Address,
@@ -197,9 +200,9 @@ class DAOfund(IconScoreBase):
         try:
             token_score = self.create_interface_score(_token, TokenInterface)
             token_score.transfer(_to, _amount)
-            self.TokenTransfer(_to, _amount, msg + f' {_amount} {_symbol} sent to {_to}.')
+            self.TokenTransfer(_to, _amount, f'{msg} {_amount} {_symbol} sent to {_to}.')
         except BaseException as e:
-            revert(f'{_amount} {_symbol} not sent to {_to}. '
+            revert(f'{TAG}: {_amount} {_symbol} not sent to {_to}. '
                    f'Exception: {e}')
 
     @payable

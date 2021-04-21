@@ -1,6 +1,11 @@
 from iconservice import *
 
 
+class PrepDelegations(TypedDict):
+    _address: Address
+    _votes_in_per: int
+
+
 class DistPercentDict(TypedDict):
     recipient_name: str
     dist_percent: int
@@ -48,6 +53,10 @@ class LoansInterface(InterfaceScore):
 
     @interface
     def setReserve(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def delegate(self, _user_delegations: List[PrepDelegations]):
         pass
 
 
@@ -182,4 +191,61 @@ class SetAddressesInterface(InterfaceScore):
 
     @interface
     def setBwt(self, _address: Address) -> None:
+        pass
+
+
+class BalancedInterface(InterfaceScore):
+
+    @interface
+    def setbnUSD(self, _address):
+        pass
+
+    @interface
+    def setDividends(self, _score):
+        pass
+
+    @interface
+    def setDex(self, _address):
+        pass
+
+    @interface
+    def setOracleName(self, _name):
+        pass
+
+    @interface
+    def toggleStakingEnabled(self):
+        pass
+
+    @interface
+    def setMinimumStake(self, _amount):
+        pass
+
+    @interface
+    def setUnstakingPeriod(self, _time):
+        pass
+
+    @interface
+    def setMinInterval(self, _interval):
+        pass
+
+
+class DAOfundInterface(InterfaceScore):
+
+    @interface
+    def disburse(self, _recipient, _amounts):
+        pass
+
+
+class BalancedDollarInterface(InterfaceScore):
+
+    @interface
+    def setOracleName(self, _address):
+        pass
+
+    @interface
+    def setOracle(self, _address):
+        pass
+
+    @interface
+    def setMinInterval(self, _interval):
         pass
