@@ -7,6 +7,7 @@ BALNBNUSD = "BALNbnUSD"
 BALN_HOLDERS = "baln_holders"
 DAOFUND = "daofund"
 
+
 class Status:
     DIVIDENDS_DISTRIBUTION_COMPLETE = 0
     COMPLETE_STAKED_BALN_UPDATES = 1
