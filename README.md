@@ -10,7 +10,7 @@ The repository structure is:
 
 - `core_contracts` - This folder holds all of the core smart contracts deployed for use in Balanced. It contains: 
   - `daofund` - Contract receiving Balanced tokens with use voted on by the DAO
-  - `dex` - AMM Decentralized exchange with separate SICXICX queue instrument for trading minted assets
+  - `dex` - AMM Decentralized exchange with separate sICX/ICX queue instrument for trading minted assets
   - `dividends` - Contract used to pay out dividends to BALN token holders
   - `governance` - Used to vote on and perform DAO actions, as well as setting contract configuration variables
   - `loans` - Used to mint synthetic assets, collateralized by `sICX`
