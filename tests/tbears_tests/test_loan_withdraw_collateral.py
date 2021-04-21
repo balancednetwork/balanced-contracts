@@ -268,7 +268,7 @@
 #     #             self.contracts[address], tx_result['scoreAddress'])
 #
 #     # # Adding collateral to wallet _test1 and testing withdraw collateral from _test1
-#     def test_addCollateral(self):
+#     def test_withdrawCollateral(self):
 #         cases = test_cases['stories']
 #         for case in cases:
 #             _tx_result = {}
@@ -279,7 +279,7 @@
 #             else:
 #                 wallet_address = self._test2.get_address()
 #                 wallet = self._test2
-#             if case['actions']['name'] == 'addCollateral':
+#             if case['actions']['name'] == 'depositAndBorrow':
 #                 _to = self.contracts['loans']['SCORE']
 #                 meth = case['actions']['name']
 #                 val = int(case['actions']['deposited_icx'])

@@ -281,7 +281,7 @@ def test_liquidation():
         _test_icx = case['actions']['test_icx']
         _test_bnUSD = case['actions']['test_bnUSD']
 
-        send_tx('loans', _icx, 'addCollateral', {'_asset': '', '_amount': 0}, btest_wallet)
+        send_tx('loans', _icx, 'depositAndBorrow', {'_asset': '', '_amount': 0}, btest_wallet)
 
         res = call_tx('loans', 'getAccountPositions', {'_owner': btest_wallet.get_address()})
         assert res['standing'] == case['actions']['expected_initial_position'] and res['assets']['sICX'] == '0x2a6f1a22364bbe8000' , 'Test case failed for liquidation'

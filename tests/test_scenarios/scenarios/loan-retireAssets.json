@@ -1,6 +1,6 @@
 {
-  "title": "Loans: Deposit/Borrow ",
-  "description": "Test cases for the addCollateral function.",
+  "title": "Loans: Retire assets",
+  "description": "Test cases for the depositAndBorrow function.",
   "stories": [
     {
       "description": "User 4 deposits 500 ICX as collateral and borrows 50 ICD loan",
@@ -8,7 +8,7 @@
         "prev_sicx_bal_loan": "450000000000000000000",
         "prev_icd_debt_bal_loan": "200000000000000000000",
         "prev_icd_bal_wallet": "0",
-        "name": "addCollateral",
+        "name": "depositAndBorrow",
         "deposited_icx": "500000000000000000000",
         "args": {
           "_asset": "ICD",

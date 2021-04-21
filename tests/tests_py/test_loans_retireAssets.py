@@ -242,7 +242,7 @@ call_tx('loans', 'getAccountPositions', {'_owner': user2.get_address()})
 
 
 # add collateral to user1 account
-send_tx('loans', 2000*ICX, 'addCollateral', {'_asset': 'bnUSD', '_amount': 500 * ICX}, user1)
+send_tx('loans', 2000*ICX, 'depositAndBorrow', {'_asset': 'bnUSD', '_amount': 500 * ICX}, user1)
 
 # gives maximum retire amount
 call_tx('loans', 'getMaxRetireAmount', {'_symbol': 'bnUSD'})

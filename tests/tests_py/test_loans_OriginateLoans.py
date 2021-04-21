@@ -282,7 +282,7 @@ def test_originatecase2():
                     "deposited_icx": 10 * ICX,
                     "acc_method":"getAccountPositions",
                     "acc_params":{"owner": btest_wallet.get_address()},
-                    "collateral_method":"addCollateral",
+                    "collateral_method":"depositAndBorrow",
                     "collateral_params":{"asset":" ", "amount": 0 },
                     "method":"originateLoan",
                     "params":{"asset": "bnUSD", "amount": 50 * ICX},
@@ -296,7 +296,7 @@ def test_originatecase2():
                     "deposited_icx": 300 * ICX,
                     "acc_method":"getAccountPositions",
                     "acc_params":{"owner": btest_wallet.get_address()},
-                    "collateral_method":"addCollateral",
+                    "collateral_method":"depositAndBorrow",
                     "collateral_params":{"asset":" ", "amount": 0 },
                     "method":"originateLoan",
                     "params":{"asset": "bnUSD", "amount": 50 * ICX},
@@ -344,7 +344,7 @@ def test_originatecase3():
                     "acc_method":"getAccountPositions",
                     "acc_params":{"owner": btest_wallet.get_address()},
                     "new_acc_params":{"owner": wallet.get_address()},
-                    "collateral_method":"addCollateral",
+                    "collateral_method":"depositAndBorrow",
                     "collateral_params":{"asset":" ", "amount": 0 },
                     "method":"originateLoan",
                     "params":{"asset": "bnUSD", "amount": 50 * ICX, "from":wallet.get_address()},
@@ -395,7 +395,7 @@ def test_originatecase4():
                     "acc_method":"getAccountPositions",
                     "acc_params":{"owner": btest_wallet.get_address()},
                     "user1_acc_params":{"owner": user1.get_address()},
-                    "collateral_method":"addCollateral",
+                    "collateral_method":"depositAndBorrow",
                     "collateral_params":{"asset":" ", "amount": 0 },
                     "method":"originateLoan",
                     "params":{"asset": "bnUSD", "amount": 50 * ICX, "from":user1.get_address()},
@@ -420,7 +420,6 @@ def test_originatecase4():
         _loan_method = case['actions']['method']
         _loan_data = case['actions']['params']
         _loan_params = {'_asset': _loan_data['asset'], '_amount': _loan_data['amount'],'_from': _loan_data['from']}
-
 
         res = call_tx('loans', _acc_method, _user1_acc_params)
         assert res['message'] == case['actions']['expected_account_status'], 'Test case faied trying to take loan on account wallet from btest_wallet which doesnt have loans'

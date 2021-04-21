@@ -1,6 +1,6 @@
 {
   "title": "Loans: Deposit/Borrow ",
-  "description": "Test cases for the addCollateral function.",
+  "description": "Test cases for the depositAndBorrow function.",
   "stories": [
     {
       "description": "User 1 deposits 500 ICX as collateral and borrows 50 bnUSD loan",
@@ -8,7 +8,7 @@
         "prev_sicx_bal_loan": "0",
         "prev_icd_debt_bal_loan": "0",
         "sender": "user1",
-        "name": "addCollateral",
+        "name": "depositAndBorrow",
         "deposited_icx": "500000000000000000000",
         "args": {
           "_asset": "bnUSD",
@@ -25,7 +25,7 @@
         "prev_sicx_bal_loan": "500000000000000000000",
         "prev_icd_debt_bal_loan": "50000000000000000000",
         "sender": "user2",
-        "name": "addCollateral",
+        "name": "depositAndBorrow",
         "deposited_icx": "500000000000000000000",
         "args": {
           "_asset": "bnUSD",
@@ -43,7 +43,7 @@
         "prev_sicx_bal_loan" : "500000000000000000000",
         "prev_icd_debt_bal_loan" : "50000000000000000000",
         "sender": "user2",
-        "name": "addCollateral",
+        "name": "depositAndBorrow",
         "deposited_icx": "100000000000000000000",
         "args": {
           "_asset": "bnUSD",
@@ -61,7 +61,7 @@
         "prev_sicx_bal_loan" : "500000000000000000000",
         "prev_icd_debt_bal_loan" : "50000000000000000000",
         "sender": "user2",
-        "name": "addCollateral",
+        "name": "depositAndBorrow",
         "deposited_icx": "10000000000000000000",
         "args": {
           "_asset": "bnUSD",

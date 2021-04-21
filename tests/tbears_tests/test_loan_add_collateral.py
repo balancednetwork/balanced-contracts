@@ -111,7 +111,7 @@ class TestLoan(IconIntegrateTestBase):
         Compress all SCORE folders in the core_self.contracts and toekn_self.contracts folders
         """
         deploy = list(self.contracts.keys())[:]
-        for directory in {"../core_contracts", "token_contracts"}:
+        for directory in {"../core_contracts", "../token_contracts"}:
             with os.scandir(directory) as it:
                 for file in it:
                     archive_name = directory + "/" + file.name
@@ -285,7 +285,7 @@ class TestLoan(IconIntegrateTestBase):
                 .step_limit(10000000) \
                 .nid(3) \
                 .nonce(100) \
-                .method("addCollateral") \
+                .method("depositAndBorrow") \
                 .params(params) \
                 .build()
             signed_transaction = SignedTransaction(transaction, wallet)

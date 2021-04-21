@@ -9,7 +9,7 @@
         "prev_icd_debt_bal_loan": "0",
         "prev_icd_bal_wallet": "0",
         "sender": "user1",
-        "name": "addCollateral",
+        "name": "depositAndBorrow",
         "deposited_icx": "500000000000000000000",
         "args": {
           "_asset": "bnUSD",
