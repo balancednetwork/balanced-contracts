@@ -3,12 +3,6 @@ from .scorelib.linked_list import *
 from .utils.consts import *
 from .utils.checks import *
 
-TAG = 'StakedICXManager'
-
-DENOMINATOR = 10 ** 18
-TOP_PREP_COUNT = 4
-DEFAULT_UNSTAKE_BATCH_LIMIT = 200
-
 
 # An interface of token to distribute daily rewards
 class sICXTokenInterface(InterfaceScore):
@@ -206,8 +200,6 @@ class Staking(IconScoreBase):
         """
         Get the address of sICX token contract.
         """
-        if not _address.is_contract:
-            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         return self._sICX_address.get()
 
     @external

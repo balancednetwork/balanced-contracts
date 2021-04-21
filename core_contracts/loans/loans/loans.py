@@ -4,6 +4,12 @@ from ..utils.consts import *
 from .positions import PositionsDB
 from .assets import AssetsDB, Asset
 
+
+class PrepDelegations(TypedDict):
+    _address: Address
+    _votes_in_per: int
+
+
 # An interface to the Emergency Reserve Fund
 class ReserveFund(InterfaceScore):
     @interface
@@ -15,6 +21,10 @@ class ReserveFund(InterfaceScore):
 class Staking(InterfaceScore):
     @interface
     def stakeICX(self, _to: Address = None, _data: bytes = None) -> int:
+        pass
+
+    @interface
+    def delegate(self, _user_delegations: List[PrepDelegations]):
         pass
 
 
@@ -178,6 +188,8 @@ class Loans(IconScoreBase):
         pos = self._positions.get_pos(_address)
         # Mint asset for this position.
         if _amount > 0:
+            if pos.total_debt() == 0:
+                self._positions.add_nonzero(pos.id.get())
             self._assets[_asset].mint(_address, _amount)
             pos[_asset] = pos[_asset] + _amount
         pos.update_standing()
@@ -748,12 +760,12 @@ class Loans(IconScoreBase):
         """
         reserve_address = self._reserve.get()
         in_pool = _asset.liquidation_pool.get()
+        bad_debt = _asset.bad_debt.get() - _bd_value
+        _asset.bad_debt.set(bad_debt)
         bd_sicx = ((POINTS + self._retirement_bonus.get())
                    * _bd_value * _price // (POINTS * _sicx_rate))
         if in_pool > bd_sicx:
             _asset.liquidation_pool.set(in_pool - bd_sicx)
-            bad_debt = _asset.bad_debt.get() - _bd_value
-            _asset.bad_debt.set(bad_debt)
             if bad_debt == 0:
                 self._send_token('sICX', reserve_address,
                                  in_pool - bd_sicx, "Sweep to ReserveFund:")
@@ -927,6 +939,18 @@ class Loans(IconScoreBase):
     # --------------------------------------------------------------------------
     #   SETTERS AND GETTERS
     # --------------------------------------------------------------------------
+
+    @external
+    @only_governance
+    def delegate(self, _delegations: List[PrepDelegations]):
+        """
+        Sets the delegation preference for the sICX held on the contract.
+
+        :param _delegations: List of dictionaries with two keys, Address and percent.
+        :type _delegations: List[PrepDelegations]
+        """
+        staking = self.create_interface_score(self._staking.get(), Staking)
+        staking.delegate(_delegations)
 
     @external
     @only_owner

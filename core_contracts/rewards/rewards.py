@@ -63,6 +63,8 @@ class Rewards(IconScoreBase):
     @external(readonly=True)
     def getEmission(self, _day: int = -1) -> int:
         if _day < 1:
+            _day += self._get_day() + 1
+        if _day < 1:
             revert(f'{TAG}: Invalid day.')
         return self._daily_dist(_day)
 
