@@ -132,7 +132,7 @@ class Staking(IconScoreBase):
         # dictdb for storing the prep address and their delegated value
         self._prep_delegations = DictDB(self._PREP_DELEGATIONS, db, value_type=int)
         # initializing the system score
-        self._system = IconScoreBase.create_interface_score(SYSTEM_SCORE, InterfaceSystemScore)
+        self._system = IconScoreBase.create_interface_score(SYSTEM_SCORE_ADDRESS, InterfaceSystemScore)
         # initialize the sicx score interface later since it needs db access
         self._sICX_score = None
         # initialize the linked list
