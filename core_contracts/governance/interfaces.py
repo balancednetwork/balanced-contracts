@@ -1,6 +1,11 @@
 from iconservice import *
 
 
+class PrepDelegations(TypedDict):
+    _address: Address
+    _votes_in_per: int
+
+
 class DistPercentDict(TypedDict):
     recipient_name: str
     dist_percent: int
@@ -50,6 +55,10 @@ class LoansInterface(InterfaceScore):
     def setReserve(self, _address: Address) -> None:
         pass
 
+    @interface
+    def delegate(self, _user_delegations: List[PrepDelegations]):
+        pass
+
 
 # An interface to the Loans SCORE
 class DexInterface(InterfaceScore):
@@ -62,11 +71,11 @@ class DexInterface(InterfaceScore):
         pass
 
     @interface
-    def permit(self, _pid: int, _permission: bool):
+    def permit(self, _id: int, _permission: bool):
         pass
 
     @interface
-    def setMarketName(self, _pid: int, _name: str) -> None:
+    def setMarketName(self, _id: int, _name: str) -> None:
         pass
 
     @interface

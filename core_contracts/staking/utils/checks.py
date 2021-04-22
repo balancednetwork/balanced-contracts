@@ -1,9 +1,10 @@
-from iconservice import *
-TAG = 'StakedICXManager'
+
+from .consts import *
 
 # ================================================
 #  Exceptions
 # ================================================
+
 class SenderNotScoreOwnerError(Exception):
 	pass
 

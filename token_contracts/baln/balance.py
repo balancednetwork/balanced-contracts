@@ -14,7 +14,7 @@ DEFAULT_ORACLE_NAME = 'BalancedDEX'
 # An interface to the Balanced DEX
 class DexInterface(InterfaceScore):
     @interface
-    def getPrice(self, _pid: int) -> int:
+    def getPrice(self, _id: int) -> int:
         pass
 
     @interface

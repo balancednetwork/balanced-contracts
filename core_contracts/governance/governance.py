@@ -134,9 +134,9 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def dexPermit(self, _pid: int, _permission: bool):
+    def dexPermit(self, _id: int, _permission: bool):
         dex = self.create_interface_score(self.addresses['dex'], DexInterface)
-        dex.permit(_pid, _permission)
+        dex.permit(_id, _permission)
 
     @external
     @only_owner
@@ -146,18 +146,31 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def setMarketName(self, _pid: int, _name: str) -> None:
+    def setMarketName(self, _id: int, _name: str) -> None:
         """
-        :param _pid: Pool ID to map to the name
+        :param _id: Pool ID to map to the name
         :param _name: Name to associate
+
         Links a pool ID to a name, so users can look up platform-defined
         markets more easily.
         """
         dex_address = self.addresses['dex']
         dex = self.create_interface_score(dex_address, DexInterface)
-        dex.setMarketName(_pid, _name)
+        dex.setMarketName(_id, _name)
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.addNewDataSource(_name, dex_address)
+
+    @external
+    @only_owner
+    def delegate(self, _delegations: List[PrepDelegations]):
+        """
+        Sets the delegation preference for the sICX held on the Loans contract.
+
+        :param _delegations: List of dictionaries with two keys, Address and percent.
+        :type _delegations: List[PrepDelegations]
+        """
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.delegate(_delegations)
 
     @external
     @only_owner

@@ -237,7 +237,7 @@ class LinkedListDB:
             self.__cachedb[node_id] = node
         node = self.__cachedb[node_id]
         if not node.exists():
-            self._append(node.default_value(self._value_type), node_id)
+            self._append(node_id)
         return node
 
     def _get_tail_node(self) -> _Node:
@@ -326,8 +326,14 @@ class LinkedListDB:
         self._head_id = 0
         self._length = 0
 
-    def _append(self, value, cur_id: int = None) -> int:
+    def append(self, value, node_id: int = None) -> int:
         """ Append an element at the end of the linkedlist """
+        cur_id, cur = self._create_node(value, node_id)
+        self.__cachedb[cur_id] = cur
+        return self._append(cur_id)
+
+    def _append(self, cur_id: int = None) -> int:
+        """ Append an existing node at the end of the linkedlist """
         cur = self.__cachedb[cur_id]
 
         if self._length == 0:
