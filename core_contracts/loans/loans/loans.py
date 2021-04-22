@@ -317,10 +317,10 @@ class Loans(IconScoreBase):
         """
         pos = self._positions
         snap = pos._snapshot_db[-1]
-        nonzero = len(pos.get_nonzero()) + len(snap.add_to_nonzero) - len(snap.remove_from_nonzero)
+        nonzero = len(pos.get_nonzero()) + len(snap.get_add_nonzero()) - len(snap.get_remove_nonzero())
         if snap.snap_day.get() > 1:
             last_snap = pos._snapshot_db[-2]
-            nonzero += len(last_snap.add_to_nonzero) - len(last_snap.remove_from_nonzero)
+            nonzero += len(last_snap.get_add_nonzero()) - len(last_snap.get_remove_nonzero())
         return nonzero
 
     @external(readonly=True)

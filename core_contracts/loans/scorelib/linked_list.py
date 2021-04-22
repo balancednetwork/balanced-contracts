@@ -213,6 +213,10 @@ class LinkedListDB:
         node.set_value(value)
         node.repack()
 
+    def __contains__(self, node_id: int) -> bool:
+        node = self._node(node_id)
+        return node.exists()
+
     def _node(self, node_id) -> _Node:
         return _Node(str(node_id) + self._name, self._db, self._value_type)
 
@@ -224,6 +228,7 @@ class LinkedListDB:
             raise LinkedNodeAlreadyExists(self._name, node_id)
 
         node.set_value(value)
+        node.repack()
         return node_id, node
 
     def set_node_value(self, value, node_id: int) -> None:
