@@ -7,7 +7,6 @@ TAG = 'BALN'
 
 TOKEN_NAME = 'Balanced Token'
 SYMBOL_NAME = 'BALN'
-DEFAULT_ORACLE_ADDRESS = 'cx31bb0d42d9667fd6acab1bbebcfa3b916f04a3f3'
 DEFAULT_ORACLE_NAME = 'BalancedDEX'
 
 
@@ -87,7 +86,6 @@ class BalancedToken(IRC2):
         self._index_stake_address_changes.set(0)
         self._stake_update_db.set(0)
         self._stake_address_update_db.set(0)
-        self._dex_score.set(Address.from_string(DEFAULT_ORACLE_ADDRESS))
         self._oracle_name.set(DEFAULT_ORACLE_NAME)
         self._last_price.set(INITIAL_PRICE_ESTIMATE)
         self._min_interval.set(MIN_UPDATE_TIME)
