@@ -653,8 +653,8 @@ class DEX(IconScoreBase):
         if self._balance[_id][_from] < _value:
             revert(f"{TAG}: Out of balance.")
 
-        self._balance[_id][_from] = self._balance[_from] - _value
-        self._balance[_id][_to] = self._balance[_to] + _value
+        self._balance[_id][_from] -= _value
+        self._balance[_id][_to] += _value
 
         self.TransferSingle(self.msg.sender, _from, _to, _id, _value)
 
@@ -942,8 +942,8 @@ class DEX(IconScoreBase):
         if self._balance[_id][_from] < _value:
             revert(f"{TAG}: Out of balance.")
 
-        self._balance[_id][_from] = self._balance[_from] - _value
-        self._balance[_id][_to] = self._balance[_to] + _value
+        self._balance[_id][_from] -= _value
+        self._balance[_id][_to] += _value
         self.TransferSingle(self.msg.sender, _from, _to, _id, _value)
 
         pool_quote_coin = self.getPoolQuote(_id)
