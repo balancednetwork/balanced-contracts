@@ -215,9 +215,6 @@ class DEX(IconScoreBase):
         # active[pool] = bool
         self.active = DictDB('activePool', db, value_type=bool)
 
-        # poolTotal[nonce][tokenAddress] = intAmount
-        self._pool_total = DictDB('poolTotal', db, value_type=int, depth=2)
-
         # Swap queue for sicxicx
         self._icx_queue = LinkedListDB(
             'icxQueue', db, value1_type=int, value2_type=Address)
