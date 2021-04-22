@@ -437,16 +437,13 @@ class Dividends(IconScoreBase):
         if cursor == "":
             cursor = self._staked_baln_holders.head
 
-        if cursor == "":
-            self._dividends_distribution_status.set(Status.TOTAL_DATA_FROM_BALN_LP_POOL)
-            return
-
         baln_stake_holders = []
         for idx in range(self._max_loop_count.get()):
             address = cursor
             baln_stake_holders.append(address)
             if cursor == self._staked_baln_holders.tail:
                 cursor = ""
+                self._dividends_distribution_status.set(Status.TOTAL_DATA_FROM_BALN_LP_POOL)
                 break
             else:
                 cursor = self._staked_baln_holders.get_node(address).next_
