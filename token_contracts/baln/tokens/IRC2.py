@@ -72,16 +72,12 @@ class IRC2(TokenStandard, IconScoreBase):
 		"""
 		if len(_symbolName) <= 0:
 			raise InvalidNameError("Invalid Symbol name")
-			pass
 		if len(_tokenName) <= 0:
 			raise InvalidNameError("Invalid Token Name")
-			pass
 		if _initialSupply < 0:
 			raise ZeroValueError("Initial Supply cannot be less than zero")
-			pass
 		if _decimals < 0:
 			raise ZeroValueError("Decimals cannot be less than zero")
-			pass
 
 		super().on_install()
 
@@ -193,8 +189,6 @@ class IRC2(TokenStandard, IconScoreBase):
 		if self._balances[_from] < _value:
 			raise InsufficientBalanceError("Insufficient balance.")
 
-		self._beforeTokenTransfer(_from, _to, _value)
-
 		self._balances[_from] -= _value
 		self._balances[_to] += _value
 
@@ -227,10 +221,6 @@ class IRC2(TokenStandard, IconScoreBase):
 
 		if amount <= 0:
 			raise ZeroValueError("Invalid Value")
-			pass
-
-		# TODO fix wrong method
-		# self._beforeTokenTransfer(0, account, amount)
 
 		self._total_supply.set(self._total_supply.get() + amount)
 		self._balances[account] += amount
@@ -266,10 +256,6 @@ class IRC2(TokenStandard, IconScoreBase):
 
 		if not (0 <= amount <= self._balances[account]):
 			raise ZeroValueError("Invalid Value")
-			pass
-
-		# TODO fix wrong method
-		# self._beforeTokenTransfer(account, 0, amount)
 
 		self._total_supply.set(self._total_supply.get() - amount)
 		self._balances[account] -= amount
@@ -279,16 +265,3 @@ class IRC2(TokenStandard, IconScoreBase):
 
 		# Emits an event log `Transfer`
 		self.Transfer(account, EOA_ZERO, amount, b'None')
-
-	def _beforeTokenTransfer(self, _from: Address, _to: Address, _value: int) -> None:
-		"""
-		Called before transfer of tokens. This is an internal function.
-		If `_from` and `_to` are both non zero, `_value` number of tokens
-		of `_from` will be transferred to `_to`
-
-		If `_from` is zero `_value` tokens will be minted to `_to`.
-
-		If `_to` is zero `_value` tokens will be destroyed from `_from`.
-		Both `_from` and `_to` are never both zero at once.
-		"""
-		pass

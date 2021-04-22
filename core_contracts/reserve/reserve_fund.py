@@ -1,10 +1,7 @@
 from iconservice import *
 from .utils.checks import *
-from .scorelib import *
 
 TAG = 'BalancedReserveFund'
-
-UNITS_PER_TOKEN = 10 ** 18
 
 
 # An interface of token
@@ -162,8 +159,8 @@ class ReserveFund(IconScoreBase):
             if baln_remaining < 0:  # Revert in case where there is not enough BALN.
                 revert(f'{TAG}: Unable to process request at this time.')
                 self.RedeemFail(self.tx.origin, 'BALN', baln_to_send)
-            self._send_token(baln_address, _to, baln_to_send, 'Redeemed:')
             self._baln.set(baln_remaining)
+            self._send_token(baln_address, _to, baln_to_send, 'Redeemed:')
         self._sicx.set(sicx - sicx_to_send)
         if sicx_to_send > 0:
             self._send_token(self._sicx_token.get(), self._loans_score.get(), sicx_to_send, 'To Loans:')
