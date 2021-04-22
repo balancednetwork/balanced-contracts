@@ -349,7 +349,7 @@ class Staking(IconScoreBase):
             if single_prep["_address"] not in self._prep_list:
                 self._prep_list.put(single_prep["_address"])
             if single_prep["_address"] in similar_prep_list_check:
-                revert(f'{TAG}: You can not delegate same Prep twice in a transaction.')
+                revert(f'{TAG}: You can not delegate same Prep twice in a transaction.Your delegation preference is {_user_delegations}')
             if single_prep["_votes_in_per"] < 10 ** 15:
                 revert(
                     f'{TAG}: You should provide delegation percentage more than 0.001. Your delegation preference is {_user_delegations}.')
@@ -628,7 +628,7 @@ class Staking(IconScoreBase):
         previous_address_delegations = self._remove_previous_delegations(_to)
         amount_to_stake_in_per = self._delegate_votes(_to, _user_delegations)
         if amount_to_stake_in_per != 100 * DENOMINATOR:
-            revert(f'{TAG}: Total delegations should be 100%.')
+            revert(f'{TAG}: Total delegations should be 100%.Your delegation preference is {_user_delegations}')
         if previous_address_delegations != {}:
             self._stake_and_delegate(self._check_for_week())
 
