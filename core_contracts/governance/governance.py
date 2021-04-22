@@ -185,6 +185,14 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def balwAdminTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = None):
+        if _data is None:
+            _data = b'None'
+        balw = self.create_interface_score(self.addresses['bwt'], BalancedWorkerTokenInterface)
+        balw.adminTransfer(_from, _to, _value, _data)
+
+    @external
+    @only_owner
     def setbnUSD(self, _address: Address) -> None:
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         baln.setbnUSD(_address)
@@ -259,7 +267,7 @@ class Governance(IconScoreBase):
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
         Used only to receive sICX for unstaking.
-        :param _from: Token orgination address.
+        :param _from: Token origination address.
         :type _from: :class:`iconservice.base.address.Address`
         :param _value: Number of tokens sent.
         :type _value: int

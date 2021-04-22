@@ -385,7 +385,6 @@ class PositionsDB:
 
         add = len(snapshot.add_to_nonzero)
         remove = len(snapshot.remove_from_nonzero)
-        nonzero = self.get_nonzero()
         nonzero_deltas = add + remove
         nonzero = self.get_nonzero()
         if nonzero_deltas > 0:  # Bring the list of all nonzero positions up to date.

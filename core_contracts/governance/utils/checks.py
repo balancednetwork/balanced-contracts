@@ -7,10 +7,6 @@ class SenderNotScoreOwnerError(Exception):
 	pass
 
 
-class SenderNotAuthorized(Exception):
-	pass
-
-
 class NotAFunctionError(Exception):
 	pass
 

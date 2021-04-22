@@ -276,7 +276,7 @@ class BalancedToken(IRC2):
 
     def staking_enabled_only(self):
         if not self._staking_enabled.get():
-            revert(f"{TAG}: Staking must first be enabled")
+            revert(f"{TAG}: Staking must first be enabled.")
 
     @external
     @only_governance
@@ -294,11 +294,11 @@ class BalancedToken(IRC2):
         self.staking_enabled_only()
         _from = self.msg.sender
         if _value < 0:
-            revert(f"{TAG}: Staked BALN value can't be less than zero")
+            revert(f"{TAG}: Staked BALN value can't be less than zero.")
         if _value > self._balances[_from]:
-            revert(f"{TAG}: Out of BALN balance")
+            revert(f"{TAG}: Out of BALN balance.")
         if _value < self._minimum_stake.get() and _value != 0:
-            revert(f"{TAG}: Staked TAP must be greater than the minimum stake amount and non zero")
+            revert(f"{TAG}: Staked TAP must be greater than the minimum stake amount and non zero.")
 
         self._check_first_time(_from)
         self._make_available(_from)
@@ -325,7 +325,7 @@ class BalancedToken(IRC2):
     @only_governance
     def setMinimumStake(self, _amount: int) -> None:
         if _amount < 0:
-            revert(f"{TAG}: Amount cannot be less than zero")
+            revert(f"{TAG}: Amount cannot be less than zero.")
 
         total_amount = _amount * 10 ** self._decimals.get()
         self._minimum_stake.set(total_amount)
@@ -334,7 +334,7 @@ class BalancedToken(IRC2):
     @only_governance
     def setUnstakingPeriod(self, _time: int) -> None:
         if _time < 0:
-            revert(f"{TAG}: Time cannot be negative")
+            revert(f"{TAG}: Time cannot be negative.")
         total_time = _time * DAY_TO_MICROSECOND
         self._unstaking_period.set(total_time)
 
@@ -349,7 +349,7 @@ class BalancedToken(IRC2):
 
     def dividends_only(self):
         if self.msg.sender != self._dividends_score.get():
-            revert(f"{TAG}: This method can only be called by the dividends distribution contract")
+            revert(f"{TAG}: This method can only be called by the dividends distribution contract.")
 
     @external
     def getStakeUpdates(self) -> dict:
@@ -411,7 +411,7 @@ class BalancedToken(IRC2):
         self._make_available(_to)
 
         if self._staked_balances[_from][Status.AVAILABLE] < _value:
-            revert(f"{TAG}: Out of available balance. Please check staked and total balance")
+            revert(f"{TAG}: Out of available balance. Please check staked and total balance.")
 
         self._staked_balances[_from][Status.AVAILABLE] = self._staked_balances[_from][Status.AVAILABLE] - _value
         self._staked_balances[_to][Status.AVAILABLE] = self._staked_balances[_to][Status.AVAILABLE] + _value
@@ -470,7 +470,7 @@ class BalancedToken(IRC2):
         self._make_available(_from)
 
         if self._staked_balances[_from][Status.AVAILABLE] < _amount:
-            revert(f"{TAG}: Out of available balance. Please check staked and total balance")
+            revert(f"{TAG}: Out of available balance. Please check staked and total balance.")
         self._staked_balances[_from][Status.AVAILABLE] = self._staked_balances[_from][Status.AVAILABLE] - _amount
 
         self._burn(_from, _amount)
@@ -489,7 +489,7 @@ class BalancedToken(IRC2):
         self._make_available(_account)
 
         if self._staked_balances[_account][Status.AVAILABLE] < _amount:
-            revert(f"{TAG}: Out of available balance. Please check staked and total balance")
+            revert(f"{TAG}: Out of available balance. Please check staked and total balance.")
         self._staked_balances[_account][Status.AVAILABLE] = self._staked_balances[_account][Status.AVAILABLE] - _amount
 
         self._burn(_account, _amount)
