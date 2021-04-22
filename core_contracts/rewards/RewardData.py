@@ -13,7 +13,15 @@ class DataSourceInterface(InterfaceScore):
         pass
 
     @interface
+    def getBnusdValue(self, _name: str) -> int:
+        pass
+
+    @interface
     def getDataBatch(self, _name: str, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
+        pass
+
+    @interface
+    def getBalnPrice(self) -> int:
         pass
 
 
@@ -73,6 +81,10 @@ class DataSource(object):
 
     def set_dist_percent(self, _dist_percent: int) -> None:
         self.dist_percent.set(_dist_percent)
+
+    def get_value(self) -> int:
+        data_source = self._rewards.create_interface_score(self.contract_address.get(), DataSourceInterface)
+        return data_source.getBnusdValue(self.name.get())
 
     def get_data(self) -> dict:
         return {

@@ -6,7 +6,7 @@ from .utils.consts import *
 
 TAG = 'sICX'
 
-TOKEN_NAME = 'StakedICX'
+TOKEN_NAME = 'Staked ICX'
 SYMBOL_NAME = 'sICX'
 
 class stakingInterface(InterfaceScore):

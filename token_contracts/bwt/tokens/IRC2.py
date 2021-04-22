@@ -39,9 +39,6 @@ class IRC2(TokenStandard, IconScoreBase):
 	_ADMIN = 'admin'
 
 	def __init__(self, db: IconScoreDatabase) -> None:
-		"""
-		Varible Definition
-		"""
 		super().__init__(db)
 
 		self._name = VarDB(self._NAME, db, value_type=str)
@@ -192,8 +189,6 @@ class IRC2(TokenStandard, IconScoreBase):
 		if self._balances[_from] < _value:
 			raise InsufficientBalanceError("Insufficient balance.")
 
-		self._beforeTokenTransfer(_from, _to, _value)
-
 		self._balances[_from] -= _value
 		self._balances[_to] += _value
 
@@ -215,7 +210,7 @@ class IRC2(TokenStandard, IconScoreBase):
 		Increases the balance of that account and total supply.
 		This is an internal function
 
-		:param account: The account at whhich token is to be created.
+		:param account: The account at which token is to be created.
 		:param amount: Number of tokens to be created at the `account`.
 		:param _data: Any information or message
 
@@ -226,9 +221,6 @@ class IRC2(TokenStandard, IconScoreBase):
 
 		if amount <= 0:
 			raise ZeroValueError("Invalid Value")
-
-		# TODO fix wrong method
-		# self._beforeTokenTransfer(0, account, amount)
 
 		self._total_supply.set(self._total_supply.get() + amount)
 		self._balances[account] += amount
@@ -265,9 +257,6 @@ class IRC2(TokenStandard, IconScoreBase):
 		if amount <= 0:
 			raise ZeroValueError("Invalid Value")
 
-		# TODO fix wrong method
-		# self._beforeTokenTransfer(account, 0, amount)
-
 		self._total_supply.set(self._total_supply.get() - amount)
 		self._balances[account] -= amount
 
@@ -276,19 +265,3 @@ class IRC2(TokenStandard, IconScoreBase):
 
 		# Emits an event log `Transfer`
 		self.Transfer(account, EOA_ZERO, amount, b'None')
-
-	def _beforeTokenTransfer(self, _from: Address, _to: Address, _value: int) -> None:
-		"""
-		Called before transfer of tokens.
-		This is an internal function.
-
-		If `_from` and `_to` are both non zero, `_value` number of tokens
-		of `_from` will be transferred to `_to`
-
-		If `_from` is zero `_value` tokens will be minted to `_to`.
-
-		If `_to` is zero `_value` tokens will be destroyed from `_from`.
-
-		Both `_from` and `_to` are never both zero at once.
-		"""
-		pass

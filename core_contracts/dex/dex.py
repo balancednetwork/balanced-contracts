@@ -14,6 +14,7 @@ from .utils.scoremath import *
 
 TAG = 'BalancedDEX'
 
+
 # An interface to the Rewards SCORE
 class Rewards(InterfaceScore):
     @interface
@@ -23,6 +24,7 @@ class Rewards(InterfaceScore):
     @interface
     def addNewDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
         pass
+
 
 # An interface to the Dividends SCORE
 
@@ -40,7 +42,6 @@ class stakingInterface(InterfaceScore):
 
 
 class DEX(IconScoreBase):
-
     _ACCOUNT_BALANCE_SNAPSHOT = 'account_balance_snapshot'
     _TOTAL_SUPPLY_SNAPSHOT = 'total_supply_snapshot'
     _QUOTE_COINS = 'quote_coins'
@@ -60,7 +61,6 @@ class DEX(IconScoreBase):
     _TIME_OFFSET = 'time_offset'
     _REWARDS_DONE = 'rewards_done'
     _DIVIDENDS_DONE = 'dividends_done'
-    _NAME = 'BalancedDex'
     _SICXICX_POOL_ID = 1
 
     ####################################
@@ -185,7 +185,7 @@ class DEX(IconScoreBase):
             self._ACCOUNT_BALANCE_SNAPSHOT, db, value_type=int, depth=4)
         self._total_supply_snapshot = DictDB(
             self._TOTAL_SUPPLY_SNAPSHOT, db, value_type=int, depth=3)
-        
+
         # BALN token snapshot for use in dividends SCORE
         self._baln_snapshot = DictDB('balnSnapshot', db, value_type=int, depth=3)
 
@@ -232,7 +232,7 @@ class DEX(IconScoreBase):
 
         self._named_markets = IterableDictDB(
             self._NAMED_MARKETS, db, value_type=int, key_type=str, order=True)
-        
+
         self._markets_to_names = DictDB('marketsToNames', db, value_type=str)
 
         # Cache of token precisions, filled on first call of `deposit`
@@ -258,7 +258,7 @@ class DEX(IconScoreBase):
 
     @external(readonly=True)
     def name(self) -> str:
-        return self._NAME
+        return TAG
 
     @external(readonly=True)
     def getAdmin(self) -> Address:
@@ -652,8 +652,8 @@ class DEX(IconScoreBase):
         if self._balance[_id][_from] < _value:
             revert(f"{TAG}: Out of balance.")
 
-        self._balance[_id][_from] = self._balance[_from] - _value
-        self._balance[_id][_to] = self._balance[_to] + _value
+        self._balance[_id][_from] -= _value
+        self._balance[_id][_to] += _value
 
         self.TransferSingle(self.msg.sender, _from, _to, _id, _value)
 
@@ -668,7 +668,7 @@ class DEX(IconScoreBase):
         if self._balance[_id][_from] < self._get_rewardable_amount(pool_quote_coin):
             self._active_addresses[_id].discard(_from)
 
-        # TODO: Implement token fallback for multitoken score
+        # TODO: Implement token fallback for multi-token score
 
     ####################################
     # Read
@@ -831,6 +831,33 @@ class DEX(IconScoreBase):
         return self.getBasePriceInQuote(self._pool_id[self._baln.get()][self._bnUSD.get()])
 
     @external(readonly=True)
+    def getSicxBnusdPrice(self) -> int:
+        """
+        This method is an alias to the current price of sICX tokens in bnUSD
+        """
+        return self.getBasePriceInQuote(self._pool_id[self._sicx.get()][self._bnUSD.get()])
+
+    @external(readonly=True)
+    def getBnusdValue(self, _name: str) -> int:
+        """
+        Gets the approximate bnUSD value of a pool.
+        :param _id: Pool ID
+        """
+        _id = self._named_markets[_name]
+
+        if _id == self._SICXICX_POOL_ID:
+            icx_total = self._icx_queue_total.get()
+            return icx_total * self.getSicxBnusdPrice() // self._get_sicx_rate()
+        elif self._pool_quote[_id] == self._sicx.get():
+            sicx_total =  self._pool_total[_id][self._sicx.get()] * 2
+            return self.getSicxBnusdPrice() * sicx_total
+        elif self._pool_quote[_id] == self._bnUSD.get():
+            return self._pool_total[_id][self._bnUSD.get()] * 2
+        else:
+            # No support for arbitrary pathing yet
+            return 0
+
+    @external(readonly=True)
     def getPriceByName(self, _name: str) -> int:
         return self.getPrice(self._named_markets[_name])
 
@@ -842,10 +869,10 @@ class DEX(IconScoreBase):
         return self._icx_queue._get_node(order_id).get_value1()
 
     @external(readonly=True)
-    def getPoolStats(self, _id: int) -> int:
+    def getPoolStats(self, _id: int) -> dict:
 
         if self._nonce.get() < _id < 1:
-            revert(f"{TAG}: Invalid pool id.")
+            return {TAG: "Invalid pool id."}
 
         if _id == self._SICXICX_POOL_ID:
             return {
@@ -861,8 +888,7 @@ class DEX(IconScoreBase):
         else:
             base_token = self._pool_base[_id]
             quote_token = self._pool_quote[_id]
-            name = self._markets_to_names[_id] \
-                if _id in self._markets_to_names else None
+            name = self._markets_to_names[_id] if _id in self._markets_to_names else None
 
             return {
                 'base': self._pool_total[_id][base_token],
@@ -942,8 +968,8 @@ class DEX(IconScoreBase):
         if self._balance[_id][_from] < _value:
             revert(f"{TAG}: Out of balance.")
 
-        self._balance[_id][_from] = self._balance[_from] - _value
-        self._balance[_id][_to] = self._balance[_to] + _value
+        self._balance[_id][_from] -= _value
+        self._balance[_id][_to] += _value
         self.TransferSingle(self.msg.sender, _from, _to, _id, _value)
 
         pool_quote_coin = self.getPoolQuote(_id)
@@ -965,6 +991,7 @@ class DEX(IconScoreBase):
         Returns whether an address is currently eligible to earn rewards.
 
         :param _address: Address to check
+        :param _id: PoolId
         """
         return _address in self._active_addresses[_id]
 
@@ -1147,10 +1174,14 @@ class DEX(IconScoreBase):
             if counterparty_filled:
                 self._icx_queue.remove_head()
                 del self._icx_queue_order_id[counterparty_address]
+                self._active_addresses[self._SICXICX_POOL_ID].discard(counterparty_address)
 
             else:
-                counterparty_order.set_value1(
-                    counterparty_order.get_value1() - matched_icx)
+                new_counterparty_value = counterparty_order.get_value1() - matched_icx
+                counterparty_order.set_value1(new_counterparty_value)
+                
+                if new_counterparty_value < self._get_rewardable_amount(None):
+                    self._active_addresses[self._SICXICX_POOL_ID].discard(counterparty_address)
 
             self._update_account_snapshot(counterparty_address, self._SICXICX_POOL_ID)
 
@@ -1165,8 +1196,6 @@ class DEX(IconScoreBase):
         # Settle fees to dividends and ICX converted to the sender
         sicx_score.transfer(self._dividends.get(), baln_fees)
         self.icx.transfer(_sender, order_icx_value)
-
-
 
     # Snapshotting
     def _take_new_day_snapshot(self) -> None:
@@ -1301,7 +1330,6 @@ class DEX(IconScoreBase):
             self._baln_snapshot[_id]['values'][length - 1] = current_value
             self._baln_snapshot[_id]['avgs'][length - 1] = average
             self._baln_snapshot[_id]['time'][length - 1] = current_time
-
 
     def _update_total_supply_snapshot(self, _id: int) -> None:
         """
@@ -1530,9 +1558,12 @@ class DEX(IconScoreBase):
 
         if not self.active[_id]:
             revert(f"{TAG}: Pool is not active.")
+        
+        if _value <= 0:
+            revert(f"{TAG}: Invalid input")
 
         if _value > balance:
-            revert(f"{TAG}: Invalid input.")
+            revert(f"{TAG}: Insufficient balance")
 
         base_token = self._pool_base[_id]
         quote_token = self._pool_quote[_id]
@@ -1585,7 +1616,7 @@ class DEX(IconScoreBase):
         :param _baseToken: Base Token to apply to the pool
         :param _quoteToken: Quote Token to apply to the pool
         :param _baseValue: Amount of base token (at most) to commit to the pool
-        :param _quoteValue: Amount of qutoe token (at most) to commit to the pool
+        :param _quoteValue: Amount of quote token (at most) to commit to the pool
         """
 
         self._take_new_day_snapshot()
@@ -1596,10 +1627,10 @@ class DEX(IconScoreBase):
 
         if _baseToken == _quoteToken:
             revert(f"{TAG}: Pool must contain two token contracts.")
-        if not _baseValue:
-            revert(f"{TAG}: Please send initial value for first currency.")
-        if not _quoteValue:
-            revert(f"{TAG}: Please send initial value for second currency.")
+        if _baseValue <= 0:
+            revert(f"{TAG}: Invalid base currency value")
+        if _quoteValue <= 0:
+            revert(f"{TAG}: Invalid quote currency value")
         if self._deposit[_baseToken][self.msg.sender] < _baseValue:
             revert(f"{TAG}: Insufficient base asset funds deposited.")
         if self._deposit[_quoteToken][self.msg.sender] < _quoteValue:
@@ -1629,7 +1660,6 @@ class DEX(IconScoreBase):
 
             if liquidity < MIN_LIQUIDITY:
                 revert(f"{TAG}: InsufficientInitialLiquidity: Initial LP tokens must exceed {MIN_LIQUIDITY}.")
-
 
             self.MarketAdded(_id, _baseToken, _quoteToken,
                              _baseValue, _quoteValue)
