@@ -820,6 +820,33 @@ class DEX(IconScoreBase):
         return self.getBasePriceInQuote(self._pool_id[self._baln.get()][self._bnUSD.get()])
 
     @external(readonly=True)
+    def getSicxBnusdPrice(self) -> int:
+        """
+        This method is an alias to the current price of sICX tokens in bnUSD
+        """
+        return self.getBasePriceInQuote(self._pool_id[self._sicx.get()][self._bnUSD.get()])
+
+    @external(readonly=True)
+    def getBnusdValue(self, _name: str) -> int:
+        """
+        Gets the approximate bnUSD value of a pool.
+        :param _id: Pool ID
+        """
+        _id = self._named_markets[_name]
+
+        if _id == self._SICXICX_POOL_ID:
+            icx_total = self._icx_queue_total.get()
+            return icx_total * self.getSicxBnusdPrice() // self._get_sicx_rate()
+        elif self._pool_quote[_id] == self._sicx.get():
+            sicx_total =  self._pool_total[_id][self._sicx.get()] * 2
+            return self.getSicxBnusdPrice() * sicx_total
+        elif self._pool_quote[_id] == self._bnUSD.get():
+            return self._pool_total[_id][self._bnUSD.get()] * 2
+        else:
+            # No support for arbitrary pathing yet
+            return 0
+
+    @external(readonly=True)
     def getPriceByName(self, _name: str) -> int:
         return self.getPrice(self._named_markets[_name])
 
