@@ -14,6 +14,7 @@ from .utils.scoremath import *
 
 TAG = 'BalancedDEX'
 
+
 # An interface to the Rewards SCORE
 class Rewards(InterfaceScore):
     @interface
@@ -23,6 +24,7 @@ class Rewards(InterfaceScore):
     @interface
     def addNewDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
         pass
+
 
 # An interface to the Dividends SCORE
 
@@ -40,7 +42,6 @@ class stakingInterface(InterfaceScore):
 
 
 class DEX(IconScoreBase):
-
     _ACCOUNT_BALANCE_SNAPSHOT = 'account_balance_snapshot'
     _TOTAL_SUPPLY_SNAPSHOT = 'total_supply_snapshot'
     _QUOTE_COINS = 'quote_coins'
@@ -185,7 +186,7 @@ class DEX(IconScoreBase):
             self._ACCOUNT_BALANCE_SNAPSHOT, db, value_type=int, depth=4)
         self._total_supply_snapshot = DictDB(
             self._TOTAL_SUPPLY_SNAPSHOT, db, value_type=int, depth=3)
-        
+
         # BALN token snapshot for use in dividends SCORE
         self._baln_snapshot = DictDB('balnSnapshot', db, value_type=int, depth=3)
 
@@ -232,7 +233,7 @@ class DEX(IconScoreBase):
 
         self._named_markets = IterableDictDB(
             self._NAMED_MARKETS, db, value_type=int, key_type=str, order=True)
-        
+
         self._markets_to_names = DictDB('marketsToNames', db, value_type=str)
 
         # Cache of token precisions, filled on first call of `deposit`
@@ -1166,8 +1167,6 @@ class DEX(IconScoreBase):
         sicx_score.transfer(self._dividends.get(), baln_fees)
         self.icx.transfer(_sender, order_icx_value)
 
-
-
     # Snapshotting
     def _take_new_day_snapshot(self) -> None:
         day = self.getDay()
@@ -1301,7 +1300,6 @@ class DEX(IconScoreBase):
             self._baln_snapshot[_id]['values'][length - 1] = current_value
             self._baln_snapshot[_id]['avgs'][length - 1] = average
             self._baln_snapshot[_id]['time'][length - 1] = current_time
-
 
     def _update_total_supply_snapshot(self, _id: int) -> None:
         """
