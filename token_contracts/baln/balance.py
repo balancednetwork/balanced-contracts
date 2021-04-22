@@ -5,7 +5,7 @@ from .utils.consts import *
 
 TAG = 'BALN'
 
-TOKEN_NAME = 'Balanced Token'
+TOKEN_NAME = 'Balance Token'
 SYMBOL_NAME = 'BALN'
 DEFAULT_ORACLE_NAME = 'BalancedDEX'
 
