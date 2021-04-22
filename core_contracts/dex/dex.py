@@ -61,7 +61,6 @@ class DEX(IconScoreBase):
     _TIME_OFFSET = 'time_offset'
     _REWARDS_DONE = 'rewards_done'
     _DIVIDENDS_DONE = 'dividends_done'
-    _NAME = 'BalancedDex'
     _SICXICX_POOL_ID = 1
 
     ####################################
@@ -259,7 +258,7 @@ class DEX(IconScoreBase):
 
     @external(readonly=True)
     def name(self) -> str:
-        return self._NAME
+        return TAG
 
     @external(readonly=True)
     def getAdmin(self) -> Address:
