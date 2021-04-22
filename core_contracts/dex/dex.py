@@ -843,10 +843,10 @@ class DEX(IconScoreBase):
         return self._icx_queue._get_node(order_id).get_value1()
 
     @external(readonly=True)
-    def getPoolStats(self, _id: int) -> int:
+    def getPoolStats(self, _id: int) -> dict:
 
         if self._nonce.get() < _id < 1:
-            revert(f"{TAG}: Invalid pool id.")
+            return {TAG: "Invalid pool id."}
 
         if _id == self._SICXICX_POOL_ID:
             return {
@@ -862,8 +862,7 @@ class DEX(IconScoreBase):
         else:
             base_token = self._pool_base[_id]
             quote_token = self._pool_quote[_id]
-            name = self._markets_to_names[_id] \
-                if _id in self._markets_to_names else None
+            name = self._markets_to_names[_id] if _id in self._markets_to_names else None
 
             return {
                 'base': self._pool_total[_id][base_token],
