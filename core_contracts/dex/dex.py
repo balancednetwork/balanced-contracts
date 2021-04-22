@@ -1147,10 +1147,14 @@ class DEX(IconScoreBase):
             if counterparty_filled:
                 self._icx_queue.remove_head()
                 del self._icx_queue_order_id[counterparty_address]
+                self._active_addresses[self._SICXICX_POOL_ID].discard(counterparty_address)
 
             else:
-                counterparty_order.set_value1(
-                    counterparty_order.get_value1() - matched_icx)
+                new_counterparty_value = counterparty_order.get_value1() - matched_icx
+                counterparty_order.set_value1(new_counterparty_value)
+                
+                if new_counterparty_value < self._get_rewardable_amount(None):
+                    self._active_addresses[self._SICXICX_POOL_ID].discard(counterparty_address)
 
             self._update_account_snapshot(counterparty_address, self._SICXICX_POOL_ID)
 
@@ -1530,9 +1534,12 @@ class DEX(IconScoreBase):
 
         if not self.active[_id]:
             revert(f"{TAG}: Pool is not active.")
+        
+        if _value <= 0:
+            revert(f"{TAG}: Invalid input")
 
         if _value > balance:
-            revert(f"{TAG}: Invalid input.")
+            revert(f"{TAG}: Insufficient balance")
 
         base_token = self._pool_base[_id]
         quote_token = self._pool_quote[_id]
@@ -1596,10 +1603,10 @@ class DEX(IconScoreBase):
 
         if _baseToken == _quoteToken:
             revert(f"{TAG}: Pool must contain two token contracts.")
-        if not _baseValue:
-            revert(f"{TAG}: Please send initial value for first currency.")
-        if not _quoteValue:
-            revert(f"{TAG}: Please send initial value for second currency.")
+        if _baseValue <= 0:
+            revert(f"{TAG}: Invalid base currency value")
+        if _quoteValue <= 0:
+            revert(f"{TAG}: Invalid quote currency value")
         if self._deposit[_baseToken][self.msg.sender] < _baseValue:
             revert(f"{TAG}: Insufficient base asset funds deposited.")
         if self._deposit[_quoteToken][self.msg.sender] < _quoteValue:
