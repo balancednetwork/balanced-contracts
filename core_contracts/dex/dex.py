@@ -639,6 +639,8 @@ class DEX(IconScoreBase):
         :param _id: Pool ID of token to transfer
         :param _data: data to include with transfer
         """
+        revert(f"{TAG}: MethodDisabled: This method has been temporarily disabled")
+
         if _data is None:
             _data = b'None'
         self._transfer(self.msg.sender, _to, _value, _id, _data)
@@ -888,6 +890,8 @@ class DEX(IconScoreBase):
         :param _operator: address to add to the set of authorized operators
         :param _approved: true if the operator is approved, false to revoke approval
         """
+        revert(f"{TAG}: MethodDisabled: This method has been temporarily disabled")
+
         self._approvals[self.msg.sender][_operator] = _approved
         self.ApprovalForAll(self.msg.sender, _operator, _approved)
 
@@ -927,6 +931,7 @@ class DEX(IconScoreBase):
         :param _value: the amount of transfer
         :param _data: additional data that should be sent unaltered in call to `_to`
         """
+        revert(f"{TAG}: MethodDisabled: This method has been temporarily disabled")
 
         if _data is None:
             _data = b'None'
