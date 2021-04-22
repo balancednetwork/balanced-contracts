@@ -669,7 +669,7 @@ class DEX(IconScoreBase):
         if self._balance[_id][_from] < self._get_rewardable_amount(pool_quote_coin):
             self._active_addresses[_id].discard(_from)
 
-        # TODO: Implement token fallback for multitoken score
+        # TODO: Implement token fallback for multi-token score
 
     ####################################
     # Read
@@ -966,6 +966,7 @@ class DEX(IconScoreBase):
         Returns whether an address is currently eligible to earn rewards.
 
         :param _address: Address to check
+        :param _id: PoolId
         """
         return _address in self._active_addresses[_id]
 
@@ -1583,7 +1584,7 @@ class DEX(IconScoreBase):
         :param _baseToken: Base Token to apply to the pool
         :param _quoteToken: Quote Token to apply to the pool
         :param _baseValue: Amount of base token (at most) to commit to the pool
-        :param _quoteValue: Amount of qutoe token (at most) to commit to the pool
+        :param _quoteValue: Amount of quote token (at most) to commit to the pool
         """
 
         self._take_new_day_snapshot()
@@ -1627,7 +1628,6 @@ class DEX(IconScoreBase):
 
             if liquidity < MIN_LIQUIDITY:
                 revert(f"{TAG}: InsufficientInitialLiquidity: Initial LP tokens must exceed {MIN_LIQUIDITY}.")
-
 
             self.MarketAdded(_id, _baseToken, _quoteToken,
                              _baseValue, _quoteValue)
