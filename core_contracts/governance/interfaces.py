@@ -78,11 +78,11 @@ class DexInterface(InterfaceScore):
         pass
 
     @interface
-    def permit(self, _pid: int, _permission: bool):
+    def permit(self, _id: int, _permission: bool):
         pass
 
     @interface
-    def setMarketName(self, _pid: int, _name: str) -> None:
+    def setMarketName(self, _id: int, _name: str) -> None:
         pass
 
     @interface
