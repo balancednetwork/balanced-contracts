@@ -210,7 +210,7 @@ class IRC2(TokenStandard, IconScoreBase):
 		Increases the balance of that account and total supply.
 		This is an internal function
 
-		:param account: The account at whhich token is to be created.
+		:param account: The account at which token is to be created.
 		:param amount: Number of tokens to be created at the `account`.
 		:param _data: Any information or message
 

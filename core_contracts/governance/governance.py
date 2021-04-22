@@ -34,6 +34,7 @@ class Governance(IconScoreBase):
     def configureBalanced(self) -> None:
         """
         Set parameters after deployment and before launch.
+        Add Assets to Loans.
         """
         loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
         rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
@@ -54,7 +55,9 @@ class Governance(IconScoreBase):
         loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
         dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
         rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
-        self._set_launch_day(self.getDay())
+        offset = DAY_ZERO + self._launch_day.get()
+        day = (self.now() - DAY_START) // U_SECONDS_DAY - offset
+        self._set_launch_day(day)
         self._set_launch_time(self.now())
         # Minimum day value is 1 since 0 is the default value for uninitialized storage.
         time_delta = DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1)
@@ -65,8 +68,15 @@ class Governance(IconScoreBase):
         for source in DATA_SOURCES:
             rewards.addNewDataSource(source['name'], addresses[source['address']])
         rewards.updateBalTokenDistPercentage(RECIPIENTS)
+        self.balanceToggleStakingEnabled()
         loans.turnLoansOn()
         dex.turnDexOn()
+
+    @external
+    @only_owner
+    @payable
+    def createAndFundMarket(self, _market_name: str) -> None:
+        pass
 
     @external
     @only_owner
@@ -101,11 +111,6 @@ class Governance(IconScoreBase):
     @external(readonly=True)
     def getLaunchTime(self) -> int:
         return self._launch_time.get()
-
-    @external(readonly=True)
-    def getDay(self) -> int:
-        offset = DAY_ZERO + self._launch_day.get()
-        return (self.now() - DAY_START) // U_SECONDS_DAY - offset
 
     @external
     @only_owner
