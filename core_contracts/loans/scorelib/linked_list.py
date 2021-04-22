@@ -326,6 +326,34 @@ class LinkedListDB:
         tail.repack()
         cur.repack()
 
+    def remove_head(self) -> None:
+        """ Remove the current head from the linkedlist """
+        if self._length == 1:
+            self.clear()
+        else:
+            old_head = self._get_node(self._head_id)
+            new_head = old_head.get_next()
+            self._head_id = new_head
+            head = self._get_node(new_head)
+            head.set_prev(0)
+            old_head.delete()
+            self._length = self._length - 1
+            head.repack()
+
+    def remove_tail(self) -> None:
+        """ Remove the current tail from the linkedlist """
+        if self._length == 1:
+            self.clear()
+        else:
+            old_tail = self._get_node(self._tail_id)
+            new_tail = old_tail.get_prev()
+            self._tail_id = new_tail
+            tail = self._get_node(new_tail)
+            tail.set_next(0)
+            old_tail.delete()
+            self._length = self._length - 1
+            tail.repack()
+
     def remove(self, cur_id: int) -> None:
         """ Remove a given node from the linkedlist """
         if cur_id == self._head_id:
