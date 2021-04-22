@@ -413,6 +413,16 @@ class Loans(IconScoreBase):
         return self._positions._snapshot_db[_snapshot_id].total_mining_debt.get()
 
     @external(readonly=True)
+    def getBnusdValue(self, _name: str) -> int:
+        """
+        Returns the total bnUSD value of loans mining BALN for APY calculation.
+        """
+        bnUSD_price = self._assets['bnUSD'].lastPriceInLoop()
+        loop_value = self._positions._snapshot_db[-1].total_mining_debt.get()
+        return EXA * loop_value // bnUSD_price
+
+
+    @external(readonly=True)
     def getDataCount(self, _snapshot_id: int) -> int:
         """
         Returns the number of records in the snapshot.
