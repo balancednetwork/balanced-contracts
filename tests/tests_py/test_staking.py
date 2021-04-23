@@ -479,7 +479,7 @@ def test_top_preps():
         .from_(user2.get_address()) \
         .to(GOVERNANCE_ADDRESS) \
         .method('getPReps') \
-        .params({'startRanking': 1, 'endRanking': 20}) \
+        .params({'startRanking': 1, 'endRanking': 4}) \
         .build()
 
     _result2 = icon_service.call(_call)

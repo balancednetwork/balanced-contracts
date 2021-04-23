@@ -48,6 +48,9 @@
 #         with open("../keystores/balanced_test.pwd", "r") as f:
 #             key_data = f.read()
 #         self.btest_wallet = KeyWallet.load("../keystores/balanced_test.json", key_data)
+#         with open("../keystores/staking_test.pwd", "r") as f:
+#             key_data = f.read()
+#         self.staking_wallet = KeyWallet.load("../keystores/staking_test.json", key_data)
 #
 #         # test2 = hx7a1824129a8fe803e45a3aae1c0e060399546187
 #         private = "0a354424b20a7e3c55c43808d607bddfac85d033e63d7d093cb9f0a26c4ee022"
@@ -55,9 +58,12 @@
 #         # self._test2 = KeyWallet.create()
 #
 #         self.icon_service = IconService(HTTPProvider(self.TEST_HTTP_ENDPOINT_URI_V3))
-#         print("/==============================================="
-#               " ......Testing return_assets method......./"
+#         print("==============================================="
+#               " ......Testing returnAssets method......."
 #               "=================================================")
+#         print(self.wallet.get_address())
+#         print(self.btest_wallet.get_address())
+#         # deploy SCORE
 #
 #         self.results = {}
 #
@@ -78,7 +84,7 @@
 #                           'governance': {'zip': 'core_contracts/governance.zip',
 #                                          'SCORE': 'cxd7b3e71dcff3d75392216e208f28ef68e8a54ec0'},
 #                           'oracle': {'zip': 'core_contracts/oracle.zip',
-#                                      'SCORE': 'cx2780eeb8c800ac9886786baae281c3d23bb832fc'},
+#                                      'SCORE': 'cxed97bdb35a7ca1b3993e400e4dba9e11610338f7'},
 #                           'sicx': {'zip': 'token_contracts/sicx.zip',
 #                                    'SCORE': 'cx799f724e02560a762b5f2bd3b6d2d8d59d7aecc1'},
 #                           'bnUSD': {'zip': 'token_contracts/bnUSD.zip',
@@ -92,13 +98,19 @@
 #                           'bwt': {'zip': 'token_contracts/bwt.zip',
 #                                   'SCORE': 'cx663f9d59163846d9f6c6f7b586858c59aa8878a9'}}
 #
-#         self.deploy_all(self.btest_wallet)
+#         self.deploy_all(self.btest_wallet, self.staking_wallet)
 #         print(
 #             '------------------------------------------------------------------------------------------------------------------')
 #         print(self.contracts)
 #         print(
 #             '----------Contracts for Testing UI--------------------------------------------------------------------------------')
 #         print(self.get_scores_json(self.contracts))
+#
+#         config_results = self.config_balanced(self.btest_wallet, self.staking_wallet)
+#         print(config_results)
+#
+#         launch_results = self.launch_balanced(self.btest_wallet, self.staking_wallet)
+#         print(launch_results)
 #
 #     @retry(JSONRPCException, tries=10, delay=1, back_off=2)
 #     def _get_tx_result(self, _tx_hash):
@@ -109,6 +121,19 @@
 #     def get_tx_result(self, _call):
 #         tx_result = self.icon_service.call(_call)
 #         return tx_result
+#
+#     def send_icx(self, to, amount, wallet):
+#         transaction = TransactionBuilder() \
+#             .from_(wallet.get_address()) \
+#             .to(to) \
+#             .value(amount) \
+#             .step_limit(1000000) \
+#             .nid(3) \
+#             .nonce(2) \
+#             .version(3) \
+#             .build()
+#         signed_transaction = SignedTransaction(transaction, wallet)
+#         return self.icon_service.send_transaction(signed_transaction)
 #
 #     def compress(self):
 #         """
@@ -149,6 +174,7 @@
 #
 #         signed_transaction = SignedTransaction(deploy_transaction, wallet, step_limit)
 #         tx_hash = self.icon_service.send_transaction(signed_transaction)
+#
 #         res = self._get_tx_result(tx_hash)
 #         print(f'Status: {res["status"]}')
 #         if len(res["eventLogs"]) > 0:
@@ -157,7 +183,7 @@
 #         if res['status'] == 0:
 #             print(f'Failure: {res["failure"]}')
 #         print('')
-#         return res.get('scoreAddress', '')
+#         return res
 #
 #     def send_tx(self, dest, value, method, params, wallet):
 #         """
@@ -191,9 +217,9 @@
 #             print(f'Failure: {res["failure"]}')
 #         return res
 #
-#     def deploy_all(self, wallet):
+#     def deploy_all(self, wallet, staking_wallet):
 #         """
-#         Compress, Deploy and Configure all SCOREs
+#         Compress and Deploy all SCOREs.
 #         """
 #         self.compress()
 #
@@ -203,32 +229,72 @@
 #         deploy.remove('sicx')
 #         deploy.remove('governance')
 #
-#         governance = self.deploy_SCORE(self.contracts['governance'], {}, wallet, 0)
+#         results = {}
+#         res = self.deploy_SCORE(self.contracts['governance'], {}, wallet, 0)
+#         results[f'{self.contracts["governance"]}|deploy|{{}}'] = res
+#         governance = res.get('scoreAddress', '')
 #         self.contracts['governance']['SCORE'] = governance
+#         params = {'_governance': governance}
 #         for score in deploy:
-#             self.contracts[score]['SCORE'] = self.deploy_SCORE(self.contracts[score], {'_governance': governance},
-#                                                                wallet, 0)
-#         self.contracts['staking']['SCORE'] = self.deploy_SCORE(self.contracts['staking'], {}, wallet, 0)
-#         self.contracts['sicx']['SCORE'] = self.deploy_SCORE(self.contracts['sicx'],
-#                                                             {'_admin': self.contracts['staking']['SCORE']}, wallet,
-#                                                             0)
+#             res = self.deploy_SCORE(self.contracts[score], params, wallet, 0)
+#             results[f'{self.contracts[score]}|deploy|{params}'] = res
+#             self.contracts[score]['SCORE'] = res.get('scoreAddress', '')
 #
+#         res = self.deploy_SCORE(self.contracts['staking'], {}, staking_wallet, 0)
+#         results[f'{self.contracts["staking"]}|deploy|{{}}'] = res
+#         self.contracts['staking']['SCORE'] = res.get('scoreAddress', '')
+#
+#         params = {'_admin': self.contracts['staking']['SCORE']}
+#         res = self.deploy_SCORE(self.contracts['sicx'], params, staking_wallet, 0)
+#         results[f'{self.contracts["sicx"]}|deploy|{params}'] = res
+#         self.contracts['sicx']['SCORE'] = res.get('scoreAddress', '')
+#
+#         return results
+#
+#     def config_balanced(self, wallet, staking_wallet):
+#         """
+#         Configure all SCOREs before launch.
+#         """
 #         config = list(self.contracts.keys())[:]
 #         config.remove('governance')
 #         config.remove('bnDOGE')
 #         config.remove('bnXLM')
 #         addresses = {contract: self.contracts[contract]['SCORE'] for contract in config}
+#         txns = [{'contract': 'governance', 'value': 0, 'method': 'setAddresses', 'params': {'_addresses': addresses},
+#                  'wallet': wallet},
+#                 {'contract': 'staking', 'value': 0, 'method': 'setSicxAddress',
+#                  'params': {'_address': self.contracts['sicx']['SCORE']}, 'wallet': staking_wallet},
+#                 {'contract': 'governance', 'value': 0, 'method': 'configureBalanced', 'params': {}, 'wallet': wallet}]
 #
-#         txns = [{'contract': 'staking', 'value': 0, 'method': 'setSicxAddress',
-#                  'params': {'_address': self.contracts['sicx']['SCORE']}},
-#                 {'contract': 'staking', 'value': 0, 'method': 'toggleStakingOn', 'params': {}},
-#                 {'contract': 'governance', 'value': 0, 'method': 'setAddresses', 'params': {'_addresses': addresses}},
-#                 {'contract': 'governance', 'value': 0, 'method': 'launchBalanced', 'params': {}},
-#                 {'contract': 'governance', 'value': 0, 'method': 'balanceToggleStakingEnabled', 'params': {}}]
-#
+#         results = {}
 #         for tx in txns:
-#             res = self.send_tx(tx["contract"], tx["value"], tx["method"], tx["params"], wallet)
-#             self.results[f'{tx["contract"]}|{tx["method"]}|{tx["params"]}'] = res
+#             res = self.send_tx(tx["contract"], tx["value"], tx["method"], tx["params"], tx["wallet"])
+#             results[f'{tx["contract"]}|{tx["method"]}|{tx["params"]}'] = res
+#
+#         return results
+#
+#     def launch_balanced(self, wallet, staking_wallet):
+#         """
+#         Launch Balanced, turn on staking management, and set delegation for sICX on the Loans contract.
+#         """
+#         preps = {
+#             "hx9eec61296a7010c867ce24c20e69588e2832bc52",  # ICX Station
+#             "hx000e0415037ae871184b2c7154e5924ef2bc075e"}  # iBriz-ICONOsphere
+#
+#         txns = [{'contract': 'governance', 'value': 0, 'method': 'launchBalanced', 'params': {}, 'wallet': wallet},
+#                 {'contract': 'staking', 'value': 0, 'method': 'toggleStakingOn', 'params': {},
+#                  'wallet': staking_wallet},
+#                 {'contract': 'governance', 'value': 0, 'method': 'delegate', 'params': {
+#                     '_delegations': [{'_address': prep, '_votes_in_per': str(100 * ICX // len(preps))} for prep in
+#                                      preps]},
+#                  'wallet': wallet}]
+#
+#         results = {}
+#         for tx in txns:
+#             res = self.send_tx(tx["contract"], tx["value"], tx["method"], tx["params"], tx["wallet"])
+#             results[f'{tx["contract"]}|{tx["method"]}|{tx["params"]}'] = res
+#
+#         return results
 #
 #     def get_scores_json(self, contracts):
 #         """
