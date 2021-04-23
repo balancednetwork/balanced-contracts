@@ -548,7 +548,7 @@ class DEX(IconScoreBase):
         self.icx.transfer(self.msg.sender, withdraw_amount)
         del self._icx_queue_order_id[self.msg.sender]
 
-        self._active_addresses[self._SICXICX_POOL_ID].discard(self.msg.sender)
+        self._active_addresses[self._SICXICX_POOL_ID].remove(self.msg.sender)
 
         self._update_account_snapshot(self.msg.sender, self._SICXICX_POOL_ID)
         self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
@@ -666,7 +666,7 @@ class DEX(IconScoreBase):
             self._active_addresses[_id].add(_to)
 
         if self._balance[_id][_from] < self._get_rewardable_amount(pool_quote_coin):
-            self._active_addresses[_id].discard(_from)
+            self._active_addresses[_id].remove(_from)
 
         # TODO: Implement token fallback for multi-token score
 
@@ -841,7 +841,7 @@ class DEX(IconScoreBase):
     def getBnusdValue(self, _name: str) -> int:
         """
         Gets the approximate bnUSD value of a pool.
-        :param _id: Pool ID
+        :param _name: name
         """
         _id = self._named_markets[_name]
 
@@ -978,7 +978,7 @@ class DEX(IconScoreBase):
             self._active_addresses[_id].add(_to)
 
         if self._balance[_id][_from] < self._get_rewardable_amount(pool_quote_coin):
-            self._active_addresses[_id].discard(_from)
+            self._active_addresses[_id].remove(_from)
 
         self._update_account_snapshot(_from, _id)
         self._update_account_snapshot(_to, _id)
@@ -1174,14 +1174,14 @@ class DEX(IconScoreBase):
             if counterparty_filled:
                 self._icx_queue.remove_head()
                 del self._icx_queue_order_id[counterparty_address]
-                self._active_addresses[self._SICXICX_POOL_ID].discard(counterparty_address)
+                self._active_addresses[self._SICXICX_POOL_ID].remove(counterparty_address)
 
             else:
                 new_counterparty_value = counterparty_order.get_value1() - matched_icx
                 counterparty_order.set_value1(new_counterparty_value)
                 
                 if new_counterparty_value < self._get_rewardable_amount(None):
-                    self._active_addresses[self._SICXICX_POOL_ID].discard(counterparty_address)
+                    self._active_addresses[self._SICXICX_POOL_ID].remove(counterparty_address)
 
             self._update_account_snapshot(counterparty_address, self._SICXICX_POOL_ID)
 
@@ -1484,7 +1484,7 @@ class DEX(IconScoreBase):
         if _offset < 0:
             revert(f"{TAG}: Offset must be equal to or greater than Zero.")
         rv = {}
-        for addr in self._active_addresses[_id].select(_offset):
+        for addr in self._active_addresses[_id].range(_offset, _offset + MAX_ITERATION_LOOP):
             snapshot_balance = self.balanceOfAt(addr, _id, _snapshot_id)
             if snapshot_balance:
                 rv[str(addr)] = snapshot_balance
@@ -1591,7 +1591,7 @@ class DEX(IconScoreBase):
             * self._pool_total[_id][quote_token] // self.totalSupply(_id)
 
         if user_quote_holdings < self._get_rewardable_amount(quote_token):
-            self._active_addresses[_id].discard(self.msg.sender)
+            self._active_addresses[_id].remove(self.msg.sender)
 
         self._update_account_snapshot(self.msg.sender, _id)
         self._update_total_supply_snapshot(_id)
