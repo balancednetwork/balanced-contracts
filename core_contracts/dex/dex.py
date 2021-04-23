@@ -12,7 +12,7 @@ from .utils.consts import *
 from .lp_metadata import *
 from .utils.scoremath import *
 
-TAG = 'BalancedDEX'
+TAG = 'Balanced DEX'
 
 
 # An interface to the Rewards SCORE
@@ -1079,7 +1079,7 @@ class DEX(IconScoreBase):
         effective_fill_price = send_price
         if not is_sell:
             effective_fill_price = (EXA * send_amt) // _value
-        
+
         if (_fromToken == self._baln.get()) or (_toToken == self._baln.get()):
             self._update_baln_snapshot(_id)
 
@@ -1179,7 +1179,7 @@ class DEX(IconScoreBase):
             else:
                 new_counterparty_value = counterparty_order.get_value1() - matched_icx
                 counterparty_order.set_value1(new_counterparty_value)
-                
+
                 if new_counterparty_value < self._get_rewardable_amount(None):
                     self._active_addresses[self._SICXICX_POOL_ID].remove(counterparty_address)
 
@@ -1558,7 +1558,7 @@ class DEX(IconScoreBase):
 
         if not self.active[_id]:
             revert(f"{TAG}: Pool is not active.")
-        
+
         if _value <= 0:
             revert(f"{TAG}: Invalid input")
 

@@ -18,8 +18,20 @@ class DistPercentDict(TypedDict):
     dist_percent: int
 
 
+# An interface to the Staking Management SCORE
+class StakingInterface(InterfaceScore):
+    @interface
+    def stakeICX(self) -> None:
+        pass
+
+
 # An interface to the Loans SCORE
 class LoansInterface(InterfaceScore):
+    @interface
+    def depositAndBorrow(self, _asset: str = '', _amount: int = 0,
+                         _from: Address = None, _value: int = 0) -> None:
+        pass
+
     @interface
     def setTimeOffset(self, _time_delta: int) -> None:
         pass
@@ -36,6 +48,10 @@ class LoansInterface(InterfaceScore):
     def addAsset(self, _token_address: Address,
                        _active: bool = True,
                        _collateral: bool = False) -> None:
+        pass
+
+    @interface
+    def getAssetTokens(self) -> dict:
         pass
 
     @interface
@@ -69,6 +85,10 @@ class LoansInterface(InterfaceScore):
 
 # An interface to the Loans SCORE
 class DexInterface(InterfaceScore):
+    @interface
+    def add(self, _baseToken: Address, _quoteToken: Address, _baseValue: int, _quoteValue: int, _withdraw_unused: bool = True):
+        pass
+
     @interface
     def setTimeOffset(self, _time_delta: int) -> None:
         pass
@@ -120,6 +140,10 @@ class DexInterface(InterfaceScore):
 
 # An interface to the Rewards SCORE
 class RewardsInterface(InterfaceScore):
+    @interface
+    def claimRewards(self) -> None:
+        pass
+
     @interface
     def setTimeOffset(self, _time_delta: int) -> None:
         pass
@@ -204,6 +228,14 @@ class SetAddressesInterface(InterfaceScore):
 class BalancedInterface(InterfaceScore):
 
     @interface
+    def balanceOf(self, _owner: Address) -> int:
+        pass
+
+    @interface
+    def transfer(self, _to: Address, _value: int, _data: bytes = None):
+        pass
+
+    @interface
     def setbnUSD(self, _address: Address) -> None:
         pass
 
@@ -243,7 +275,15 @@ class DAOfundInterface(InterfaceScore):
         pass
 
 
-class BalancedDollarInterface(InterfaceScore):
+class AssetInterface(InterfaceScore):
+
+    @interface
+    def balanceOf(self, _owner: Address) -> int:
+        pass
+
+    @interface
+    def transfer(self, _to: Address, _value: int, _data: bytes = None):
+        pass
 
     @interface
     def setOracleName(self, _name: str) -> None:
@@ -255,6 +295,14 @@ class BalancedDollarInterface(InterfaceScore):
 
     @interface
     def setMinInterval(self, _interval: int) -> None:
+        pass
+
+    @interface
+    def setAdmin(self, _admin: Address) -> None:
+        pass
+
+    @interface
+    def priceInLoop(self) -> int:
         pass
 
 
