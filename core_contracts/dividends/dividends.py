@@ -129,6 +129,8 @@ class Dividends(IconScoreBase):
     _DIVIDENDS_CATEGORIES = "dividends_categories"
     _DIVIDENDS_PERCENTAGE = "dividends_percentage"
 
+    _DISTRIBUTION_ACTIVATE = "distribution_activate"
+
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
 
@@ -175,6 +177,8 @@ class Dividends(IconScoreBase):
         self._dividends_categories = ArrayDB(self._DIVIDENDS_CATEGORIES, db, value_type=str)
         self._dividends_percentage = DictDB(self._DIVIDENDS_PERCENTAGE, db, value_type=int)
 
+        self._distribution_activate = VarDB(self._DISTRIBUTION_ACTIVATE, db, value_type=bool)
+
     def on_install(self, _governance: Address) -> None:
         super().on_install()
         self._governance.set(_governance)
@@ -184,6 +188,7 @@ class Dividends(IconScoreBase):
         self._max_loop_count.set(MAX_LOOP)
         self._minimum_eligible_debt.set(MINIMUM_ELIGIBLE_DEBT)
         self._add_initial_categories()
+        self._distribution_activate.set(False)
 
     def on_update(self) -> None:
         super().on_update()
@@ -197,6 +202,15 @@ class Dividends(IconScoreBase):
     @external(readonly=True)
     def name(self) -> str:
         return "Balanced Dividends"
+
+    @external(readonly=True)
+    def getDistributionActivationStatus(self) -> bool:
+        return self._distribution_activate.get()
+
+    @external
+    @only_owner
+    def setDistributionActivationStatus(self, _status: bool) -> None:
+        self._distribution_activate.set(_status)
 
     @external
     @only_owner
@@ -367,6 +381,11 @@ class Dividends(IconScoreBase):
         Main method to handle the distribution of tokens to eligible BALN token holders
         :return: True if distribution has completed
         """
+
+        # If distribution is not activated just return true
+        if not self._distribution_activate.get():
+            return True
+
         baln_score = self.create_interface_score(self._baln_score.get(), BalnTokenInterface)
 
         if self._dividends_distribution_status.get() == Status.DIVIDENDS_DISTRIBUTION_COMPLETE:
