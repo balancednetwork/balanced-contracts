@@ -127,6 +127,11 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def setAdmins(self) -> None:
+        self.addresses.setAdmins()
+
+    @external
+    @only_owner
     def setContractAddresses(self) -> None:
         self.addresses.setContractAddresses()
 
