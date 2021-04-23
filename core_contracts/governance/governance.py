@@ -112,7 +112,7 @@ class Governance(IconScoreBase):
         sICX.transfer(dex_address, sICX_value, json_dumps({"method": "_deposit"}).encode())
         dex.add(sICX_address, bnUSD_address, sICX_value, bnUSD_value)
         name = 'sICX/bnUSD'
-        pid = 2
+        pid = getPoolId(sICX_address, bnUSD_address)
         dex.setMarketName(pid, name)
         rewards.addNewDataSource(name, dex_address)
 
@@ -135,7 +135,7 @@ class Governance(IconScoreBase):
         baln.transfer(dex_address, baln_value, json_dumps({"method": "_deposit"}).encode())
         dex.add(baln_address, bnUSD_address, baln_value, bnUSD_value)
         name = 'BALN/bnUSD'
-        pid = 3
+        pid = getPoolId(baln_address, bnUSD_address)
         dex.setMarketName(pid, name)
         rewards.addNewDataSource(name, dex_address)
 
