@@ -600,6 +600,8 @@ class Loans(IconScoreBase):
         if _value > 0:
             pos['sICX'] = pos['sICX'] + _value
             self.CollateralReceived(_from, 'sICX', _value)
+        if _amount < 0:
+            revert(f'{TAG}: Loans amount cannot be negative.')
         if _asset == '' or _amount < 1:
             return
         self._originate_loan(_asset, _amount, _from)
@@ -710,6 +712,7 @@ class Loans(IconScoreBase):
             user_debt = borrowers.node_value(node_id)
             positions_dict[node_id] = user_debt
             total_batch_debt += user_debt
+            # revert('inside retire')
             borrowers.move_head_to_tail()
             node_id = borrowers.get_head_id()
         borrowers.serialize()

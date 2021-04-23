@@ -45,7 +45,7 @@
           "_value": "330000000000000000000"
         },
         "expected": "0",
-        "revertMessage": "Requested withdrawal is more than available collateral. total debt value: 30196764153578393315 ICX remaining collateral value: 120000000000000000000 ICX locking value (max debt): 120787056614313573260 ICX",
+        "revertMessage": "BalancedLoans: Requested withdrawal is more than available collateral. total debt value: 30196764153578393315 ICX remaining collateral value: 120000000000000000000 ICX locking value (max debt): 120787056614313573260 ICX",
         "expected_sicx_baln_loan": "450000000000000000000",
         "expected_icd_debt_baln_loan": "50000000000000000000"
       }
@@ -76,7 +76,7 @@
           "_value": "-50000000000000000000"
         },
         "expected": "0",
-        "revertMessage": "Withdraw amount must be more than zero.",
+        "revertMessage": "BalancedLoans: Withdraw amount must be more than zero.",
         "expected_sicx_baln_loan": "121000000000000000000",
         "expected_icd_debt_baln_loan": "50000000000000000000"
       }
@@ -92,7 +92,7 @@
           "_value": "121000000000000000000"
         },
         "expected": "0",
-        "revertMessage": "Requested withdrawal is more than available collateral. total debt value: 30196764153578393315 ICX remaining collateral value: 0 ICX locking value (max debt): 120787056614313573260 ICX",
+        "revertMessage": "BalancedLoans: Requested withdrawal is more than available collateral. total debt value: 30196764153578393315 ICX remaining collateral value: 0 ICX locking value (max debt): 120787056614313573260 ICX",
         "expected_sicx_baln_loan": "121000000000000000000",
         "expected_icd_debt_baln_loan": "50000000000000000000"
       }

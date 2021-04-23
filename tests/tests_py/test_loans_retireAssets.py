@@ -47,8 +47,6 @@ wallet = KeyWallet.load("../../keystores/keystore_test1.json", "test1_Account")
 with open("../../keystores/balanced_test.pwd", "r") as f:
     key_data = f.read()
 btest_wallet = KeyWallet.load("../../keystores/balanced_test.json", key_data)
-print(icon_service.get_balance(wallet.get_address())/10**18)
-print(icon_service.get_balance(btest_wallet.get_address())/10**18)
 
 print(wallet.get_address())
 print(icon_service.get_balance(wallet.get_address()) / 10**18)
@@ -68,6 +66,9 @@ user2 = KeyWallet.load(bytes.fromhex(private))
 print(icon_service.get_balance(user2.get_address())/10**18)
 print(user2.get_address())
 
+print("/==============================================="
+              " ......Testing retire_assets method......./"
+              "=================================================")
 
 # The following addresses are those deployed to the private tbears server.
 
@@ -88,7 +89,7 @@ contracts = {'loans': {'zip': 'core_contracts/loans.zip',
  'governance': {'zip': 'core_contracts/governance.zip',
   'SCORE': 'cx238cd1a1e3a9702d6c9c6dc130719472164db376'},
  'oracle': {'zip': 'core_contracts/oracle.zip',
-  'SCORE': 'cx7171e2f5653c1b9c000e24228276b8d24e84f10d'},
+  'SCORE': 'cx2780eeb8c800ac9886786baae281c3d23bb832fc'},
  'sicx': {'zip': 'token_contracts/sicx.zip',
   'SCORE': 'cxcff8bf80ab213fa9bbb350636a4d68f5cb4fd9c1'},
  'bnUSD': {'zip': 'token_contracts/bnUSD.zip',
@@ -189,9 +190,12 @@ def deploy_all(wallet):
     config.remove('governance')
     addresses = {contract: contracts[contract]['SCORE'] for contract in config}
 
-    txns = [{'contract': 'staking', 'value': 0, 'method': 'setSicxAddress', 'params': {'_address': contracts['sicx']['SCORE']}},
+    txns = [{'contract': 'staking', 'value': 0, 'method': 'setSicxAddress',
+             'params': {'_address': contracts['sicx']['SCORE']}},
+            {'contract': 'staking', 'value': 0, 'method': 'toggleStakingOn', 'params': {}},
             {'contract': 'governance', 'value': 0, 'method': 'setAddresses', 'params': {'_addresses': addresses}},
-            {'contract': 'governance', 'value': 0, 'method': 'launchBalanced', 'params': {}}]
+            {'contract': 'governance', 'value': 0, 'method': 'launchBalanced', 'params': {}},
+            {'contract': 'governance', 'value': 0, 'method': 'balanceToggleStakingEnabled', 'params': {}}]
 
     for tx in txns:
         res = send_tx(tx["contract"], tx["value"], tx["method"], tx["params"], wallet)
@@ -254,17 +258,17 @@ def test_retireAssets():
         "stories": [
             {
                 "description": "User2 tries to retire 10 bnusd",
-                  "actions": {
-                      "sender":"user2",
-                      "first_meth": "transfer",
-                      "second_meth":"transfer",
-                      "deposited_icx":"0",
-                      "first_params":{'_to': user2.get_address(), '_value': call_tx('loans', 'getMaxRetireAmount', {'_symbol': 'bnUSD'})},
-                      "second_params":{"method": "_retire_asset", "params": {},'_to': contracts['loans']['SCORE'], '_value': call_tx('loans', 'getMaxRetireAmount', {'_symbol': 'bnUSD'})},
-                      "expected_status_result":"1"
-              }
+                "actions": {
+                    "sender": "user2",
+                    "first_meth": "transfer",
+                    "second_meth": "returnAsset",
+                    "deposited_icx": "0",
+                    "first_params": {'_to': user2.get_address(), '_value': 20 * ICX},
+                    "second_params": {"_symbol": "bnUSD", '_value': 4 * ICX},
+                    "expected_status_result": "1"
+                }
             }
-      ]
+        ]
     }
 
     for case in test_cases['stories']:
@@ -277,14 +281,13 @@ def test_retireAssets():
         first_params = {"_to": data1['_to'], "_value": data1['_value']}
 
         data2 = case['actions']['second_params']
-        params = {"method": data2['method'], "params": data2['params']}
-        data = json.dumps(params).encode("utf-8")
-        second_params = {'_to': data2['_to'], '_value': data2['_value'], '_data': data}
+        second_params = {'_symbol': data2['_symbol'], '_value': data2['_value']}
 
-        send_tx('bnUSD', 0 ,meth1 , first_params, user1)
+        send_tx('bnUSD', 0, meth1, first_params, user1)
         sleep(2)
-        res = send_tx('bnUSD', 0 ,meth2 , second_params, user2)
-        assert res['status'] == int(case['actions']['expected_status_result']), 'Retired amount is greater than the current maximum allowed'
+        res = send_tx('loans', 0, meth2, second_params, user2)
+        assert res['status'] == int(
+            case['actions']['expected_status_result']), 'Retired amount is greater than the current maximum allowed'
         print('Test case passed')
 
 

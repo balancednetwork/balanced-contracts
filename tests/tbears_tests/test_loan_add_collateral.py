@@ -51,6 +51,9 @@ class TestLoan(IconIntegrateTestBase):
         # self._test2 = KeyWallet.create()
 
         self.icon_service = IconService(HTTPProvider(self.TEST_HTTP_ENDPOINT_URI_V3))
+        print("/==============================================="
+              " ......Testing depositAndborrow method......./"
+              "=================================================")
         print(self.wallet.get_address())
         print(self.btest_wallet.get_address())
         # deploy SCORE
@@ -74,7 +77,7 @@ class TestLoan(IconIntegrateTestBase):
                      'governance': {'zip': 'core_contracts/governance.zip',
                                     'SCORE': 'cxd7b3e71dcff3d75392216e208f28ef68e8a54ec0'},
                      'oracle': {'zip': 'core_contracts/oracle.zip',
-                                'SCORE': 'cx7171e2f5653c1b9c000e24228276b8d24e84f10d'},
+                                'SCORE': 'cx2780eeb8c800ac9886786baae281c3d23bb832fc'},
                      'sicx': {'zip': 'token_contracts/sicx.zip',
                               'SCORE': 'cx799f724e02560a762b5f2bd3b6d2d8d59d7aecc1'},
                      'bnUSD': {'zip': 'token_contracts/bnUSD.zip',
@@ -215,8 +218,10 @@ class TestLoan(IconIntegrateTestBase):
 
         txns = [{'contract': 'staking', 'value': 0, 'method': 'setSicxAddress',
                  'params': {'_address': self.contracts['sicx']['SCORE']}},
+                {'contract': 'staking', 'value': 0, 'method': 'toggleStakingOn', 'params': {}},
                 {'contract': 'governance', 'value': 0, 'method': 'setAddresses', 'params': {'_addresses': addresses}},
-                {'contract': 'governance', 'value': 0, 'method': 'launchBalanced', 'params': {}}]
+                {'contract': 'governance', 'value': 0, 'method': 'launchBalanced', 'params': {}},
+                {'contract': 'governance', 'value': 0, 'method': 'balanceToggleStakingEnabled', 'params': {}}]
 
         for tx in txns:
             res = self.send_tx(tx["contract"], tx["value"], tx["method"], tx["params"], wallet)
@@ -264,15 +269,15 @@ class TestLoan(IconIntegrateTestBase):
     #         self.assertEqual(
     #             self.contracts[address], tx_result['scoreAddress'])
 
-    # # Adding collateral to wallet _test1
+    # # Adding collateral to some wallets
     def test_addCollateral(self):
         cases = test_cases['stories']
         for case in cases:
             _tx_result = {}
             print(case['description'])
             if case['actions']['sender'] == 'user1':
-                wallet_address = self._test1.get_address()
-                wallet = self._test1
+                wallet_address = self.wallet.get_address()
+                wallet = self.wallet
             else:
                 wallet_address = self._test2.get_address()
                 wallet = self._test2
@@ -308,7 +313,7 @@ class TestLoan(IconIntegrateTestBase):
 
     def balanceOfTokens(self, name):
         params = {
-            "_owner": self._test1.get_address()
+            "_owner": self.wallet.get_address()
         }
         if name == 'sicx':
             contract = self.contracts['sicx']['SCORE']
@@ -319,7 +324,7 @@ class TestLoan(IconIntegrateTestBase):
             contract = self.contracts['dividends']['SCORE']
         else:
             contract = self.contracts['bnUSD']['SCORE']
-        _call = CallBuilder().from_(self._test1.get_address()) \
+        _call = CallBuilder().from_(self.wallet.get_address()) \
             .to(contract) \
             .method("balanceOf") \
             .params(params) \
@@ -332,8 +337,8 @@ class TestLoan(IconIntegrateTestBase):
         return response
 
     def _getAccountPositions(self) -> dict:
-        params = {'_owner': self._test1.get_address()}
-        _call = CallBuilder().from_(self._test1.get_address()) \
+        params = {'_owner': self.wallet.get_address()}
+        _call = CallBuilder().from_(self.wallet.get_address()) \
             .to(self.contracts['loans']['SCORE']) \
             .method('getAccountPositions') \
             .params(params) \
@@ -342,7 +347,7 @@ class TestLoan(IconIntegrateTestBase):
         return result
 
     def getBalances(self):
-        _call = CallBuilder().from_(self._test1.get_address()) \
+        _call = CallBuilder().from_(self.wallet.get_address()) \
             .to(self.contracts['dividends']['SCORE']) \
             .method('getBalances') \
             .build()

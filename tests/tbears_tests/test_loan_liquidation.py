@@ -52,9 +52,11 @@
 #         private = "0a354424b20a7e3c55c43808d607bddfac85d033e63d7d093cb9f0a26c4ee022"
 #         self._test2 = KeyWallet.load(bytes.fromhex(private))
 #         # self._test2 = KeyWallet.create()
+#
 #         self.icon_service = IconService(HTTPProvider(self.TEST_HTTP_ENDPOINT_URI_V3))
-#         print(self._test1.get_address())
-#         print(self._test2.get_address())
+#         print("/==============================================="
+#               " ......Testing liquidate method......./"
+#               "=================================================")
 #
 #         self.results = {}
 #
@@ -75,7 +77,7 @@
 #                           'governance': {'zip': 'core_contracts/governance.zip',
 #                                          'SCORE': 'cxd7b3e71dcff3d75392216e208f28ef68e8a54ec0'},
 #                           'oracle': {'zip': 'core_contracts/oracle.zip',
-#                                      'SCORE': 'cx7171e2f5653c1b9c000e24228276b8d24e84f10d'},
+#                                      'SCORE': 'cx2780eeb8c800ac9886786baae281c3d23bb832fc'},
 #                           'sicx': {'zip': 'token_contracts/sicx.zip',
 #                                    'SCORE': 'cx799f724e02560a762b5f2bd3b6d2d8d59d7aecc1'},
 #                           'bnUSD': {'zip': 'token_contracts/bnUSD.zip',
@@ -218,8 +220,11 @@
 #
 #         txns = [{'contract': 'staking', 'value': 0, 'method': 'setSicxAddress',
 #                  'params': {'_address': self.contracts['sicx']['SCORE']}},
+#                 {'contract': 'staking', 'value': 0, 'method': 'toggleStakingOn', 'params': {}},
 #                 {'contract': 'governance', 'value': 0, 'method': 'setAddresses', 'params': {'_addresses': addresses}},
-#                 {'contract': 'governance', 'value': 0, 'method': 'launchBalanced', 'params': {}}]
+#                 {'contract': 'governance', 'value': 0, 'method': 'launchBalanced', 'params': {}},
+#                 {'contract': 'governance', 'value': 0, 'method': 'balanceToggleStakingEnabled', 'params': {}},
+#                 {'contract': 'loans', 'value': 0, 'method': 'toggleTestMode', 'params': {}}]
 #
 #         for tx in txns:
 #             res = self.send_tx(tx["contract"], tx["value"], tx["method"], tx["params"], wallet)
@@ -266,15 +271,15 @@
 #     #         self.assertEqual(
 #     #             self.contracts[address], tx_result['scoreAddress'])
 #
-#     # # Adding collateral to wallet _test1 and testing withdraw collateral from _test1
+#     # # Adding collateral to wallet wallet and testing withdraw collateral from wallet
 #     def test_liquidation(self):
 #         cases = test_cases['stories']
 #         for case in cases:
 #             _tx_result = {}
 #             print(case['description'])
 #             if case['actions']['sender'] == 'user1':
-#                 wallet_address = self._test1.get_address()
-#                 wallet = self._test1
+#                 wallet_address = self.wallet.get_address()
+#                 wallet = self.wallet
 #             else:
 #                 wallet_address = self._test2.get_address()
 #                 wallet = self._test2
@@ -285,18 +290,17 @@
 #                 data1 = case['actions']['args']
 #                 params = {"_asset": data1['_asset'], "_amount": data1['_amount']}
 #             elif case['actions']['name'] == 'create_test_position':
-#                 self.toggleTestMode()
 #                 _to = self.contracts['loans']['SCORE']
 #                 meth = case['actions']['name']
 #                 val = 0
 #                 data2 = case['actions']['args']
-#                 params = {"_address": self._test1.get_address(), "_asset": data2['_asset'], "_amount":data2['_amount']}
+#                 params = {"_address": self.wallet.get_address(), "_asset": data2['_asset'], "_amount": data2['_amount']}
 #             else:
 #                 _to = self.contracts['loans']['SCORE']
 #                 meth = case['actions']['name']
 #                 val = 0
 #                 data2 = case['actions']['args']
-#                 params = {"_owner": self._test1.get_address()}
+#                 params = {"_owner": self.wallet.get_address()}
 #
 #             transaction = CallTransactionBuilder() \
 #                 .from_(wallet_address) \
@@ -326,10 +330,14 @@
 #                     position_to_check = {'sICX': str(bal_of_sicx), 'bnUSD': hex(int(bal_of_icd, 16))}
 #                 else:
 #                     position_to_check = {'sICX': str(bal_of_sicx)}
-#                 self.assertEqual(position_to_check, assets)
+#                 if case['actions']['name'] == 'liquidate':
+#                     self.assertEqual({'sICX': '0x0'}, assets)
+#                     print("Account liquidated")
+#                 else:
+#                     self.assertEqual(position_to_check, assets)
 #
 #                 self.assertEqual(case['actions']['standing'], account_position['standing'])
-#                 print('liquidating account 2.....')
+#                 print('liquidating account wallet.')
 #
 #     def balanceOfTokens(self, name, owner):
 #         params = {
@@ -344,7 +352,7 @@
 #             contract = self.contracts['dividends']['SCORE']
 #         else:
 #             contract = self.contracts['bnUSD']['SCORE']
-#         _call = CallBuilder().from_(self._test1.get_address()) \
+#         _call = CallBuilder().from_(self.wallet.get_address()) \
 #             .to(contract) \
 #             .method("balanceOf") \
 #             .params(params) \
@@ -358,7 +366,7 @@
 #
 #     def _getAccountPositions(self, owner) -> dict:
 #         params = {'_owner': owner}
-#         _call = CallBuilder().from_(self._test1.get_address()) \
+#         _call = CallBuilder().from_(self.wallet.get_address()) \
 #             .to(self.contracts['loans']['SCORE']) \
 #             .method('getAccountPositions') \
 #             .params(params) \
@@ -368,7 +376,7 @@
 #         return result
 #
 #     def getBalances(self):
-#         _call = CallBuilder().from_(self._test1.get_address()) \
+#         _call = CallBuilder().from_(self.wallet.get_address()) \
 #             .to(self.contracts['dividends']['SCORE']) \
 #             .method('getBalances') \
 #             .build()

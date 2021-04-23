@@ -45,8 +45,6 @@ wallet = KeyWallet.load("../../keystores/keystore_test1.json", "test1_Account")
 with open("../../keystores/balanced_test.pwd", "r") as f:
     key_data = f.read()
 btest_wallet = KeyWallet.load("../../keystores/balanced_test.json", key_data)
-print(icon_service.get_balance(wallet.get_address())/10**18)
-print(icon_service.get_balance(btest_wallet.get_address())/10**18)
 
 print(wallet.get_address())
 print(icon_service.get_balance(wallet.get_address()) / 10**18)
@@ -66,6 +64,9 @@ user2 = KeyWallet.load(bytes.fromhex(private))
 print(icon_service.get_balance(user2.get_address())/10**18)
 print(user2.get_address())
 
+print("/==============================================="
+              " ......Testing liquidate method......./"
+              "=================================================")
 # The following addresses are those deployed to the private tbears server.
 
 contracts = {'loans': {'zip': 'core_contracts/loans.zip',
@@ -85,7 +86,7 @@ contracts = {'loans': {'zip': 'core_contracts/loans.zip',
  'governance': {'zip': 'core_contracts/governance.zip',
   'SCORE': 'cx238cd1a1e3a9702d6c9c6dc130719472164db376'},
  'oracle': {'zip': 'core_contracts/oracle.zip',
-  'SCORE': 'cx7171e2f5653c1b9c000e24228276b8d24e84f10d'},
+  'SCORE': 'cx2780eeb8c800ac9886786baae281c3d23bb832fc'},
  'sicx': {'zip': 'token_contracts/sicx.zip',
   'SCORE': 'cxcff8bf80ab213fa9bbb350636a4d68f5cb4fd9c1'},
  'bnUSD': {'zip': 'token_contracts/bnUSD.zip',
@@ -186,9 +187,12 @@ def deploy_all(wallet):
     config.remove('governance')
     addresses = {contract: contracts[contract]['SCORE'] for contract in config}
 
-    txns = [{'contract': 'staking', 'value': 0, 'method': 'setSicxAddress', 'params': {'_address': contracts['sicx']['SCORE']}},
+    txns = [{'contract': 'staking', 'value': 0, 'method': 'setSicxAddress',
+             'params': {'_address': contracts['sicx']['SCORE']}},
+            {'contract': 'staking', 'value': 0, 'method': 'toggleStakingOn', 'params': {}},
             {'contract': 'governance', 'value': 0, 'method': 'setAddresses', 'params': {'_addresses': addresses}},
-            {'contract': 'governance', 'value': 0, 'method': 'launchBalanced', 'params': {}}]
+            {'contract': 'governance', 'value': 0, 'method': 'launchBalanced', 'params': {}},
+            {'contract': 'governance', 'value': 0, 'method': 'balanceToggleStakingEnabled', 'params': {}}]
 
     for tx in txns:
         res = send_tx(tx["contract"], tx["value"], tx["method"], tx["params"], wallet)

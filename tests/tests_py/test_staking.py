@@ -1,3 +1,6 @@
+import os
+from shutil import make_archive
+
 from iconsdk.exception import JSONRPCException
 from iconsdk.libs.in_memory_zip import gen_deploy_data_content
 from iconsdk.icon_service import IconService
@@ -714,8 +717,10 @@ if __name__ == '__main__':
 
     # In[92]:
 
-    user1 = KeyWallet.load("../keystores/keystore1.json", "password")
-    user2 = KeyWallet.load("../keystores/keystore2.json", "password")
+    user1 = KeyWallet.load("../../keystores/keystore_test1.json", "test1_Account")
+    with open("../../keystores/balanced_test.pwd", "r") as f:
+        key_data = f.read()
+    user2 = KeyWallet.load("../../keystores/balanced_test.json", key_data)
 
     # print(icon_service.get_balance(user1.get_address()) / 10 ** 18)
     # print(icon_service.get_balance(user2.get_address()) / 10 ** 18)
@@ -726,11 +731,24 @@ if __name__ == '__main__':
     # In[93]:
 
     GOVERNANCE_ADDRESS = "cx0000000000000000000000000000000000000000"
-
+    contracts = {'staking': {'zip': 'core_contracts/staking.zip',
+                             'SCORE': 'cxd8e05c1280bc2c32bf53ff61f3bb2e2ecc7d6df5'},
+                 'sicx': {'zip': 'token_contracts/sicx.zip',
+                          'SCORE': 'cxcff8bf80ab213fa9bbb350636a4d68f5cb4fd9c1'}
+                 }
     print('Deploying staking Contract')
+    deploy = list(['staking', 'sicx'])
+    for directory in {"../../core_contracts", "../../token_contracts"}:
+        with os.scandir(directory) as it:
+            for file in it:
+                archive_name = directory + "/" + file.name
+                if file.is_dir() and file.name in deploy:
+                    make_archive(archive_name, "zip", directory, file.name)
+                    contracts[file.name]['zip'] = archive_name + '.zip'
+    zip_file = contracts['staking']['zip']
     deploy_transaction = DeployTransactionBuilder().from_(user2.get_address()).to(GOVERNANCE_ADDRESS).nid(
         NID).nonce(100).content_type("application/zip").content(
-        gen_deploy_data_content('../../core_contracts/staking')).build()
+        gen_deploy_data_content(zip_file)).build()
 
     estimate_step = icon_service.estimate_step(deploy_transaction)
     step_limit = estimate_step + 40000000
@@ -743,20 +761,34 @@ if __name__ == '__main__':
         tx_result = icon_service.get_transaction_result(_tx_hash)
         return tx_result
 
+    def staking_on():
+        set_div_per = CallTransactionBuilder() \
+            .from_(user2.get_address()) \
+            .to(staking_address) \
+            .nid(NID) \
+            .nonce(100) \
+            .method("toggleStakingOn") \
+            .build()
+        estimate_step = icon_service.estimate_step(set_div_per)
+        step_limit = estimate_step + 10000000
+        signed_transaction = SignedTransaction(set_div_per, user2, step_limit)
+
+        tx_hash = icon_service.send_transaction(signed_transaction)
+
 
     ab = get_tx_result(tx_hash)
     assert ab['status'] == 1, 'Staking contract not deployed'
     print('staking contract Deployed')
-    # print(ab)
     # if ab['status'] == 1:
     #     print('staking contract Deployed')
-    staking_address = ab['scoreAddress']
 
+    staking_address = ab['scoreAddress']
     # deployment of sICX contract
     print('Deploying sIcx Contract')
+    zip_file = contracts['sicx']['zip']
     deploy_transaction = DeployTransactionBuilder().from_(user2.get_address()).to(GOVERNANCE_ADDRESS).nid(
         NID).nonce(100).content_type("application/zip").params({"_admin": staking_address}).content(
-        gen_deploy_data_content('../../token_contracts/sicx')).build()
+        gen_deploy_data_content(zip_file)).build()
 
     estimate_step = icon_service.estimate_step(deploy_transaction)
     step_limit = estimate_step + 40000000
@@ -777,6 +809,7 @@ if __name__ == '__main__':
     assert ab['status'] == 1, 'sICX contract not deployed'
     print('sICX contract Deployed')
     token_address = ab['scoreAddress']
+    staking_on()
     test_top_preps()
     test_rate()
     test_stake_icx()
