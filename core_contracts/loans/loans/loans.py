@@ -432,7 +432,7 @@ class Loans(IconScoreBase):
         Returns the total bnUSD value of loans mining BALN for APY calculation.
         """
         bnUSD_price = self._assets['bnUSD'].lastPriceInLoop()
-        loop_value = self._positions._snapshot_db[-1].total_mining_debt.get()
+        loop_value = self._positions._snapshot_db[-2].total_mining_debt.get()
         return EXA * loop_value // bnUSD_price
 
 

@@ -260,13 +260,12 @@ class Rewards(IconScoreBase):
         :rtype int
         """
         dex = self._data_source_db['sICX/ICX']
-        dex_score = self.create_interface_score(dex._contract_address.get(), DataSourceInterface)
+        dex_score = self.create_interface_score(dex.contract_address.get(), DataSourceInterface)
         source = self._data_source_db[_name]
-        score = self.create_interface_score(source._contract_address.get(), DataSourceInterface)
         emission = self.getEmission(-1)
         baln_price = dex_score.getBalnPrice()
         percent = source.dist_percent.get()
-        return 365 * emission * percent * baln_price / (EXA * source.get_value())
+        return 365 * emission * percent * baln_price // (EXA * source.get_value())
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
