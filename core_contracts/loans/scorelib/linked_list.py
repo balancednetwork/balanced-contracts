@@ -324,9 +324,7 @@ class LinkedListDB:
         self.move_node_tail(self._head_id)
 
     def move_node_tail(self, cur_id: int) -> None:
-        """ Move an existing node at the tail of the linkedlist """
-        if cur_id == self._tail_id:
-            raise LinkedNodeCannotMoveItself(self._name, cur_id)
+        """ Move an existing node to the tail of the linkedlist """
 
         cur = self._get_node(cur_id)
         tail = self._get_node(self._tail_id)
