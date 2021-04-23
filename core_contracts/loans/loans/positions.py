@@ -305,28 +305,21 @@ class PositionsDB:
 
     def add_nonzero(self, _owner_id: int) -> None:
         current_snapshot = self._snapshot_db[-1]
-        if not self._remove(_owner_id, current_snapshot.remove_from_nonzero):
-            current_snapshot.add_to_nonzero.put(_owner_id)
+        add_to_nonzero = current_snapshot.get_add_nonzero()
+        remove_from_nonzero = current_snapshot.get_remove_nonzero()
+        if _owner_id in remove_from_nonzero:
+            remove_from_nonzero.remove(_owner_id)
+        else:
+            add_to_nonzero.append(0, _owner_id)
 
     def remove_nonzero(self, _owner_id: int) -> None:
         current_snapshot = self._snapshot_db[-1]
-        if not self._remove(_owner_id, current_snapshot.add_to_nonzero):
-            current_snapshot.remove_from_nonzero.put(_owner_id)
-
-    def _remove(self, _item: int, _array: ArrayDB) -> bool:
-        length = len(_array)
-        if length == 0:
-            return False
-        top = _array[-1]
-        if top == _item:
-            _array.pop()
-            return True
-        for i in range(length - 1):
-            if _array[i] == _item:
-                _array[i] = top
-                _array.pop()
-                return True
-        return False
+        add_to_nonzero = current_snapshot.get_add_nonzero()
+        remove_from_nonzero = current_snapshot.get_remove_nonzero()
+        if _owner_id in add_to_nonzero:
+            add_to_nonzero.remove(_owner_id)
+        else:
+            remove_from_nonzero.append(0, _owner_id)
 
     def get_pos(self, _owner: Address) -> Position:
         _id = self.addressID[_owner]
@@ -383,21 +376,30 @@ class PositionsDB:
         if _id < _day:
             return Complete.DONE
 
-        add = len(snapshot.add_to_nonzero)
-        remove = len(snapshot.remove_from_nonzero)
-        nonzero = self.get_nonzero()
+        add_to_nonzero = snapshot.get_add_nonzero()
+        remove_from_nonzero = snapshot.get_remove_nonzero()
+        add = len(add_to_nonzero)
+        remove = len(remove_from_nonzero)
         nonzero_deltas = add + remove
         nonzero = self.get_nonzero()
         if nonzero_deltas > 0:  # Bring the list of all nonzero positions up to date.
-            _iter = self._loans._snap_batch_size.get()  # Starting default is 200.
+            _iter = self._loans._snap_batch_size.get()  # Starting default is 50.
             loops = min(_iter, remove)
+            if remove > 0:
+                next_node = remove_from_nonzero.get_head_id()
             for _ in range(loops):
-                nonzero.remove(snapshot.remove_from_nonzero.pop())
+                nonzero.remove(next_node)
+                remove_from_nonzero.remove(next_node)
+                next_node = remove_from_nonzero.get_head_id()
                 _iter -= 1
             if _iter > 0:
                 loops = min(_iter, add)
+                if add > 0:
+                    next_node = add_to_nonzero.get_head_id()
                 for _ in range(loops):
-                    nonzero.append(0, snapshot.add_to_nonzero.pop())
+                    nonzero.append(0, next_node)
+                    add_to_nonzero.remove(next_node)
+                    next_node = add_to_nonzero.get_head_id()
             nonzero.serialize()
             return Complete.NOT_DONE
 

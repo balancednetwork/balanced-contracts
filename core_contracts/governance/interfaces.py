@@ -1,6 +1,13 @@
 from iconservice import *
 
 
+# TypedDict for disbursement specs
+class Disbursement(TypedDict):
+    address: Address
+    amount: int
+    symbol: str
+
+
 class PrepDelegations(TypedDict):
     _address: Address
     _votes_in_per: int
@@ -71,11 +78,11 @@ class DexInterface(InterfaceScore):
         pass
 
     @interface
-    def permit(self, _pid: int, _permission: bool):
+    def permit(self, _id: int, _permission: bool):
         pass
 
     @interface
-    def setMarketName(self, _pid: int, _name: str) -> None:
+    def setMarketName(self, _id: int, _name: str) -> None:
         pass
 
     @interface
@@ -197,55 +204,62 @@ class SetAddressesInterface(InterfaceScore):
 class BalancedInterface(InterfaceScore):
 
     @interface
-    def setbnUSD(self, _address):
+    def setbnUSD(self, _address: Address) -> None:
         pass
 
     @interface
-    def setDividends(self, _score):
+    def setDividends(self, _score: Address) -> None:
         pass
 
     @interface
-    def setDex(self, _address):
+    def setDex(self, _address: Address) -> None:
         pass
 
     @interface
-    def setOracleName(self, _name):
+    def setOracleName(self, _name: str) -> None:
         pass
 
     @interface
-    def toggleStakingEnabled(self):
+    def toggleStakingEnabled(self) -> None:
         pass
 
     @interface
-    def setMinimumStake(self, _amount):
+    def setMinimumStake(self, _amount: int) -> None:
         pass
 
     @interface
-    def setUnstakingPeriod(self, _time):
+    def setUnstakingPeriod(self, _time: int) -> None:
         pass
 
     @interface
-    def setMinInterval(self, _interval):
+    def setMinInterval(self, _interval: int) -> None:
         pass
 
 
 class DAOfundInterface(InterfaceScore):
 
     @interface
-    def disburse(self, _recipient, _amounts):
+    def disburse(self, _recipient: Address, _amounts: List[Disbursement]) -> bool:
         pass
 
 
 class BalancedDollarInterface(InterfaceScore):
 
     @interface
-    def setOracleName(self, _address):
+    def setOracleName(self, _name: str) -> None:
         pass
 
     @interface
-    def setOracle(self, _address):
+    def setOracle(self, _address: Address) -> None:
         pass
 
     @interface
-    def setMinInterval(self, _interval):
+    def setMinInterval(self, _interval: int) -> None:
+        pass
+
+
+class BalancedWorkerTokenInterface(InterfaceScore):
+
+    @interface
+    def adminTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = None):
         pass

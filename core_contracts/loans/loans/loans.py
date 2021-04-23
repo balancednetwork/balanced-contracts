@@ -54,7 +54,6 @@ class TokenInterface(InterfaceScore):
 
 
 class Loans(IconScoreBase):
-    _TEST_MODE = "test_mode"
     _LOANS_ON = 'loans_on'
     _GOVERNANCE = 'governance'
     _DIVIDENDS = 'dividends'
@@ -89,7 +88,6 @@ class Loans(IconScoreBase):
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
-        self._test_mode = VarDB(self._TEST_MODE, db, value_type=bool)
         self._loans_on = VarDB(self._LOANS_ON, db, value_type=bool)
         self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
         self._dividends = VarDB(self._DIVIDENDS, db, value_type=Address)
@@ -128,7 +126,6 @@ class Loans(IconScoreBase):
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
-        self._test_mode.set(False)
         self._governance.set(_governance)
         self._loans_on.set(False)
         self._admin.set(self.owner)
@@ -152,77 +149,8 @@ class Loans(IconScoreBase):
         super().on_update()
 
     @external(readonly=True)
-    def agetBorrowerNodes(self) -> dict:
-        borrowers = self._assets['bnUSD'].get_borrowers()
-        return {node[0]: {'value': node[1],
-                          'prev': borrowers._node(node[0]).get_prev(),
-                          'next': borrowers._node(node[0]).get_next(),
-                          'data_string': borrowers._node(node[0])._data_string,
-                          'node_data': borrowers._node(node[0])._node_data.get()} for node in borrowers}
-
-    @external(readonly=True)
-    def agetListMetadata(self) -> dict:
-        borrowers = self._assets['bnUSD'].get_borrowers()
-        nonzero = self._positions.get_nonzero()
-        return {'borrowers_head': borrowers._head_id,
-                'borrowers_tail': borrowers._tail_id,
-                'borrowers_length': borrowers._length,
-                'nonzero_head': nonzero._head_id,
-                'nonzero_tail': nonzero._tail_id,
-                'nonzero_length': nonzero._length,
-                }
-
-    @payable
-    @external
-    def create_test_position(self, _address: Address, _asset: str, _amount: int) -> None:
-        # Create bad position for testing liquidation. Take out a loan that is too large.
-        # Add ICX collateral via staking contract.
-        if not self._test_mode.get():
-            revert(f'{TAG}: This method may only be called in test mode.')
-        params = {"_asset": "", "_amount": 0}
-        data = json_dumps(params).encode("utf-8")
-        staking = self.create_interface_score(self._staking.get(), Staking)
-        value = self.msg.value
-        if value > 0:
-            staking.icx(value).stakeICX(self.address, data)
-        pos = self._positions.get_pos(_address)
-        # Mint asset for this position.
-        if _amount > 0:
-            if pos.total_debt() == 0:
-                self._positions.add_nonzero(pos.id.get())
-            self._assets[_asset].mint(_address, _amount)
-            pos[_asset] = pos[_asset] + _amount
-        pos.update_standing()
-        self.check_dead_markets()
-
-    @external
-    @only_owner
-    def toggleTestMode(self) -> None:
-        self._test_mode.set(not self._test_mode.get())
-
-    @external(readonly=True)
-    def getTestMode(self) -> bool:
-        return self._test_mode.get()
-
-    @external
-    @only_owner
-    def setRedeemBatchSize(self, _value: int):
-        self._redeem_batch.set(_value)
-
-    @external(readonly=True)
-    def getRedeemBatchSize(self) -> int:
-        return self._redeem_batch.get()
-
-    @external(readonly=True)
     def name(self) -> str:
         return "Balanced Loans"
-
-    @external(readonly=True)
-    def snapIndexes(self) -> List[int]:
-        """
-        Diagnostic only. Will be removed for production.
-        """
-        return [i for i in self._positions._snapshot_db._indexes]
 
     @external
     @only_governance
@@ -246,6 +174,18 @@ class Loans(IconScoreBase):
     @external(readonly=True)
     def getDay(self) -> int:
         return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
+
+    @external
+    @only_governance
+    def delegate(self, _delegations: List[PrepDelegations]):
+        """
+        Sets the delegation preference for the sICX held on the contract.
+
+        :param _delegations: List of dictionaries with two keys, Address and percent.
+        :type _delegations: List[PrepDelegations]
+        """
+        staking = self.create_interface_score(self._staking.get(), Staking)
+        staking.delegate(_delegations)
 
     @external(readonly=True)
     def getDistributionsDone(self) -> dict:
@@ -317,10 +257,10 @@ class Loans(IconScoreBase):
         """
         pos = self._positions
         snap = pos._snapshot_db[-1]
-        nonzero = len(pos.get_nonzero()) + len(snap.add_to_nonzero) - len(snap.remove_from_nonzero)
+        nonzero = len(pos.get_nonzero()) + len(snap.get_add_nonzero()) - len(snap.get_remove_nonzero())
         if snap.snap_day.get() > 1:
             last_snap = pos._snapshot_db[-2]
-            nonzero += len(last_snap.add_to_nonzero) - len(last_snap.remove_from_nonzero)
+            nonzero += len(last_snap.get_add_nonzero()) - len(last_snap.get_remove_nonzero())
         return nonzero
 
     @external(readonly=True)
@@ -475,6 +415,16 @@ class Loans(IconScoreBase):
         Gets total outstanding debt for mining rewards calculation.
         """
         return self._positions._snapshot_db[_snapshot_id].total_mining_debt.get()
+
+    @external(readonly=True)
+    def getBnusdValue(self, _name: str) -> int:
+        """
+        Returns the total bnUSD value of loans mining BALN for APY calculation.
+        """
+        bnUSD_price = self._assets['bnUSD'].lastPriceInLoop()
+        loop_value = self._positions._snapshot_db[-1].total_mining_debt.get()
+        return EXA * loop_value // bnUSD_price
+
 
     @external(readonly=True)
     def getDataCount(self, _snapshot_id: int) -> int:
@@ -944,18 +894,6 @@ class Loans(IconScoreBase):
     # --------------------------------------------------------------------------
 
     @external
-    @only_governance
-    def delegate(self, _delegations: List[PrepDelegations]):
-        """
-        Sets the delegation preference for the sICX held on the contract.
-
-        :param _delegations: List of dictionaries with two keys, Address and percent.
-        :type _delegations: List[PrepDelegations]
-        """
-        staking = self.create_interface_score(self._staking.get(), Staking)
-        staking.delegate(_delegations)
-
-    @external
     @only_owner
     def setGovernance(self, _address: Address) -> None:
         if not _address.is_contract:
@@ -1040,6 +978,11 @@ class Loans(IconScoreBase):
     def setTimeOffset(self, _delta_time: int) -> None:
         self._time_offset.set(_delta_time)
 
+    @external
+    @only_owner
+    def setRedeemBatchSize(self, _value: int):
+        self._redeem_batch.set(_value)
+
     @external(readonly=True)
     def getParameters(self) -> dict:
         return {
@@ -1058,7 +1001,8 @@ class Loans(IconScoreBase):
             "new loan minimum": self._new_loan_minimum.get(),
             "min mining debt": self._min_mining_debt.get(),
             "max div debt length": self._max_debts_list_length.get(),
-            "time offset": self._time_offset.get()
+            "time offset": self._time_offset.get(),
+            "redeem batch size": self._redeem_batch.get()
         }
 
     # --------------------------------------------------------------------------
