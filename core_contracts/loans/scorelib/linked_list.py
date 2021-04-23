@@ -264,6 +264,32 @@ class LinkedListDB:
             raise StopIteration(self._name)
         return next_id
 
+    def clear(self) -> None:
+        # Delete all nodes from the linkedlist
+        cur_id = self._head_id
+        if not cur_id:
+            # Empty list
+            return
+
+        node = self._get_node(cur_id)
+        tail_id = self._tail_id
+
+        # Iterate until tail
+        while cur_id != tail_id:
+            cur_id = node.get_next()
+            # We're done with this node
+            node.delete()
+            # Iterate to the next node
+            node = self._get_node(cur_id)
+
+        # Delete the last node
+        node.delete()
+
+        self._tail_id = 0
+        self._head_id = 0
+        self._length = 0
+        self.serialize()
+
     def append(self, value, node_id: int = None) -> int:
         """ Append an element at the end of the linkedlist """
         cur_id, cur = self._create_node(value, node_id)
@@ -298,9 +324,7 @@ class LinkedListDB:
         self.move_node_tail(self._head_id)
 
     def move_node_tail(self, cur_id: int) -> None:
-        """ Move an existing node at the tail of the linkedlist """
-        if cur_id == self._tail_id:
-            raise LinkedNodeCannotMoveItself(self._name, cur_id)
+        """ Move an existing node to the tail of the linkedlist """
 
         cur = self._get_node(cur_id)
         tail = self._get_node(self._tail_id)
