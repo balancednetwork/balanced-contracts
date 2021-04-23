@@ -8,7 +8,6 @@ TAG = 'bnDOGE'
 TOKEN_NAME = 'BalancedDogecoin'
 SYMBOL_NAME = 'bnDOGE'
 DEFAULT_PEG = 'DOGE'
-DEFAULT_ORACLE_ADDRESS = 'cx61a36e5d10412e03c907a507d1e8c6c3856d9964'
 DEFAULT_ORACLE_NAME = 'BandChain'
 INITIAL_PRICE_ESTIMATE = 3 * 10**16
 MIN_UPDATE_TIME = 30_000_000 # 30 seconds
@@ -45,7 +44,6 @@ class BalancedDoge(IRC2Mintable, IRC2Burnable):
         super().on_install(TOKEN_NAME, SYMBOL_NAME)
         self._governance.set(_governance)
         self._peg.set(DEFAULT_PEG)
-        self._oracle_address.set(Address.from_string(DEFAULT_ORACLE_ADDRESS))
         self._oracle_name.set(DEFAULT_ORACLE_NAME)
         self._last_price.set(INITIAL_PRICE_ESTIMATE)
         self._min_interval.set(MIN_UPDATE_TIME)
