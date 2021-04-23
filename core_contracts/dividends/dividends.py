@@ -273,8 +273,8 @@ class Dividends(IconScoreBase):
     @external
     @only_admin
     def setMaxLoopCount(self, _loop: int) -> None:
-        if not 100 <= _loop <= 1000:
-            revert(f"{TAG}: Please provide loop in the range of 100 and 1000")
+        if not 10 <= _loop <= 400:
+            revert(f"{TAG}: Please provide loop in the range of 10 and 400")
         self._max_loop_count.set(_loop)
 
     @external(readonly=True)
@@ -376,14 +376,14 @@ class Dividends(IconScoreBase):
             revert(f"{TAG}: Total percentage doesn't sum up to 100 i.e. 10**18")
 
     @external
-    def distribute(self) -> bool:
+    def distribute(self, _activate: int = 0) -> bool:
         """
         Main method to handle the distribution of tokens to eligible BALN token holders
         :return: True if distribution has completed
         """
 
         # If distribution is not activated just return true
-        if not self._distribution_activate.get():
+        if not (self._distribution_activate.get() or _activate):
             return True
 
         baln_score = self.create_interface_score(self._baln_score.get(), BalnTokenInterface)
