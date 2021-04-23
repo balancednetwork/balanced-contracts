@@ -132,7 +132,7 @@ class Staking(IconScoreBase):
         # dictdb for storing the prep address and their delegated value
         self._prep_delegations = DictDB(self._PREP_DELEGATIONS, db, value_type=int)
         # initializing the system score
-        self._system = IconScoreBase.create_interface_score(SYSTEM_SCORE, InterfaceSystemScore)
+        self._system = IconScoreBase.create_interface_score(SYSTEM_SCORE_ADDRESS, InterfaceSystemScore)
         # initialize the sicx score interface later since it needs db access
         self._sICX_score = None
         # initialize the linked list
@@ -156,7 +156,6 @@ class Staking(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self._unstake_batch_limit.set(DEFAULT_UNSTAKE_BATCH_LIMIT)
 
     @external(readonly=True)
     def name(self) -> str:
@@ -186,14 +185,6 @@ class Staking(IconScoreBase):
         else:
             rate = (total_stake + self._daily_reward.get()) * DENOMINATOR // self.get_sICX_score().totalSupply()
         return rate
-
-    @external
-    @only_owner
-    def setSicxSupply(self) -> None:
-        """
-        Only necessary for the dummy contract.
-        """
-        self._sICX_supply.set(self.get_sICX_score().totalSupply())
 
     @external(readonly=True)
     def getSicxAddress(self) -> Address:
@@ -349,7 +340,7 @@ class Staking(IconScoreBase):
             if single_prep["_address"] not in self._prep_list:
                 self._prep_list.put(single_prep["_address"])
             if single_prep["_address"] in similar_prep_list_check:
-                revert(f'{TAG}: You can not delegate same Prep twice in a transaction.')
+                revert(f'{TAG}: You can not delegate same Prep twice in a transaction.Your delegation preference is {_user_delegations}')
             if single_prep["_votes_in_per"] < 10 ** 15:
                 revert(
                     f'{TAG}: You should provide delegation percentage more than 0.001. Your delegation preference is {_user_delegations}.')
@@ -628,7 +619,7 @@ class Staking(IconScoreBase):
         previous_address_delegations = self._remove_previous_delegations(_to)
         amount_to_stake_in_per = self._delegate_votes(_to, _user_delegations)
         if amount_to_stake_in_per != 100 * DENOMINATOR:
-            revert(f'{TAG}: Total delegations should be 100%.')
+            revert(f'{TAG}: Total delegations should be 100%.Your delegation preference is {_user_delegations}')
         if previous_address_delegations != {}:
             self._stake_and_delegate(self._check_for_week())
 
@@ -637,7 +628,7 @@ class Staking(IconScoreBase):
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
         Used only to receive sICX for unstaking.
-        :param _from: Token orgination address.
+        :param _from: Token origination address.
         :type _from: :class:`iconservice.base.address.Address`
         :param _value: Number of tokens sent.
         :type _value: int

@@ -31,31 +31,52 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def configureBalanced(self) -> None:
+        """
+        Set parameters after deployment and before launch.
+        Add Assets to Loans.
+        """
+        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
+        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        self.addresses.setAdmins()
+        self.addresses.setContractAddresses()
+        addresses: dict = self.addresses.getAddresses()
+        for asset in ASSETS:
+            loans.addAsset(addresses[asset['address']],
+                           asset['active'],
+                           asset['collateral'])
+
+    @external
+    @only_owner
     def launchBalanced(self) -> None:
-        if not self._launched.get():
-            self._launched.set(True)
-            loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
-            dex = self.create_interface_score(self.addresses['dex'], DexInterface)
-            rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
-            self.addresses.setAdmins()
-            self.addresses.setContractAddresses()
-            self._set_launch_day(self.getDay())
-            self._set_launch_time(self.now())
-            # Minimum day value is 1 since 0 is the default value for uninitialized storage.
-            time_delta = DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1)
-            loans.setTimeOffset(time_delta)
-            dex.setTimeOffset(time_delta)
-            rewards.setTimeOffset(time_delta)
-            _addresses: dict = self.addresses.getAddresses()
-            for asset in ASSETS:
-                loans.addAsset(_addresses[asset['address']],
-                               asset['active'], asset['collateral'])
-            for source in DATA_SOURCES:
-                rewards.addNewDataSource(source['name'],
-                                         _addresses[source['address']])
-            rewards.updateBalTokenDistPercentage(RECIPIENTS)
-            loans.turnLoansOn()
-            dex.turnDexOn()
+        if self._launched.get():
+            return
+        self._launched.set(True)
+        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
+        dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
+        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        offset = DAY_ZERO + self._launch_day.get()
+        day = (self.now() - DAY_START) // U_SECONDS_DAY - offset
+        self._set_launch_day(day)
+        self._set_launch_time(self.now())
+        # Minimum day value is 1 since 0 is the default value for uninitialized storage.
+        time_delta = DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1)
+        loans.setTimeOffset(time_delta)
+        dex.setTimeOffset(time_delta)
+        rewards.setTimeOffset(time_delta)
+        addresses: dict = self.addresses.getAddresses()
+        for source in DATA_SOURCES:
+            rewards.addNewDataSource(source['name'], addresses[source['address']])
+        rewards.updateBalTokenDistPercentage(RECIPIENTS)
+        self.balanceToggleStakingEnabled()
+        loans.turnLoansOn()
+        dex.turnDexOn()
+
+    @external
+    @only_owner
+    @payable
+    def createAndFundMarket(self, _market_name: str) -> None:
+        pass
 
     @external
     @only_owner
@@ -90,11 +111,6 @@ class Governance(IconScoreBase):
     @external(readonly=True)
     def getLaunchTime(self) -> int:
         return self._launch_time.get()
-
-    @external(readonly=True)
-    def getDay(self) -> int:
-        offset = DAY_ZERO + self._launch_day.get()
-        return (self.now() - DAY_START) // U_SECONDS_DAY - offset
 
     @external
     @only_owner
@@ -134,9 +150,9 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def dexPermit(self, _pid: int, _permission: bool):
+    def dexPermit(self, _id: int, _permission: bool):
         dex = self.create_interface_score(self.addresses['dex'], DexInterface)
-        dex.permit(_pid, _permission)
+        dex.permit(_id, _permission)
 
     @external
     @only_owner
@@ -146,9 +162,9 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def setMarketName(self, _pid: int, _name: str) -> None:
+    def setMarketName(self, _id: int, _name: str) -> None:
         """
-        :param _pid: Pool ID to map to the name
+        :param _id: Pool ID to map to the name
         :param _name: Name to associate
 
         Links a pool ID to a name, so users can look up platform-defined
@@ -156,7 +172,7 @@ class Governance(IconScoreBase):
         """
         dex_address = self.addresses['dex']
         dex = self.create_interface_score(dex_address, DexInterface)
-        dex.setMarketName(_pid, _name)
+        dex.setMarketName(_id, _name)
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.addNewDataSource(_name, dex_address)
 
@@ -171,6 +187,14 @@ class Governance(IconScoreBase):
         """
         loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         loans.delegate(_delegations)
+
+    @external
+    @only_owner
+    def balwAdminTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = None):
+        if _data is None:
+            _data = b'None'
+        balw = self.create_interface_score(self.addresses['bwt'], BalancedWorkerTokenInterface)
+        balw.adminTransfer(_from, _to, _value, _data)
 
     @external
     @only_owner
@@ -248,7 +272,7 @@ class Governance(IconScoreBase):
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
         Used only to receive sICX for unstaking.
-        :param _from: Token orgination address.
+        :param _from: Token origination address.
         :type _from: :class:`iconservice.base.address.Address`
         :param _value: Number of tokens sent.
         :type _value: int

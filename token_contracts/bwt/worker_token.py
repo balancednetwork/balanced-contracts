@@ -2,10 +2,10 @@ from iconservice import *
 from .tokens.IRC2 import IRC2
 from .utils.checks import *
 
-TAG = 'BWT'
+TAG = 'BALW'
 
-TOKEN_NAME = 'BalancedWorkerToken'
-SYMBOL_NAME = 'BWT'
+TOKEN_NAME = 'Balanced Worker Token'
+SYMBOL_NAME = 'BALW'
 INITIAL_SUPPLY = 100
 DECIMALS = 6
 
@@ -32,6 +32,8 @@ class WorkerToken(IRC2):
     @external
     @only_owner
     def setGovernance(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._governance.set(_address)
 
     @external(readonly=True)
@@ -59,7 +61,7 @@ class WorkerToken(IRC2):
 
     @external
     @only_admin
-    def admin_transfer(self, _from: Address, _to: Address, _value: int, _data: bytes = None):
+    def adminTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = None):
         if _data is None:
             _data = b'None'
         super()._transfer(_from, _to, _value, _data)
@@ -69,7 +71,7 @@ class WorkerToken(IRC2):
         """
         Used to receive BALN tokens.
 
-        :param _from: Token orgination address.
+        :param _from: Token origination address.
         :type _from: :class:`iconservice.base.address.Address`
         :param _value: Number of tokens sent.
         :type _value: int
@@ -80,5 +82,5 @@ class WorkerToken(IRC2):
             self._baln.set(self._baln.get() + _value)
         else:
             revert(f'The Worker Token contract can only accept BALN tokens. '
-                   f'Deposit not accepted from {str(self.msg.sender)} '
-                   f'Only accepted from BALN = {str(self._baln_token.get())}')
+                   f'Deposit not accepted from {self.msg.sender} '
+                   f'Only accepted from BALN = {self._baln_token.get()}')

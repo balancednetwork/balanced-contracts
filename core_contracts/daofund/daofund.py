@@ -77,6 +77,17 @@ class DAOfund(IconScoreBase):
         return "Balanced DAOfund"
 
     @external
+    @only_owner
+    def setGovernance(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
+        self._governance.set(_address)
+
+    @external(readonly=True)
+    def getGovernance(self) -> Address:
+        return self._governance.get()
+
+    @external
     @only_governance
     def setAdmin(self, _address: Address) -> None:
         self._admin.set(_address)
