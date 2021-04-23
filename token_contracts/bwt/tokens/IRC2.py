@@ -209,7 +209,7 @@ class IRC2(TokenStandard, IconScoreBase):
 		if _to not in self._addresses:
 			self._addresses.put(_to)
 		if self._balances[_from] == 0:
-			remove_from_arraydb(_from, self._addresses)
+			self.remove_from_arraydb(_from, self._addresses)
 
 		# Emits an event log `Transfer`
 		self.Transfer(_from, _to, _value, _data)
