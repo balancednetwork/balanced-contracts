@@ -73,6 +73,10 @@ class EnumerableSetDB(object):
             if value_index != last_index:
                 self._entries[value_index-1] = last_entry
                 self._indexes[last_entry] = value_index
+                # returns the swapped item
+                return last_entry
+        # value not in the set or the value is the last item
+        return None
 
     def range(self, start: int, stop: int):
         size = self.__get_size()
