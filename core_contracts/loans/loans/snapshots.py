@@ -1,4 +1,5 @@
 from iconservice import *
+from ..scorelib.linked_list import *
 
 TAG = 'BalancedLoansSnapshots'
 SNAP_DB_PREFIX = b'snaps'
@@ -7,6 +8,7 @@ SNAP_DB_PREFIX = b'snaps'
 class Snapshot(object):
 
     def __init__(self, db: IconScoreDatabase, loans: IconScoreBase) -> None:
+        self._db = db
         self._loans = loans
         self.snap_day = VarDB('snap_day', db, int)
         # Time of snapshot
@@ -26,12 +28,12 @@ class Snapshot(object):
         # will be compiled in the precompute method as each position in the
         # nonzero ArrayDB is brought up to date.
         self.mining = ArrayDB('mining', db, int)
-        # List of position ids that changed to non-zero collateral status since the last snap.
-        # used to update the nonzero ArrayDB during calls to the precompute method.
-        self.add_to_nonzero = ArrayDB('add_to_nonzero', db, int)
-        # List of position ids that changed to a zero collateral status since the last snap.
-        # used to update the nonzero ArrayDB during calls to the precompute method.
-        self.remove_from_nonzero = ArrayDB('remove_from_nonzero', db, int)
+
+    def get_add_nonzero(self) -> LinkedListDB:
+        return LinkedListDB('add_to_nonzero', self._db, value_type=int)
+
+    def get_remove_nonzero(self) -> LinkedListDB:
+        return LinkedListDB('remove_from_nonzero', self._db, value_type=int)
 
     def to_dict(self) -> dict:
         """
@@ -52,8 +54,8 @@ class Snapshot(object):
             'prices': prices,
             'mining_count': len(self.mining),
             'precompute_index': self.precompute_index.get(),
-            'add_to_nonzero_count': len(self.add_to_nonzero),
-            'remove_from_nonzero_count': len(self.remove_from_nonzero)
+            'add_to_nonzero_count': len(self.get_add_nonzero()),
+            'remove_from_nonzero_count': len(self.get_remove_nonzero())
         }
         return snap
 
