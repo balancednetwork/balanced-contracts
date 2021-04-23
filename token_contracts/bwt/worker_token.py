@@ -9,9 +9,20 @@ SYMBOL_NAME = 'BALW'
 INITIAL_SUPPLY = 100
 DECIMALS = 6
 
+# An interface of token to distribute daily BALN
+class TokenInterface(InterfaceScore):
+    @interface
+    def balanceOf(self, _owner: Address) -> int:
+        pass
+
+    @interface
+    def transfer(self, _to: Address, _value: int, _data: bytes = None):
+        pass
+
 
 class WorkerToken(IRC2):
 
+    _ACCOUNTS = 'accounts'
     _GOVERNANCE = 'governance'
     _BALN_TOKEN = 'baln_token'
     _BALN = 'baln'
@@ -65,6 +76,25 @@ class WorkerToken(IRC2):
         if _data is None:
             _data = b'None'
         super()._transfer(_from, _to, _value, _data)
+
+    @external
+    def distribute(self) -> None:
+        length = len(self._addresses)
+        tokens = self.totalSupply()
+        baln = self.create_interface_score(self._baln_token.get(), TokenInterface)
+        dist = baln.balanceOf(self.address)
+        for i in range(length):
+            address = self._addresses[i]
+            balance = self._balances[address]
+            if balance > 0:
+                amount = (dist * balance // tokens)
+                dist -= amount
+                tokens -= balance
+                try:
+                    baln.transfer(address, amount)
+                except BaseException as e:
+                    revert(f'{TAG}: {amount} BALN not sent to {address}. '
+                           f'Exception: {e}')
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:

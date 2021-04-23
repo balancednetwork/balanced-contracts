@@ -45,6 +45,7 @@ class IRC2(TokenStandard, IconScoreBase):
 		self._symbol = VarDB(self._SYMBOL, db, value_type=str)
 		self._decimals = VarDB(self._DECIMALS, db, value_type=int)
 		self._total_supply = VarDB(self._TOTAL_SUPPLY, db, value_type=int)
+		self._addresses = ArrayDB(self._ACCOUNTS, db, value_type=Address)
 		self._balances = DictDB(self._BALANCES, db, value_type=int)
 		self._admin = VarDB(self._ADMIN, db, value_type=Address)
 
@@ -90,6 +91,7 @@ class IRC2(TokenStandard, IconScoreBase):
 		self._total_supply.set(total_supply)
 		self._decimals.set(_decimals)
 		self._balances[self.msg.sender] = total_supply
+		self._addresses.put(self.msg.sender)
 
 	def on_update(self) -> None:
 		super().on_update()
@@ -131,6 +133,19 @@ class IRC2(TokenStandard, IconScoreBase):
 		:return Amount of tokens owned by the `account` with the given address.
 		"""
 		return self._balances[_owner]
+
+	@staticmethod
+	def remove_from_arraydb(_item, _array: ArrayDB) -> bool:
+		length = len(_array)
+		if length < 1:
+			return False
+		top = _array[-1]
+		for index in range(length):
+			if _array[index] == _item:
+				_array[index] = top
+				_array.pop()
+				return True
+		return False
 
 	@only_owner
 	@external
@@ -191,6 +206,10 @@ class IRC2(TokenStandard, IconScoreBase):
 
 		self._balances[_from] -= _value
 		self._balances[_to] += _value
+		if _to not in self._addresses:
+			self._addresses.put(_to)
+		if self._balances[_from] == 0:
+			remove_from_arraydb(_from, self._addresses)
 
 		# Emits an event log `Transfer`
 		self.Transfer(_from, _to, _value, _data)
