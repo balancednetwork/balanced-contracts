@@ -419,7 +419,7 @@ def test_retireAssets():
                     "second_meth": "returnAsset",
                     "deposited_icx": "0",
                     "first_params": {'_to': user2.get_address(), '_value': 20 * ICX},
-                    "second_params": {"_symbol": "bnUSD", '_value': 4 * ICX},
+                    "second_params": {"_symbol": "bnUSD", '_value': 5 * ICX},
                     "expected_status_result": "1"
                 }
             }
