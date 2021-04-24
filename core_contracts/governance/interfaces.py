@@ -106,6 +106,10 @@ class DexInterface(InterfaceScore):
         pass
 
     @interface
+    def getPoolId(self, _token1Address: Address, _token2Address: Address) -> int:
+        pass
+
+    @interface
     def setAdmin(self, _address: Address) -> None:
         pass
 

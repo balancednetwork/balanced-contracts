@@ -112,12 +112,12 @@ class Governance(IconScoreBase):
         sICX.transfer(dex_address, sICX_value, json_dumps({"method": "_deposit"}).encode())
         dex.add(sICX_address, bnUSD_address, sICX_value, bnUSD_value)
         name = 'sICX/bnUSD'
-        pid = getPoolId(sICX_address, bnUSD_address)
+        pid = dex.getPoolId(sICX_address, bnUSD_address)
         dex.setMarketName(pid, name)
         rewards.addNewDataSource(name, dex_address)
         recipients = RECIPIENTS
-        recipients['BALN/bnUSD'] = 175 * UNITS_PER_TOKEN // 1000
-        recipients['DAOfund'] = 225 * UNITS_PER_TOKEN // 1000
+        recipients.append({'recipient_name': 'sICX/bnUSD', 'dist_percent': 175 * 10**15})
+        recipients[4]['dist_percent'] = 225 * 10**15
         rewards.updateBalTokenDistPercentage(recipients)
 
     @external
@@ -139,12 +139,12 @@ class Governance(IconScoreBase):
         baln.transfer(dex_address, baln_value, json_dumps({"method": "_deposit"}).encode())
         dex.add(baln_address, bnUSD_address, baln_value, bnUSD_value)
         name = 'BALN/bnUSD'
-        pid = getPoolId(baln_address, bnUSD_address)
+        pid = dex.getPoolId(baln_address, bnUSD_address)
         dex.setMarketName(pid, name)
         rewards.addNewDataSource(name, dex_address)
-        recipients['sICX/bnUSD'] = 175 * UNITS_PER_TOKEN // 1000
-        recipients['BALN/bnUSD'] = 175 * UNITS_PER_TOKEN // 1000
-        recipients['DAOfund'] = 5 * UNITS_PER_TOKEN // 100
+        recipients.append({'recipient_name': 'sICX/bnUSD', 'dist_percent': 175 * 10**15})
+        recipients.append({'recipient_name': 'BALN/bnUSD', 'dist_percent': 175 * 10**15})
+        recipients[4]['dist_percent'] = 5 * 10**16
         rewards.updateBalTokenDistPercentage(recipients)
 
     @external
