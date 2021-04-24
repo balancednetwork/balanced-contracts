@@ -248,6 +248,10 @@ class BalancedInterface(InterfaceScore):
         pass
 
     @interface
+    def setOracle(self, _address: Address) -> None:
+        pass
+
+    @interface
     def setOracleName(self, _name: str) -> None:
         pass
 

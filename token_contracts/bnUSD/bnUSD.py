@@ -19,10 +19,9 @@ from .utils.checks import *
 
 TAG = 'bnUSD'
 
-TOKEN_NAME = 'BalancedDollar'
+TOKEN_NAME = 'Balanced Dollar'
 SYMBOL_NAME = 'bnUSD'
 DEFAULT_PEG = 'USD'
-DEFAULT_ORACLE_ADDRESS = 'cx61a36e5d10412e03c907a507d1e8c6c3856d9964'
 DEFAULT_ORACLE_NAME = 'BandChain'
 INITIAL_PRICE_ESTIMATE = 125 * 10**16
 MIN_UPDATE_TIME = 30_000_000 # 30 seconds

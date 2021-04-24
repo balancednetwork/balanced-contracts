@@ -528,6 +528,7 @@ class Dividends(IconScoreBase):
             self._dividends_distribution_status.set(Status.DISTRIBUTE_FUND_TO_HOLDERS)
             return
         total_percentage = 10 ** 18
+        self._dividends_distribution_status.set(Status.DISTRIBUTE_FUND_TO_HOLDERS)
         for token in self._accepted_tokens:
             amount = (daofund_percentage * self._amount_being_distributed[str(token)]) // total_percentage
             self._amount_being_distributed[str(token)] -= amount
@@ -537,7 +538,6 @@ class Dividends(IconScoreBase):
                 self._send_ICX(daofund_address, amount, "Dividends distribution to DAOfund address")
             else:
                 self._send_token(daofund_address, amount, token, "Dividends distribution to DAOfund address")
-        self._dividends_distribution_status.set(Status.DISTRIBUTE_FUND_TO_HOLDERS)
 
     def _distribute_to_baln_holders(self):
         if self._dividends_percentage[BALN_HOLDERS] == 0:

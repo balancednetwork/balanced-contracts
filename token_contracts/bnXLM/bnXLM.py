@@ -5,10 +5,9 @@ from .utils.checks import *
 
 TAG = 'bnXLM'
 
-TOKEN_NAME = 'BalancedLumens'
+TOKEN_NAME = 'Balanced Lumens'
 SYMBOL_NAME = 'bnXLM'
 DEFAULT_PEG = 'XLM'
-DEFAULT_ORACLE_ADDRESS = 'cx61a36e5d10412e03c907a507d1e8c6c3856d9964'
 DEFAULT_ORACLE_NAME = 'BandChain'
 INITIAL_PRICE_ESTIMATE = 21 * 10**16
 MIN_UPDATE_TIME = 30_000_000 # 30 seconds

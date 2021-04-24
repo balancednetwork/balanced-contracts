@@ -5,6 +5,7 @@ from ..utils.consts import *
 
 TAG = 'IRC_2'
 EOA_ZERO = Address.from_string('hx' + '0' * 40)
+MAX_HOLDER_COUNT = 400
 
 class InsufficientBalanceError(Exception):
 	pass
@@ -168,14 +169,6 @@ class IRC2(TokenStandard, IconScoreBase):
 	def Transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
 		pass
 
-	@eventlog(indexed=1)
-	def Mint(self, account: Address, amount: int, _data: bytes):
-		pass
-
-	@eventlog(indexed=1)
-	def Burn(self, account: Address, amount: int):
-		pass
-
 	@external
 	def transfer(self, _to: Address, _value: int, _data: bytes = None):
 		if _data is None:
@@ -210,6 +203,10 @@ class IRC2(TokenStandard, IconScoreBase):
 			self._addresses.put(_to)
 		if self._balances[_from] == 0:
 			self.remove_from_arraydb(_from, self._addresses)
+		if len(self._addresses) > MAX_HOLDER_COUNT:
+			revert(f'The maximum holder count of {MAX_HOLDER_COUNT} has been reached. '
+				   f'Only transfers of whole balances or moves between current '
+				   f'holders is allowed until the total holder count is reduced.')
 
 		# Emits an event log `Transfer`
 		self.Transfer(_from, _to, _value, _data)
@@ -221,66 +218,3 @@ class IRC2(TokenStandard, IconScoreBase):
 			"""
 			recipient_score = self.create_interface_score(_to, TokenFallbackInterface)
 			recipient_score.tokenFallback(_from, _value, _data)
-
-	@only_admin
-	def _mint(self, account: Address, amount: int, _data: bytes) -> None:
-		"""
-		Creates amount number of tokens, and assigns to account
-		Increases the balance of that account and total supply.
-		This is an internal function
-
-		:param account: The account at which token is to be created.
-		:param amount: Number of tokens to be created at the `account`.
-		:param _data: Any information or message
-
-		Raises
-		ZeroValueError
-			if the `amount` is less than or equal to zero.
-		"""
-
-		if amount <= 0:
-			raise ZeroValueError("Invalid Value")
-
-		self._total_supply.set(self._total_supply.get() + amount)
-		self._balances[account] += amount
-
-		# Emits an event log Mint
-		self.Mint(account, amount, _data)
-
-		# Emits an event log `Transfer`
-		self.Transfer(EOA_ZERO, account, amount, _data)
-
-		if account.is_contract:
-			"""
-			If the recipient is SCORE,
-			then calls `tokenFallback` to hand over control.
-			"""
-			recipient_score = self.create_interface_score(account, TokenFallbackInterface)
-			recipient_score.tokenFallback(EOA_ZERO, amount, _data)
-
-	@only_admin
-	def _burn(self, account: Address, amount: int) -> None:
-		"""
-		Destroys `amount` number of tokens from `account`
-		Decreases the balance of that `account` and total supply.
-		This is an internal function
-
-		:param account: The account at which token is to be destroyed.
-		:param amount: The `amount` of tokens of `account` to be destroyed.
-
-		Raises
-		ZeroValueError
-			if the `amount` is less than or equal to zero
-		"""
-
-		if amount <= 0:
-			raise ZeroValueError("Invalid Value")
-
-		self._total_supply.set(self._total_supply.get() - amount)
-		self._balances[account] -= amount
-
-		# Emits an event log Burn
-		self.Burn(account, amount)
-
-		# Emits an event log `Transfer`
-		self.Transfer(account, EOA_ZERO, amount, b'None')

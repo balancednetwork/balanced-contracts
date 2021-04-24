@@ -93,7 +93,7 @@ class WorkerToken(IRC2):
 
     @external
     def distribute(self) -> None:
-        length = len(self._addresses)
+        length = len(self._addresses)  # length of _addresses is limited at the transfer method.
         tokens = self.totalSupply()
         baln = self.create_interface_score(self._baln_token.get(), TokenInterface)
         dist = baln.balanceOf(self.address)

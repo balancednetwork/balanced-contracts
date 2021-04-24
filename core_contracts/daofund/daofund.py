@@ -162,13 +162,13 @@ class DAOfund(IconScoreBase):
         for symbol in assets:
             amount = disbursement[symbol]
             if amount > 0:
+                disbursement[symbol] = 0
                 self._send_token(symbol, Address.from_string(assets[symbol]), self.msg.sender,
                                  amount, 'Balanced DAOfund disbursement')
-                disbursement[symbol] = 0
         amount = disbursement['ICX']
         if amount > 0:
-            self._send_ICX(self.msg.sender, amount, 'Balanced DAOfund disbursement')
             disbursement['ICX'] = 0
+            self._send_ICX(self.msg.sender, amount, 'Balanced DAOfund disbursement')
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:

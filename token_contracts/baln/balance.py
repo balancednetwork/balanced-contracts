@@ -21,7 +21,14 @@ TAG = 'BALN'
 
 TOKEN_NAME = 'Balance Token'
 SYMBOL_NAME = 'BALN'
-DEFAULT_ORACLE_NAME = 'BalancedDEX'
+DEFAULT_ORACLE_NAME = 'Balanced DEX'
+
+
+# An interface to the Band Price Oracle
+class OracleInterface(InterfaceScore):
+    @interface
+    def get_reference_data(self, _base: str, _quote: str) -> dict:
+        pass
 
 
 # An interface to the Balanced DEX
@@ -61,6 +68,7 @@ class BalancedToken(IRC2):
 
     _DEX_SCORE = "dex_score"
     _BNUSD_SCORE = "bnUSD_score"
+    _ORACLE = "oracle"
     _ORACLE_NAME = "oracle_name"
 
     def __init__(self, db: IconScoreDatabase) -> None:
@@ -68,6 +76,7 @@ class BalancedToken(IRC2):
         self._dex_score = VarDB(self._DEX_SCORE, db, value_type=Address)
         self._bnusd_score = VarDB(self._BNUSD_SCORE, db, value_type=Address)
         self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
+        self._oracle = VarDB(self._ORACLE, db, value_type=Address)
         self._oracle_name = VarDB(self._ORACLE_NAME, db, value_type=str)
         self._price_update_time = VarDB(self._PRICE_UPDATE_TIME, db, value_type=int)
         self._last_price = VarDB(self._LAST_PRICE, db, value_type=int)
@@ -125,11 +134,11 @@ class BalancedToken(IRC2):
     @external
     @only_governance
     def setOracle(self, _address: Address) -> None:
-        self._dex_score.set(_address)
+        self._oracle.set(_address)
 
     @external(readonly=True)
     def getOracle(self) -> dict:
-        return self._dex_score.get()
+        return self._oracle.get()
 
     @external
     @only_governance
@@ -192,13 +201,14 @@ class BalancedToken(IRC2):
         """
         Returns the latest price of the asset in loop.
         """
-        base = "BALN"
-        quote = "bnUSD"
         dex_score = self._dex_score.get()
-        oracle = self.create_interface_score(dex_score, DexInterface)
-        pool_id = oracle.getPoolId(self._bnusd_score.get(), self.address)
-        price = oracle.getPrice(pool_id)
-        return price
+        oracle_address = self._oracle.get()
+        dex = self.create_interface_score(dex_score, DexInterface)
+        oracle = self.create_interface_score(oracle_address, OracleInterface)
+        price = dex.getBalnPrice()
+        priceData = oracle.get_reference_data('USD', 'ICX')
+
+        return priceData['rate'] * price // EXA
 
     def update_asset_value(self) -> None:
         """
@@ -208,11 +218,13 @@ class BalancedToken(IRC2):
         base = "BALN"
         quote = "bnUSD"
         dex_score = self._dex_score.get()
+        oracle_address = self._oracle.get()
         try:
-            oracle = self.create_interface_score(dex_score, DexInterface)
-            pool_id = oracle.getPoolId(self._bnusd_score.get(), self.address)
-            price = oracle.getPrice(pool_id)
-            self._last_price.set(price)
+            dex = self.create_interface_score(dex_score, DexInterface)
+            oracle = self.create_interface_score(oracle_address, OracleInterface)
+            price = dex.getBalnPrice()
+            priceData = oracle.get_reference_data('USD', 'ICX')
+            self._last_price.set(priceData['rate'] * price // EXA)
             self._price_update_time.set(self.now())
             self.OraclePrice(base + quote, self._oracle_name.get(), dex_score, price)
         except BaseException as e:
