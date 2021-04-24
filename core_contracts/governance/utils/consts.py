@@ -17,8 +17,8 @@ ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve'],
              'dividends': ['loans', 'daofund'],
              'daofund': ['loans'],
              'reserve': ['loans', 'baln', 'sicx'],
-             'bnUSD': ['oracle', 'dex'],
-             'baln': ['dividends', 'dex', 'bnUSD'],
+             'bnUSD': ['oracle'],
+             'baln': ['dividends', 'oracle', 'dex', 'bnUSD'],
              'bwt': ['baln']}
 
 ADMIN_ADDRESSES = {'loans': 'governance',
