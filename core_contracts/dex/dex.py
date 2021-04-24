@@ -344,7 +344,7 @@ class DEX(IconScoreBase):
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._governance.set(_address)
 
-    @external
+    @external(readonly=True)
     def getGovernance(self) -> Address:
         """
         Gets the address of the Governance contract.
@@ -362,7 +362,7 @@ class DEX(IconScoreBase):
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._rewards.set(_address)
 
-    @external
+    @external(readonly=True)
     def getRewards(self) -> Address:
         """
         Gets the address of the Rewards contract.
@@ -381,7 +381,7 @@ class DEX(IconScoreBase):
         self._bnUSD.set(_address)
         self._quote_coins.add(_address)
 
-    @external
+    @external(readonly=True)
     def getbnUSD(self) -> Address:
         """
         Gets the address of the bnUSD contract.
@@ -399,7 +399,7 @@ class DEX(IconScoreBase):
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._baln.set(_address)
 
-    @external
+    @external(readonly=True)
     def getBaln(self) -> Address:
         """
         Gets the address of the BALN contract.
@@ -449,7 +449,7 @@ class DEX(IconScoreBase):
         """
         return _address in self._quote_coins
 
-    @external
+    @external(readonly=True)
     def getDay(self) -> int:
         """
         Returns the current day (floored). Used for snapshotting,
@@ -545,8 +545,9 @@ class DEX(IconScoreBase):
         self._icx_queue_total.set(current_icx_total)
 
         self._icx_queue.remove(order_id)
-        self.icx.transfer(self.msg.sender, withdraw_amount)
         del self._icx_queue_order_id[self.msg.sender]
+
+        self.icx.transfer(self.msg.sender, withdraw_amount)
 
         self._active_addresses[self._SICXICX_POOL_ID].remove(self.msg.sender)
 
@@ -1035,11 +1036,7 @@ class DEX(IconScoreBase):
         if _id == self._SICXICX_POOL_ID:
             revert(f"{TAG}: Not supported on this API, use the ICX swap API.")
 
-        if _fromToken == self.getPoolQuote(_id):
-            old_price = self.getBasePriceInQuote(_id)
-
-        else:
-            old_price = self.getQuotePriceInBase(_id)
+        if _fromToken == self.getPoolBase(_id):
             is_sell = True
 
         if not self.active[_id]:
