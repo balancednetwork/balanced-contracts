@@ -122,7 +122,7 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def createBalnMarket(self, _baln_price: int) -> None:
+    def createBalnMarket(self, _bnUSD_amount: int, _baln_amount: int) -> None:
         dex_address = self.addresses['dex']
         bnUSD_address = self.addresses['bnUSD']
         baln_address = self.addresses['baln']
@@ -132,16 +132,15 @@ class Governance(IconScoreBase):
         bnUSD = self.create_interface_score(bnUSD_address, AssetInterface)
         dex = self.create_interface_score(dex_address, DexInterface)
         rewards.claimRewards()
-        baln_value = baln.balanceOf(self.address)
-        bnUSD_value = _baln_price * baln_value // 100  # BALN price is in pennies.
-        loans.depositAndBorrow('bnUSD', bnUSD_value)
-        bnUSD.transfer(dex_address, bnUSD_value, json_dumps({"method": "_deposit"}).encode())
-        baln.transfer(dex_address, baln_value, json_dumps({"method": "_deposit"}).encode())
-        dex.add(baln_address, bnUSD_address, baln_value, bnUSD_value)
+        loans.depositAndBorrow('bnUSD', _bnUSD_amount)
+        bnUSD.transfer(dex_address, _bnUSD_amount, json_dumps({"method": "_deposit"}).encode())
+        baln.transfer(dex_address, _baln_amount, json_dumps({"method": "_deposit"}).encode())
+        dex.add(baln_address, bnUSD_address, _baln_amount, _bnUSD_amount)
         name = 'BALN/bnUSD'
         pid = dex.getPoolId(baln_address, bnUSD_address)
         dex.setMarketName(pid, name)
         rewards.addNewDataSource(name, dex_address)
+        recipients = RECIPIENTS
         recipients.append({'recipient_name': 'sICX/bnUSD', 'dist_percent': 175 * 10**15})
         recipients.append({'recipient_name': 'BALN/bnUSD', 'dist_percent': 175 * 10**15})
         recipients[4]['dist_percent'] = 5 * 10**16

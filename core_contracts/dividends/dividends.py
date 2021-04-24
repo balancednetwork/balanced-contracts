@@ -264,24 +264,24 @@ class Dividends(IconScoreBase):
 
     @external
     @only_admin
-    def setBalnTokenAddress(self, _address: Address) -> None:
+    def setBaln(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is EOA address. Should be a contract address.")
         self._baln_score.set(_address)
 
     @external(readonly=True)
-    def getBalnTokenAddress(self) -> Address:
+    def getBaln(self) -> Address:
         return self._baln_score.get()
 
     @external
     @only_admin
-    def setDexAddress(self, _address: Address) -> None:
+    def setDex(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is EOA address. Should be a contract address.")
         self._dex_score.set(_address)
 
     @external(readonly=True)
-    def getDexAddress(self) -> Address:
+    def getDex(self) -> Address:
         return self._dex_score.get()
 
     @external
