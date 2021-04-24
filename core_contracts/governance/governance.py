@@ -115,6 +115,10 @@ class Governance(IconScoreBase):
         pid = getPoolId(sICX_address, bnUSD_address)
         dex.setMarketName(pid, name)
         rewards.addNewDataSource(name, dex_address)
+        recipients = RECIPIENTS
+        recipients['BALN/bnUSD'] = 175 * UNITS_PER_TOKEN // 1000
+        recipients['DAOfund'] = 225 * UNITS_PER_TOKEN // 1000
+        rewards.updateBalTokenDistPercentage(recipients)
 
     @external
     @only_owner
@@ -138,7 +142,10 @@ class Governance(IconScoreBase):
         pid = getPoolId(baln_address, bnUSD_address)
         dex.setMarketName(pid, name)
         rewards.addNewDataSource(name, dex_address)
-
+        recipients['sICX/bnUSD'] = 175 * UNITS_PER_TOKEN // 1000
+        recipients['BALN/bnUSD'] = 175 * UNITS_PER_TOKEN // 1000
+        recipients['DAOfund'] = 5 * UNITS_PER_TOKEN // 100
+        rewards.updateBalTokenDistPercentage(recipients)
 
     @external
     @only_owner

@@ -5,7 +5,7 @@ from .utils.checks import *
 
 TAG = 'bnDOGE'
 
-TOKEN_NAME = 'BalancedDogecoin'
+TOKEN_NAME = 'Balanced Dogecoin'
 SYMBOL_NAME = 'bnDOGE'
 DEFAULT_PEG = 'DOGE'
 DEFAULT_ORACLE_NAME = 'BandChain'

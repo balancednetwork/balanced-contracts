@@ -172,7 +172,6 @@ class ReserveFund(IconScoreBase):
             baln_remaining = self._baln.get() - baln_to_send
             if baln_remaining < 0:  # Revert in case where there is not enough BALN.
                 revert(f'{TAG}: Unable to process request at this time.')
-                self.RedeemFail(self.tx.origin, 'BALN', baln_to_send)
             self._baln.set(baln_remaining)
             self._send_token(baln_address, _to, baln_to_send, 'Redeemed:')
         self._sicx.set(sicx - sicx_to_send)
