@@ -44,7 +44,6 @@ class BalancedLumens(IRC2Mintable, IRC2Burnable):
         super().on_install(TOKEN_NAME, SYMBOL_NAME)
         self._governance.set(_governance)
         self._peg.set(DEFAULT_PEG)
-        self._oracle_address.set(Address.from_string(DEFAULT_ORACLE_ADDRESS))
         self._oracle_name.set(DEFAULT_ORACLE_NAME)
         self._last_price.set(INITIAL_PRICE_ESTIMATE)
         self._min_interval.set(MIN_UPDATE_TIME)
