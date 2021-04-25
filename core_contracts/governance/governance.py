@@ -200,7 +200,7 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def toggleAssetActive(self, _symbol) -> None:
+    def toggleAssetActive(self, _symbol: str) -> None:
         loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         loans.toggleAssetActive(_symbol)
 

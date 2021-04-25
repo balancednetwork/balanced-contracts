@@ -55,7 +55,7 @@ class LoansInterface(InterfaceScore):
         pass
 
     @interface
-    def toggleAssetActive(self, _symbol) -> None:
+    def toggleAssetActive(self, _symbol: str) -> None:
         pass
 
     @interface
