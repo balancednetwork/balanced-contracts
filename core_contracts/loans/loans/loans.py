@@ -400,10 +400,10 @@ class Loans(IconScoreBase):
 
     @external
     @only_admin
-    def toggleAssetActive(self, _symbol) -> None:
+    def toggleAssetActive(self, _symbol: str) -> None:
         asset = self._assets[_symbol]
         value: bool = not asset.is_active()
-        asset.active.set(value)
+        asset._active.set(value)
         self.AssetActive(_symbol, "Active" if value else "Inactive")
 
     @external
