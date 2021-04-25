@@ -39,11 +39,12 @@ class Governance(IconScoreBase):
     def on_update(self) -> None:
         super().on_update()
         # Resetting first day rewards recipients split
-        RECIPIENTS = [{'recipient_name': 'Loans', 'dist_percent': 25 * 10**16},
-                      {'recipient_name': 'sICX/ICX', 'dist_percent': 10 * 10**16},
-                      {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10**16},
-                      {'recipient_name': 'Reserve Fund', 'dist_percent': 5 * 10**16},
-                      {'recipient_name': 'DAOfund', 'dist_percent': 40 * 10**16}]
+        RECIPIENTS.clear()
+        RECIPIENTS.extend([{'recipient_name': 'Loans', 'dist_percent': 25 * 10**16},
+                           {'recipient_name': 'sICX/ICX', 'dist_percent': 10 * 10**16},
+                           {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10**16},
+                           {'recipient_name': 'Reserve Fund', 'dist_percent': 5 * 10**16},
+                           {'recipient_name': 'DAOfund', 'dist_percent': 40 * 10**16}])
 
     @external(readonly=True)
     def name(self) -> str:
