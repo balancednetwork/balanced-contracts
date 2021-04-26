@@ -34,6 +34,10 @@ class ReserveFund(InterfaceScore):
 # An interface to the Staking Management SCORE
 class Staking(InterfaceScore):
     @interface
+    def getTodayRate(self) -> int:
+        pass
+
+    @interface
     def stakeICX(self, _to: Address = None, _data: bytes = None) -> int:
         pass
 
@@ -427,13 +431,14 @@ class Loans(IconScoreBase):
         return self._positions._snapshot_db[_snapshot_id].total_mining_debt.get()
 
     @external(readonly=True)
-    def getBnusdValue(self, _name: str) -> int:
+    def getSicxValue(self) -> int:
         """
-        Returns the total bnUSD value of loans mining BALN for APY calculation.
+        Returns the total sICX value of loans mining BALN for APY calculation.
         """
-        bnUSD_price = self._assets['bnUSD'].lastPriceInLoop()
+        staking = self.create_interface_score(self._staking.get(), Staking)
+        sicx_rate = staking.getTodayRate()
         loop_value = self._positions._snapshot_db[-2].total_mining_debt.get()
-        return EXA * loop_value // bnUSD_price
+        return EXA * loop_value // sicx_rate
 
 
     @external(readonly=True)

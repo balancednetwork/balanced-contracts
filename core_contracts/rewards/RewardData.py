@@ -31,11 +31,19 @@ class DataSourceInterface(InterfaceScore):
         pass
 
     @interface
+    def getSicxValue(self) -> int:
+        pass
+
+    @interface
     def getDataBatch(self, _name: str, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
         pass
 
     @interface
     def getBalnPrice(self) -> int:
+        pass
+
+    @interface
+    def getPrice(self, _id: int) -> int:
         pass
 
 
@@ -97,8 +105,11 @@ class DataSource(object):
         self.dist_percent.set(_dist_percent)
 
     def get_value(self) -> int:
+        name = self.name.get()
         data_source = self._rewards.create_interface_score(self.contract_address.get(), DataSourceInterface)
-        return data_source.getBnusdValue(self.name.get())
+        if name == 'Loans':
+            return data_source.getSicxValue()
+        return data_source.getBnusdValue(name)
 
     def get_data(self) -> dict:
         return {
