@@ -322,7 +322,7 @@ class BalancedToken(IRC2):
         if _value > self._balances[_from]:
             revert(f"{TAG}: Out of BALN balance.")
         if _value < self._minimum_stake.get() and _value != 0:
-            revert(f"{TAG}: Staked TAP must be greater than the minimum stake amount and non zero.")
+            revert(f"{TAG}: Staked BALN must be greater than the minimum stake amount and non zero.")
 
         self._check_first_time(_from)
         self._make_available(_from)
