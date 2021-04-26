@@ -170,6 +170,7 @@ class Staking(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        self._reduce_top_preps()
 
     @external(readonly=True)
     def name(self) -> str:
@@ -329,6 +330,11 @@ class Staking(IconScoreBase):
             for items in self._linked_list_var
             if items[4] == _address
         ]
+
+    def _reduce_top_preps(self):
+        for _ in range(100):
+            self._top_preps.pop()
+        self._set_top_preps()
 
     def _set_top_preps(self) -> None:
         """Weekly this function is called to set the top 100 prep address in an arraydb"""
