@@ -72,7 +72,7 @@ class Rewards(IconScoreBase):
         total_dist = self._data_source_db['sICX/bnUSD'].total_dist[1]
         total_value = self._data_source_db['sICX/bnUSD'].total_value[1]
         self.Report(1, total_dist, total_value)
-        self._data_source_db['sICX/bnUSD'].day.set(46)
+        self._data_source_db['sICX/bnUSD'].day.set(2)
 
     @external(readonly=True)
     def name(self) -> str:
