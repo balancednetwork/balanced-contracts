@@ -69,6 +69,10 @@ class Rewards(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        total_dist = self._data_source_db['sICX/bnUSD'].total_dist[1]
+        total_value = self._data_source_db['sICX/bnUSD'].total_value[1]
+        self.Report(1, total_dist, total_value)
+        self._data_source_db['sICX/bnUSD'].day.set(46)
 
     @external(readonly=True)
     def name(self) -> str:
@@ -376,4 +380,8 @@ class Rewards(IconScoreBase):
 
     @eventlog(indexed=1)
     def RewardsClaimed(self, _address: Address, _amount: int):
+        pass
+
+    @eventlog(indexed=1)
+    def Report(self, _day: int, _dist: int, _value: int):
         pass

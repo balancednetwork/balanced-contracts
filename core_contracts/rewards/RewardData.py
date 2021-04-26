@@ -89,6 +89,7 @@ class DataSource(object):
                 self._rewards._baln_holdings[address] += token_share
             self.total_dist[day] = remaining
             self.total_value[day] = shares
+            self._rewards.Report(day, remaining, shares)
 
     def set_day(self, _day: int) -> None:
         self.day.set(_day)
