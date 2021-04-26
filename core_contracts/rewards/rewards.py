@@ -264,8 +264,13 @@ class Rewards(IconScoreBase):
         source = self._data_source_db[_name]
         emission = self.getEmission(-1)
         baln_price = dex_score.getBalnPrice()
+        if _name == "Loans":
+            sICX_price = dex_score.getPrice(2)
+            value = source.get_value() * sICX_price
+        else:
+            value = EXA * source.get_value()
         percent = source.dist_percent.get()
-        return 365 * emission * percent * baln_price // (EXA * source.get_value())
+        return 365 * emission * percent * baln_price // value
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
