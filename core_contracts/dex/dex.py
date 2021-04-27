@@ -1495,7 +1495,7 @@ class DEX(IconScoreBase):
         if _offset < 0:
             revert(f"{TAG}: Offset must be equal to or greater than Zero.")
         rv = {}
-        for addr in self._active_addresses[_id].range(_offset, _offset + MAX_ITERATION_LOOP):
+        for addr in self._active_addresses[_id].range(_offset, _offset + _limit):
             snapshot_balance = self.balanceOfAt(addr, _id, _snapshot_id)
             if snapshot_balance:
                 rv[str(addr)] = snapshot_balance
