@@ -498,6 +498,8 @@ class DEX(IconScoreBase):
         self._take_new_day_snapshot()
         self._check_distributions()
 
+        self._revert_on_incomplete_rewards()
+
         if self.msg.value < 10 * EXA:
             revert(f"{TAG}: Minimum pool contribution is 10 ICX.")
 
@@ -533,6 +535,8 @@ class DEX(IconScoreBase):
         """
         self._take_new_day_snapshot()
         self._check_distributions()
+
+        self._revert_on_incomplete_rewards()
 
         if not self._icx_queue_order_id[self.msg.sender]:
             revert(f"{TAG}: No open order in sICX/ICX queue.")
@@ -1013,6 +1017,14 @@ class DEX(IconScoreBase):
             self._staking.get(), stakingInterface)
         return staking_score.getTodayRate()
 
+    def _revert_on_incomplete_rewards(self):
+        """
+        Until the cursor release of Balanced is complete, this is a stop-gap
+        function that prevents contract lockup.
+        """
+        if not self._rewards_done.get():
+            revert(f"{TAG} Rewards distribution in progress, please try again shortly")
+
     ####################################
     # Internal exchange function
 
@@ -1115,6 +1127,8 @@ class DEX(IconScoreBase):
         Perform an instant conversion from SICX to ICX.
         Gets orders from SICXICX queue by price time precedence.
         """
+        self._revert_on_incomplete_rewards()
+
         # Amount of ICX in one unit sICX
         sicx_icx_price = self._get_sicx_rate()
 
@@ -1481,7 +1495,7 @@ class DEX(IconScoreBase):
         if _offset < 0:
             revert(f"{TAG}: Offset must be equal to or greater than Zero.")
         rv = {}
-        for addr in self._active_addresses[_id].range(_offset, _offset + MAX_ITERATION_LOOP):
+        for addr in self._active_addresses[_id].range(_offset, _offset + _limit):
             snapshot_balance = self.balanceOfAt(addr, _id, _snapshot_id)
             if snapshot_balance:
                 rv[str(addr)] = snapshot_balance
@@ -1551,6 +1565,8 @@ class DEX(IconScoreBase):
         self._take_new_day_snapshot()
         self._check_distributions()
 
+        self._revert_on_incomplete_rewards()
+
         balance = self._balance[_id][self.msg.sender]
 
         if not self.active[_id]:
@@ -1618,6 +1634,8 @@ class DEX(IconScoreBase):
 
         self._take_new_day_snapshot()
         self._check_distributions()
+
+        self._revert_on_incomplete_rewards()
 
         _owner = self.msg.sender
         _id = self._pool_id[_baseToken][_quoteToken]
