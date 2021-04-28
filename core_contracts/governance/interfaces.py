@@ -149,6 +149,10 @@ class RewardsInterface(InterfaceScore):
         pass
 
     @interface
+    def setDay(self, _day: int) -> None:
+        pass
+
+    @interface
     def setTimeOffset(self, _time_delta: int) -> None:
         pass
 

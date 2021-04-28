@@ -231,6 +231,12 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def setDay(self, _day: int) -> None:
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
+        rewards.setDay(_day)
+
+    @external
+    @only_owner
     def dexPermit(self, _id: int, _permission: bool):
         dex = self.create_interface_score(self.addresses['dex'], DexInterface)
         dex.permit(_id, _permission)
