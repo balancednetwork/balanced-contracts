@@ -69,10 +69,16 @@ class Rewards(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        total_dist = self._data_source_db['sICX/bnUSD'].total_dist[1]
-        total_value = self._data_source_db['sICX/bnUSD'].total_value[1]
-        self.Report(1, total_dist, total_value)
-        self._data_source_db['sICX/bnUSD'].day.set(2)
+        self.Report(self._get_day(), 'test', self._total_dist.get(), 0)
+
+    @external
+    @only_governance
+    def setDay(self, day: int) -> None:
+        for name in self._data_source_db:
+            total_dist = self._data_source_db[name].total_dist[day - 1]
+            total_value = self._data_source_db[name].total_value[day - 1]
+            self.Report(day - 1, name, total_dist, total_value)
+            self._data_source_db[name].day.set(day)
 
     @external(readonly=True)
     def name(self) -> str:
@@ -383,5 +389,5 @@ class Rewards(IconScoreBase):
         pass
 
     @eventlog(indexed=1)
-    def Report(self, _day: int, _dist: int, _value: int):
+    def Report(self, _day: int, _name: str, _dist: int, _value: int):
         pass
