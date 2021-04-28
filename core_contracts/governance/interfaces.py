@@ -149,7 +149,7 @@ class RewardsInterface(InterfaceScore):
         pass
 
     @interface
-    def setDay(self, day: int) -> None:
+    def setDay(self, _day: int) -> None:
         pass
 
     @interface

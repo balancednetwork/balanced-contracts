@@ -73,12 +73,12 @@ class Rewards(IconScoreBase):
 
     @external
     @only_governance
-    def setDay(self, day: int) -> None:
+    def setDay(self, _day: int) -> None:
         for name in self._data_source_db:
-            total_dist = self._data_source_db[name].total_dist[day - 1]
-            total_value = self._data_source_db[name].total_value[day - 1]
-            self.Report(day - 1, name, total_dist, total_value)
-            self._data_source_db[name].day.set(day)
+            total_dist = self._data_source_db[name].total_dist[_day - 1]
+            total_value = self._data_source_db[name].total_value[_day - 1]
+            self.Report(_day - 1, name, total_dist, total_value)
+            self._data_source_db[name].set_day(_day)
 
     @external(readonly=True)
     def name(self) -> str:
