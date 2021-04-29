@@ -41,6 +41,10 @@ class DexInterface(InterfaceScore):
     def getPoolId(self, _token1Address: Address, _token2Address: Address) -> int:
         pass
 
+    @interface
+    def getBalnPrice(self) -> int:
+        pass
+
 
 class BalancedToken(IRC2):
 
