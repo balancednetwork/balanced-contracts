@@ -1227,6 +1227,16 @@ class DEX(IconScoreBase):
                 self._dividends.get(), Dividends)
             self._dividends_done.set(dividends.distribute())
 
+    @external(readonly=True)
+    def inspectBalanceSnapshot(self, _account: Address, _id: int, _snapshot_id: int) -> dict:
+        return {
+            'ids': self._account_balance_snapshot[_id][_account]['ids'][_snapshot_id],
+            'values': self._account_balance_snapshot[_id][_account]['values'][_snapshot_id],
+            'avgs': self._account_balance_snapshot[_id][_account]['avgs'][_snapshot_id],
+            'time': self._account_balance_snapshot[_id][_account]['time'][_snapshot_id],
+            'length': self._account_balance_snapshot[_id][_account]['length'][0]
+        }
+
     def _update_account_snapshot(self, _account: Address, _id: int) -> None:
         """
         Updates a user's balance 24h avg snapshot
