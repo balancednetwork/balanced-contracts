@@ -249,7 +249,7 @@ class DEX(IconScoreBase):
         # 1 = SICXICX Swap Queue
         # 2+ = pools
         self._nonce.set(2)
-        self._current_day.set(0)
+        self._current_day.set(1)
         self._named_markets[self._SICXICX_MARKET_NAME] = self._SICXICX_POOL_ID
         self._markets_to_names[self._SICXICX_POOL_ID] = self._SICXICX_MARKET_NAME
 

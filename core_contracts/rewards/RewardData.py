@@ -75,18 +75,31 @@ class DataSource(object):
             shares = self.total_value[day]  # The sum of all mining done by this data source
             original_shares = shares
             batch_sum = sum(data_batch.values())
+            # i = 0
             for address in data_batch:
+                token_share = remaining * data_batch[address] // shares
+                # if i % 10 == 0:
+                #     note = (f'sum: {batch_sum}, '
+                #         f'total: {shares}, '
+                #         f'remaining: {remaining}, '
+                #         f'token_share: {token_share}, '
+                #         f'starting: {original_shares}, '
+                #         f'batch_size: {batch_size}, '
+                #         f'offset: {self.offset.get()}')
+                #     self._rewards.Diagnostic(self.day.get(), self.name.get(), note)
                 if shares <= 0:
                     revert(
                         f'{TAG}: zero or negative divisor for {self.name.get()}, '
                         f'sum: {batch_sum}, '
                         f'total: {shares}, '
+                        f'remaining: {remaining}, '
+                        f'token_share: {token_share}, '
                         f'starting: {original_shares}'
                     )
-                token_share = remaining * data_batch[address] // shares
                 remaining -= token_share
                 shares -= data_batch[address]
                 self._rewards._baln_holdings[address] += token_share
+                # i += 1
             self.total_dist[day] = remaining
             self.total_value[day] = shares
             self._rewards.Report(day, self.name.get(), remaining, shares)
@@ -102,10 +115,15 @@ class DataSource(object):
         return data_source.getBnusdValue(self.name.get())
 
     def get_data(self) -> dict:
+        day = self.day.get()
         return {
-            'day': self.day.get(),
+            'day': day,
             'contract_address': self.contract_address.get(),
-            'dist_percent': self.dist_percent.get()
+            'dist_percent': self.dist_percent.get(),
+            'precomp': self.precomp.get(),
+            'offset': self.offset.get(),
+            'total_value': self.total_value[day],
+            'total_dist': self.total_dist[day]
         }
 
 
