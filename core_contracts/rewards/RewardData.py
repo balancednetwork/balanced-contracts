@@ -75,18 +75,8 @@ class DataSource(object):
             shares = self.total_value[day]  # The sum of all mining done by this data source
             original_shares = shares
             batch_sum = sum(data_batch.values())
-            # i = 0
             for address in data_batch:
                 token_share = remaining * data_batch[address] // shares
-                # if i % 10 == 0:
-                #     note = (f'sum: {batch_sum}, '
-                #         f'total: {shares}, '
-                #         f'remaining: {remaining}, '
-                #         f'token_share: {token_share}, '
-                #         f'starting: {original_shares}, '
-                #         f'batch_size: {batch_size}, '
-                #         f'offset: {self.offset.get()}')
-                #     self._rewards.Diagnostic(self.day.get(), self.name.get(), note)
                 if shares <= 0:
                     revert(
                         f'{TAG}: zero or negative divisor for {self.name.get()}, '
@@ -99,7 +89,6 @@ class DataSource(object):
                 remaining -= token_share
                 shares -= data_batch[address]
                 self._rewards._baln_holdings[address] += token_share
-                # i += 1
             self.total_dist[day] = remaining
             self.total_value[day] = shares
             self._rewards.Report(day, self.name.get(), remaining, shares)
