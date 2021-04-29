@@ -1490,7 +1490,8 @@ class DEX(IconScoreBase):
 
     @external(readonly=True)
     def getTotalValue(self, _name: str, _snapshot_id: int) -> int:
-        return self.totalSupplyAt(self._named_markets[_name], _snapshot_id)
+        # return self.totalSupplyAt(self._named_markets[_name], _snapshot_id)
+        return self.totalSupply(self._named_markets[_name])
 
     @external(readonly=True)
     def getBalnSnapshot(self, _name: str, _snapshot_id: int) -> int:
@@ -1506,7 +1507,8 @@ class DEX(IconScoreBase):
             revert(f"{TAG}: Offset must be equal to or greater than Zero.")
         rv = {}
         for addr in self._active_addresses[_id].range(_offset, _offset + _limit):
-            snapshot_balance = self.balanceOfAt(addr, _id, _snapshot_id)
+            # snapshot_balance = self.balanceOfAt(addr, _id, _snapshot_id)
+            snapshot_balance = self.balanceOf(addr, _id)
             if snapshot_balance:
                 rv[str(addr)] = snapshot_balance
         return rv
