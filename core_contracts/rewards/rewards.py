@@ -198,6 +198,14 @@ class Rewards(IconScoreBase):
         self._data_source_db.new_source(_name, _address)
 
     @external(readonly=True)
+    def getDataSources(self) -> dict:
+        result = {}
+        for name in self._data_source_db:
+            source = self._data_source_db[name]
+            result[name] = source.get_data()
+        return result
+
+    @external(readonly=True)
     def getSourceData(self, _name: str) -> dict:
         source = self._data_source_db[_name]
         return source.get_data()
@@ -388,6 +396,10 @@ class Rewards(IconScoreBase):
     def RewardsClaimed(self, _address: Address, _amount: int):
         pass
 
-    @eventlog(indexed=1)
+    @eventlog(indexed=2)
     def Report(self, _day: int, _name: str, _dist: int, _value: int):
+        pass
+
+    @eventlog(indexed=2)
+    def Diagnostic(self, _day: int, _name: str, _note: str):
         pass
