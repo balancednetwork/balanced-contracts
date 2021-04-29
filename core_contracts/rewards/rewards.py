@@ -239,9 +239,8 @@ class Rewards(IconScoreBase):
                 return False
         batch_size = self._batch_size.get()
         for name in self._data_source_db:
-            source_data = self.getSourceData(name)
-            if source_data['day'] < day:
-                source = self._data_source_db[name]
+            source = self._data_source_db[name]
+            if source.day.get() < day:
                 source._distribute(batch_size)
                 return False
         return True
@@ -399,8 +398,4 @@ class Rewards(IconScoreBase):
 
     @eventlog(indexed=2)
     def Report(self, _day: int, _name: str, _dist: int, _value: int):
-        pass
-
-    @eventlog(indexed=2)
-    def Diagnostic(self, _day: int, _name: str, _note: str):
         pass

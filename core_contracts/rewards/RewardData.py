@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from iconservice import *
-from .utils.checks import *
 from .utils.consts import *
 
 
@@ -57,15 +56,17 @@ class DataSource(object):
         The calculation and distribution of rewards proceeds in two stages
         """
         day = self.day.get()
+        name = self.name.get()
         data_source = self._rewards.create_interface_score(self.contract_address.get(), DataSourceInterface)
         precomp_done = data_source.precompute(day, batch_size)
         if not self.precomp.get() and precomp_done:
             self.precomp.set(True)
-            self.total_value[day] = data_source.getTotalValue(self.name.get(), day)
+            self.total_value[day] = data_source.getTotalValue(name, day)
 
         if self.precomp.get():
-            data_batch = data_source.getDataBatch(self.name.get(), day, batch_size, self.offset.get())
-            self.offset.set(self.offset.get() + batch_size)
+            offset = self.offset.get()
+            data_batch = data_source.getDataBatch(name, day, batch_size, offset)
+            self.offset.set(offset + batch_size)
             if not data_batch:
                 self.day.set(day + 1)
                 self.offset.set(0)
@@ -79,7 +80,7 @@ class DataSource(object):
                 token_share = remaining * data_batch[address] // shares
                 if shares <= 0:
                     revert(
-                        f'{TAG}: zero or negative divisor for {self.name.get()}, '
+                        f'{TAG}: zero or negative divisor for {name}, '
                         f'sum: {batch_sum}, '
                         f'total: {shares}, '
                         f'remaining: {remaining}, '
@@ -91,7 +92,7 @@ class DataSource(object):
                 self._rewards._baln_holdings[address] += token_share
             self.total_dist[day] = remaining
             self.total_value[day] = shares
-            self._rewards.Report(day, self.name.get(), remaining, shares)
+            self._rewards.Report(day, name, remaining, shares)
 
     def set_day(self, _day: int) -> None:
         self.day.set(_day)
