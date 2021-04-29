@@ -754,7 +754,7 @@ class DEX(IconScoreBase):
         :return: the _owner's balance of the token type requested
         """
         if _id == self._SICXICX_POOL_ID:
-            order_id = self._icx_queue_order_id[self.msg.sender]
+            order_id = self._icx_queue_order_id[_owner]
             if not order_id:
                 return 0
             return self._icx_queue._get_node(order_id).get_value1()
