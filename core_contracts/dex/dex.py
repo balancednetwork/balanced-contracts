@@ -1318,7 +1318,7 @@ class DEX(IconScoreBase):
         day_remaining_us = U_SECONDS_DAY - day_elapsed_us
 
         if length == 0:
-            average = (current_value * day_elapsed_us) // U_SECONDS_DAY
+            average = (current_value * day_remaining_us) // U_SECONDS_DAY
 
             self._baln_snapshot[_id]['ids'][length] = current_id
             self._baln_snapshot[_id]['values'][length] = current_value
@@ -1369,7 +1369,7 @@ class DEX(IconScoreBase):
         day_remaining_us = U_SECONDS_DAY - day_elapsed_us
 
         if length == 0:
-            average = (current_value * day_elapsed_us) // U_SECONDS_DAY
+            average = (current_value * day_remaining_us) // U_SECONDS_DAY
 
             self._total_supply_snapshot[_id]['ids'][length] = current_id
             self._total_supply_snapshot[_id]['values'][length] = current_value
