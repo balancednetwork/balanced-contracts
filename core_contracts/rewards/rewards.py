@@ -69,7 +69,8 @@ class Rewards(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self.Report(self._get_day(), 'test', self._total_dist.get(), 0)
+        self._data_source_db['sICX/bnUSD'].precomp.set(0)
+        self._data_source_db['sICX/bnUSD'].offset.set(0)
 
     @external
     @only_governance
