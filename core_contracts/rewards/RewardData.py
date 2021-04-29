@@ -18,7 +18,7 @@ from .utils.consts import *
 
 class DataSourceInterface(InterfaceScore):
     @interface
-    def precompute(self, _snapshot_id: int, batch_size: int) -> str:
+    def precompute(self, _snapshot_id: int, batch_size: int) -> bool:
         pass
 
     @interface
