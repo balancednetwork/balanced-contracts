@@ -69,26 +69,33 @@ class DEX(IconScoreBase):
     def Swap(self, _id: int, _baseToken: Address, _fromToken: Address, _toToken: Address,
              _sender: Address, _receiver: Address, _fromValue: int, _toValue: int,
              _timestamp: int, _lpFees: int, _balnFees: int, _poolBase: int,
-             _poolQuote: int, _endingPrice: int, _effectiveFillPrice: int): pass
+             _poolQuote: int, _endingPrice: int, _effectiveFillPrice: int):
+        pass
 
     @eventlog(indexed=3)
     def MarketAdded(self, _id: int, _baseToken: Address,
-                    _quoteToken: Address, _baseValue: int, _quoteValue: int): pass
+                    _quoteToken: Address, _baseValue: int, _quoteValue: int):
+        pass
 
     @eventlog(indexed=3)
-    def Add(self, _id: int, _owner: Address, _value: int, _base: int, _quote: int): pass
+    def Add(self, _id: int, _owner: Address, _value: int, _base: int, _quote: int):
+        pass
 
     @eventlog(indexed=3)
-    def Remove(self, _id: int, _owner: Address, _value: int, _base: int, _quote: int): pass
+    def Remove(self, _id: int, _owner: Address, _value: int, _base: int, _quote: int):
+        pass
 
     @eventlog(indexed=2)
-    def Deposit(self, _token: Address, _owner: Address, _value: int): pass
+    def Deposit(self, _token: Address, _owner: Address, _value: int):
+        pass
 
     @eventlog(indexed=2)
-    def Withdraw(self, _token: Address, _owner: Address, _value: int): pass
+    def Withdraw(self, _token: Address, _owner: Address, _value: int):
+        pass
 
     @eventlog(indexed=2)
-    def ClaimSicxEarnings(self, _owner: Address, _value: int): pass
+    def ClaimSicxEarnings(self, _owner: Address, _value: int):
+        pass
 
     @eventlog(indexed=3)
     def TransferSingle(self, _operator: Address, _from: Address, _to: Address, _id: int, _value: int):
@@ -904,7 +911,8 @@ class DEX(IconScoreBase):
     ####################################
     # Internal exchange function
 
-    def exchange(self, _fromToken: Address, _toToken: Address, _sender: Address, _receiver: Address, _value: int, _minimum_receive: int = 0):
+    def exchange(self, _fromToken: Address, _toToken: Address, _sender: Address, _receiver: Address, _value: int,
+                 _minimum_receive: int = 0):
 
         # All fees are scaled to FEE_SCALE
         lp_fees = (_value * self._pool_lp_fee.get()) // FEE_SCALE
@@ -1516,7 +1524,8 @@ class DEX(IconScoreBase):
 
     @dex_on
     @external
-    def add(self, _baseToken: Address, _quoteToken: Address, _baseValue: int, _quoteValue: int, _withdraw_unused: bool = True):
+    def add(self, _baseToken: Address, _quoteToken: Address, _baseValue: int, _quoteValue: int,
+            _withdraw_unused: bool = True):
         """
         Adds liquidity to a pool for trading, or creates a new pool. Rules:
         - The quote coin of the pool must be one of the allowed quote currencies.
@@ -1581,13 +1590,19 @@ class DEX(IconScoreBase):
         else:
 
             # We will commit up to the supplied assets, and refund the rest
-            base_from_quote = (_quoteValue * self._pool_total[_id][self._pool_base[_id]]) // (self._pool_total[_id][self._pool_quote[_id]])
+            base_from_quote = (_quoteValue * self._pool_total[_id][self._pool_base[_id]]) // (
+                self._pool_total[_id][self._pool_quote[_id]])
 
-            quote_from_base = (_baseValue * self._pool_total[_id][self._pool_quote[_id]]) // (self._pool_total[_id][self._pool_base[_id]])
+            quote_from_base = (_baseValue * self._pool_total[_id][self._pool_quote[_id]]) // (
+                self._pool_total[_id][self._pool_base[_id]])
 
-            Logger.info(f"Pre Total Base: {self._pool_total[_id][_baseToken]}, quote: {self._pool_total[_id][_quoteToken]}", TAG)
+            Logger.info(
+                f"Pre Total Base: {self._pool_total[_id][_baseToken]}, quote: {self._pool_total[_id][_quoteToken]}",
+                TAG)
 
-            Logger.info(f"Base: {_baseValue} (supplied), {base_from_quote} (computed); Quote: {_quoteValue} (supplied), {quote_from_base} (computed)", TAG)
+            Logger.info(
+                f"Base: {_baseValue} (supplied), {base_from_quote} (computed); Quote: {_quoteValue} (supplied), {quote_from_base} (computed)",
+                TAG)
 
             if quote_from_base <= _quoteValue:
                 quote_to_commit = quote_from_base
@@ -1618,7 +1633,7 @@ class DEX(IconScoreBase):
             DEX_ZERO_SCORE_ADDRESS), _owner, _id, liquidity)
 
         user_quote_holdings = self._balance[_id][self.msg.sender] \
-            * self._pool_total[_id][_quoteToken] // self.totalSupply(_id)
+                              * self._pool_total[_id][_quoteToken] // self.totalSupply(_id)
 
         self._revert_below_minimum(user_quote_holdings, _quoteToken)
         self._active_addresses[_id].add(self.msg.sender)
@@ -1628,7 +1643,8 @@ class DEX(IconScoreBase):
         if _baseToken == self._baln.get():
             self._update_baln_snapshot(_id)
 
-        Logger.info(f"Post Total Base: {self._pool_total[_id][_baseToken]}, quote: {self._pool_total[_id][_quoteToken]}", TAG)
+        Logger.info(
+            f"Post Total Base: {self._pool_total[_id][_baseToken]}, quote: {self._pool_total[_id][_quoteToken]}", TAG)
 
         # If set to withdraw unused funds, check if any are left on deposit
         # If yes, then send back to the msg.sender address
@@ -1665,3 +1681,9 @@ class DEX(IconScoreBase):
         token_score = self.create_interface_score(self._sicx.get(), TokenInterface)
         token_score.transfer(self.msg.sender, _value)
         self.ClaimSicxEarnings(self.msg.sender, _value)
+
+    @only_governance
+    @external
+    def addLpAddresses(self, _poolId: int, _addresses: List[Address]) -> None:
+        for _address in _addresses:
+            self._active_addresses[_poolId].add(_address)
