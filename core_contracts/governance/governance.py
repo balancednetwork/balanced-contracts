@@ -115,12 +115,12 @@ class Governance(IconScoreBase):
         pid = dex.getPoolId(sICX_address, bnUSD_address)
         dex.setMarketName(pid, name)
         rewards.addNewDataSource(name, dex_address)
-        recipients = [{'recipient_name': 'Loans', 'dist_percent': 25 * 10**16},
-                      {'recipient_name': 'sICX/ICX', 'dist_percent': 10 * 10**16},
-                      {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10**16},
-                      {'recipient_name': 'Reserve Fund', 'dist_percent': 5 * 10**16},
-                      {'recipient_name': 'DAOfund', 'dist_percent': 225 * 10**15},
-                      {'recipient_name': 'sICX/bnUSD', 'dist_percent': 175 * 10**15}]
+        recipients = [{'recipient_name': 'Loans', 'dist_percent': 25 * 10 ** 16},
+                      {'recipient_name': 'sICX/ICX', 'dist_percent': 10 * 10 ** 16},
+                      {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10 ** 16},
+                      {'recipient_name': 'Reserve Fund', 'dist_percent': 5 * 10 ** 16},
+                      {'recipient_name': 'DAOfund', 'dist_percent': 225 * 10 ** 15},
+                      {'recipient_name': 'sICX/bnUSD', 'dist_percent': 175 * 10 ** 15}]
         rewards.updateBalTokenDistPercentage(recipients)
 
     @external
@@ -143,13 +143,13 @@ class Governance(IconScoreBase):
         pid = dex.getPoolId(baln_address, bnUSD_address)
         dex.setMarketName(pid, name)
         rewards.addNewDataSource(name, dex_address)
-        recipients = [{'recipient_name': 'Loans', 'dist_percent': 25 * 10**16},
-                      {'recipient_name': 'sICX/ICX', 'dist_percent': 10 * 10**16},
-                      {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10**16},
-                      {'recipient_name': 'Reserve Fund', 'dist_percent': 5 * 10**16},
-                      {'recipient_name': 'DAOfund', 'dist_percent': 5 * 10**16},
-                      {'recipient_name': 'sICX/bnUSD', 'dist_percent': 175 * 10**15},
-                      {'recipient_name': 'BALN/bnUSD', 'dist_percent': 175 * 10**15}]
+        recipients = [{'recipient_name': 'Loans', 'dist_percent': 25 * 10 ** 16},
+                      {'recipient_name': 'sICX/ICX', 'dist_percent': 10 * 10 ** 16},
+                      {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10 ** 16},
+                      {'recipient_name': 'Reserve Fund', 'dist_percent': 5 * 10 ** 16},
+                      {'recipient_name': 'DAOfund', 'dist_percent': 5 * 10 ** 16},
+                      {'recipient_name': 'sICX/bnUSD', 'dist_percent': 175 * 10 ** 15},
+                      {'recipient_name': 'BALN/bnUSD', 'dist_percent': 175 * 10 ** 15}]
         rewards.updateBalTokenDistPercentage(recipients)
 
     @external
@@ -194,8 +194,8 @@ class Governance(IconScoreBase):
     @external
     @only_owner
     def addAsset(self, _token_address: Address,
-                       _active: bool = True,
-                       _collateral: bool = False) -> None:
+                 _active: bool = True,
+                 _collateral: bool = False) -> None:
         """
         Adds a token to the assets dictionary on the Loans contract.
         """
@@ -309,7 +309,7 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def balanceSetMinInterval(self,  _interval: int) -> None:
+    def balanceSetMinInterval(self, _interval: int) -> None:
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         baln.setMinInterval(_interval)
 
@@ -387,6 +387,12 @@ class Governance(IconScoreBase):
     def bnUSDSetMinInterval(self, _interval: int) -> None:
         bnUSD = self.create_interface_score(self.addresses['bnUSD'], AssetInterface)
         bnUSD.setMinInterval(_interval)
+
+    @external
+    @only_owner
+    def addUsersToActiveAddresses(self, _poolId: int, _addressList: List[Address]):
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        dex.addLpAddresses(_poolId, _addressList)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
