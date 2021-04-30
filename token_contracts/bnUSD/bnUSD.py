@@ -1,3 +1,17 @@
+# Copyright 2021 Balanced DAO
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from iconservice import *
 from .tokens.IRC2mintable import IRC2Mintable
 from .tokens.IRC2burnable import IRC2Burnable
@@ -5,10 +19,9 @@ from .utils.checks import *
 
 TAG = 'bnUSD'
 
-TOKEN_NAME = 'BalancedDollar'
+TOKEN_NAME = 'Balanced Dollar'
 SYMBOL_NAME = 'bnUSD'
 DEFAULT_PEG = 'USD'
-DEFAULT_ORACLE_ADDRESS = 'cx61a36e5d10412e03c907a507d1e8c6c3856d9964'
 DEFAULT_ORACLE_NAME = 'BandChain'
 INITIAL_PRICE_ESTIMATE = 125 * 10**16
 MIN_UPDATE_TIME = 30_000_000 # 30 seconds
@@ -44,7 +57,6 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
         super().on_install(TOKEN_NAME, SYMBOL_NAME)
         self._governance.set(_governance)
         self._peg.set(DEFAULT_PEG)
-        self._oracle_address.set(Address.from_string(DEFAULT_ORACLE_ADDRESS))
         self._oracle_name.set(DEFAULT_ORACLE_NAME)
         self._last_price.set(INITIAL_PRICE_ESTIMATE)
         self._min_interval.set(MIN_UPDATE_TIME)

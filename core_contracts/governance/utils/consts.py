@@ -3,9 +3,9 @@
 #-------------------------------------------------------------------------------
 
 UNITS_PER_TOKEN = 10**18
-U_SECONDS_DAY = 86400 * 10**6 // 24 # Microseconds in a day.
-DAY_ZERO = 18647 * 24
-DAY_START = 61200 * 10**6 // 24 # 17:00 UTC
+U_SECONDS_DAY = 86400 * 10**6  # Microseconds in a day.
+DAY_ZERO = 18647
+DAY_START = 61200 * 10**6  # 17:00 UTC
 
 
 CONTRACTS = ['loans', 'dex', 'staking', 'rewards', 'dividends', 'daofund',
@@ -14,11 +14,11 @@ CONTRACTS = ['loans', 'dex', 'staking', 'rewards', 'dividends', 'daofund',
 ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve'],
              'dex': ['rewards', 'dividends', 'staking', 'sicx', 'bnUSD', 'baln'],
              'rewards': ['reserve', 'baln', 'bwt', 'daofund'],
-             'dividends': ['loans', 'daofund'],
+             'dividends': ['loans', 'daofund', 'dex', 'baln'],
              'daofund': ['loans'],
              'reserve': ['loans', 'baln', 'sicx'],
              'bnUSD': ['oracle'],
-             'baln': ['dividends', 'dex', 'bnUSD'],
+             'baln': ['dividends', 'oracle', 'dex', 'bnUSD'],
              'bwt': ['baln']}
 
 ADMIN_ADDRESSES = {'loans': 'governance',

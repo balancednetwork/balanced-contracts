@@ -1,3 +1,17 @@
+# Copyright 2021 Balanced DAO
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from iconservice import *
 from ..utils.checks import *
 from ..utils.consts import *
@@ -401,10 +415,10 @@ class Loans(IconScoreBase):
 
     @external
     @only_admin
-    def toggleAssetActive(self, _symbol) -> None:
+    def toggleAssetActive(self, _symbol: str) -> None:
         asset = self._assets[_symbol]
         value: bool = not asset.is_active()
-        asset.active.set(value)
+        asset._active.set(value)
         self.AssetActive(_symbol, "Active" if value else "Inactive")
 
     @external
@@ -432,8 +446,8 @@ class Loans(IconScoreBase):
         """
         Returns the total bnUSD value of loans mining BALN for APY calculation.
         """
-        bnUSD_price = self._assets['bnUSD'].lastPriceInLoop()
-        loop_value = self._positions._snapshot_db[-1].total_mining_debt.get()
+        bnUSD_price = self._positions._snapshot_db[-2].prices['bnUSD']
+        loop_value = self._positions._snapshot_db[-2].total_mining_debt.get()
         return EXA * loop_value // bnUSD_price
 
 

@@ -1,3 +1,17 @@
+# Copyright 2021 Balanced DAO
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from iconservice import *
 from .utils.checks import *
 from .utils.consts import *
@@ -55,6 +69,17 @@ class Rewards(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        self._data_source_db['sICX/bnUSD'].precomp.set(0)
+        self._data_source_db['sICX/bnUSD'].offset.set(0)
+
+    @external
+    @only_governance
+    def setDay(self, _day: int) -> None:
+        for name in self._data_source_db:
+            total_dist = self._data_source_db[name].total_dist[_day - 1]
+            total_value = self._data_source_db[name].total_value[_day - 1]
+            self.Report(_day - 1, name, total_dist, total_value)
+            self._data_source_db[name].set_day(_day)
 
     @external(readonly=True)
     def name(self) -> str:
@@ -174,6 +199,14 @@ class Rewards(IconScoreBase):
         self._data_source_db.new_source(_name, _address)
 
     @external(readonly=True)
+    def getDataSources(self) -> dict:
+        result = {}
+        for name in self._data_source_db:
+            source = self._data_source_db[name]
+            result[name] = source.get_data()
+        return result
+
+    @external(readonly=True)
     def getSourceData(self, _name: str) -> dict:
         source = self._data_source_db[_name]
         return source.get_data()
@@ -206,9 +239,8 @@ class Rewards(IconScoreBase):
                 return False
         batch_size = self._batch_size.get()
         for name in self._data_source_db:
-            source_data = self.getSourceData(name)
-            if source_data['day'] < day:
-                source = self._data_source_db[name]
+            source = self._data_source_db[name]
+            if source.day.get() < day:
                 source._distribute(batch_size)
                 return False
         return True
@@ -246,13 +278,12 @@ class Rewards(IconScoreBase):
         :rtype int
         """
         dex = self._data_source_db['sICX/ICX']
-        dex_score = self.create_interface_score(dex._contract_address.get(), DataSourceInterface)
+        dex_score = self.create_interface_score(dex.contract_address.get(), DataSourceInterface)
         source = self._data_source_db[_name]
-        score = self.create_interface_score(source._contract_address.get(), DataSourceInterface)
         emission = self.getEmission(-1)
         baln_price = dex_score.getBalnPrice()
         percent = source.dist_percent.get()
-        return 365 * emission * percent * baln_price / (EXA * source.get_value())
+        return 365 * emission * percent * baln_price // (EXA * source.get_value())
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
@@ -363,4 +394,8 @@ class Rewards(IconScoreBase):
 
     @eventlog(indexed=1)
     def RewardsClaimed(self, _address: Address, _amount: int):
+        pass
+
+    @eventlog(indexed=2)
+    def Report(self, _day: int, _name: str, _dist: int, _value: int):
         pass

@@ -1,3 +1,17 @@
+# Copyright 2021 Balanced DAO
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from iconservice import *
 from .tokens.IRC2 import IRC2
 from .utils.checks import *
@@ -7,7 +21,14 @@ TAG = 'BALN'
 
 TOKEN_NAME = 'Balance Token'
 SYMBOL_NAME = 'BALN'
-DEFAULT_ORACLE_NAME = 'BalancedDEX'
+DEFAULT_ORACLE_NAME = 'Balanced DEX'
+
+
+# An interface to the Band Price Oracle
+class OracleInterface(InterfaceScore):
+    @interface
+    def get_reference_data(self, _base: str, _quote: str) -> dict:
+        pass
 
 
 # An interface to the Balanced DEX
@@ -18,6 +39,10 @@ class DexInterface(InterfaceScore):
 
     @interface
     def getPoolId(self, _token1Address: Address, _token2Address: Address) -> int:
+        pass
+
+    @interface
+    def getBalnPrice(self) -> int:
         pass
 
 
@@ -47,6 +72,7 @@ class BalancedToken(IRC2):
 
     _DEX_SCORE = "dex_score"
     _BNUSD_SCORE = "bnUSD_score"
+    _ORACLE = "oracle"
     _ORACLE_NAME = "oracle_name"
 
     def __init__(self, db: IconScoreDatabase) -> None:
@@ -54,6 +80,7 @@ class BalancedToken(IRC2):
         self._dex_score = VarDB(self._DEX_SCORE, db, value_type=Address)
         self._bnusd_score = VarDB(self._BNUSD_SCORE, db, value_type=Address)
         self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
+        self._oracle = VarDB(self._ORACLE, db, value_type=Address)
         self._oracle_name = VarDB(self._ORACLE_NAME, db, value_type=str)
         self._price_update_time = VarDB(self._PRICE_UPDATE_TIME, db, value_type=int)
         self._last_price = VarDB(self._LAST_PRICE, db, value_type=int)
@@ -114,11 +141,11 @@ class BalancedToken(IRC2):
     @external
     @only_governance
     def setOracle(self, _address: Address) -> None:
-        self._dex_score.set(_address)
+        self._oracle.set(_address)
 
     @external(readonly=True)
     def getOracle(self) -> dict:
-        return self._dex_score.get()
+        return self._oracle.get()
 
     @external
     @only_governance
@@ -181,13 +208,14 @@ class BalancedToken(IRC2):
         """
         Returns the latest price of the asset in loop.
         """
-        base = "BALN"
-        quote = "bnUSD"
         dex_score = self._dex_score.get()
-        oracle = self.create_interface_score(dex_score, DexInterface)
-        pool_id = oracle.getPoolId(self._bnusd_score.get(), self.address)
-        price = oracle.getPrice(pool_id)
-        return price
+        oracle_address = self._oracle.get()
+        dex = self.create_interface_score(dex_score, DexInterface)
+        oracle = self.create_interface_score(oracle_address, OracleInterface)
+        price = dex.getBalnPrice()
+        priceData = oracle.get_reference_data('USD', 'ICX')
+
+        return priceData['rate'] * price // EXA
 
     def update_asset_value(self) -> None:
         """
@@ -197,11 +225,13 @@ class BalancedToken(IRC2):
         base = "BALN"
         quote = "bnUSD"
         dex_score = self._dex_score.get()
+        oracle_address = self._oracle.get()
         try:
-            oracle = self.create_interface_score(dex_score, DexInterface)
-            pool_id = oracle.getPoolId(self._bnusd_score.get(), self.address)
-            price = oracle.getPrice(pool_id)
-            self._last_price.set(price)
+            dex = self.create_interface_score(dex_score, DexInterface)
+            oracle = self.create_interface_score(oracle_address, OracleInterface)
+            price = dex.getBalnPrice()
+            priceData = oracle.get_reference_data('USD', 'ICX')
+            self._last_price.set(priceData['rate'] * price // EXA)
             self._price_update_time.set(self.now())
             self.OraclePrice(base + quote, self._oracle_name.get(), dex_score, price)
         except BaseException as e:
@@ -299,7 +329,7 @@ class BalancedToken(IRC2):
         if _value > self._balances[_from]:
             revert(f"{TAG}: Out of BALN balance.")
         if _value < self._minimum_stake.get() and _value != 0:
-            revert(f"{TAG}: Staked TAP must be greater than the minimum stake amount and non zero.")
+            revert(f"{TAG}: Staked BALN must be greater than the minimum stake amount and non zero.")
 
         self._check_first_time(_from)
         self._make_available(_from)
