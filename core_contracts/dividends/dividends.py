@@ -1,3 +1,17 @@
+# Copyright 2021 Balanced DAO
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from .utils.checks import *
 from .utils.consts import *
 from .utils.arraydb_helpers import *
@@ -250,24 +264,24 @@ class Dividends(IconScoreBase):
 
     @external
     @only_admin
-    def setBalnTokenAddress(self, _address: Address) -> None:
+    def setBaln(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is EOA address. Should be a contract address.")
         self._baln_score.set(_address)
 
     @external(readonly=True)
-    def getBalnTokenAddress(self) -> Address:
+    def getBaln(self) -> Address:
         return self._baln_score.get()
 
     @external
     @only_admin
-    def setDexAddress(self, _address: Address) -> None:
+    def setDex(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is EOA address. Should be a contract address.")
         self._dex_score.set(_address)
 
     @external(readonly=True)
-    def getDexAddress(self) -> Address:
+    def getDex(self) -> Address:
         return self._dex_score.get()
 
     @external
@@ -514,6 +528,7 @@ class Dividends(IconScoreBase):
             self._dividends_distribution_status.set(Status.DISTRIBUTE_FUND_TO_HOLDERS)
             return
         total_percentage = 10 ** 18
+        self._dividends_distribution_status.set(Status.DISTRIBUTE_FUND_TO_HOLDERS)
         for token in self._accepted_tokens:
             amount = (daofund_percentage * self._amount_being_distributed[str(token)]) // total_percentage
             self._amount_being_distributed[str(token)] -= amount
@@ -523,7 +538,6 @@ class Dividends(IconScoreBase):
                 self._send_ICX(daofund_address, amount, "Dividends distribution to DAOfund address")
             else:
                 self._send_token(daofund_address, amount, token, "Dividends distribution to DAOfund address")
-        self._dividends_distribution_status.set(Status.DISTRIBUTE_FUND_TO_HOLDERS)
 
     def _distribute_to_baln_holders(self):
         if self._dividends_percentage[BALN_HOLDERS] == 0:

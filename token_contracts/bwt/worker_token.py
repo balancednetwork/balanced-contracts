@@ -1,3 +1,17 @@
+# Copyright 2021 Balanced DAO
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from iconservice import *
 from .tokens.IRC2 import IRC2
 from .utils.checks import *
@@ -79,7 +93,7 @@ class WorkerToken(IRC2):
 
     @external
     def distribute(self) -> None:
-        length = len(self._addresses)
+        length = len(self._addresses)  # length of _addresses is limited at the transfer method.
         tokens = self.totalSupply()
         baln = self.create_interface_score(self._baln_token.get(), TokenInterface)
         dist = baln.balanceOf(self.address)
