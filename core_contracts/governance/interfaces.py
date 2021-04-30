@@ -46,8 +46,8 @@ class LoansInterface(InterfaceScore):
 
     @interface
     def addAsset(self, _token_address: Address,
-                       _active: bool = True,
-                       _collateral: bool = False) -> None:
+                 _active: bool = True,
+                 _collateral: bool = False) -> None:
         pass
 
     @interface
@@ -86,7 +86,8 @@ class LoansInterface(InterfaceScore):
 # An interface to the Loans SCORE
 class DexInterface(InterfaceScore):
     @interface
-    def add(self, _baseToken: Address, _quoteToken: Address, _baseValue: int, _quoteValue: int, _withdraw_unused: bool = True):
+    def add(self, _baseToken: Address, _quoteToken: Address, _baseValue: int, _quoteValue: int,
+            _withdraw_unused: bool = True):
         pass
 
     @interface
@@ -139,6 +140,10 @@ class DexInterface(InterfaceScore):
 
     @interface
     def addQuoteCoin(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def addLpAddresses(self, _poolId: int, _addresses: List[Address]) -> None:
         pass
 
 
