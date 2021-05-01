@@ -1088,7 +1088,7 @@ class DEX(IconScoreBase):
         min_amount = self._get_rewardable_amount(_quote_token)
 
         if _value < min_amount:
-            readable_min = min_amount / self._get_unit_value(_quote_token)
+            readable_min = min_amount // self._get_unit_value(_quote_token)
             revert(f"{TAG}: Total liquidity provided must be above {readable_min} quote currency")
 
     # Snapshotting
