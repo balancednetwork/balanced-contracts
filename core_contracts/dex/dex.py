@@ -518,8 +518,9 @@ class DEX(IconScoreBase):
         current_icx_total = self._icx_queue_total.get() + self.msg.value
         self._icx_queue_total.set(current_icx_total)
 
-        if order_value >= self._get_rewardable_amount(None):
-            self._active_addresses[self._SICXICX_POOL_ID].add(self.msg.sender)
+        # Revert orders below the minimum amount
+        self._revert_below_minimum(order_value, None)
+        self._active_addresses[self._SICXICX_POOL_ID].add(self.msg.sender)
 
         self._update_account_snapshot(self.msg.sender, self._SICXICX_POOL_ID)
         self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
@@ -887,7 +888,10 @@ class DEX(IconScoreBase):
                 'quote': self._icx_queue_total.get(),
                 'total_supply': self._icx_queue_total.get(),
                 'price': self.getPrice(_id),
-                'name': self._SICXICX_MARKET_NAME
+                'name': self._SICXICX_MARKET_NAME,
+                'base_decimals': 18,
+                'quote_decimals': 18,
+                'min_quote': self._get_rewardable_amount(None)
             }
 
         else:
@@ -902,7 +906,10 @@ class DEX(IconScoreBase):
                 'quote_token': quote_token,
                 'total_supply': self._total[_id],
                 'price': self.getPrice(_id),
-                'name': name
+                'name': name,
+                'base_decimals': self._token_precisions[base_token],
+                'quote_decimals': self._token_precisions[quote_token],
+                'min_quote': self._get_rewardable_amount(quote_token)
             }
 
     ####################################
@@ -1106,21 +1113,18 @@ class DEX(IconScoreBase):
         Gets the minimum rewardable amount for a given coin.
         Assumes that the pool is balanced, so the price at time of insert is the real price.
         This won't be sensitive to 'impermanent losses', so use at your own risk.
-
+        If a coin is not explicitly covered by this method, any amount is considered
+        rewardable.
         :param _token_address: Token SCORE to check (None = ICX)
         """
-        if self._sicx == _token_address:
-            return (50 * EXA * EXA) // self._get_sicx_rate()
-        elif self._bnUSD == _token_address:
-            return 25 * EXA
+        if self._sicx.get() == _token_address:
+            return (10 * EXA * EXA) // self._get_sicx_rate()
+        elif self._bnUSD.get() == _token_address:
+            return 10 * EXA
         elif None == _token_address:
-            return 50 * EXA
-        elif _token_address in self._token_precisions:
-            # default to 25 units of precision 1, if we have the coin on deposit
-            return 25 * (10 ** self._token_precisions[_token_address])
+            return 10 * EXA
         else:
-            # Fallback to 18 digits of precision
-            return 25 * EXA
+            return 0
 
     def _swap_icx(self, _sender: Address, _value: int):
         """
@@ -1191,9 +1195,6 @@ class DEX(IconScoreBase):
                 new_counterparty_value = counterparty_order.get_value1() - matched_icx
                 counterparty_order.set_value1(new_counterparty_value)
 
-                if new_counterparty_value < self._get_rewardable_amount(None):
-                    self._active_addresses[self._SICXICX_POOL_ID].remove(counterparty_address)
-
             self._update_account_snapshot(counterparty_address, self._SICXICX_POOL_ID)
 
             # If no more remaining ICX, the order is fully filled
@@ -1207,6 +1208,19 @@ class DEX(IconScoreBase):
         # Settle fees to dividends and ICX converted to the sender
         sicx_score.transfer(self._dividends.get(), baln_fees)
         self.icx.transfer(_sender, order_icx_value)
+    
+    def _get_unit_value(self, _token_address: Address):
+        if _token_address == None:
+            return 10 ** 18
+        else:
+            return 10 ** self._token_precisions[_token_address]
+
+    def _revert_below_minimum(self, _value: int, _quote_token: Address):
+        min_amount = self._get_rewardable_amount(_quote_token)
+
+        if _value < min_amount:
+            readable_min = min_amount / self._get_unit_value(_quote_token)
+            revert(f"{TAG}: Total liquidity provided must be above {readable_min} quote currency")
 
     # Snapshotting
     def _take_new_day_snapshot(self) -> None:
@@ -1572,6 +1586,9 @@ class DEX(IconScoreBase):
 
         This method can withdraw up to a user's holdings in a pool, but it cannot
         be called if the user has not passed their withdrawal lock time period.
+
+        If a withdrawal would drop the user below the minimum, instead the
+        maximum amount is withdrawn.
         """
 
         self._take_new_day_snapshot()
@@ -1593,6 +1610,13 @@ class DEX(IconScoreBase):
         base_token = self._pool_base[_id]
         quote_token = self._pool_quote[_id]
 
+        user_quote_left = (balance - _value) * self._pool_total[_id][quote_token] \
+            // self._total[_id]
+        
+        if user_quote_left < self._get_rewardable_amount(quote_token):
+            _value = balance
+            self._active_addresses[_id].remove(self.msg.sender)
+
         base_withdraw = self._pool_total[_id][base_token] * _value // self._total[_id]
         quote_withdraw = self._pool_total[_id][quote_token] * _value // self._total[_id]
 
@@ -1611,12 +1635,6 @@ class DEX(IconScoreBase):
 
         self._deposit[base_token][self.msg.sender] += base_withdraw
         self._deposit[quote_token][self.msg.sender] += quote_withdraw
-
-        user_quote_holdings = self._balance[_id][self.msg.sender] \
-            * self._pool_total[_id][quote_token] // self.totalSupply(_id)
-
-        if user_quote_holdings < self._get_rewardable_amount(quote_token):
-            self._active_addresses[_id].remove(self.msg.sender)
 
         self._update_account_snapshot(self.msg.sender, _id)
         self._update_total_supply_snapshot(_id)
@@ -1733,8 +1751,8 @@ class DEX(IconScoreBase):
         user_quote_holdings = self._balance[_id][self.msg.sender] \
             * self._pool_total[_id][_quoteToken] // self.totalSupply(_id)
 
-        if user_quote_holdings >= self._get_rewardable_amount(_quoteToken):
-            self._active_addresses[_id].add(self.msg.sender)
+        self._revert_below_minimum(user_quote_holdings, _quoteToken)
+        self._active_addresses[_id].add(self.msg.sender)
 
         self._update_account_snapshot(_owner, _id)
         self._update_total_supply_snapshot(_id)
