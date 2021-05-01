@@ -994,11 +994,11 @@ class DEX(IconScoreBase):
         rewardable.
         :param _token_address: Token SCORE to check (None = ICX)
         """
-        if self._sicx.get() == _token_address:
+        if _token_address is None:
+            return 10 * EXA
+        elif self._sicx.get() == _token_address:
             return (10 * EXA * EXA) // self._get_sicx_rate()
         elif self._bnUSD.get() == _token_address:
-            return 10 * EXA
-        elif None == _token_address:
             return 10 * EXA
         else:
             return 0
@@ -1087,7 +1087,7 @@ class DEX(IconScoreBase):
         self.icx.transfer(_sender, order_icx_value)
     
     def _get_unit_value(self, _token_address: Address):
-        if _token_address == None:
+        if _token_address is None:
             return 10 ** 18
         else:
             return 10 ** self._token_precisions[_token_address]
