@@ -1222,47 +1222,51 @@ class DEX(IconScoreBase):
         current_id = self._current_day.get()
         current_time = self.now()
         current_value = self.balanceOf(_account, _id)
-
-        length = self._account_balance_snapshot[_id][_account]['length'][0]
+        snapshot_db_entry = self._account_balance_snapshot[_id][_account]
+        length = snapshot_db_entry['length'][0]
         last_snapshot_id = 0
 
         day_start_us = self._time_offset.get() + (U_SECONDS_DAY * current_id)
         day_elapsed_us = current_time - day_start_us
         day_remaining_us = U_SECONDS_DAY - day_elapsed_us
 
+
         if length == 0:
             average = (current_value * day_remaining_us) // U_SECONDS_DAY
 
-            self._account_balance_snapshot[_id][_account]['ids'][length] = current_id
-            self._account_balance_snapshot[_id][_account]['values'][length] = current_value
-            self._account_balance_snapshot[_id][_account]['avgs'][length] = average
-            self._account_balance_snapshot[_id][_account]['time'][length] = current_time
-            self._account_balance_snapshot[_id][_account]['length'][0] += 1
+            snapshot_db_entry['ids'][length] = current_id
+            snapshot_db_entry['values'][length] = current_value
+            snapshot_db_entry['avgs'][length] = average
+            snapshot_db_entry['time'][length] = current_time
+            snapshot_db_entry['length'][0] += 1
             return
         else:
-            last_snapshot_id = self._account_balance_snapshot[_id][_account]['ids'][length - 1]
+            last_snapshot_id = snapshot_db_entry['ids'][length - 1]
+
+
+        # Compute deltas for online average
+        previous_value = snapshot_db_entry['values'][length - 1]
+        delta = current_value - previous_value
 
         # If there is a snapshot existing, it either falls before or in the current window.
+        # Online average should be taken according to each behavior
         if last_snapshot_id < current_id:
             # If the snapshot is before the current window, we should create a new entry
-            previous_value = self._account_balance_snapshot[_id][_account]['values'][length - 1]
+            average = previous_value + (delta * day_remaining_us) // U_SECONDS_DAY
 
-            average = ((day_elapsed_us * previous_value) + (day_remaining_us * current_value)) // U_SECONDS_DAY
-
-            self._account_balance_snapshot[_id][_account]['ids'][length] = current_id
-            self._account_balance_snapshot[_id][_account]['values'][length] = current_value
-            self._account_balance_snapshot[_id][_account]['avgs'][length] = average
-            self._account_balance_snapshot[_id][_account]['time'][length] = current_time
-            self._account_balance_snapshot[_id][_account]['length'][0] += 1
+            snapshot_db_entry['ids'][length] = current_id
+            snapshot_db_entry['values'][length] = current_value
+            snapshot_db_entry['avgs'][length] = average
+            snapshot_db_entry['time'][length] = current_time
+            snapshot_db_entry['length'][0] += 1
         else:
             # If the snapshot is in the current window, we should update the current entry
-            previous_average = self._account_balance_snapshot[_id][_account]['avgs'][length - 1]
+            previous_average = snapshot_db_entry['avgs'][length - 1]
+            average = previous_average + (delta * day_remaining_us) // U_SECONDS_DAY
 
-            average = ((previous_average * day_elapsed_us) + (current_value * day_remaining_us)) // U_SECONDS_DAY
-
-            self._account_balance_snapshot[_id][_account]['values'][length - 1] = current_value
-            self._account_balance_snapshot[_id][_account]['avgs'][length - 1] = average
-            self._account_balance_snapshot[_id][_account]['time'][length - 1] = current_time
+            snapshot_db_entry['values'][length - 1] = current_value
+            snapshot_db_entry['avgs'][length - 1] = average
+            snapshot_db_entry['time'][length - 1] = current_time
 
     def _update_baln_snapshot(self, _id: int) -> None:
         """
@@ -1277,7 +1281,8 @@ class DEX(IconScoreBase):
         current_id = self._current_day.get()
         current_time = self.now()
         current_value = self._pool_total[_id][self._baln.get()]
-        length = self._baln_snapshot[_id]['length'][0]
+        snapshot_db_entry = self._baln_snapshot[_id]
+        length = snapshot_db_entry['length'][0]
         last_snapshot_id = 0
 
         day_start_us = self._time_offset.get() + (U_SECONDS_DAY * current_id)
@@ -1287,37 +1292,38 @@ class DEX(IconScoreBase):
         if length == 0:
             average = (current_value * day_remaining_us) // U_SECONDS_DAY
 
-            self._baln_snapshot[_id]['ids'][length] = current_id
-            self._baln_snapshot[_id]['values'][length] = current_value
-            self._baln_snapshot[_id]['avgs'][length] = average
-            self._baln_snapshot[_id]['time'][length] = current_time
-            self._baln_snapshot[_id]['length'][0] += 1
+            snapshot_db_entry['ids'][length] = current_id
+            snapshot_db_entry['values'][length] = current_value
+            snapshot_db_entry['avgs'][length] = average
+            snapshot_db_entry['time'][length] = current_time
+            snapshot_db_entry['length'][0] += 1
             return
         else:
-            last_snapshot_id = self._baln_snapshot[_id]['ids'][length - 1]
+            last_snapshot_id = snapshot_db_entry['ids'][length - 1]
+        
+        previous_value = snapshot_db_entry['values'][length - 1]
+        delta = current_value - previous_value
 
         # If there is a snapshot existing, it either falls before or in the current window.
         if last_snapshot_id < current_id:
             # If the snapshot is before the current window, we should create a new entry
-            previous_value = self._baln_snapshot[_id]['values'][length - 1]
+            average = previous_value + (delta * day_remaining_us) // U_SECONDS_DAY
 
-            average = ((day_elapsed_us * previous_value) + (day_remaining_us * current_value)) // U_SECONDS_DAY
+            snapshot_db_entry['ids'][length] = current_id
+            snapshot_db_entry['values'][length] = current_value
+            snapshot_db_entry['avgs'][length] = average
+            snapshot_db_entry['time'][length] = current_time
 
-            self._baln_snapshot[_id]['ids'][length] = current_id
-            self._baln_snapshot[_id]['values'][length] = current_value
-            self._baln_snapshot[_id]['avgs'][length] = average
-            self._baln_snapshot[_id]['time'][length] = current_time
-
-            self._baln_snapshot[_id]['length'][0] += 1
+            snapshot_db_entry['length'][0] += 1
         else:
             # If the snapshot is in the current window, we should update the current entry
-            previous_average = self._baln_snapshot[_id]['avgs'][length - 1]
+            previous_average = snapshot_db_entry['avgs'][length - 1]
 
-            average = ((previous_average * day_elapsed_us) + (current_value * day_remaining_us)) // U_SECONDS_DAY
+            average = previous_average + (delta * day_remaining_us) // U_SECONDS_DAY
 
-            self._baln_snapshot[_id]['values'][length - 1] = current_value
-            self._baln_snapshot[_id]['avgs'][length - 1] = average
-            self._baln_snapshot[_id]['time'][length - 1] = current_time
+            snapshot_db_entry['values'][length - 1] = current_value
+            snapshot_db_entry['avgs'][length - 1] = average
+            snapshot_db_entry['time'][length - 1] = current_time
 
     def _update_total_supply_snapshot(self, _id: int) -> None:
         """
@@ -1328,7 +1334,8 @@ class DEX(IconScoreBase):
         current_id = self._current_day.get()
         current_time = self.now()
         current_value = self.totalSupply(_id)
-        length = self._total_supply_snapshot[_id]['length'][0]
+        snapshot_db_entry = self._total_supply_snapshot[_id]
+        length = snapshot_db_entry['length'][0]
         last_snapshot_id = 0
 
         day_start_us = self._time_offset.get() + (U_SECONDS_DAY * current_id)
@@ -1338,37 +1345,37 @@ class DEX(IconScoreBase):
         if length == 0:
             average = (current_value * day_remaining_us) // U_SECONDS_DAY
 
-            self._total_supply_snapshot[_id]['ids'][length] = current_id
-            self._total_supply_snapshot[_id]['values'][length] = current_value
-            self._total_supply_snapshot[_id]['avgs'][length] = average
-            self._total_supply_snapshot[_id]['time'][length] = current_time
-            self._total_supply_snapshot[_id]['length'][0] += 1
+            snapshot_db_entry['ids'][length] = current_id
+            snapshot_db_entry['values'][length] = current_value
+            snapshot_db_entry['avgs'][length] = average
+            snapshot_db_entry['time'][length] = current_time
+            snapshot_db_entry['length'][0] += 1
             return
         else:
-            last_snapshot_id = self._total_supply_snapshot[_id]['ids'][length - 1]
+            last_snapshot_id = snapshot_db_entry['ids'][length - 1]
+        
+        previous_value = snapshot_db_entry['values'][length - 1]
+        delta = current_value - previous_value
 
         # If there is a snapshot existing, it either falls before or in the current window.
         if last_snapshot_id < current_id:
             # If the snapshot is before the current window, we should create a new entry
-            previous_value = self._total_supply_snapshot[_id]['values'][length - 1]
+            average = previous_value + (delta * day_remaining_us) // U_SECONDS_DAY
 
-            average = ((day_elapsed_us * previous_value) + (day_remaining_us * current_value)) // U_SECONDS_DAY
+            snapshot_db_entry['ids'][length] = current_id
+            snapshot_db_entry['values'][length] = current_value
+            snapshot_db_entry['avgs'][length] = average
+            snapshot_db_entry['time'][length] = current_time
 
-            self._total_supply_snapshot[_id]['ids'][length] = current_id
-            self._total_supply_snapshot[_id]['values'][length] = current_value
-            self._total_supply_snapshot[_id]['avgs'][length] = average
-            self._total_supply_snapshot[_id]['time'][length] = current_time
-
-            self._total_supply_snapshot[_id]['length'][0] += 1
+            snapshot_db_entry['length'][0] += 1
         else:
             # If the snapshot is in the current window, we should update the current entry
-            previous_average = self._total_supply_snapshot[_id]['avgs'][length - 1]
+            previous_average = snapshot_db_entry['avgs'][length - 1]
+            average = previous_average + (delta * day_remaining_us) // U_SECONDS_DAY
 
-            average = ((previous_average * day_elapsed_us) + (current_value * day_remaining_us)) // U_SECONDS_DAY
-
-            self._total_supply_snapshot[_id]['values'][length - 1] = current_value
-            self._total_supply_snapshot[_id]['avgs'][length - 1] = average
-            self._total_supply_snapshot[_id]['time'][length - 1] = current_time
+            snapshot_db_entry['values'][length - 1] = current_value
+            snapshot_db_entry['avgs'][length - 1] = average
+            snapshot_db_entry['time'][length - 1] = current_time
 
     @external(readonly=True)
     def balanceOfAt(self, _account: Address, _id: int, _snapshot_id: int) -> int:
