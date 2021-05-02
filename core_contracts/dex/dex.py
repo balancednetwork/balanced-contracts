@@ -1153,6 +1153,56 @@ class DEX(IconScoreBase):
             'time': self._account_balance_snapshot[_id][_account]['time'][_snapshot_id],
             'length': self._account_balance_snapshot[_id][_account]['length'][0]
         }
+    
+    def _repair_account_snapshot(self, _account: Address, _id: int) -> None:
+        """
+        Repairs a user's balance snapshot, setting the immediate + average volume as if
+        they supplied liquidity today at midnight.
+        """
+        current_id = self._current_day.get()
+        length = self._account_balance_snapshot[_id][_account]['length'][0]
+        current_time = self.now()
+        last_snapshot_id = self._account_balance_snapshot[_id][_account]['ids'][length - 1]
+        current_value = self.balanceOf(_account, _id)
+
+        snapshot_db_entry = self._account_balance_snapshot[_id][_account]
+
+        if last_snapshot_id < current_id:
+            snapshot_db_entry['ids'][length] = current_id
+            snapshot_db_entry['values'][length] = current_value
+            snapshot_db_entry['avgs'][length] = current_value
+            snapshot_db_entry['time'][length] = current_time
+            snapshot_db_entry['length'][0] += 1
+        else:
+            snapshot_db_entry['ids'][length - 1] = current_id
+            snapshot_db_entry['values'][length - 1] = current_value
+            snapshot_db_entry['avgs'][length - 1] = current_value
+            snapshot_db_entry['time'][length - 1] = current_time
+    
+    def _repair_total_supply_snapshot(self, _id: int) -> None:
+        """
+        Repairs the total supply snapshot for a particular market, as if all users
+        have been supplying liquidity since midnight
+        """
+        current_id = self._current_day.get()
+        length = self._total_supply_snapshot[_id]['length'][0]
+        current_time = self.now()
+        snapshot_db_entry = self._total_supply_snapshot[_id]
+        last_snapshot_id = snapshot_db_entry['ids'][length - 1]
+        current_value = self.totalSupply(_id)
+
+
+        if last_snapshot_id < self._current_day.get():
+            snapshot_db_entry['ids'][length] = current_id
+            snapshot_db_entry['values'][length] = current_value
+            snapshot_db_entry['avgs'][length] = current_value
+            snapshot_db_entry['time'][length] = current_time
+            snapshot_db_entry['length'][0] += 1
+        else:
+            snapshot_db_entry['ids'][length - 1] = current_id
+            snapshot_db_entry['values'][length - 1] = current_value
+            snapshot_db_entry['avgs'][length - 1] = current_value
+            snapshot_db_entry['time'][length - 1] = current_time
 
     def _update_account_snapshot(self, _account: Address, _id: int) -> None:
         """
@@ -1739,3 +1789,13 @@ class DEX(IconScoreBase):
         for _address in _addresses:
             if self.balanceOf(_address, _poolId) > 0:
                 self._active_addresses[_poolId].add(_address)
+
+
+    @only_governance
+    @external
+    def repairSnapshots(self, _poolId: int, _addresses: List[Address]) -> None:
+        for _address in _addresses:
+            self._repair_account_snapshot(_address, _poolId)
+            Logger.info(f"{TAG} Repairing {str(_address)} in pool {_poolId}")
+
+        self._repair_total_supply_snapshot(_poolId)
