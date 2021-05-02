@@ -1,6 +1,7 @@
 import os
 from shutil import make_archive
-
+import sys
+sys.path.append("..")
 from iconsdk.exception import JSONRPCException
 from iconsdk.libs.in_memory_zip import gen_deploy_data_content
 from iconsdk.icon_service import IconService
@@ -717,10 +718,10 @@ if __name__ == '__main__':
 
     # In[92]:
 
-    user1 = KeyWallet.load("../../keystores/keystore_test1.json", "test1_Account")
-    with open("../../keystores/balanced_test.pwd", "r") as f:
+    user1 = KeyWallet.load("./keystores/keystore_test1.json", "test1_Account")
+    with open("./keystores/balanced_test.pwd", "r") as f:
         key_data = f.read()
-    user2 = KeyWallet.load("../../keystores/balanced_test.json", key_data)
+    user2 = KeyWallet.load("./keystores/balanced_test.json", key_data)
 
     # print(icon_service.get_balance(user1.get_address()) / 10 ** 18)
     # print(icon_service.get_balance(user2.get_address()) / 10 ** 18)

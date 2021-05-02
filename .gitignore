@@ -1,7 +1,5 @@
 # System files
 .DS_Store
-keystores/*
-*keystore*
 
 # tbears test_scenarios files
 .testscore/
