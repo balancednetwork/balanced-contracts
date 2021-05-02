@@ -1686,4 +1686,5 @@ class DEX(IconScoreBase):
     @external
     def addLpAddresses(self, _poolId: int, _addresses: List[Address]) -> None:
         for _address in _addresses:
-            self._active_addresses[_poolId].add(_address)
+            if self.balanceOf(_address, _poolId) > 0:
+                self._active_addresses[_poolId].add(_address)
