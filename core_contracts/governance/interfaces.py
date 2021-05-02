@@ -99,6 +99,10 @@ class DexInterface(InterfaceScore):
         pass
 
     @interface
+    def turnDexOff(self) -> None:
+        pass
+
+    @interface
     def permit(self, _id: int, _permission: bool):
         pass
 
@@ -146,6 +150,13 @@ class DexInterface(InterfaceScore):
     def addLpAddresses(self, _poolId: int, _addresses: List[Address]) -> None:
         pass
 
+    @interface
+    def setTimeWeighting(self, _value: bool) -> None:
+        pass
+
+    @interface
+    def repairSnapshots(self, _poolId: int, _addresses: List[Address]) -> None:
+        pass
 
 # An interface to the Rewards SCORE
 class RewardsInterface(InterfaceScore):

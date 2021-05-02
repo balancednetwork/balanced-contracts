@@ -401,6 +401,24 @@ class Governance(IconScoreBase):
         dex.setTimeWeighting(_value)
 
     @external
+    @only_owner
+    def turnDexOff(self):
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        dex.turnDexOff()
+
+    @external
+    @only_owner
+    def turnDexOn(self):
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        dex.turnDexOn()
+
+    @external
+    @only_owner
+    def repairSnapshots(self, _poolId: int, _addressList: List[Address]):
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        dex.repairSnapshots(_poolId, _addressList)
+
+    @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
         Used only to receive sICX for unstaking.
