@@ -192,6 +192,9 @@ class DEX(IconScoreBase):
             self._ACCOUNT_BALANCE_SNAPSHOT, db, value_type=int, depth=4)
         self._total_supply_snapshot = DictDB(
             self._TOTAL_SUPPLY_SNAPSHOT, db, value_type=int, depth=3)
+        
+        # Switch to enable Time Weighted Liquidity
+        self._time_weighted_lp = VarDB('timeWeighting', db, value_type=bool)
 
         # BALN token snapshot for use in dividends SCORE
         self._baln_snapshot = DictDB('balnSnapshot', db, value_type=int, depth=3)
@@ -433,6 +436,14 @@ class DEX(IconScoreBase):
         """
         self._dex_on.set(True)
 
+    @only_governance
+    @external
+    def turnDexOff(self) -> None:
+        """
+        Called by the Governance contract to deactivate the DEX for maintaince.
+        """
+        self._dex_on.set(False)
+
     @external(readonly=True)
     def getDexOn(self) -> bool:
         """
@@ -440,6 +451,21 @@ class DEX(IconScoreBase):
         if the DEX is not yet active.
         """
         return self._dex_on.get()
+
+    @external(readonly=True)
+    def getTimeWeighting(self) -> bool:
+        """
+        Returns `True` if the dex has time weighted averages set for snapshots
+        """
+        return self._time_weighted_lp.get()
+
+    @only_governance
+    @external
+    def setTimeWeighting(self, _value: bool) -> bool:
+        """
+        Returns `True` if the dex has time weighted averages set for snapshots
+        """
+        self._time_weighted_lp.set(_value)
 
     @only_governance
     @external
@@ -1381,15 +1407,25 @@ class DEX(IconScoreBase):
 
     @external(readonly=True)
     def getTotalValue(self, _name: str, _snapshot_id: int) -> int:
-        # return self.totalSupplyAt(self._named_markets[_name], _snapshot_id)
-        return self.totalSupply(self._named_markets[_name])
+        twa = self._time_weighted_lp.get()
+        if not twa:
+            return self.totalSupply(self._named_markets[_name])
+        else:
+            return self.totalSupplyAt(self._named_markets[_name], _snapshot_id)
+
+    @external(readonly=True)
+    def getTotalValueOptional(self, _name: str, _snapshot_id: int, _twa: bool = False) -> int:
+        if _twa:
+            return self.totalSupplyAt(self._named_markets[_name], _snapshot_id)
+        else:
+            return self.totalSupply(self._named_markets[_name])
 
     @external(readonly=True)
     def getBalnSnapshot(self, _name: str, _snapshot_id: int) -> int:
         return self.totalBalnAt(self._named_markets[_name], _snapshot_id)
 
     @external(readonly=True)
-    def loadBalancesAtSnapshot(self, _id: int, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
+    def loadBalancesAtSnapshot(self, _id: int, _snapshot_id: int, _limit: int, _offset: int = 0, _twa: bool = False) -> dict:
         if _snapshot_id < 0:
             revert(f"{TAG}: Snapshot id is equal to or greater then Zero.")
         if _id < 0:
@@ -1398,10 +1434,15 @@ class DEX(IconScoreBase):
             revert(f"{TAG}: Offset must be equal to or greater than Zero.")
         rv = {}
         for addr in self._active_addresses[_id].range(_offset, _offset + _limit):
-            # snapshot_balance = self.balanceOfAt(addr, _id, _snapshot_id)
-            snapshot_balance = self.balanceOf(addr, _id)
+            snapshot_balance = 0
+            if _twa:
+                snapshot_balance = self.balanceOfAt(addr, _id, _snapshot_id)
+            else:
+                snapshot_balance = self.balanceOf(addr, _id)
+
             if snapshot_balance:
                 rv[str(addr)] = snapshot_balance
+
         return rv
 
     @external(readonly=True)
@@ -1410,9 +1451,19 @@ class DEX(IconScoreBase):
         total = self.totalDexAddresses(pid)
         clamped_offset = min(_offset, total)
         clamped_limit = min(_limit, total - clamped_offset)
+        twa = self._time_weighted_lp.get()
         rv = self.loadBalancesAtSnapshot(
-            pid, _snapshot_id, clamped_limit, clamped_offset)
-        Logger.info(len(rv), TAG)
+            pid, _snapshot_id, clamped_limit, clamped_offset, twa)
+        return rv
+
+    @external(readonly=True)
+    def getDataBatchOptional(self, _name: str, _snapshot_id: int, _limit: int, _offset: int = 0, _twa: bool = False) -> dict:
+        pid = self._named_markets[_name]
+        total = self.totalDexAddresses(pid)
+        clamped_offset = min(_offset, total)
+        clamped_limit = min(_limit, total - clamped_offset)
+        rv = self.loadBalancesAtSnapshot(
+            pid, _snapshot_id, clamped_limit, clamped_offset, _twa)
         return rv
 
     ####################################

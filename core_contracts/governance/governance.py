@@ -393,6 +393,12 @@ class Governance(IconScoreBase):
     def addUsersToActiveAddresses(self, _poolId: int, _addressList: List[Address]):
         dex = self.create_interface_score(self.addresses['dex'], DexInterface)
         dex.addLpAddresses(_poolId, _addressList)
+    
+    @external
+    @only_owner
+    def setTimeWeighting(self, _value: bool):
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        dex.setTimeWeighting(_value)
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
