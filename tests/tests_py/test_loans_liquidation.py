@@ -50,15 +50,15 @@ def get_tx_result(_tx_hash):
 icon_service = IconService(HTTPProvider(env["iconservice"], 3))
 NID = env["nid"]
 
-wallet = KeyWallet.load("../keystores/keystore_test1.json", "test1_Account")
+wallet = KeyWallet.load("./keystores/keystore_test1.json", "test1_Account")
 # Balanced test wallet
-with open("../keystores/balanced_test.pwd", "r") as f:
+with open("./keystores/balanced_test.pwd", "r") as f:
     key_data = f.read()
-btest_wallet = KeyWallet.load("../keystores/balanced_test.json", key_data)
+btest_wallet = KeyWallet.load("./keystores/balanced_test.json", key_data)
 
-with open("../keystores/staking_test.pwd", "r") as f:
+with open("./keystores/staking_test.pwd", "r") as f:
     key_data = f.read()
-staking_wallet = KeyWallet.load("../keystores/staking_test.json", key_data)
+staking_wallet = KeyWallet.load("./keystores/staking_test.json", key_data)
 
 print(wallet.get_address())
 print(icon_service.get_balance(wallet.get_address()) / 10 ** 18)
@@ -66,7 +66,7 @@ print(icon_service.get_balance(wallet.get_address()) / 10 ** 18)
 print(btest_wallet.get_address())
 print(icon_service.get_balance(btest_wallet.get_address()) / 10 ** 18)
 
-user1 = KeyWallet.load("../keystores/user1.json", "HelloWorld@1234")
+user1 = KeyWallet.load("./keystores/user1.json", "HelloWorld@1234")
 # btest_wallet = KeyWallet.load("./balanced_test.json","HelloWorld@1234")
 
 print(icon_service.get_balance(user1.get_address()) / 10 ** 18)
@@ -138,7 +138,7 @@ def compress():
     Make sure the oracle address is correct.
     """
     deploy = list(contracts.keys())[:]
-    for directory in {"../../core_contracts", "../../token_contracts"}:
+    for directory in {"../core_contracts", "../token_contracts"}:
         with os.scandir(directory) as it:
             for file in it:
                 archive_name = directory + "/" + file.name
