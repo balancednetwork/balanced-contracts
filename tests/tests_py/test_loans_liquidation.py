@@ -66,7 +66,7 @@ print(icon_service.get_balance(wallet.get_address()) / 10 ** 18)
 print(btest_wallet.get_address())
 print(icon_service.get_balance(btest_wallet.get_address()) / 10 ** 18)
 
-user1 = KeyWallet.load("./keystores/user1.json", "HelloWorld@1234")
+user1 = KeyWallet.load("../keystores/user1.json", "HelloWorld@1234")
 # btest_wallet = KeyWallet.load("./balanced_test.json","HelloWorld@1234")
 
 print(icon_service.get_balance(user1.get_address()) / 10 ** 18)

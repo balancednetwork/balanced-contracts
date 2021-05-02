@@ -44,14 +44,14 @@ class TestLoan(IconIntegrateTestBase):
         super().setUp()
         self.contracts = {}
 
-        self.wallet = KeyWallet.load("../keystores/keystore_test1.json", "test1_Account")
+        self.wallet = KeyWallet.load("./keystores/keystore_test1.json", "test1_Account")
         # Balanced test wallet
-        with open("../keystores/balanced_test.pwd", "r") as f:
+        with open("./keystores/balanced_test.pwd", "r") as f:
             key_data = f.read()
-        self.btest_wallet = KeyWallet.load("../keystores/balanced_test.json", key_data)
-        with open("../keystores/staking_test.pwd", "r") as f:
+        self.btest_wallet = KeyWallet.load("./keystores/balanced_test.json", key_data)
+        with open("./keystores/staking_test.pwd", "r") as f:
             key_data = f.read()
-        self.staking_wallet = KeyWallet.load("../keystores/staking_test.json", key_data)
+        self.staking_wallet = KeyWallet.load("./keystores/staking_test.json", key_data)
 
         # test2 = hx7a1824129a8fe803e45a3aae1c0e060399546187
         private = "0a354424b20a7e3c55c43808d607bddfac85d033e63d7d093cb9f0a26c4ee022"
@@ -59,11 +59,13 @@ class TestLoan(IconIntegrateTestBase):
         # self._test2 = KeyWallet.create()
 
         self.icon_service = IconService(HTTPProvider(self.TEST_HTTP_ENDPOINT_URI_V3))
+        print("Test Wallet address 1:", self.wallet.get_address())
+        print("Test Wallet address 2:", self.btest_wallet.get_address())
+
         print("==============================================="
               " ......Testing liquidate method......."
               "=================================================")
-        print(self.wallet.get_address())
-        print(self.btest_wallet.get_address())
+
         # deploy SCORE
 
         self.results = {}

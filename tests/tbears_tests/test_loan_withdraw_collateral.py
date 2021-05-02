@@ -59,11 +59,13 @@ class TestLoan(IconIntegrateTestBase):
         # self._test2 = KeyWallet.create()
 
         self.icon_service = IconService(HTTPProvider(self.TEST_HTTP_ENDPOINT_URI_V3))
+        print("Test Wallet address 1:", self.wallet.get_address())
+        print("Test Wallet address 2:", self.btest_wallet.get_address())
+
         print("==============================================="
               " ......Testing withdrawCollateral method......."
               "=================================================")
-        print(self.wallet.get_address())
-        print(self.btest_wallet.get_address())
+
         # deploy SCORE
 
         self.results = {}
