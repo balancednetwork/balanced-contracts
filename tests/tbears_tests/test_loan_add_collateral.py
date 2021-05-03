@@ -2,10 +2,7 @@ import os
 from shutil import make_archive
 from tbears.libs.icon_integrate_test import IconIntegrateTestBase
 import json
-
 import sys
-sys.path.append("..")
-
 from iconsdk.builder.call_builder import CallBuilder
 from iconsdk.libs.in_memory_zip import gen_deploy_data_content
 from iconsdk.signed_transaction import SignedTransaction
@@ -15,6 +12,7 @@ from iconsdk.builder.transaction_builder import CallTransactionBuilder, DeployTr
 from iconsdk.wallet.wallet import KeyWallet
 from iconsdk.exception import JSONRPCException
 from repeater import retry
+sys.path.append("..")
 
 ICX = 1000000000000000000
 
@@ -65,49 +63,49 @@ class TestLoan(IconIntegrateTestBase):
         self.results = {}
 
         self.contracts = {'loans': {'zip': 'core_contracts/loans.zip',
-                               'SCORE': 'cxa0f715fb2c4bc8f4c6399c2cc26167a27be0aa61'},
-                     'staking': {'zip': 'core_contracts/staking.zip',
-                                 'SCORE': 'cxbabed822d59b605dbeb6322735c529b292baac3b'},
-                     'dividends': {'zip': 'core_contracts/dividends.zip',
-                                   'SCORE': 'cx1379084f45776301abda3849c6e374f460ee0155'},
-                     'reserve': {'zip': 'core_contracts/reserve.zip',
-                                 'SCORE': 'cx71dda2221bf88faddc8f84b72ffd6db296e5609e'},
-                     'daofund': {'zip': 'core_contracts/daofund.zip',
-                                 'SCORE': 'cxfd09787f23d23b945fa0c7eb55b5aa69425da1c8'},
-                     'rewards': {'zip': 'core_contracts/rewards.zip',
-                                 'SCORE': 'cx27aa3bf62145822e60d85fa5d18dabdcff5b9ada'},
-                     'dex': {'zip': 'core_contracts/dex.zip',
-                             'SCORE': 'cx01eee12b6614e5328e0a84261652cb7f055e0176'},
-                     'governance': {'zip': 'core_contracts/governance.zip',
-                                    'SCORE': 'cxd7b3e71dcff3d75392216e208f28ef68e8a54ec0'},
-                     'oracle': {'zip': 'core_contracts/oracle.zip',
-                                'SCORE': 'cxed97bdb35a7ca1b3993e400e4dba9e11610338f7'},
-                     'sicx': {'zip': 'token_contracts/sicx.zip',
-                              'SCORE': 'cx799f724e02560a762b5f2bd3b6d2d8d59d7aecc1'},
-                     'bnUSD': {'zip': 'token_contracts/bnUSD.zip',
-                               'SCORE': 'cx266bdc0c35828c8130cdf1cbaa3ad109f7694722'},
-                     'bnXLM': {'zip': 'token_contracts/bnXLM.zip',
-                               'SCORE': 'cx266bdc0c35828c8130cdf1cbaa3ad109f7694722'},
-                     'bnDOGE': {'zip': 'token_contracts/bnDOGE.zip',
-                                'SCORE': 'cx266bdc0c35828c8130cdf1cbaa3ad109f7694722'},
-                     'baln': {'zip': 'token_contracts/baln.zip',
-                              'SCORE': 'cx4d0768508a7ff550de4405f27aebfb8831565c19'},
-                     'bwt': {'zip': 'token_contracts/bwt.zip',
-                             'SCORE': 'cx663f9d59163846d9f6c6f7b586858c59aa8878a9'}}
+                                    'SCORE': 'cxa0f715fb2c4bc8f4c6399c2cc26167a27be0aa61'},
+                          'staking': {'zip': 'core_contracts/staking.zip',
+                                      'SCORE': 'cxbabed822d59b605dbeb6322735c529b292baac3b'},
+                          'dividends': {'zip': 'core_contracts/dividends.zip',
+                                        'SCORE': 'cx1379084f45776301abda3849c6e374f460ee0155'},
+                          'reserve': {'zip': 'core_contracts/reserve.zip',
+                                      'SCORE': 'cx71dda2221bf88faddc8f84b72ffd6db296e5609e'},
+                          'daofund': {'zip': 'core_contracts/daofund.zip',
+                                      'SCORE': 'cxfd09787f23d23b945fa0c7eb55b5aa69425da1c8'},
+                          'rewards': {'zip': 'core_contracts/rewards.zip',
+                                      'SCORE': 'cx27aa3bf62145822e60d85fa5d18dabdcff5b9ada'},
+                          'dex': {'zip': 'core_contracts/dex.zip',
+                                  'SCORE': 'cx01eee12b6614e5328e0a84261652cb7f055e0176'},
+                          'governance': {'zip': 'core_contracts/governance.zip',
+                                         'SCORE': 'cxd7b3e71dcff3d75392216e208f28ef68e8a54ec0'},
+                          'oracle': {'zip': 'core_contracts/oracle.zip',
+                                     'SCORE': 'cxed97bdb35a7ca1b3993e400e4dba9e11610338f7'},
+                          'sicx': {'zip': 'token_contracts/sicx.zip',
+                                   'SCORE': 'cx799f724e02560a762b5f2bd3b6d2d8d59d7aecc1'},
+                          'bnUSD': {'zip': 'token_contracts/bnUSD.zip',
+                                    'SCORE': 'cx266bdc0c35828c8130cdf1cbaa3ad109f7694722'},
+                          'bnXLM': {'zip': 'token_contracts/bnXLM.zip',
+                                    'SCORE': 'cx266bdc0c35828c8130cdf1cbaa3ad109f7694722'},
+                          'bnDOGE': {'zip': 'token_contracts/bnDOGE.zip',
+                                     'SCORE': 'cx266bdc0c35828c8130cdf1cbaa3ad109f7694722'},
+                          'baln': {'zip': 'token_contracts/baln.zip',
+                                   'SCORE': 'cx4d0768508a7ff550de4405f27aebfb8831565c19'},
+                          'bwt': {'zip': 'token_contracts/bwt.zip',
+                                  'SCORE': 'cx663f9d59163846d9f6c6f7b586858c59aa8878a9'}}
 
         self.deploy_all(self.btest_wallet, self.staking_wallet)
         print(
             '------------------------------------------------------------------------------------------------------------------')
         print(self.contracts)
-        print(
-            '----------Contracts for Testing UI--------------------------------------------------------------------------------')
-        print(self.get_scores_json(self.contracts))
+        # print(
+        #     '----------Contracts for Testing UI--------------------------------------------------------------------------------')
+        # print(self.get_scores_json(self.contracts))
 
         config_results = self.config_balanced(self.btest_wallet, self.staking_wallet)
-        print(config_results)
+        # print(config_results)
 
         launch_results = self.launch_balanced(self.btest_wallet, self.staking_wallet)
-        print(launch_results)
+        # print(launch_results)
 
     @retry(JSONRPCException, tries=10, delay=1, back_off=2)
     def _get_tx_result(self, _tx_hash):
@@ -152,7 +150,7 @@ class TestLoan(IconIntegrateTestBase):
         wallet is a wallet file
         update is boolian
         """
-        print(f'{contract["zip"]}')
+        print(f'Deploying contract {contract["zip"]}')
         if update:
             dest = contract['SCORE']
         else:
@@ -174,9 +172,9 @@ class TestLoan(IconIntegrateTestBase):
 
         res = self._get_tx_result(tx_hash)
         print(f'Status: {res["status"]}')
-        if len(res["eventLogs"]) > 0:
-            for item in res["eventLogs"]:
-                print(f'{item} \n')
+        # if len(res["eventLogs"]) > 0:
+        #     for item in res["eventLogs"]:
+        #         print(f'{item} \n')
         if res['status'] == 0:
             print(f'Failure: {res["failure"]}')
         print('')
@@ -207,9 +205,9 @@ class TestLoan(IconIntegrateTestBase):
         res = self._get_tx_result(tx_hash)
         print(
             f'************************************************** Status: {res["status"]} **************************************************')
-        if len(res["eventLogs"]) > 0:
-            for item in res["eventLogs"]:
-                print(f'{item} \n')
+        # if len(res["eventLogs"]) > 0:
+        #     for item in res["eventLogs"]:
+        #         print(f'{item} \n')
         if res['status'] == 0:
             print(f'Failure: {res["failure"]}')
         return res
@@ -321,22 +319,19 @@ class TestLoan(IconIntegrateTestBase):
         print(result)
         return result
 
+    def _score_update(self):
+        # update SCORE
+        contract_name = 'rewards'
+        update = 1
+        params = {}
+        if update == 0 and contract_name != 'governance':
+            params = {'_governance': self.contracts['governance']['SCORE']}
+        self.compress()
+        contract = self.contracts[contract_name]
+        res = self.deploy_SCORE(contract, params, self.btest_wallet, update)
+        print(res['scoreAddress'])
 
-    # def _score_update(self):
-    #     # update SCORE
-    #     for address in UPDATE:
-    #         print('======================================================================')
-    #         print('Test Score Update(' + address + ')')
-    #         print('----------------------------------------------------------------------')
-    #         self.SCORES = os.path.abspath(os.path.join(DIR_PATH, '../../core_self.contracts'))
-    #         self.SCORE_PROJECT = self.SCORES + "/" + address
-    #         SCORE_PROJECT = os.path.abspath(os.path.join(DIR_PATH, '')) + "/" + address
-    #         tx_result = self._deploy_score(self.contracts[address], 'update')
-    #         self.assertEqual(
-    #             self.contracts[address], tx_result['scoreAddress'])
-
-
-    # # Adding collateral to some wallets
+    # # Adding collateral to the wallets
     def test_addCollateral(self):
         cases = test_cases['stories']
         for case in cases:
@@ -362,7 +357,7 @@ class TestLoan(IconIntegrateTestBase):
                 .build()
             signed_transaction = SignedTransaction(transaction, wallet)
             _tx_result = self.process_transaction(signed_transaction, self.icon_service)
-            print(_tx_result)
+            print("Status:", _tx_result['status'])
             if 'revertMessage' in case['actions'].keys():
                 self.assertEqual(_tx_result['failure']['message'], case['actions']['revertMessage'])
                 print('Revert Matched')
@@ -374,9 +369,9 @@ class TestLoan(IconIntegrateTestBase):
                 self.assertEqual(int(case['actions']['expected_icd_debt_baln_loan']), int(bal_of_icd, 16))
                 account_position = self._getAccountPositions()
                 assets = account_position['assets']
-                position_to_check = {'sICX':str(bal_of_sicx),'bnUSD':hex(int(bal_of_icd,16) + int(self.getBalances()['bnUSD'],16))}
+                position_to_check = {'sICX': str(bal_of_sicx),
+                                     'bnUSD': hex(int(bal_of_icd, 16) + int(self.getBalances()['bnUSD'], 16))}
                 self.assertEqual(position_to_check, assets)
-                print('added collateral')
 
     def balanceOfTokens(self, name):
         params = {

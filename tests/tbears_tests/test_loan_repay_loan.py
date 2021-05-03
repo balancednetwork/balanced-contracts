@@ -1,14 +1,8 @@
 import os
-import pickle
 from shutil import make_archive
-from time import sleep
-from iconservice import *
 from tbears.libs.icon_integrate_test import IconIntegrateTestBase, SCORE_INSTALL_ADDRESS
 import json
-
 import sys
-sys.path.append("..")
-
 from iconsdk.builder.call_builder import CallBuilder
 from iconsdk.libs.in_memory_zip import gen_deploy_data_content
 from iconsdk.signed_transaction import SignedTransaction
@@ -18,6 +12,7 @@ from iconsdk.builder.transaction_builder import CallTransactionBuilder, Transact
 from iconsdk.wallet.wallet import KeyWallet
 from iconsdk.exception import JSONRPCException
 from repeater import retry
+sys.path.append("..")
 
 ICX = 1000000000000000000
 
@@ -103,15 +98,15 @@ class TestLoan(IconIntegrateTestBase):
         print(
             '------------------------------------------------------------------------------------------------------------------')
         print(self.contracts)
-        print(
-            '----------Contracts for Testing UI--------------------------------------------------------------------------------')
-        print(self.get_scores_json(self.contracts))
+        # print(
+        #     '----------Contracts for Testing UI--------------------------------------------------------------------------------')
+        # print(self.get_scores_json(self.contracts))
 
         config_results = self.config_balanced(self.btest_wallet, self.staking_wallet)
-        print(config_results)
+        # print(config_results)
 
         launch_results = self.launch_balanced(self.btest_wallet, self.staking_wallet)
-        print(launch_results)
+        # print(launch_results)
 
     @retry(JSONRPCException, tries=10, delay=1, back_off=2)
     def _get_tx_result(self, _tx_hash):
@@ -156,7 +151,7 @@ class TestLoan(IconIntegrateTestBase):
         wallet is a wallet file
         update is boolian
         """
-        print(f'{contract["zip"]}')
+        print(f'Deploying contract {contract["zip"]}')
         if update:
             dest = contract['SCORE']
         else:
@@ -178,9 +173,9 @@ class TestLoan(IconIntegrateTestBase):
 
         res = self._get_tx_result(tx_hash)
         print(f'Status: {res["status"]}')
-        if len(res["eventLogs"]) > 0:
-            for item in res["eventLogs"]:
-                print(f'{item} \n')
+        # if len(res["eventLogs"]) > 0:
+        #     for item in res["eventLogs"]:
+        #         print(f'{item} \n')
         if res['status'] == 0:
             print(f'Failure: {res["failure"]}')
         print('')
@@ -211,9 +206,9 @@ class TestLoan(IconIntegrateTestBase):
         res = self._get_tx_result(tx_hash)
         print(
             f'************************************************** Status: {res["status"]} **************************************************')
-        if len(res["eventLogs"]) > 0:
-            for item in res["eventLogs"]:
-                print(f'{item} \n')
+        # if len(res["eventLogs"]) > 0:
+        #     for item in res["eventLogs"]:
+        #         print(f'{item} \n')
         if res['status'] == 0:
             print(f'Failure: {res["failure"]}')
         return res
@@ -322,21 +317,19 @@ class TestLoan(IconIntegrateTestBase):
             .params(params) \
             .build()
         result = self.icon_service.call(call)
-        print(result)
         return result
 
-    # def _score_update(self):
-    #     # update SCORE
-    #     for address in UPDATE:
-    #         print('======================================================================')
-    #         print('Test Score Update(' + address + ')')
-    #         print('----------------------------------------------------------------------')
-    #         self.SCORES = os.path.abspath(os.path.join(DIR_PATH, '../../core_contracts'))
-    #         self.SCORE_PROJECT = self.SCORES + "/" + address
-    #         SCORE_PROJECT = os.path.abspath(os.path.join(DIR_PATH, '..')) + "/" + address
-    #         tx_result = self._deploy_score(self.contracts[address], 'update')
-    #         self.assertEqual(
-    #             self.contracts[address], tx_result['scoreAddress'])
+    def _score_update(self):
+        # update SCORE
+        contract_name = 'rewards'
+        update = 1
+        params = {}
+        if update == 0 and contract_name != 'governance':
+            params = {'_governance': self.contracts['governance']['SCORE']}
+        self.compress()
+        contract = self.contracts[contract_name]
+        res = self.deploy_SCORE(contract, params, self.btest_wallet, update)
+        print(res['scoreAddress'])
 
     # Repay loan from account wallet
     def test_repayLoan(self):
@@ -375,7 +368,7 @@ class TestLoan(IconIntegrateTestBase):
                 .build()
             signed_transaction = SignedTransaction(transaction, wallet)
             _tx_result = self.process_transaction(signed_transaction, self.icon_service)
-            print(_tx_result)
+            print("Status:", _tx_result['status'])
             if 'revertMessage' in case['actions'].keys():
                 self.assertEqual(_tx_result['failure']['message'], case['actions']['revertMessage'])
                 print('Revert Matched')
@@ -389,7 +382,6 @@ class TestLoan(IconIntegrateTestBase):
                 assets = account_position['assets']
                 position_to_check = {'sICX': str(bal_of_sicx), 'bnUSD': hex(int(bal_of_icd, 16) + int(self.getBalances()['bnUSD'], 16))}
                 self.assertEqual(position_to_check, assets)
-                print('loans repaid')
 
     def balanceOfTokens(self, name):
         params = {

@@ -60,23 +60,15 @@ with open("./keystores/staking_test.pwd", "r") as f:
     key_data = f.read()
 staking_wallet = KeyWallet.load("./keystores/staking_test.json", key_data)
 
-print(wallet.get_address())
-print(icon_service.get_balance(wallet.get_address()) / 10 ** 18)
-
-print(btest_wallet.get_address())
-print(icon_service.get_balance(btest_wallet.get_address()) / 10 ** 18)
+print("Test Wallet address 1:", wallet.get_address())
+print("Test Wallet address 2:", btest_wallet.get_address())
 
 user1 = KeyWallet.load("./keystores/user1.json", "HelloWorld@1234")
 # btest_wallet = KeyWallet.load("./balanced_test.json","HelloWorld@1234")
 
-print(icon_service.get_balance(user1.get_address()) / 10 ** 18)
-print(user1.get_address())
-
 # test2 = hx7a1824129a8fe803e45a3aae1c0e060399546187
 private = "0a354424b20a7e3c55c43808d607bddfac85d033e63d7d093cb9f0a26c4ee022"
 user2 = KeyWallet.load(bytes.fromhex(private))
-print(icon_service.get_balance(user2.get_address()) / 10 ** 18)
-print(user2.get_address())
 
 print("==============================================="
       " ......Testing liquidate method......."
@@ -158,7 +150,7 @@ def deploy_SCORE(contract, params, wallet, update) -> str:
     wallet is a wallet file
     update is boolian
     """
-    print(f'{contract["zip"]}')
+    print(f'Deploying contract {contract["zip"]}')
     if update:
         dest = contract['SCORE']
     else:
@@ -180,9 +172,9 @@ def deploy_SCORE(contract, params, wallet, update) -> str:
 
     res = get_tx_result(tx_hash)
     print(f'Status: {res["status"]}')
-    if len(res["eventLogs"]) > 0:
-        for item in res["eventLogs"]:
-            print(f'{item} \n')
+    # if len(res["eventLogs"]) > 0:
+    #     for item in res["eventLogs"]:
+    #         print(f'{item} \n')
     if res['status'] == 0:
         print(f'Failure: {res["failure"]}')
     print('')
@@ -214,9 +206,9 @@ def send_tx(dest, value, method, params, wallet):
     res = get_tx_result(tx_hash)
     print(
         f'************************************************** Status: {res["status"]} **************************************************')
-    if len(res["eventLogs"]) > 0:
-        for item in res["eventLogs"]:
-            print(f'{item} \n')
+    # if len(res["eventLogs"]) > 0:
+    #     for item in res["eventLogs"]:
+    #         print(f'{item} \n')
     if res['status'] == 0:
         print(f'Failure: {res["failure"]}')
     return res
@@ -348,7 +340,6 @@ def call_tx(dest: str, method: str, params: dict = {}):
         .params(params) \
         .build()
     result = icon_service.call(call)
-    print(result)
     return result
 
 
@@ -363,19 +354,19 @@ if confirm == 'Yes':
     print(
         '------------------------------------------------------------------------------------------------------------------')
     print(contracts)
-    print(
-        '----------Contracts for Testing UI--------------------------------------------------------------------------------')
-    print(get_scores_json(contracts))
+    # print(
+    #     '----------Contracts for Testing UI--------------------------------------------------------------------------------')
+    # print(get_scores_json(contracts))
 
 # Configure Balanced
 config_results = config_balanced(btest_wallet, staking_wallet)
-print(config_results)
+# print(config_results)
 
 # Launch Balanced
 # We may want to make this a payable method and have the governance SCORE borrow bnUSD,
 # start and name the sICXbnUSD market, and add it as a rewards DataSource.
 launch_results = launch_balanced(btest_wallet, staking_wallet)
-print(launch_results)
+# print(launch_results)
 
 
 def update():
@@ -461,7 +452,7 @@ def test_liquidation():
 
         res = call_tx('loans', 'getAccountPositions', {'_owner': btest_wallet.get_address()})
         assert res['standing'] == case['actions']['expected_result']
-        print("Test Successfull")
+        print("Test Successful")
         print('............................................')
 
 
