@@ -187,6 +187,10 @@ class DEX(IconScoreBase):
         # balance[nonce][userAddress]
         self._balance = DictDB('balances', db, value_type=int, depth=2)
 
+        # Withdrawal lock (map[pool_id][address] => deposit us)
+        self._withdraw_lock = DictDB(
+            'withdrawLock', db, value_type=int, depth=2)
+
         # Pool Balance History for snapshots
         self._account_balance_snapshot = DictDB(
             self._ACCOUNT_BALANCE_SNAPSHOT, db, value_type=int, depth=4)
@@ -513,6 +517,9 @@ class DEX(IconScoreBase):
         order_id = self._icx_queue_order_id[self.msg.sender]
         order_value = self.msg.value
 
+        # write withdrawal lock
+        self._withdraw_lock[self._SICXICX_POOL_ID][self.msg.sender] = self.now()
+
         if order_id:
             # TODO: Modify instead of cancel/replace, after debugging scorelib
             node = self._icx_queue._get_node(order_id)
@@ -548,6 +555,8 @@ class DEX(IconScoreBase):
 
         if not self._icx_queue_order_id[self.msg.sender]:
             revert(f"{TAG}: No open order in sICX/ICX queue.")
+
+        self._revert_on_withdrawal_lock(self.msg.sender, self._SICXICX_POOL_ID)
 
         order_id = self._icx_queue_order_id[self.msg.sender]
         order = self._icx_queue._get_node(order_id)
@@ -659,6 +668,9 @@ class DEX(IconScoreBase):
         """
         return self._sicx_earnings[_user]
 
+    @external(readonly=True)
+    def getWithdrawLock(self, _id: int, _owner: Address) -> int:
+        return self._withdraw_lock[_id][_owner]
 
     @external(readonly=True)
     def getPoolId(self, _token1Address: Address, _token2Address: Address) -> int:
@@ -907,6 +919,18 @@ class DEX(IconScoreBase):
         """
         if not self._rewards_done.get():
             revert(f"{TAG} Rewards distribution in progress, please try again shortly")
+
+    def _revert_on_withdrawal_lock(self, _user: Address, _id: int) -> None:
+        """
+        Reverts a transaction if before the configured withdrawal lock.
+
+        :param _user: Address to check
+        :param _id: Pool id to check
+        """
+
+        deposit_time = self._withdraw_lock[_id][_user]
+        if deposit_time + WITHDRAW_LOCK_TIMEOUT > self.now():
+            revert(f"{TAG}: Assets must remain in the pool for 24 hours, please try again later.")
 
     ####################################
     # Internal exchange function
@@ -1473,6 +1497,8 @@ class DEX(IconScoreBase):
 
         self._revert_on_incomplete_rewards()
 
+        self._revert_on_withdrawal_lock(self.msg.sender, _id)
+
         balance = self._balance[_id][self.msg.sender]
 
         if not self.active[_id]:
@@ -1626,6 +1652,8 @@ class DEX(IconScoreBase):
 
         self._balance[_id][_owner] += liquidity
         self._total[_id] += liquidity
+
+        self._withdraw_lock[_id][self.msg.sender] = self.now()
 
         self.Add(_id, _owner, liquidity, base_to_commit, quote_to_commit)
 
