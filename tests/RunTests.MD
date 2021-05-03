@@ -5,6 +5,10 @@ All the tests for Balanced are inside `tests` directory under specific folders. 
 
 Step 1 : Clone the repository
 
+Running all the tests
+- Step 1 : To run all the tests at once go to the `tests` directory and run bash file "test_all.sh" with the following command in the terminal :
+  - bash test_all.sh
+  
 Testing in t-bears
 - Step 1 : T-Bears test files are inside `tests/tbears_tests` and the test scenarios are inside `tests/test_scenarios` directory.
 - Step 2 : To run the test , go to `tests` directory.  
