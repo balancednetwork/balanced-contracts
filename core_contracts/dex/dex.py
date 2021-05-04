@@ -1319,7 +1319,7 @@ class DEX(IconScoreBase):
             self._total_supply_snapshot[_id]['time'][length - 1] = current_time
 
     @external(readonly=True)
-    def balanceOfAt(self, _account: Address, _id: int, _snapshot_id: int) -> int:
+    def balanceOfAt(self, _account: Address, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
         matched_index = 0
         if _snapshot_id < 0:
             revert(f"{TAG}: Snapshot id is equal to or greater then Zero.")
@@ -1343,13 +1343,13 @@ class DEX(IconScoreBase):
 
         # If we matched the day before, weighted avg will be same as ending value.
         # If we matched the day of, return the actual weighted average
-        if self._account_balance_snapshot[_id][_account]['ids'][matched_index] == _snapshot_id:
+        if self._account_balance_snapshot[_id][_account]['ids'][matched_index] == _snapshot_id and _twa:
             return self._account_balance_snapshot[_id][_account]['avgs'][matched_index]
         else:
             return self._account_balance_snapshot[_id][_account]['values'][matched_index]
 
     @external(readonly=True)
-    def totalSupplyAt(self, _id: int, _snapshot_id: int) -> int:
+    def totalSupplyAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
         matched_index = 0
         if _snapshot_id < 0:
             revert(f"{TAG}: Snapshot id is equal to or greater then Zero.")
@@ -1370,7 +1370,7 @@ class DEX(IconScoreBase):
         else:
             matched_index = low - 1
 
-        if self._total_supply_snapshot[_id]['ids'][matched_index] == _snapshot_id:
+        if self._total_supply_snapshot[_id]['ids'][matched_index] == _snapshot_id and _twa:
             return self._total_supply_snapshot[_id]['avgs'][matched_index]
         else:
             return self._total_supply_snapshot[_id]['values'][matched_index]
