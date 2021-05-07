@@ -18,6 +18,44 @@ from .utils.checks import *
 TAG = 'Governance'
 
 
+# TypedDict for disbursement specs
+class Disbursement(TypedDict):
+    address: Address
+    amount: int
+    symbol: str
+
+
+class TokenInterface(InterfaceScore):
+
+    @interface
+    def setbnUSD(self, _address):
+        pass
+
+    @interface
+    def setDividends(self, _score):
+        pass
+
+    @interface
+    def setDex(self, _address):
+        pass
+
+    @interface
+    def setOracleName(self, _name):
+        pass
+
+    @interface
+    def toggleStakingEnabled(self):
+        pass
+
+    @interface
+    def setMinimumStake(self, _amount):
+        pass
+
+    @interface
+    def setUnstakingPeriod(self, _time):
+        pass
+
+
 class Governance(IconScoreBase):
     """
     The Governance SCORE will have control of all parameters in BalancedDAO.

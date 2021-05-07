@@ -25,5 +25,6 @@ class DummyOracle(IconScoreBase):
             return {"rate": 360358450000000000, "last_update_base": 1616650080000000, "last_update_quote": 1616650390762201}
 
 
+    # todo add a setter method to update exchange  rate if sicx
     def fallback(self):
         pass

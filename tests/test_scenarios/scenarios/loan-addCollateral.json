@@ -1,0 +1,95 @@
+{
+  "title": "Loans: Deposit/Borrow ",
+  "description": "Test cases for the depositAndBorrow function.",
+  "stories": [
+    {
+      "description": "User 1 deposits 500 ICX as collateral and borrows 50 bnUSD loan",
+      "actions": {
+        "prev_sicx_bal_loan": "0",
+        "prev_icd_debt_bal_loan": "0",
+        "sender": "user1",
+        "name": "depositAndBorrow",
+        "deposited_icx": "500000000000000000000",
+        "args": {
+          "_asset": "bnUSD",
+          "_amount": "50000000000000000000"
+        },
+        "expected": "1",
+        "expected_sicx_baln_loan": "500000000000000000000",
+        "expected_icd_debt_baln_loan": "50000000000000000000"
+      }
+    },
+    {
+      "description": "User 1 deposits 500 ICX as collateral and borrows 9 bnUSD loan",
+      "actions": {
+        "prev_sicx_bal_loan": "500000000000000000000",
+        "prev_icd_debt_bal_loan": "50000000000000000000",
+        "sender": "user1",
+        "name": "depositAndBorrow",
+        "deposited_icx": "500000000000000000000",
+        "args": {
+          "_asset": "bnUSD",
+          "_amount": "9000000000000000000"
+        },
+        "expected": "1",
+        "expected_sicx_baln_loan": "1000000000000000000000",
+        "expected_icd_debt_baln_loan": "59000000000000000000"
+      }
+    },
+    {
+      "description": "user 2 deposits 500 ICX as collateral and borrows 9 bnUSD loan.",
+      "actions": {
+        "prev_sicx_bal_loan": "1000000000000000000000",
+        "prev_icd_debt_bal_loan": "59000000000000000000",
+        "sender": "user2",
+        "name": "depositAndBorrow",
+        "deposited_icx": "500000000000000000000",
+        "args": {
+          "_asset": "bnUSD",
+          "_amount": "9000000000000000000"
+        },
+        "expected" : "0",
+        "revertMessage": "BalancedLoans: The initial loan of any asset must have a minimum value of 10.0 dollars.",
+        "expected_sicx_baln_loan" : "1000000000000000000000",
+        "expected_icd_debt_baln_loan" : "59000000000000000000"
+      }
+    },
+    {
+      "description": "user 2 deposits 100 ICX as collateral and borrows 100 ICD loan.",
+      "actions": {
+        "prev_sicx_bal_loan" : "1000000000000000000000",
+        "prev_icd_debt_bal_loan" : "59000000000000000000",
+        "sender": "user2",
+        "name": "depositAndBorrow",
+        "deposited_icx": "100000000000000000000",
+        "args": {
+          "_asset": "bnUSD",
+          "_amount": "100000000000000000000"
+        },
+        "expected" : "0",
+        "revertMessage": "BalancedLoans: 100.0 collateral is insufficient to originate a loan of 100.0 bnUSD when max_debt_value = 25.0, new_debt_value = 60.393528307156785, which includes a fee of 1.0 bnUSD, given an existing loan value of 0.0.",
+        "expected_sicx_baln_loan" : "1000000000000000000000",
+        "expected_icd_debt_baln_loan" : "59000000000000000000"
+      }
+    },
+    {
+      "description": "user 2 deposits 500 ICX as collateral and borrows -10 ICD loan.",
+      "actions": {
+        "prev_sicx_bal_loan" : "1000000000000000000000",
+        "prev_icd_debt_bal_loan" : "59000000000000000000",
+        "sender": "user2",
+        "name": "depositAndBorrow",
+        "deposited_icx": "500000000000000000000",
+        "args": {
+          "_asset": "bnUSD",
+        "_amount": "-10000000000000000000"
+        },
+        "expected" : "0",
+        "revertMessage": "BalancedLoans: Loans amount cannot be negative.",
+        "expected_sicx_baln_loan" : "1000000000000000000000",
+        "expected_icd_debt_baln_loan" : "59000000000000000000"
+      }
+    }
+
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "title": "Loans: Retire assets",
+  "description": "Test cases for the depositAndBorrow function.",
+  "stories": [
+    {
+      "description": "User 4 deposits 500 ICX as collateral and borrows 50 ICD loan",
+      "actions": {
+        "prev_sicx_bal_loan": "450000000000000000000",
+        "prev_icd_debt_bal_loan": "200000000000000000000",
+        "prev_icd_bal_wallet": "0",
+        "name": "depositAndBorrow",
+        "deposited_icx": "500000000000000000000",
+        "args": {
+          "_asset": "ICD",
+          "_amount": "50000000000000000000"
+        },
+        "expected": "1",
+        "expected_sicx_baln_loan": "950000000000000000000",
+        "expected_icd_debt_baln_loan": "70000000000000000000",
+        "expected_icd_bal_wallet": "50000000000000000000"
+      }
+    },
+    {
+      "description": "redeem 20 ICD from user 5 that do not have position on Balanced",
+      "actions": {
+        "prev_sicx_bal_loan": "950000000000000000000",
+        "prev_icd_debt_bal_loan": "70000000000000000000",
+        "prev_icd_bal_wallet": "0",
+        "name": "transfer",
+        "deposited_icx": "0",
+        "args": {
+          "_to": "self.user5.get_address()",
+          "_value": "20000000000000000000"
+        },
+        "expected": "1",
+        "expected_sicx_baln_loan": "950000000000000000000",
+        "expected_icd_debt_baln_loan": "50000000000000000000",
+        "expected_icd_bal_wallet": "0"
+      }
+
+    },
+    {
+      "description": "call the retire_asset method from user 5 that do not have position on Balanced",
+      "actions": {
+        "prev_sicx_bal_loan": "950000000000000000000",
+        "prev_icd_debt_bal_loan": "50000000000000000000",
+        "prev_icd_bal_wallet": "0",
+        "name": "transfer",
+        "deposited_icx": "0",
+        "args": {
+          "method": "_retire_asset",
+          "params": "{}",
+          "_to": "self.user5.get_address()",
+          "_value": "20000000000000000000"
+        },
+        "expected": "1",
+        "expected_sicx_baln_loan": "950000000000000000000",
+        "expected_icd_debt_baln_loan": "50000000000000000000",
+        "expected_icd_bal_wallet": "0"
+      }
+    },
+    {
+      "description": "call the updateStanding method ",
+      "action": {
+        "prev_sicx_bal_loan": "950000000000000000000",
+        "prev_icd_debt_bal_loan": "50000000000000000000",
+        "prev_icd_bal_wallet": "0",
+        "name": "updateStanding",
+        "deposited_icx": "0",
+        "args": {
+          "_owner": "self.user5.get_address()"
+        },
+        "expected": "1",
+        "expected_sicx_baln_loan": "950000000000000000000",
+        "expected_icd_debt_baln_loan": "50000000000000000000",
+        "expected_icd_bal_wallet": "20000000000000000000"
+      }
+    }
+  ]
+}
