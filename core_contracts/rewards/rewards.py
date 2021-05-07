@@ -302,6 +302,29 @@ class Rewards(IconScoreBase):
                    f'Deposit not accepted from {self.msg.sender} '
                    f'Only accepted from BALN = {self._baln_address.get()}')
 
+    @external
+    @only_governance
+    def bonusDist(self, _addresses: List[Address], _amounts: List[int]) -> None:
+        """
+        Method to enable distribution of bonus BALN.
+
+        :param _addresses: List of recipient addresses.
+        :type _addresses: List[:class:`iconservice.base.address.Address`]
+        :param _amounts: List of BALN amounts to send.
+        :type _amounts: List[int]
+        """
+        addresses_length = len(_addresses)
+        if addresses_length > 500:
+            revert(f'List length longer than allowed maximum of 500.')
+        amounts_length = len(_amounts)
+        if amounts_length > 500:
+            revert(f'List length longer than allowed maximum of 500.')
+        if amounts_length != addresses_length:
+            revert(f'List lengths of addresses [{addresses_length}] and '
+                   f'amounts [{amounts_length}] do not match.')
+        for i, address in enumerate(_addresses):
+            self._baln_holdings[str(address)] += _amounts[i]
+
     # -------------------------------------------------------------------------------
     #   SETTERS AND GETTERS
     # -------------------------------------------------------------------------------

@@ -231,6 +231,20 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def bonusDist(self, _addresses: List[Address], _amounts: List[int]) -> None:
+        """
+        Method to enable distribution of bonus BALN.
+
+        :param _addresses: List of recipient addresses.
+        :type _addresses: List[:class:`iconservice.base.address.Address`]
+        :param _amounts: List of BALN amounts to send.
+        :type _amounts: List[int]
+        """
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
+        rewards.bonusDist(_addresses, _amounts)
+
+    @external
+    @only_owner
     def setDay(self, _day: int) -> None:
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.setDay(_day)
