@@ -13,6 +13,11 @@ from iconsdk.wallet.wallet import KeyWallet
 from iconsdk.utils.convert_type import convert_hex_str_to_int
 from repeater import retry
 
+@retry(JSONRPCException, tries=10, delay=1, back_off=2)
+def get_tx_result(_tx_hash):
+    tx_result = icon_service.get_transaction_result(_tx_hash)
+    return tx_result
+
 
 def test_rate():
     test_cases = {
@@ -63,15 +68,20 @@ def test_rate():
 
                 _result = icon_service.call(_call)
                 assert _result == output, 'sICX address not Matched'
-    #             if _result == output:
-    #                 print('Test Passed')
-    #             print(output)
-
     print('Testing Rate of sICX')
     _call = CallBuilder().from_(user2.get_address()).to(staking_address).method('getTodayRate').build()
 
     _result = icon_service.call(_call)
     assert int(_result, 16) == 1000000000000000000, 'Rate is not set to 1'
+
+    set_div_per = CallTransactionBuilder().from_(user2.get_address()).to(score_address).nid(NID).nonce(
+        100).method('toggleStakingOn').build()
+    estimate_step = icon_service.estimate_step(set_div_per)
+    step_limit = estimate_step + 10000000
+    signed_transaction = SignedTransaction(set_div_per, user2, step_limit)
+
+    tx_hash = icon_service.send_transaction(signed_transaction)
+    ab = get_tx_result(tx_hash)
 
 
 # ## stakeICX Test
@@ -140,7 +150,7 @@ def test_stake_icx():
 
         ]
     }
-
+    network_delegations = {}
     for case in test_cases['stories']:
         print(case['description'])
         if case['actions']['mint_to'] == "user1":
@@ -165,7 +175,7 @@ def test_stake_icx():
 
         ab = get_tx_result(tx_hash)
         if ab['status'] == 1:
-            method = ['balanceOf', 'getStake', 'totalSupply']
+            method = ['balanceOf', 'getStake', 'totalSupply', 'getAddressDelegations']
             for each in method:
                 if each == 'balanceOf':
                     score_address = token_address
@@ -173,6 +183,9 @@ def test_stake_icx():
                 elif each == 'getStake':
                     score_address = GOVERNANCE_ADDRESS
                     params = {"address": staking_address}
+                elif each == 'getAddressDelegations':
+                    score_address = staking_address
+                    params = {"_address": wallet_address}
                 else:
                     params = {}
                     score_address = token_address
@@ -184,27 +197,82 @@ def test_stake_icx():
                     to_check = int(_result, 16)
                     output_json = int(case['actions']['expected_sicx_in_user'])
                     to_print = f'{wallet_address} total sicx is {int(_result, 16)}. Passed '
+
                 elif each == 'getStake':
                     to_check = int(_result['stake'], 16)
                     output_json = int(case['actions']['expected_icx_staked_from_staking_contract'])
                     to_print = f'total ICX staked from contract is  {int(_result["stake"], 16)}. Passed '
+                elif each == 'getAddressDelegations':
+                    result = 0
+                    dict1 = {}
+                    for key, value in _result.items():
+                        dict1[key] = int(value, 16)
+                        result += int(value, 16)
+                        if case['actions']['mint_to'] == 'user2':
+                            network_delegations[key] += int(value, 16)
+                        else:
+                            network_delegations[key] = int(value, 16)
+                    to_check = result
+                    output_json = int(case['actions']['expected_sicx_in_user'])
+                    to_print = f'total ICX delegated evenly  {to_check}. Passed '
+
                 else:
                     to_check = int(_result, 16)
                     output_json = int(case['actions']['total_supply_sicx'])
                     to_print = f'total supply of sICX is  {int(_result, 16)}. Passed '
                 assert to_check == output_json, f'{_result}, Failed'
                 print(to_print)
-            #             else:
-            #                    print(f'{_result} Failed')
-
             for x in case['actions']['unit_test']:
                 _call = CallBuilder().from_(user2.get_address()).to(staking_address).method('getTotalStake').build()
                 _result = icon_service.call(_call)
 
                 assert int(_result, 16) == int(x['getTotalStake']), f'{_result} Failed'
                 print(f'Total stake is {int(_result, 16)}.Passed')
-    #             else:
-    #                 print(f'{_result} Failed')
+
+            _call = CallBuilder() \
+                .from_(wallet_address) \
+                .to(GOVERNANCE_ADDRESS) \
+                .method('getDelegation') \
+                .params({'address': staking_address}) \
+                .build()
+
+            _result = icon_service.call(_call)
+            delegation = {}
+            for each in _result['delegations']:
+                key = each['address']
+                value = each['value']
+                delegation[key] = int(value, 16)
+            assert delegation == network_delegations, 'Delegations in network failed'
+            print('Delegations in network passed.')
+        wallet_list = [user1, user2]
+        prep_delegations_dict = {}
+        for i in wallet_list:
+            _call = CallBuilder() \
+                .from_(wallet_address) \
+                .to(staking_address) \
+                .method('getAddressDelegations') \
+                .params({'_address': i.get_address()}) \
+                .build()
+
+            _result = icon_service.call(_call)
+            for key, value in _result.items():
+                if key not in prep_delegations_dict.keys():
+                    prep_delegations_dict[key] = int(value, 16)
+                else:
+                    prep_delegations_dict[key] = prep_delegations_dict[key] + int(value, 16)
+
+        _call = CallBuilder() \
+            .from_(wallet_address) \
+            .to(staking_address) \
+            .method('getPrepDelegations') \
+            .build()
+
+        _result = icon_service.call(_call)
+        prep_delegation = {}
+        for key, value in _result.items():
+            prep_delegation[key] = int(value, 16)
+        assert prep_delegation == prep_delegations_dict, "Failed"
+        print('getPrepDelegations Functions Passed')
 
 
 # ## delegation test
@@ -214,21 +282,22 @@ def test_stake_icx():
 def test_delegations():
     test_cases = {
 
-        "stories": [{
-            "description": "User1 delegates 100% of it's votes to hx4917005bf4b8188b9591da520fc1c6dab8fe717f",
-            "actions": {
-                "name": "delegate",
-                "params": {'_user_delegations': [{'_address': 'hx4917005bf4b8188b9591da520fc1c6dab8fe717f',
-                                                  '_votes_in_per': '100000000000000000000'}]},
-                "user": "user1",
-                "within_top_preps": "true",
-                "unit_test": [
-                    {
-                        "fn_name": "getAddressDelegations",
-                        "output": {'hx4917005bf4b8188b9591da520fc1c6dab8fe717f': 80000000000000000000}
-                    }]
-            }
-        },
+        "stories": [
+            {
+                "description": "User1 delegates 100% of it's votes to 5 hxb4e90a285a79687ec148c29faabe6f71afa8a066",
+                "actions": {
+                    "name": "delegate",
+                    "params": {'_user_delegations': [{'_address': 'hxb4e90a285a79687ec148c29faabe6f71afa8a066',
+                                                      '_votes_in_per': '100000000000000000000'}]},
+                    "user": "user1",
+                    "within_top_preps": "true",
+                    "unit_test": [
+                        {
+                            "fn_name": "getAddressDelegations",
+                            "output": {'hxb4e90a285a79687ec148c29faabe6f71afa8a066': 80000000000000000000}
+                        }]
+                }
+            },
             {
                 "description": "User2 delegates 50% of it's votes to hxfd114a60eefa8e2c3de2d00dc5e41b1a0c7e8931 and 50% of its votes to hxf21dc87ce2c6273d7670135333f77a770c39fae0",
                 "actions": {
@@ -281,8 +350,10 @@ def test_delegations():
 
         ]
     }
-
+    network_delegations = {}
+    previous_network_delegations = {}
     for case in test_cases['stories']:
+
         address_list = []
         add = case['actions']['params']['_user_delegations']
         for x in add:
@@ -294,6 +365,17 @@ def test_delegations():
         else:
             wallet_address = user2.get_address()
             user = user2
+        _call = CallBuilder() \
+            .from_(wallet_address) \
+            .to(GOVERNANCE_ADDRESS) \
+            .method('getDelegation') \
+            .params({'address': staking_address}) \
+            .build()
+
+        _result = icon_service.call(_call)
+        delegation = _result['delegations']
+        for each in delegation:
+            previous_network_delegations[each['address']] = int(each['value'], 16)
         print(case['description'])
         set_div_per = CallTransactionBuilder().from_(wallet_address).to(staking_address).nid(NID).nonce(100).method(
             "delegate").params(case['actions']['params']).build()
@@ -310,6 +392,15 @@ def test_delegations():
 
         ab = get_tx_result(tx_hash)
         if ab['status'] == 1:
+            _call = CallBuilder().from_(wallet_address).to(staking_address).method('getPrepList').build()
+
+            _result = icon_service.call(_call)
+            for x in case['actions']['unit_test'][0]['output'].keys():
+                if x not in _result:
+                    print('prepList not updated')
+                    raise e
+            print('GetPrepList functions passed')
+
             _call = CallBuilder().from_(wallet_address).to(staking_address).method('getAddressDelegations').params(
                 {'_address': wallet_address}).build()
 
@@ -319,26 +410,60 @@ def test_delegations():
                 dict1[key] = int(value, 16)
             assert dict(dict1) == dict(
                 case['actions']['unit_test'][0]['output']), 'Test Case not passed for delegations'
-    #             print('Test case passed for delegations')
-    # test of delegations in network
-    #         _call = CallBuilder()\
-    #                         .from_(wallet_address)\
-    #                         .to(GOVERNANCE_ADDRESS)\
-    #                         .method('getDelegation')\
-    #                         .params({'address':staking_address})\
-    #                         .build()
 
-    #         _result = icon_service.call(_call)
-    #         delegation = _result['delegations']
-    #         for each in delegation:
-    #             if case['actions']['within_top_preps'] == 'false':
-    #                 if each['address'] not in address_list:
-    #                     print("Evenly distributed")
-    #             if each['address'] in address_list:
-    #                 if int(each['value'],16) == (case['actions']['unit_test'][0]['output'])[each['address']]:
-    #                     print('Delegations in network passed')
-    #                 else:
-    #                     print('failed')
+            print('Test case passed for delegations')
+            _call = CallBuilder() \
+                .from_(wallet_address) \
+                .to(GOVERNANCE_ADDRESS) \
+                .method('getDelegation') \
+                .params({'address': staking_address}) \
+                .build()
+
+            _result = icon_service.call(_call)
+            delegation = _result['delegations']
+            for each in delegation:
+                network_delegations[each['address']] = int(each['value'], 16)
+
+            output = case['actions']['unit_test'][0]['output']
+            for key, value in output.items():
+                try:
+                    assert network_delegations[key] != previous_network_delegations[key], 'Failed to delegate'
+                except KeyError as e:
+                    print(e)
+                    pass
+            print('Delegations in Network passed')
+
+        wallet_list = [user1, user2]
+        prep_delegations_dict = {}
+        for i in wallet_list:
+            _call = CallBuilder() \
+                .from_(wallet_address) \
+                .to(staking_address) \
+                .method('getAddressDelegations') \
+                .params({'_address': i.get_address()}) \
+                .build()
+
+            _result = icon_service.call(_call)
+            for key, value in _result.items():
+                if key not in prep_delegations_dict.keys():
+                    prep_delegations_dict[key] = int(value, 16)
+                else:
+                    prep_delegations_dict[key] = prep_delegations_dict[key] + int(value, 16)
+
+        _call = CallBuilder() \
+            .from_(wallet_address) \
+            .to(staking_address) \
+            .method('getPrepDelegations') \
+            .build()
+
+        _result = icon_service.call(_call)
+        prep_delegation = {}
+        for key, value in _result.items():
+            prep_delegation[key] = int(value, 16)
+            if key not in prep_delegations_dict.keys():
+                prep_delegations_dict[key] = 0
+        assert prep_delegation == prep_delegations_dict, "Failed"
+        print('getPrepDelegations Functions Passed')
 
 
 # ## transfer test
@@ -461,6 +586,82 @@ def test_transfer():
                     lis1.append(x)
                 assert lis1 == _result2, 'delegations is not set to top preps for the random address'
 
+            _call2 = CallBuilder().from_(user2.get_address()).to(staking_address).method('getTotalStake').build()
+            _result2 = icon_service.call(_call2)
+
+            assert int(_result2, 16) == 110000000000000000000, "Failed to stake"
+            print('Total stake passed')
+
+        wallet_list = [user1, user2, 'user3']
+        prep_delegations_dict = {}
+        for i in wallet_list:
+            if i == "user3":
+                params = "hx72bff0f887ef183bde1391dc61375f096e75c74a"
+            else:
+                params = i.get_address()
+            _call = CallBuilder() \
+                .from_(wallet_address) \
+                .to(staking_address) \
+                .method('getAddressDelegations') \
+                .params({'_address': params}) \
+                .build()
+
+            _result = icon_service.call(_call)
+            for key, value in _result.items():
+                if key not in prep_delegations_dict.keys():
+                    prep_delegations_dict[key] = int(value, 16)
+                else:
+                    prep_delegations_dict[key] = prep_delegations_dict[key] + int(value, 16)
+
+        _call = CallBuilder() \
+            .from_(wallet_address) \
+            .to(staking_address) \
+            .method('getPrepDelegations') \
+            .build()
+
+        _result = icon_service.call(_call)
+        prep_delegation = {}
+        for key, value in _result.items():
+            prep_delegation[key] = int(value, 16)
+            if key not in prep_delegations_dict.keys():
+                prep_delegations_dict[key] = 0
+        assert prep_delegation == prep_delegations_dict, "Failed"
+        print('getPrepDelegations Functions Passed')
+
+        _call2 = CallBuilder().from_(user2.get_address()).to(staking_address).method('getTopPreps').build()
+        top_prep_list = icon_service.call(_call2)
+        evenly_distributed_value = 0
+        to_delete = []
+        for key, value in prep_delegations_dict.items():
+            if key not in top_prep_list:
+                evenly_distributed_value += prep_delegations_dict[key]
+                if key not in to_delete:
+                    to_delete.append(key)
+            if prep_delegations_dict[key] == 0:
+                if key not in to_delete:
+                    to_delete.append(key)
+
+        for x in to_delete:
+            del prep_delegations_dict[x]
+
+        for key, value in prep_delegations_dict.items():
+            prep_delegations_dict[key] += evenly_distributed_value // 20
+
+        _call = CallBuilder() \
+            .from_(wallet_address) \
+            .to(GOVERNANCE_ADDRESS) \
+            .method('getDelegation') \
+            .params({'address': staking_address}) \
+            .build()
+
+        _result = icon_service.call(_call)
+        delegation = _result['delegations']
+        network_delegations = {}
+        for each in delegation:
+            network_delegations[each['address']] = int(each['value'], 16)
+        assert prep_delegations_dict == network_delegations, 'Failed to delegate in Network'
+        print("successfully delegated in network")
+
 
 # ## unstake test
 
@@ -480,7 +681,7 @@ def test_top_preps():
         .from_(user2.get_address()) \
         .to(GOVERNANCE_ADDRESS) \
         .method('getPReps') \
-        .params({'startRanking': 1, 'endRanking': 4}) \
+        .params({'startRanking': 1, 'endRanking': 20}) \
         .build()
 
     _result2 = icon_service.call(_call)
@@ -489,6 +690,7 @@ def test_top_preps():
     for prep in preps:
         top_prep_in_network.append(prep['address'])
     assert top_prep_in_network == _result1, 'Top preps not set properly'
+
 
 def test_unstake():
     test_cases = {
@@ -500,6 +702,7 @@ def test_unstake():
                     "sender": "user1",
                     "prev_total_stake": "110000000000000000000",
                     "curr_total_stake": "90000000000000000000",
+                    "curr_sender_sicx": "50000000000000000000",
                     "total_sicx_transferred": "20000000000000000000",
                     "unit_test": [
                         {
@@ -516,6 +719,7 @@ def test_unstake():
                     "name": "transfer",
                     "sender": "user2",
                     "prev_total_stake": "90000000000000000000",
+                    "curr_sender_sicx": "10000000000000000000",
                     "curr_total_stake": "80000000000000000000",
                     "total_sicx_transferred": "10000000000000000000",
                     "unit_test": [
@@ -530,9 +734,9 @@ def test_unstake():
 
         ]
     }
-    total_unstaking_amount = 0
-    total_unstake_json = 0
+    count = 0
     for case in test_cases['stories']:
+        count += 1
         print(case['description'])
         if case['actions']['sender'] == 'user1':
             wallet_address = user1.get_address()
@@ -564,6 +768,9 @@ def test_unstake():
             total_unstaking_amount = int(_result, 16)
             total_unstake_json = int(case['actions']['unit_test'][0]['output'])
 
+            assert total_unstaking_amount == total_unstake_json, 'getUnstakingAmount function test failed'
+            print('unstaking completed')
+
             _call = CallBuilder().from_(wallet_address).to(GOVERNANCE_ADDRESS).method('getStake').params(
                 {"address": staking_address}).build()
 
@@ -575,11 +782,107 @@ def test_unstake():
                 case['actions']['unit_test'][0]['output']), 'Unstake request is not passed to the network. Failed'
             assert int(_result['stake'], 16) == int(
                 case['actions']['curr_total_stake']), 'Total stake in the network is not decreased. Failed'
+
+            _call = CallBuilder().from_(wallet_address).to(token_address).method('balanceOf').params(
+                {"_owner": wallet_address}).build()
+
+            _result = icon_service.call(_call)
+            print(int(_result, 16))
+            print(int(case['actions']['curr_sender_sicx']))
+            assert int(_result, 16) == int(case['actions']['curr_sender_sicx']), "sICX not burned"
+            print("sICX burnt succesfully")
+
+            _call = CallBuilder().from_(wallet_address).to(token_address).method('totalSupply').build()
+
+            _result = icon_service.call(_call)
+
+            print(int(_result, 16))
+            print(int(case['actions']['curr_total_stake']))
+            assert int(_result, 16) == int(case['actions']['curr_total_stake']), "total supply not decreased"
+            print("total supply decreased ")
+
+            wallet_list = [user1, user2, 'user3']
+            prep_delegations_dict = {}
+            for i in wallet_list:
+                if i == "user3":
+                    params = "hx72bff0f887ef183bde1391dc61375f096e75c74a"
+                else:
+                    params = i.get_address()
+                _call = CallBuilder() \
+                    .from_(wallet_address) \
+                    .to(staking_address) \
+                    .method('getAddressDelegations') \
+                    .params({'_address': params}) \
+                    .build()
+
+                _result = icon_service.call(_call)
+                for key, value in _result.items():
+                    if key not in prep_delegations_dict.keys():
+                        prep_delegations_dict[key] = int(value, 16)
+                    else:
+                        prep_delegations_dict[key] = prep_delegations_dict[key] + int(value, 16)
+
+            _call = CallBuilder() \
+                .from_(wallet_address) \
+                .to(staking_address) \
+                .method('getPrepDelegations') \
+                .build()
+
+            _result = icon_service.call(_call)
+            prep_delegation = {}
+            for key, value in _result.items():
+                prep_delegation[key] = int(value, 16)
+                if key not in prep_delegations_dict.keys():
+                    prep_delegations_dict[key] = 0
+            assert prep_delegation == prep_delegations_dict, "Failed"
+            print('getPrepDelegations Functions Passed')
+
+            _call2 = CallBuilder().from_(user2.get_address()).to(staking_address).method('getTopPreps').build()
+            top_prep_list = icon_service.call(_call2)
+            evenly_distributed_value = 0
+            to_delete = []
+            for key, value in prep_delegations_dict.items():
+                if key not in top_prep_list:
+                    evenly_distributed_value += prep_delegations_dict[key]
+                    if key not in to_delete:
+                        to_delete.append(key)
+                if prep_delegations_dict[key] == 0:
+                    if key not in to_delete:
+                        to_delete.append(key)
+
+            for x in to_delete:
+                del prep_delegations_dict[x]
+
+            for key, value in prep_delegations_dict.items():
+                prep_delegations_dict[key] += evenly_distributed_value // 20
+
+            _call = CallBuilder() \
+                .from_(wallet_address) \
+                .to(GOVERNANCE_ADDRESS) \
+                .method('getDelegation') \
+                .params({'address': staking_address}) \
+                .build()
+
+            _result = icon_service.call(_call)
+            delegation = _result['delegations']
+            network_delegations = {}
+            for each in delegation:
+                network_delegations[each['address']] = int(each['value'], 16)
+            assert prep_delegations_dict == network_delegations, 'Failed to delegate in Network'
+            print("successfully delegated in network")
+
+            _call2 = CallBuilder().from_(user2.get_address()).to(staking_address).method('getUnstakeInfo').build()
+            linked_list = icon_service.call(_call2)
+            print(linked_list)
+            if count == 2:
+                linked_list.pop(0)
+            for each in linked_list:
+                assert int(each[1], 16) == int(case['actions']['total_sicx_transferred']), "Linked list failed"
+                assert each[2] == wallet_address, "Linked list failed"
+            print('GetUnstakeInfo Test passed')
+
         else:
             print(f'Failed... {ab}')
-
-    assert total_unstaking_amount == total_unstake_json, 'getUnstakingAmount function test failed'
-    print('unstaking completed')
 
 
 # ## user2 deposits 20 ICX again
@@ -711,6 +1014,105 @@ def test_complete_payout():
         assert _result == [], 'Failed'
 
 
+def stake_icx_after_delegation():
+    params = {'_to': user1.get_address()}
+
+    set_div_per = CallTransactionBuilder() \
+        .from_(user1.get_address()) \
+        .to(staking_address) \
+        .nid(NID) \
+        .nonce(100) \
+        .method("stakeICX") \
+        .params(params) \
+        .value(30000000000000000000) \
+        .build()
+    estimate_step = icon_service.estimate_step(set_div_per)
+    step_limit = estimate_step + 10000000
+    signed_transaction = SignedTransaction(set_div_per, user1, step_limit)
+
+    tx_hash = icon_service.send_transaction(signed_transaction)
+
+    @retry(JSONRPCException, tries=10, delay=1, back_off=2)
+    def get_tx_result(_tx_hash):
+        tx_result = icon_service.get_transaction_result(_tx_hash)
+        return tx_result
+
+    ab = get_tx_result(tx_hash)
+    if ab['status'] == 1:
+        _call = CallBuilder() \
+            .from_(user1.get_address()) \
+            .to(staking_address) \
+            .method('getAddressDelegations') \
+            .params({'_address': user1.get_address()}) \
+            .build()
+
+        _result = icon_service.call(_call)
+        dict1 = {}
+        for key, value in _result.items():
+            dict1[key] = int(value, 16)
+
+        assert dict1 == {"hxca1e081e686ec4975d14e0fb8f966c3f068298be": 80000000000000000000}, 'Failed'
+        print('ICX delegated to already a preference of a user1')
+
+
+def test_delegation_by_new_user():
+    test_cases = {
+
+        "stories": [
+            {
+                "description": "User1 delegates 100% of it's votes to hx83c0fc2bcac7ecb3928539e0256e29fc371b5078",
+                "actions": {
+                    "name": "delegate",
+                    "params": {'_user_delegations': [{'_address': 'hx83c0fc2bcac7ecb3928539e0256e29fc371b5078',
+                                                      '_votes_in_per': '100000000000000000000'}]},
+                    "user": "user1",
+                    "within_top_preps": "true",
+                    "unit_test": [
+                        {
+                            "fn_name": "getAddressDelegations",
+                            "output": {'hx83c0fc2bcac7ecb3928539e0256e29fc371b5078': 0}
+                        }]
+                }
+            }]
+    }
+    for case in test_cases['stories']:
+        address_list = []
+        add = case['actions']['params']['_user_delegations']
+        for x in add:
+            address_list.append(x['_address'])
+        wallet_address = user1.get_address()
+        user = user1
+        print(case['description'])
+        set_div_per = CallTransactionBuilder().from_(wallet_address).to(staking_address).nid(NID).nonce(100).method(
+            "delegate").params(case['actions']['params']).build()
+        estimate_step = icon_service.estimate_step(set_div_per)
+        step_limit = estimate_step + 10000000
+        signed_transaction = SignedTransaction(set_div_per, user, step_limit)
+
+        tx_hash = icon_service.send_transaction(signed_transaction)
+
+        ab = get_tx_result(tx_hash)
+        if ab['status'] == 1:
+            _call = CallBuilder().from_(wallet_address).to(staking_address).method('getPrepList').build()
+
+            _result = icon_service.call(_call)
+            for x in case['actions']['unit_test'][0]['output'].keys():
+                if x not in _result:
+                    print('prepList not updated')
+                    raise e
+            print('GetPrepList functions passed')
+
+            _call = CallBuilder().from_(wallet_address).to(staking_address).method('getAddressDelegations').params(
+                {'_address': wallet_address}).build()
+
+            _result = icon_service.call(_call)
+            dict1 = {}
+            for key, value in _result.items():
+                dict1[key] = int(value, 16)
+            assert dict(dict1) == dict(
+                case['actions']['unit_test'][0]['output']), 'Test Case not passed for delegations'
+
+
 if __name__ == '__main__':
     icon_service = IconService(HTTPProvider("https://bicon.net.solidwallet.io", 3))
     # NID = 80
@@ -718,10 +1120,10 @@ if __name__ == '__main__':
 
     # In[92]:
 
-    user1 = KeyWallet.load("./keystores/keystore_test1.json", "test1_Account")
-    with open("./keystores/balanced_test.pwd", "r") as f:
+    user1 = KeyWallet.load("../keystores/keystore_test1.json", "test1_Account")
+    with open("../keystores/balanced_test.pwd", "r") as f:
         key_data = f.read()
-    user2 = KeyWallet.load("./keystores/balanced_test.json", key_data)
+    user2 = KeyWallet.load("../keystores/balanced_test.json", key_data)
 
     # print(icon_service.get_balance(user1.get_address()) / 10 ** 18)
     # print(icon_service.get_balance(user2.get_address()) / 10 ** 18)
@@ -739,7 +1141,7 @@ if __name__ == '__main__':
                  }
     print('Deploying staking Contract')
     deploy = list(['staking', 'sicx'])
-    for directory in {"../core_contracts", "../token_contracts"}:
+    for directory in {"../../core_contracts", "../../token_contracts"}:
         with os.scandir(directory) as it:
             for file in it:
                 archive_name = directory + "/" + file.name
@@ -761,21 +1163,6 @@ if __name__ == '__main__':
     def get_tx_result(_tx_hash):
         tx_result = icon_service.get_transaction_result(_tx_hash)
         return tx_result
-
-    def staking_on():
-        set_div_per = CallTransactionBuilder() \
-            .from_(user2.get_address()) \
-            .to(staking_address) \
-            .nid(NID) \
-            .nonce(100) \
-            .method("toggleStakingOn") \
-            .build()
-        estimate_step = icon_service.estimate_step(set_div_per)
-        step_limit = estimate_step + 10000000
-        signed_transaction = SignedTransaction(set_div_per, user2, step_limit)
-
-        tx_hash = icon_service.send_transaction(signed_transaction)
-
 
     ab = get_tx_result(tx_hash)
     assert ab['status'] == 1, 'Staking contract not deployed'
@@ -810,9 +1197,9 @@ if __name__ == '__main__':
     assert ab['status'] == 1, 'sICX contract not deployed'
     print('sICX contract Deployed')
     token_address = ab['scoreAddress']
-    staking_on()
     test_top_preps()
     test_rate()
+    # test_delegation_by_new_user()
     test_stake_icx()
     test_delegations()
     test_transfer()
@@ -820,3 +1207,4 @@ if __name__ == '__main__':
     test_payout()
     test_partial_payout()
     test_complete_payout()
+    stake_icx_after_delegation()
