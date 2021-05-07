@@ -181,6 +181,9 @@ class RewardsInterface(InterfaceScore):
     def updateBalTokenDistPercentage(self, _recipient_list: List[DistPercentDict]) -> None:
         pass
 
+    @interface
+    def bonusDist(self, _addresses: List[Address], _amounts: List[int]) -> None:
+        pass
 
 # An interface to call the setAddress methods on each SCORE.
 class SetAddressesInterface(InterfaceScore):
