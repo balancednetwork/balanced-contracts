@@ -64,7 +64,6 @@ def test_daily_rewards():
         lifetime_reward = int(_result, 16)
         daily_reward = current_stake - previous_stake - to_stake_icx
         assert lifetime_reward == daily_reward, "LifetimeRewards not set"
-        print('Lifetime Rewards set')
 
         rate = (previous_stake+daily_reward) * 1000000000000000000 // total_supply
 
@@ -73,10 +72,8 @@ def test_daily_rewards():
         _result = icon_service.call(_call)
         current_rate = int(_result, 16)
         assert current_rate == rate, "Failed to set the rate"
-        print('Rate set successfully')
 
         assert current_stake == previous_stake + to_stake_icx + daily_reward, ' Failed to stake ICX'
-        print('Total stake set successfully')
 
         _call = CallBuilder() \
             .from_(user2.get_address()) \
@@ -88,7 +85,6 @@ def test_daily_rewards():
         _result = icon_service.call(_call)
 
         assert current_stake == int(_result['stake'],16), "stake in network failed"
-        print('Stake in network passed')
 
 
 test_daily_rewards()

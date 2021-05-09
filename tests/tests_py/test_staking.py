@@ -1,3 +1,4 @@
+import json
 import os
 from shutil import make_archive
 import sys
@@ -55,22 +56,8 @@ def send_tx(dest, value, method, params, wallet):
 
 
 def test_rate():
-    test_cases = {
-        "stories": [
-            {
-                "description": "sICX address is set in staking contract",
-                "actions": {
-                    "name": "setSicxAddress",
-                    "unit_test": [
-                        {
-                            "fn_name": "getSicxAddress",
-                            "output": "token_address"
-                        }
-                    ]
-                }
-            }
-        ]
-    }
+    with open('./test_scenarios/scenarios/sicxAddress_test.json') as f:
+        test_cases = json.load(f)
     for case in test_cases['stories']:
         for unit in case['actions']['unit_test']:
             if unit['fn_name'] == "getSicxAddress":
@@ -94,67 +81,8 @@ def test_rate():
 
 
 def test_stake_icx():
-    test_cases = {
-        "title": "Staking: stakeICX",
-        "description": "Test cases for the stakeICX function.",
-        "stories": [
-            {
-                "description": "User 1 deposits 50 ICX as collateral and mints sicx to own wallet address.",
-                "actions": {
-                    "mint_to": "user1",
-                    "prev_sicx_in_user": "0",
-                    "prev_total_supply_sicx": "0",
-                    "prev_icx_staked_from_staking_contract": "0",
-                    "name": "stakeICX",
-                    "deposited_icx": "50000000000000000000",
-                    "expected_sicx_in_user": "50000000000000000000",
-                    "expected_icx_staked_from_staking_contract": "50000000000000000000",
-                    "total_supply_sicx": "50000000000000000000",
-                    "unit_test": [
-                        {
-                            "getTotalStake": "50000000000000000000",
-                        }]
-                }
-            },
-            {
-                "description": "user 2 deposits 30 ICX as collateral and mints sicx to user1 wallet address.",
-                "actions": {
-                    "mint_to": "user1",
-                    "prev_sicx_in_user": "50000000000000000000",
-                    "prev_total_supply_sicx": "50000000000000000000",
-                    "prev_icx_staked_from_staking_contract": "50000000000000000000",
-                    "name": "stakeICX",
-                    "deposited_icx": "30000000000000000000",
-                    "expected_sicx_in_user": "80000000000000000000",
-                    "expected_icx_staked_from_staking_contract": "80000000000000000000",
-                    "total_supply_sicx": "80000000000000000000",
-                    "unit_test": [
-                        {
-                            "getTotalStake": "80000000000000000000",
-                        }]
-                }
-            },
-            {
-                "description": "user 2 deposits 30 ICX as collateral and mints sicx to own wallet address.",
-                "actions": {
-                    "mint_to": "user2",
-                    "prev_sicx_in_user": "0",
-                    "prev_total_supply_sicx": "80000000000000000000",
-                    "prev_icx_staked_from_staking_contract": "80000000000000000000",
-                    "name": "stakeICX",
-                    "deposited_icx": "30000000000000000000",
-                    "expected_sicx_in_user": "30000000000000000000",
-                    "expected_icx_staked_from_staking_contract": "110000000000000000000",
-                    "total_supply_sicx": "110000000000000000000",
-                    "unit_test": [
-                        {
-                            "getTotalStake": "110000000000000000000",
-                        }]
-                }
-            }
-
-        ]
-    }
+    with open('./test_scenarios/scenarios/stake_icx.json') as f:
+        test_cases = json.load(f)
     network_delegations = {}
     for case in test_cases['stories']:
         if case['actions']['mint_to'] == "user1":
@@ -240,76 +168,8 @@ def test_stake_icx():
 
 
 def test_delegations():
-    test_cases = {
-
-        "stories": [
-            {
-                "description": "User1 delegates 100% of it's votes to  hx2fb8fb849cba40bf59a48ebcef899d6ae45382f4",
-                "actions": {
-                    "name": "delegate",
-                    "params": {'_user_delegations': [{'_address': 'hx2fb8fb849cba40bf59a48ebcef899d6ae45382f4',
-                                                      '_votes_in_per': '100000000000000000000'}]},
-                    "user": "user1",
-                    "within_top_preps": "true",
-                    "unit_test": [
-                        {
-                            "fn_name": "getAddressDelegations",
-                            "output": {'hx2fb8fb849cba40bf59a48ebcef899d6ae45382f4': 80000000000000000000}
-                        }]
-                }
-            },
-            {
-                "description": "User2 delegates 50% of it's votes to hx000e0415037ae871184b2c7154e5924ef2bc075e and 50% of its votes to hx0d091baf34fb2b8e144f3e878dc73c35e77f912f",
-                "actions": {
-                    "name": "delegate",
-                    "params": {'_user_delegations': [{'_address': 'hx000e0415037ae871184b2c7154e5924ef2bc075e',
-                                                      '_votes_in_per': '50000000000000000000'},
-                                                     {'_address': 'hx0d091baf34fb2b8e144f3e878dc73c35e77f912f',
-                                                      '_votes_in_per': '50000000000000000000'}]},
-                    "user": "user2",
-                    "within_top_preps": "true",
-                    "unit_test": [
-                        {
-                            "fn_name": "getAddressDelegations",
-                            "output": {'hx000e0415037ae871184b2c7154e5924ef2bc075e': 15000000000000000000,
-                                       'hx0d091baf34fb2b8e144f3e878dc73c35e77f912f': 15000000000000000000}
-                        }]
-                }
-            },
-            {
-                "description": "User1 delegates 100% of it's votes to hx8ac43d292fcc468f53e8377a8c01b1e82216c5a0(out of top preps)",
-                "actions": {
-                    "name": "delegate",
-                    "params": {'_user_delegations': [{'_address': 'hx8ac43d292fcc468f53e8377a8c01b1e82216c5a0',
-                                                      '_votes_in_per': '100000000000000000000'}]},
-                    "user": "user1",
-                    "within_top_preps": "false",
-                    "unit_test": [
-                        {
-                            "fn_name": "getAddressDelegations",
-                            "output": {'hx8ac43d292fcc468f53e8377a8c01b1e82216c5a0': 80000000000000000000}
-                        }]
-                }
-            }
-            ,
-            {
-                "description": "User1 delegates 100% of it's votes to hx9eec61296a7010c867ce24c20e69588e2832bc52",
-                "actions": {
-                    "name": "delegate",
-                    "params": {'_user_delegations': [{'_address': 'hx9eec61296a7010c867ce24c20e69588e2832bc52',
-                                                      '_votes_in_per': '100000000000000000000'}]},
-                    "user": "user1",
-                    "within_top_preps": "true",
-                    "unit_test": [
-                        {
-                            "fn_name": "getAddressDelegations",
-                            "output": {'hx9eec61296a7010c867ce24c20e69588e2832bc52': 80000000000000000000}
-                        }]
-                }
-            }
-
-        ]
-    }
+    with open('./test_scenarios/scenarios/delegations.json') as f:
+        test_cases = json.load(f)
     network_delegations = {}
     previous_network_delegations = {}
     for case in test_cases['stories']:
@@ -351,7 +211,6 @@ def test_delegations():
                 try:
                     assert network_delegations[key] != previous_network_delegations[key], 'Failed to delegate'
                 except KeyError as e:
-                    print(e)
                     pass
         wallet_list = [user1, user2]
         prep_delegations_dict = {}
@@ -377,46 +236,8 @@ def test_delegations():
 # In[97]:
 
 def test_transfer():
-    test_cases = {
-        "stories": [
-            {
-                "description": "User1 transfers 10 sICX to user2",
-                "actions": {
-                    "name": "transfer",
-                    "sender": "user1",
-                    "receiver": "user2",
-                    "prev_sender_sicx": "80000000000000000000",
-                    "prev_receiver_sicx": "30000000000000000000",
-                    "total_sicx_transferred": "10000000000000000000",
-                    "curr_sender_sicx": "70000000000000000000",
-                    "curr_receiver_sicx": "40000000000000000000",
-                    "delegation_sender": {"hx9eec61296a7010c867ce24c20e69588e2832bc52": 70000000000000000000},
-                    "delegation_receiver": {"hx000e0415037ae871184b2c7154e5924ef2bc075e": 20000000000000000000,
-                                            "hx0d091baf34fb2b8e144f3e878dc73c35e77f912f": 20000000000000000000}
-
-                }
-            },
-            {
-                "description": "User2 transfers 20 sICX to some random address",
-                "actions": {
-                    "name": "transfer",
-                    "sender": "user2",
-                    "receiver": "hx72bff0f887ef183bde1391dc61375f096e75c74a",
-                    "prev_sender_sicx": "40000000000000000000",
-                    "prev_receiver_sicx": "0",
-                    "total_sicx_transferred": "20000000000000000000",
-                    "curr_sender_sicx": "20000000000000000000",
-                    "curr_receiver_sicx": "20000000000000000000",
-                    "delegation_sender": {"hx000e0415037ae871184b2c7154e5924ef2bc075e": 10000000000000000000,
-                                          "hx0d091baf34fb2b8e144f3e878dc73c35e77f912f": 10000000000000000000},
-                    "delegation_receiver": "evenly_distribute"
-
-                }
-            }
-
-        ]
-    }
-
+    with open('./test_scenarios/scenarios/transfers_sicx.json') as f:
+        test_cases = json.load(f)
     for case in test_cases['stories']:
         dict1 = {}
         dict2 = {}
@@ -525,47 +346,8 @@ def test_top_preps():
 
 
 def test_unstake():
-    test_cases = {
-        "stories": [
-            {
-                "description": "User1 request for unstake of 20sICX",
-                "actions": {
-                    "name": "transfer",
-                    "sender": "user1",
-                    "prev_total_stake": "110000000000000000000",
-                    "curr_total_stake": "90000000000000000000",
-                    "curr_sender_sicx": "50000000000000000000",
-                    "total_sicx_transferred": "20000000000000000000",
-                    "unit_test": [
-                        {
-                            "fn_name": "getUnstakingAmount",
-                            "output": "20000000000000000000"
-                        }
-                    ]
-
-                }
-            },
-            {
-                "description": "User2 request for unstake of 10sICX",
-                "actions": {
-                    "name": "transfer",
-                    "sender": "user2",
-                    "prev_total_stake": "90000000000000000000",
-                    "curr_sender_sicx": "10000000000000000000",
-                    "curr_total_stake": "80000000000000000000",
-                    "total_sicx_transferred": "10000000000000000000",
-                    "unit_test": [
-                        {
-                            "fn_name": "getUnstakingAmount",
-                            "output": "30000000000000000000"
-                        }
-                    ]
-
-                }
-            }
-
-        ]
-    }
+    with open('./test_scenarios/scenarios/unstake_sicx.json') as f:
+        test_cases = json.load(f)
     count = 0
     for case in test_cases['stories']:
         count += 1
@@ -706,25 +488,8 @@ def stake_icx_after_delegation():
 
 
 def test_delegation_by_new_user():
-    test_cases = {
-
-        "stories": [
-            {
-                "description": "User1 delegates 100% of it's votes to hx83c0fc2bcac7ecb3928539e0256e29fc371b5078",
-                "actions": {
-                    "name": "delegate",
-                    "params": {'_user_delegations': [{'_address': 'hx83c0fc2bcac7ecb3928539e0256e29fc371b5078',
-                                                      '_votes_in_per': '100000000000000000000'}]},
-                    "user": "user1",
-                    "within_top_preps": "true",
-                    "unit_test": [
-                        {
-                            "fn_name": "getAddressDelegations",
-                            "output": {'hx83c0fc2bcac7ecb3928539e0256e29fc371b5078': 0}
-                        }]
-                }
-            }]
-    }
+    with open('./test_scenarios/scenarios/new_user_delegations.json') as f:
+        test_cases = json.load(f)
     for case in test_cases['stories']:
         address_list = []
         add = case['actions']['params']['_user_delegations']
