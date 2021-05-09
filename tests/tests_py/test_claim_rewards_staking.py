@@ -2,6 +2,8 @@ from iconsdk.exception import JSONRPCException
 from iconsdk.libs.in_memory_zip import gen_deploy_data_content
 from iconsdk.icon_service import IconService
 from iconsdk.providers.http_provider import HTTPProvider
+import sys
+sys.path.append("..")
 from iconsdk.builder.transaction_builder import CallTransactionBuilder, TransactionBuilder, DeployTransactionBuilder
 from iconsdk.builder.call_builder import CallBuilder
 from iconsdk.signed_transaction import SignedTransaction
@@ -15,10 +17,10 @@ NID = 3
 
 # In[92]:
 
-user1 = KeyWallet.load("../keystores/keystore_test1.json", "test1_Account")
-with open("../keystores/balanced_test.pwd", "r") as f:
+user1 = KeyWallet.load("./keystores/keystore_test1.json", "test1_Account")
+with open("./keystores/balanced_test.pwd", "r") as f:
     key_data = f.read()
-user2 = KeyWallet.load("../keystores/balanced_test.json", key_data)
+user2 = KeyWallet.load("./keystores/balanced_test.json", key_data)
 GOVERNANCE_ADDRESS = "cx0000000000000000000000000000000000000000"
 
 staking_address = "cx1e11fbfeb3eb124fb3280b11cbceb501f5f0c323"
