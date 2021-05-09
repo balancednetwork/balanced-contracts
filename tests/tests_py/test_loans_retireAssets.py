@@ -41,6 +41,17 @@ TEST_ORACLE = "cx61a36e5d10412e03c907a507d1e8c6c3856d9964"
 MAIN_ORACLE = "cxe647e0af68a4661566f5e9861ad4ac854de808a2"
 BALANCED_TEST = "hx3f01840a599da07b0f620eeae7aa9c574169a4be"
 
+filename = './scenarios/tests_py/loans-retireAssets.json'
+
+
+def read_file_data(filename):
+    with open(filename, encoding="utf8") as data_file:
+        json_data = json.load(data_file)
+    return json_data
+
+
+test_cases = read_file_data(filename)
+
 
 @retry(JSONRPCException, tries=10, delay=1, back_off=2)
 def get_tx_result(_tx_hash):
@@ -400,24 +411,9 @@ call_tx('loans', 'getMaxRetireAmount', {'_symbol': 'bnUSD'})
 
 def test_retireAssets():
     #  Now we try to retire maximum bnusd retirement allowed
-    test_cases = {
-        "stories": [
-            {
-                "description": "User2 tries to retire 10 bnusd",
-                "actions": {
-                    "sender": "user2",
-                    "first_meth": "transfer",
-                    "second_meth": "returnAsset",
-                    "deposited_icx": "0",
-                    "first_params": {'_to': user2.get_address(), '_value': 20 * ICX},
-                    "second_params": {"_symbol": "bnUSD", '_value': 5 * ICX},
-                    "expected_status_result": "1"
-                }
-            }
-        ]
-    }
 
-    for case in test_cases['stories']:
+    cases = test_cases['stories']
+    for case in cases:
         print(case['description'])
         _to = contracts['bnUSD']['SCORE']
         meth1 = case['actions']['first_meth']

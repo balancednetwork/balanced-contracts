@@ -3,8 +3,8 @@
 #-------------------------------------------------------------------------------
 
 UNITS_PER_TOKEN = 10**18
-U_SECONDS_DAY = 86400 * 10**6  # Microseconds in a day.
-DAY_ZERO = 18647
+U_SECONDS_DAY = 86400//1440 * 10**6  # Microseconds in a day.
+DAY_ZERO = 18647*1440
 DAY_START = 61200 * 10**6  # 17:00 UTC
 
 

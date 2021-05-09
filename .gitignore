@@ -1,7 +1,7 @@
 # System files
 .DS_Store
 
-# tbears test_scenarios files
+# tbears scenarios files
 .testscore/
 .teststatedb/
 
@@ -16,7 +16,7 @@ __pycache__/
 # Distribution / packaging
 *.zip
 
-# Unit test_scenarios / coverage reports
+# Unit scenarios / coverage reports
 .pytest_cache/
 
 # Jupyter Notebook

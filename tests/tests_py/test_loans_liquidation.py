@@ -40,6 +40,17 @@ TEST_ORACLE = "cx61a36e5d10412e03c907a507d1e8c6c3856d9964"
 MAIN_ORACLE = "cxe647e0af68a4661566f5e9861ad4ac854de808a2"
 BALANCED_TEST = "hx3f01840a599da07b0f620eeae7aa9c574169a4be"
 
+filename = './scenarios/tests_py/loans-liquidation.json'
+
+
+def read_file_data(filename):
+    with open(filename, encoding="utf8") as data_file:
+        json_data = json.load(data_file)
+    return json_data
+
+
+test_cases = read_file_data(filename)
+
 
 @retry(JSONRPCException, tries=10, delay=1, back_off=2)
 def get_tx_result(_tx_hash):
@@ -400,42 +411,18 @@ def test_liquidation():
     # 5. Call liquidate method
     # 6. Check account position , if the account standing is 'Zero' ,the account is liquidated and test successfull
 
-    test_cases = {
-        "stories": [{
-            "description": "liquidating btest_wallet account by depositing 782 icx collateral and minting 2000 bnusd loan",
-            "actions": {
-                "deposited_icx": 782769 * ICX // 1000,
-                "test_icx": 600,
-                "test_bnUSD": 2000 * ICX,
-                "expected_initial_position": "No Debt",
-                "expected_position": "Liquidate",
-                "expected_result": "Zero"
-            }
-        },
-            {
-                "description": "liquidating btest_wallet account by depositing 782 icx collateral and minting 1500 bnusd loan",
-                "actions": {
-                    "deposited_icx": 782769 * ICX // 1000,
-                    "test_icx": 600,
-                    "test_bnUSD": 1500 * ICX,
-                    "expected_initial_position": "No Debt",
-                    "expected_position": "Liquidate",
-                    "expected_result": "Zero"
-                }
-            }
-        ]
-    }
-
-    for case in test_cases['stories']:
+    cases = test_cases['stories']
+    for case in cases:
         print(case['description'])
 
-        _icx = case['actions']['deposited_icx']
-        _test_icx = case['actions']['test_icx']
-        _test_bnUSD = case['actions']['test_bnUSD']
+        _icx = int(case['actions']['deposited_icx']) * ICX // 1000
+        _test_icx = int(case['actions']['test_icx'])
+        _test_bnUSD = int(case['actions']['test_bnUSD']) * ICX
 
         send_tx('loans', _icx, 'depositAndBorrow', {'_asset': '', '_amount': 0}, btest_wallet)
 
         res = call_tx('loans', 'getAccountPositions', {'_owner': btest_wallet.get_address()})
+        print(res)
         assert res['standing'] == case['actions']['expected_initial_position'] and res['assets'][
             'sICX'] == '0x2a6f1a22364bbe8000', 'Test case failed for liquidation'
         send_tx('loans', _test_icx, 'create_test_position',

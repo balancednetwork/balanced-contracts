@@ -16,7 +16,7 @@ sys.path.append("..")
 
 ICX = 1000000000000000000
 
-filename = './test_scenarios/scenarios/loan-addCollateral.json'
+filename = './scenarios/tbears_tests/loan-addCollateral.json'
 
 GOVERNANCE_ADDRESS = "cx0000000000000000000000000000000000000000"
 ORACLE = "cx61a36e5d10412e03c907a507d1e8c6c3856d9964"

@@ -43,6 +43,17 @@ TEST_ORACLE = "cx61a36e5d10412e03c907a507d1e8c6c3856d9964"
 MAIN_ORACLE = "cxe647e0af68a4661566f5e9861ad4ac854de808a2"
 BALANCED_TEST = "hx3f01840a599da07b0f620eeae7aa9c574169a4be"
 
+filename = './scenarios/tests_py/loans-rewards.json'
+
+
+def read_file_data(filename):
+    with open(filename, encoding="utf8") as data_file:
+        json_data = json.load(data_file)
+    return json_data
+
+
+test_cases = read_file_data(filename)
+
 
 @retry(JSONRPCException, tries=10, delay=1, back_off=2)
 def get_tx_result(_tx_hash):
@@ -516,52 +527,38 @@ def test_getDataSources():
 
 
 def test_getSourceData():
-    test_case = {
-        "stories": [
-            {
-                "description": "Loans is a data source ",
-                'name': 'Loans',
-                'contract': contracts['loans']['SCORE']
-
-            },
-            {
-                "description": "sICX/ICX is a data source ",
-                'name': 'sICX/ICX',
-                'contract': contracts['dex']['SCORE']
-            },
-            {
-                "description": "user1 is not a data source ",
-                'name': 'user1',
-                'contract': None
-            }
-        ]
-    }
-    for case in test_case['stories']:
+    cases = test_cases['stories']
+    for case in cases:
         print(case['description'])
         _name = case['name']
+
+        if _name == 'Loans':
+            contract = contracts['loans']['SCORE']
+        elif _name == 'sICX/ICX':
+            contract = contracts['dex']['SCORE']
+        else:
+            contract = None
+
         res = call_tx('rewards', 'getSourceData', {'_name': _name}, False)
-        assert res['contract_address'] == case['contract'], 'Test case failed for ' + _name
+        assert res['contract_address'] == contract, 'Test case failed for ' + _name
         print('Test case passed')
 
 
 def test_claimRewards():
-    test_cases = {
+    claiming_addresses = {
         "stories": [
             {
                 "claiming_wallet": btest_wallet,
-                "claiming_wallet_address": btest_wallet.get_address(),
 
             },
             {
                 "claiming_wallet": user1,
-                "claiming_wallet_address": user1.get_address()
-
             },
         ]
     }
-    for case in test_cases['stories']:
+    for case in claiming_addresses['stories']:
         send_tx('rewards', 0, 'claimRewards', {}, case['claiming_wallet'])
-        res = call_tx('rewards', 'getBalnHolding', {'_holder': case['claiming_wallet_address']}, False)
+        res = call_tx('rewards', 'getBalnHolding', {'_holder': case['claiming_wallet'].get_address()}, False)
         assert int(res, 0) == 0, 'Rewards claiming issue'
         print('Test case passed while claiming rewards')
 
