@@ -2,6 +2,7 @@ import json
 import os
 from shutil import make_archive
 import sys
+
 sys.path.append("..")
 from iconsdk.exception import JSONRPCException
 from iconsdk.libs.in_memory_zip import gen_deploy_data_content
@@ -55,9 +56,15 @@ def send_tx(dest, value, method, params, wallet):
     return res
 
 
+def read_file_data(filename):
+    with open(filename, encoding="utf8") as data_file:
+        json_data = json.load(data_file)
+    return json_data
+
+
 def test_rate():
-    with open('./test_scenarios/scenarios/sicxAddress_test.json') as f:
-        test_cases = json.load(f)
+    filename = './scenarios/tests_py/staking/sicxAddress_test.json'
+    test_cases = read_file_data(filename)
     for case in test_cases['stories']:
         for unit in case['actions']['unit_test']:
             if unit['fn_name'] == "getSicxAddress":
@@ -81,8 +88,9 @@ def test_rate():
 
 
 def test_stake_icx():
-    with open('./test_scenarios/scenarios/stake_icx.json') as f:
-        test_cases = json.load(f)
+    filename = './scenarios/tests_py/staking/stake_icx.json'
+    test_cases = read_file_data(filename)
+
     network_delegations = {}
     for case in test_cases['stories']:
         if case['actions']['mint_to'] == "user1":
@@ -168,8 +176,8 @@ def test_stake_icx():
 
 
 def test_delegations():
-    with open('./test_scenarios/scenarios/delegations.json') as f:
-        test_cases = json.load(f)
+    filename = './scenarios/tests_py/staking/delegations.json'
+    test_cases = read_file_data(filename)
     network_delegations = {}
     previous_network_delegations = {}
     for case in test_cases['stories']:
@@ -231,13 +239,9 @@ def test_delegations():
         assert prep_delegation == prep_delegations_dict, "Failed"
 
 
-# ## transfer test
-
-# In[97]:
-
 def test_transfer():
-    with open('./test_scenarios/scenarios/transfers_sicx.json') as f:
-        test_cases = json.load(f)
+    filename = './scenarios/tests_py/staking/transfers_sicx.json'
+    test_cases = read_file_data(filename)
     for case in test_cases['stories']:
         dict1 = {}
         dict2 = {}
@@ -346,8 +350,8 @@ def test_top_preps():
 
 
 def test_unstake():
-    with open('./test_scenarios/scenarios/unstake_sicx.json') as f:
-        test_cases = json.load(f)
+    filename = './scenarios/tests_py/staking/unstake_sicx.json'
+    test_cases = read_file_data(filename)
     count = 0
     for case in test_cases['stories']:
         count += 1
@@ -465,7 +469,7 @@ def test_partial_payout():
 def test_complete_payout():
     params = {'_to': user2.get_address()}
 
-    ab = send_tx(staking_address, 30000000000000000000, "stakeICX",params, user2)
+    ab = send_tx(staking_address, 30000000000000000000, "stakeICX", params, user2)
     if ab['status'] == 1:
         _result = call_tx(staking_address, "getUnstakingAmount")
         total_unstaking_amount = int(_result, 16)
@@ -488,8 +492,8 @@ def stake_icx_after_delegation():
 
 
 def test_delegation_by_new_user():
-    with open('./test_scenarios/scenarios/new_user_delegations.json') as f:
-        test_cases = json.load(f)
+    filename = './scenarios/tests_py/staking/new_user_delegations.json'
+    test_cases = read_file_data(filename)
     for case in test_cases['stories']:
         address_list = []
         add = case['actions']['params']['_user_delegations']

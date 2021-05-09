@@ -16,7 +16,7 @@
                     "total_supply_sicx": "50000000000000000000",
                     "unit_test": [
                         {
-                            "getTotalStake": "50000000000000000000",
+                            "getTotalStake": "50000000000000000000"
                         }]
                 }
             },
@@ -34,7 +34,7 @@
                     "total_supply_sicx": "80000000000000000000",
                     "unit_test": [
                         {
-                            "getTotalStake": "80000000000000000000",
+                            "getTotalStake": "80000000000000000000"
                         }]
                 }
             },
@@ -52,7 +52,7 @@
                     "total_supply_sicx": "110000000000000000000",
                     "unit_test": [
                         {
-                            "getTotalStake": "110000000000000000000",
+                            "getTotalStake": "110000000000000000000"
                         }]
                 }
             }
