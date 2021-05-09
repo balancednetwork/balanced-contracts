@@ -1,6 +1,6 @@
 # If at all possible please test locally or on the private tbears server. The Testnet
 # is becoming cluttered with many deployments of Balanced contracts.
-# Note that running on the private tbears server will require the number of top P-Reps
+# Note that running on the private tbears server will require the number of top P-Reps 
 # be set to 4 in the staking contract or it will fail to deploy.
 
 network = "custom"  # set this to one of mainnet, yeouido, euljiro, pagoda, or custom
@@ -17,6 +17,7 @@ connections = {
 env = connections[network]
 
 import sys
+import time
 sys.path.append("..")
 from iconsdk.exception import JSONRPCException
 from iconsdk.libs.in_memory_zip import gen_deploy_data_content
@@ -56,7 +57,6 @@ wallet = KeyWallet.load("./keystores/keystore_test1.json", "test1_Account")
 with open("./keystores/balanced_test.pwd", "r") as f:
     key_data = f.read()
 btest_wallet = KeyWallet.load("./keystores/balanced_test.json", key_data)
-
 with open("./keystores/staking_test.pwd", "r") as f:
     key_data = f.read()
 staking_wallet = KeyWallet.load("./keystores/staking_test.json", key_data)
@@ -71,8 +71,40 @@ user1 = KeyWallet.load("./keystores/user1.json", "HelloWorld@1234")
 private = "0a354424b20a7e3c55c43808d607bddfac85d033e63d7d093cb9f0a26c4ee022"
 user2 = KeyWallet.load(bytes.fromhex(private))
 
+dict_list = []
+
+
+def create_wallets():
+    for i in range(0, 5):
+        data = {}
+        wallet2 = KeyWallet.create()
+        address = wallet2.get_address()
+        private_key = wallet2.get_private_key()
+        data[address] = private_key
+        dict_list.append(data)
+    with open('/tests_py/wallet2.json', 'a') as f:
+        json.dump(dict_list, f, ensure_ascii=False, indent=4)
+
+
+with open('./tests_py/wallet2.json') as f:
+    data = json.load(f)
+
+
+def transfer_icx():
+    for dict in data:
+        for items in dict.items():
+            print(items[0])
+            set_div_per = TransactionBuilder().from_(wallet.get_address()).to(items[0]).nid(NID).nonce(100).value(
+                5000 * 10 ** 18).build()
+            estimate_step = icon_service.estimate_step(set_div_per)
+            step_limit = estimate_step + 10000000
+            signed_transaction = SignedTransaction(set_div_per, wallet, step_limit)
+
+            tx_hash = icon_service.send_transaction(signed_transaction)
+            ab = get_tx_result(tx_hash)
+
 print("==============================================="
-      " ......Testing retireAssets method......."
+      " ......Testing reserveFund score......."
       "=================================================")
 
 # The following addresses are those deployed to the private tbears server.
@@ -109,18 +141,15 @@ contracts = {'loans': {'zip': 'core_contracts/loans.zip',
                      'SCORE': 'cx663f9d59163846d9f6c6f7b586858c59aa8878a9'}}
 
 
+# In[10]:
+
+
+# Cell 6
 # Define deploy and send_tx functions
 
 def send_icx(to, amount, wallet):
-    transaction = TransactionBuilder() \
-        .from_(wallet.get_address()) \
-        .to(to) \
-        .value(amount) \
-        .step_limit(1000000) \
-        .nid(NID) \
-        .nonce(2) \
-        .version(3) \
-        .build()
+    transaction = TransactionBuilder().from_(wallet.get_address()).to(to).value(amount).step_limit(1000000).nid(
+        NID).nonce(2).version(3).build()
     signed_transaction = SignedTransaction(transaction, wallet)
     return icon_service.send_transaction(signed_transaction)
 
@@ -151,67 +180,55 @@ def deploy_SCORE(contract, params, wallet, update) -> str:
     wallet is a wallet file
     update is boolian
     """
-    print(f'Deploying contract {contract["zip"]}')
+    print(f'{contract["zip"]}')
     if update:
         dest = contract['SCORE']
     else:
         dest = GOVERNANCE_ADDRESS
     zip_file = contract['zip']
-    step_limit = 4000100000
-    deploy_transaction = DeployTransactionBuilder() \
-        .from_(wallet.get_address()) \
-        .to(dest) \
-        .nid(NID) \
-        .nonce(100) \
-        .content_type("application/zip") \
-        .content(gen_deploy_data_content(zip_file)) \
-        .params(params) \
-        .build()
+    step_limit = 3000000000
+    deploy_transaction = DeployTransactionBuilder().from_(wallet.get_address()).to(dest).nid(NID).nonce(
+        100).content_type("application/zip").content(gen_deploy_data_content(zip_file)).params(params).build()
 
     signed_transaction = SignedTransaction(deploy_transaction, wallet, step_limit)
     tx_hash = icon_service.send_transaction(signed_transaction)
 
     res = get_tx_result(tx_hash)
     print(f'Status: {res["status"]}')
-    # if len(res["eventLogs"]) > 0:
-    #     for item in res["eventLogs"]:
-    #         print(f'{item} \n')
+    if len(res["eventLogs"]) > 0:
+        for item in res["eventLogs"]:
+            print(f'{item} \n')
     if res['status'] == 0:
         print(f'Failure: {res["failure"]}')
     print('')
     return res
 
 
-def send_tx(dest, value, method, params, wallet):
+def send_tx(dest, value, method, params, wallet, _print=True):
     """
     dest is the name of the destination contract.
     """
-    print(
-        '------------------------------------------------------------------------------------------------------------------')
-    print(f'Calling {method}, with parameters {params} on the {dest} contract.')
-    print(
-        '------------------------------------------------------------------------------------------------------------------')
-    transaction = CallTransactionBuilder() \
-        .from_(wallet.get_address()) \
-        .to(contracts[dest]['SCORE']) \
-        .value(value) \
-        .step_limit(10000000) \
-        .nid(NID) \
-        .nonce(100) \
-        .method(method) \
-        .params(params) \
-        .build()
+    if _print:
+        print(
+            '------------------------------------------------------------------------------------------------------------------')
+        print(f'Calling {method}, with parameters {params} on the {dest} contract.')
+        print(
+            '------------------------------------------------------------------------------------------------------------------')
+    transaction = CallTransactionBuilder().from_(wallet.get_address()).to(contracts[dest]['SCORE']).value(
+        value).step_limit(10000000).nid(NID).nonce(100).method(method).params(params).build()
     signed_transaction = SignedTransaction(transaction, wallet)
     tx_hash = icon_service.send_transaction(signed_transaction)
 
     res = get_tx_result(tx_hash)
-    print(
-        f'************************************************** Status: {res["status"]} **************************************************')
-    # if len(res["eventLogs"]) > 0:
-    #     for item in res["eventLogs"]:
-    #         print(f'{item} \n')
+    if _print:
+        print(
+            f'************************************************** Status: {res["status"]} **************************************************')
+    if len(res["eventLogs"]) > 0:
+        for item in res["eventLogs"]:
+            print(f'{item} \n')
     if res['status'] == 0:
-        print(f'Failure: {res["failure"]}')
+        if _print:
+            print(f'Failure: {res["failure"]}')
     return res
 
 
@@ -227,8 +244,10 @@ def deploy_all(wallet, staking_wallet):
     deploy.remove('sicx')
     deploy.remove('governance')
     if network == "mainnet":
-        deploy.remove('bnXLM')
-        deploy.remove('bnDOGE')
+        if 'bnXLM' in deploy:
+            deploy.remove('bnXLM')
+        if 'bnDOGE' in deploy:
+            deploy.remove('bnDOGE')
 
     results = {}
     res = deploy_SCORE(contracts['governance'], {}, wallet, 0)
@@ -293,11 +312,10 @@ def launch_balanced(wallet, staking_wallet):
             "hxb4e90a285a79687ec148c29faabe6f71afa8a066"}  # ICONDAO
     elif network == "mainnet":
         preps = {
-            "",  # ICX Station
-            "",  # iBriz-ICONOsphere
-            "",  # Mousebelt
-            "",  # Parrot 9
-            ""}  # ICONDAO
+            "hxfba37e91ccc13ec1dab115811f73e429cde44d48",  # ICX Station
+            "hx231a795d1c719b9edf35c46b9daa4e0b5a1e83aa",  # iBriz-ICONOsphere
+            "hxbc9c73670c79e8f6f8060551a792c2cf29a8c491",  # Mousebelt
+            "hx28c08b299995a88756af64374e13db2240bc3142"}  # Parrot 9
     else:
         return
 
@@ -325,23 +343,50 @@ def get_scores_json(contracts):
     return json.dumps(scores)
 
 
-def call_tx(dest: str, method: str, params: dict = {}):
+def call_tx(dest: str, method: str, params: dict = {}, _print=True):
     """
     dest is the name of the destination contract.
     """
-    print(
-        '------------------------------------------------------------------------------------------------------------------')
-    print(f'Reading {method}, with parameters {params} on the {dest} contract.')
-    print(
-        '------------------------------------------------------------------------------------------------------------------')
-    call = CallBuilder() \
-        .from_(wallet.get_address()) \
-        .to(contracts[dest]['SCORE']) \
-        .method(method) \
-        .params(params) \
-        .build()
+    if _print:
+        print(
+            '------------------------------------------------------------------------------------------------------------------')
+        print(f'Reading {method}, with parameters {params} on the {dest} contract.')
+        print(
+            '------------------------------------------------------------------------------------------------------------------')
+    call = CallBuilder().from_(btest_wallet.get_address()).to(contracts[dest]['SCORE']).method(method).params(
+        params).build()
     result = icon_service.call(call)
+    if _print:
+        print(result)
     return result
+
+
+def fast_send_tx(dest, value, method, params, wallet, _print=False):
+    """
+    dest is the name of the destination contract.
+    """
+    if _print:
+        print(
+            '------------------------------------------------------------------------------------------------------------------')
+        print(f'Calling {method}, with parameters {params} on the {dest} contract.')
+        print(
+            '------------------------------------------------------------------------------------------------------------------')
+    transaction = CallTransactionBuilder().from_(wallet.get_address()).to(contracts[dest]['SCORE']).value(
+        value).step_limit(10000000).nid(NID).nonce(100).method(method).params(params).build()
+    signed_transaction = SignedTransaction(transaction, wallet)
+    tx_hash = icon_service.send_transaction(signed_transaction)
+
+    res = get_tx_result(tx_hash)
+    if _print:
+        print(
+            f'************************************************** Status: {res["status"]} **************************************************')
+    if len(res["eventLogs"]) > 0:
+        for item in res["eventLogs"]:
+            print(f'{item} \n')
+    if res['status'] == 0:
+        if _print:
+            print(f'Failure: {res["failure"]}')
+    return res
 
 
 # Deploy and configure Balanced. Print results if anything goes wrong.
@@ -360,12 +405,14 @@ if confirm == 'Yes':
     print(get_scores_json(contracts))
 
 # Configure Balanced
+
 config_results = config_balanced(btest_wallet, staking_wallet)
 # print(config_results)
 
 # Launch Balanced
 # We may want to make this a payable method and have the governance SCORE borrow bnUSD,
 # start and name the sICXbnUSD market, and add it as a rewards DataSource.
+
 launch_results = launch_balanced(btest_wallet, staking_wallet)
 # print(launch_results)
 
@@ -386,55 +433,42 @@ def update():
         deploy_SCORE(contract, params, btest_wallet, update)
 
 
-# 1.no bad debt for asset, retired from account user2 without a position on Balanced.
-call_tx('loans', 'getAccountPositions', {'_owner': user1.get_address()})
-call_tx('loans', 'getAccountPositions', {'_owner': user2.get_address()})
+# Adding collateral and taking loan from btest_wallet
+
+send_tx('loans', 500 * ICX, 'depositAndBorrow', {'_asset': 'bnUSD', '_amount': 50 * ICX}, btest_wallet)
 
 
-# add collateral to user1 account
-send_tx('loans', 2000*ICX, 'depositAndBorrow', {'_asset': 'bnUSD', '_amount': 500 * ICX}, user1)
+# Note: After depositing collateral and taking loan we need to wait 15 minutes to change the day
+# and complete rewards distribution and run the below tests.
 
-# gives maximum retire amount
-call_tx('loans', 'getMaxRetireAmount', {'_symbol': 'bnUSD'})
+# Testing getBAlances method
+def test_getBalances():
+    for i in range(10):
+        fast_send_tx('rewards', 0, 'distribute', {}, btest_wallet)
 
+    total_balances = 0
+    for contract in ['rewards', 'reserve', 'bwt', 'dex', 'daofund']:
+        result = int(call_tx('baln', 'balanceOf', {'_owner': contracts[contract]['SCORE']}, False), 0)
+        total_balances += result
 
-def test_retireAssets():
-    #  Now we try to retire maximum bnusd retirement allowed
-    test_cases = {
-        "stories": [
-            {
-                "description": "User2 tries to retire 10 bnusd",
-                "actions": {
-                    "sender": "user2",
-                    "first_meth": "transfer",
-                    "second_meth": "returnAsset",
-                    "deposited_icx": "0",
-                    "first_params": {'_to': user2.get_address(), '_value': 20 * ICX},
-                    "second_params": {"_symbol": "bnUSD", '_value': 5 * ICX},
-                    "expected_status_result": "1"
-                }
-            }
-        ]
-    }
+    print(f'Total BALN: {total_balances / 10 ** 18}')
 
-    for case in test_cases['stories']:
-        print(case['description'])
-        _to = contracts['bnUSD']['SCORE']
-        meth1 = case['actions']['first_meth']
-        meth2 = case['actions']['second_meth']
-        val = int(case['actions']['deposited_icx'])
-        data1 = case['actions']['first_params']
-        first_params = {"_to": data1['_to'], "_value": data1['_value']}
+    res = call_tx('rewards', 'distStatus', {}, False)
+    day = int(res['platform_day'], 0) - 1
 
-        data2 = case['actions']['second_params']
-        second_params = {'_symbol': data2['_symbol'], '_value': data2['_value']}
-
-        send_tx('bnUSD', 0, meth1, first_params, user1)
-        sleep(2)
-        res = send_tx('loans', 0, meth2, second_params, user2)
-        assert res['status'] == int(
-            case['actions']['expected_status_result']), 'Retired amount is greater than the current maximum allowed'
-        print('Test case passed')
+    res = call_tx('reserve', 'getBalances', {}, False)
+    assert int(res['BALN'], 0) / 10 ** 18 == 5000 * day, "Reserve not receiving proper rewards"
+    print('Test case success')
 
 
-test_retireAssets()
+# Testing redeem
+def test_redeem():
+    res = send_tx('reserve', 0, 'redeem', {'_to': user1.get_address(), '_amount': 10 * ICX, '_sicx_rate': 2}, btest_wallet)
+    assert res['failure'][
+               'message'] == 'BalancedReserveFund: The redeem method can only be called by the Loans SCORE.', 'Redeem methos can only be called from loans'
+    print('Test case passed')
+
+
+time.sleep(70)
+test_getBalances()
+test_redeem()
