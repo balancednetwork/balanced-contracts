@@ -1,0 +1,19 @@
+{
+
+        "stories": [
+            {
+                "description": "User1 delegates 100% of it's votes to hx83c0fc2bcac7ecb3928539e0256e29fc371b5078",
+                "actions": {
+                    "name": "delegate",
+                    "params": {"_user_delegations": [{"_address": "hx83c0fc2bcac7ecb3928539e0256e29fc371b5078",
+                                                      "_votes_in_per": "100000000000000000000"}]},
+                    "user": "user1",
+                    "within_top_preps": "true",
+                    "unit_test": [
+                        {
+                            "fn_name": "getAddressDelegations",
+                            "output": {"hx83c0fc2bcac7ecb3928539e0256e29fc371b5078": 0}
+                        }]
+                }
+            }]
+    }
