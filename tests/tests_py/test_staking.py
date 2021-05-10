@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from shutil import make_archive
 import sys
 
@@ -488,7 +489,8 @@ def stake_icx_after_delegation():
         for key, value in _result.items():
             dict1[key] = int(value, 16)
 
-        assert dict1 == {"hx9eec61296a7010c867ce24c20e69588e2832bc52": 80000000000000000000}, 'Failed'
+        assert dict1 == {"hx9eec61296a7010c867ce24c20e69588e2832bc52": 80000000000000000000}, 'Failed in ' \
+                                                                                              'stake_icx_after_delegation '
 
 
 def test_delegation_by_new_user():
@@ -517,15 +519,30 @@ def test_delegation_by_new_user():
                 case['actions']['unit_test'][0]['output']), 'Test Case not passed for delegations'
 
 
+def sends_icx_to_user2():
+    transaction = TransactionBuilder() \
+        .from_(user1.get_address()) \
+        .to(user2.get_address()) \
+        .value(8000 * 10**18) \
+        .step_limit(10000000) \
+        .nid(3) \
+        .nonce(100) \
+        .build()
+    signed_transaction = SignedTransaction(transaction, user1)
+    tx_hash = icon_service.send_transaction(signed_transaction)
+    ab = get_tx_result(tx_hash)
+
+
 if __name__ == '__main__':
     # icon_service = IconService(HTTPProvider("https://bicon.net.solidwallet.io", 3))
-    icon_service = IconService(HTTPProvider("http://18.144.108.38:9000", 3))
+    icon_service = IconService(HTTPProvider("http://localhost:9000", 3))
     # NID = 80
     NID = 3
     user1 = KeyWallet.load("./keystores/keystore_test1.json", "test1_Account")
     with open("./keystores/balanced_test.pwd", "r") as f:
         key_data = f.read()
     user2 = KeyWallet.load("./keystores/balanced_test.json", key_data)
+    # sends_icx_to_user2()
     GOVERNANCE_ADDRESS = "cx0000000000000000000000000000000000000000"
     contracts = {'staking': {'zip': 'core_contracts/staking.zip',
                              'SCORE': 'cxd8e05c1280bc2c32bf53ff61f3bb2e2ecc7d6df5'},
@@ -553,6 +570,7 @@ if __name__ == '__main__':
     ab = get_tx_result(tx_hash)
     assert ab['status'] == 1, 'Staking contract not deployed'
     staking_address = ab['scoreAddress']
+    print(staking_address)
     # deployment of sICX contract
     zip_file = contracts['sicx']['zip']
     deploy_transaction = DeployTransactionBuilder().from_(user2.get_address()).to(GOVERNANCE_ADDRESS).nid(
@@ -566,6 +584,10 @@ if __name__ == '__main__':
     ab = get_tx_result(tx_hash)
     assert ab['status'] == 1, 'sICX contract not deployed'
     token_address = ab['scoreAddress']
+
+    dict1 = {"staking_address": staking_address, "token_address": token_address}
+    with open('./tests_py/contracts.json', 'w') as outfile:
+        json.dump(dict1, outfile)
     test_top_preps()
     test_rate()
     # test_delegation_by_new_user()
@@ -577,3 +599,5 @@ if __name__ == '__main__':
     test_partial_payout()
     test_complete_payout()
     stake_icx_after_delegation()
+    time.sleep(120)
+
