@@ -14,6 +14,7 @@ print("==============================================="
       " ......Testing reserveFund score......."
       "=================================================")
 
+deploy_utils_obj.deploy_and_launch_balanced()
 
 deploy_utils_obj.send_tx('loans', 500 * ICX, 'depositAndBorrow', {'_asset': 'bnUSD', '_amount': 50 * ICX}, btest_wallet)
 

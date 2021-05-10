@@ -25,6 +25,8 @@ print("==============================================="
       " ......Testing Rewards contract......."
       "=================================================")
 
+deploy_utils_obj.deploy_and_launch_balanced()
+
 
 def test_getBalnHolding():
     for i in range(10):
