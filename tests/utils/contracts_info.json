@@ -1,0 +1,61 @@
+{"loans": {
+    "zip": "core_contracts/loans.zip",
+    "SCORE": "cxa0f715fb2c4bc8f4c6399c2cc26167a27be0aa61"
+  },
+  "staking": {
+    "zip": "core_contracts/staking.zip",
+    "SCORE": "cxbabed822d59b605dbeb6322735c529b292baac3b"
+  },
+  "dividends": {
+    "zip": "core_contracts/dividends.zip",
+    "SCORE": "cx1379084f45776301abda3849c6e374f460ee0155"
+  },
+  "reserve": {
+    "zip": "core_contracts/reserve.zip",
+    "SCORE": "cx71dda2221bf88faddc8f84b72ffd6db296e5609e"
+  },
+  "daofund": {
+    "zip": "core_contracts/daofund.zip",
+    "SCORE": "cxfd09787f23d23b945fa0c7eb55b5aa69425da1c8"
+  },
+  "rewards": {
+    "zip": "core_contracts/rewards.zip",
+    "SCORE": "cx27aa3bf62145822e60d85fa5d18dabdcff5b9ada"
+  },
+  "dex": {
+    "zip": "core_contracts/dex.zip",
+    "SCORE": "cx01eee12b6614e5328e0a84261652cb7f055e0176"
+  },
+  "governance": {
+    "zip": "core_contracts/governance.zip",
+    "SCORE": "cxd7b3e71dcff3d75392216e208f28ef68e8a54ec0"
+  },
+  "oracle": {
+    "zip": "core_contracts/oracle.zip",
+    "SCORE": "cx0d7eb4862c154b58876c09548869de2c879b765e"
+  },
+  "sicx": {
+    "zip": "token_contracts/sicx.zip",
+    "SCORE": "cx799f724e02560a762b5f2bd3b6d2d8d59d7aecc1"
+  },
+  "bnUSD": {
+    "zip": "token_contracts/bnUSD.zip",
+    "SCORE": "cx266bdc0c35828c8130cdf1cbaa3ad109f7694722"
+  },
+  "bnXLM": {
+    "zip": "token_contracts/bnXLM.zip",
+    "SCORE": "cx266bdc0c35828c8130cdf1cbaa3ad109f7694722"
+  },
+  "bnDOGE": {
+    "zip": "token_contracts/bnDOGE.zip",
+    "SCORE": "cx266bdc0c35828c8130cdf1cbaa3ad109f7694722"
+  },
+  "baln": {
+    "zip": "token_contracts/baln.zip",
+    "SCORE": "cx4d0768508a7ff550de4405f27aebfb8831565c19"
+  },
+  "bwt": {
+    "zip": "token_contracts/bwt.zip",
+    "SCORE": "cx663f9d59163846d9f6c6f7b586858c59aa8878a9"
+  }
+}

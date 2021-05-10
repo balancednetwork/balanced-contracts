@@ -54,10 +54,10 @@ def retry(exception_to_check: Exception or tuple, tries: int =10, delay: int =1,
                     return f(*args, **kwargs)
                 except exception_to_check as e:
                     msg = "Retrying in %d seconds..." % mdelay
-                    if logger:
-                        logger.warning(msg)
-                    else:
-                        print(msg)
+                    # if logger:
+                    #     logger.warning(msg)
+                    # else:
+                    #     # print(msg)
                     sleep(mdelay)
                     mtries -= 1
                     mdelay *= back_off
