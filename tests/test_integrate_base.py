@@ -22,7 +22,6 @@ def get_key(my_dict: dict, value: Union[str, int]):
 
 
 class BalancedTestBase(IconIntegrateTestBase):
-
     CORE_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../core_contracts"))
     TOKEN_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../token_contracts"))
 
@@ -48,18 +47,24 @@ class BalancedTestBase(IconIntegrateTestBase):
         self.send_icx(self._test1, self.btest_wallet.get_address(), 1_000_000 * self.icx_factor)
         self.send_icx(self._test1, self.staking_wallet.get_address(), 1_000_000 * self.icx_factor)
 
-        self._deploy_all()
-        self._config_balanced()
-        self._launch_balanced()
-        self._createBnusdMarket()
+        if os.path.exists(os.path.join(DIR_PATH, "scores_address.json")):
+            with open(os.path.join(DIR_PATH, "scores_address.json"), "r") as file:
+                self.contracts = json.load(file)
+            return
+        else:
+            self._deploy_all()
+            self._config_balanced()
+            self._launch_balanced()
+            self._create_bnusd_market()
 
     def _wallet_setup(self):
         self.icx_factor = 10 ** 18
-        self.btest_wallet: 'KeyWallet' = KeyWallet.create()
-        self.staking_wallet: 'KeyWallet' = KeyWallet.create()
+        self.btest_wallet: 'KeyWallet' = self._wallet_array[5]
+        self.staking_wallet: 'KeyWallet' = self._wallet_array[6]
         self.user1: 'KeyWallet' = KeyWallet.create()
         self.user2: 'KeyWallet' = KeyWallet.create()
         self.genesis_accounts = [
+            Account("test1", Address.from_string(self._test1.get_address()), 800_000_0000 * self.icx_factor),
             Account("btest_wallet", Address.from_string(self.btest_wallet.get_address()), 1_000_000 * self.icx_factor),
             Account("staking_wallet", Address.from_string(self.staking_wallet.get_address()),
                     1_000_000 * self.icx_factor),
@@ -110,16 +115,8 @@ class BalancedTestBase(IconIntegrateTestBase):
     def send_icx(self, from_: KeyWallet, to: str, value: int):
         previous_to_balance = self.get_balance(to)
         previous_from_balance = self.get_balance(from_.get_address())
-        send_icx_transaction = TransactionBuilder(
-            from_=from_.get_address(),
-            to=to,
-            value=value,
-            step_limit=1000000,
-            nid=self.nid,
-            nonce=3
-        ).build()
 
-        signed_icx_transaction = SignedTransaction(send_icx_transaction, from_)
+        signed_icx_transaction = self.build_send_icx(from_, to, value)
         tx_result = self.process_transaction(signed_icx_transaction, self.icon_service, self.BLOCK_INTERVAL)
 
         fee = tx_result['stepPrice'] * tx_result['cumulativeStepUsed']
@@ -128,6 +125,18 @@ class BalancedTestBase(IconIntegrateTestBase):
         self.assertEqual(previous_to_balance + value, self.get_balance(to))
         self.assertEqual(previous_from_balance - value - fee, self.get_balance(from_.get_address()))
 
+    def build_send_icx(self, from_: KeyWallet, to: str, value: int) -> SignedTransaction:
+        send_icx_transaction = TransactionBuilder(
+            from_=from_.get_address(),
+            to=to,
+            value=value,
+            step_limit=1000000,
+            nid=self.nid,
+            nonce=3
+        ).build()
+        signed_icx_transaction = SignedTransaction(send_icx_transaction, from_)
+        return signed_icx_transaction
+
     def get_balance(self, address: str) -> int:
         if self.icon_service is not None:
             return self.icon_service.get_balance(address)
@@ -135,13 +144,14 @@ class BalancedTestBase(IconIntegrateTestBase):
         response = self.icon_service_engine.query(method="icx_getBalance", params=params)
         return response
 
-    def send_tx(self, from_: KeyWallet, to: str, value: int = 0, method: str = None, params: dict = None):
+    def send_tx(self, from_: KeyWallet, to: str, value: int = 0, method: str = None, params: dict = None) -> dict:
         print(f"------------Calling {method}, with params={params} to {get_key(self.contracts, to)} contract----------")
         signed_transaction = self.build_tx(from_, to, value, method, params)
         tx_result = self.process_transaction(signed_transaction, self.icon_service, self.BLOCK_INTERVAL)
         print(tx_result)
         self.assertTrue('status' in tx_result)
         self.assertEqual(1, tx_result['status'], f"Failure: {tx_result['failure']}" if tx_result['status'] == 0 else "")
+        return tx_result
 
     def build_tx(self, from_: KeyWallet, to: str, value: int = 0, method: str = None, params: dict = None) \
             -> SignedTransaction:
@@ -160,15 +170,17 @@ class BalancedTestBase(IconIntegrateTestBase):
         return signed_transaction
 
     def call_tx(self, to: str, method: str, params: dict = None):
-        print(f"-----Reading method={method}, with params={params} on the {get_key(self.contracts, to)} contract------")
+
         params = {} if params is None else params
         call = CallBuilder(
             to=to,
             method=method,
             params=params
         ).build()
-
-        return self.process_call(call, self.icon_service)
+        response = self.process_call(call, self.icon_service)
+        print(f"-----Reading method={method}, with params={params} on the {get_key(self.contracts, to)} contract------")
+        print(f"-------------------The output is: : {response}")
+        return response
 
     def _deploy_all(self):
         governance = "governance"
@@ -181,6 +193,7 @@ class BalancedTestBase(IconIntegrateTestBase):
 
         governance_deploy_tx = self.process_deploy_tx(
             from_=self.btest_wallet,
+            to=self.contracts.get(governance, SCORE_INSTALL_ADDRESS),
             content=os.path.abspath(os.path.join(self.CORE_CONTRACTS_PATH, governance))
         )
         self.contracts[governance] = governance_deploy_tx[SCORE_ADDRESS]
@@ -193,6 +206,7 @@ class BalancedTestBase(IconIntegrateTestBase):
                 path = self.TOKEN_CONTRACTS_PATH
             deploy_tx = self.build_deploy_tx(
                 from_=self.btest_wallet,
+                to=self.contracts.get(contract, SCORE_INSTALL_ADDRESS),
                 content=os.path.abspath(os.path.join(path, contract)),
                 params={"_governance": self.contracts[governance]}
             )
@@ -201,6 +215,7 @@ class BalancedTestBase(IconIntegrateTestBase):
         for contract in external_contracts:
             deploy_tx = self.build_deploy_tx(
                 from_=self.staking_wallet,
+                to=self.contracts.get(contract, SCORE_INSTALL_ADDRESS),
                 content=os.path.abspath(os.path.join(self.CORE_CONTRACTS_PATH, contract))
             )
             txs.append(deploy_tx)
@@ -219,11 +234,15 @@ class BalancedTestBase(IconIntegrateTestBase):
 
         sicx_deploy_tx = self.process_deploy_tx(
             from_=self.staking_wallet,
+            to=self.contracts.get(sicx, SCORE_INSTALL_ADDRESS),
             content=os.path.abspath(os.path.join(self.TOKEN_CONTRACTS_PATH, sicx)),
             params={"_admin": self.contracts['staking']}
         )
         self.contracts[sicx] = sicx_deploy_tx[SCORE_ADDRESS]
+        self.contracts["system"] = SCORE_INSTALL_ADDRESS
         print(json.dumps(self.contracts))
+        with open(os.path.join(DIR_PATH, "scores_address.json"), "w") as file:
+            json.dump(self.contracts, file, indent=4)
 
     def _config_balanced(self):
         print("-------------------------------Configuring balanced----------------------------------------------------")
@@ -250,8 +269,8 @@ class BalancedTestBase(IconIntegrateTestBase):
                self.build_tx(self.staking_wallet, to=self.contracts['staking'], method='toggleStakingOn'),
                self.build_tx(self.btest_wallet, to=self.contracts['governance'], method='delegate',
                              params={'_delegations': [{'_address': prep,
-                                                        '_votes_in_per': str(100 * self.icx_factor // len(self.PREPS))}
-                                                       for prep in self.PREPS]})]
+                                                       '_votes_in_per': 100 * self.icx_factor // len(self.PREPS)}
+                                                      for prep in self.PREPS]})]
         results = self.process_transaction_bulk(
             requests=txs,
             network=self.icon_service,
@@ -263,6 +282,6 @@ class BalancedTestBase(IconIntegrateTestBase):
             self.assertEqual(1, tx_result['status'],
                              f"Failure: {tx_result['failure']}" if tx_result['status'] == 0 else "")
 
-    def _createBnusdMarket(self):
+    def _create_bnusd_market(self):
         self.send_tx(self.btest_wallet, to=self.contracts['governance'], value=210 * self.icx_factor,
                      method='createBnusdMarket')
