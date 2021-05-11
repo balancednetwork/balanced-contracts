@@ -23,7 +23,7 @@ class BalancedTestLiquidation(BalancedTestBase):
             account_position = self.call_tx(self.contracts['loans'], 'getAccountPositions',
                                             {'_owner': self.btest_wallet.get_address()})
             self.assertEqual(account_position['standing'], case['actions']['expected_initial_position'],
-                             "Error in Account standing of the loan burrower")
+                             "Error in Account standing of the loan borrower")
             self.assertEqual(account_position['assets']['sICX'], hex(icx),
                              "Test Case failed for liquidation")
 
