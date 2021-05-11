@@ -64,6 +64,7 @@ class BalancedTestBase(IconIntegrateTestBase):
         self.user1: 'KeyWallet' = KeyWallet.create()
         self.user2: 'KeyWallet' = KeyWallet.create()
         self.genesis_accounts = [
+            Account("test1", Address.from_string(self._test1.get_address()), 800_000_0000 * self.icx_factor),
             Account("btest_wallet", Address.from_string(self.btest_wallet.get_address()), 1_000_000 * self.icx_factor),
             Account("staking_wallet", Address.from_string(self.staking_wallet.get_address()),
                     1_000_000 * self.icx_factor),
