@@ -115,7 +115,7 @@ class BalancedTestBase(IconIntegrateTestBase):
         previous_to_balance = self.get_balance(to)
         previous_from_balance = self.get_balance(from_.get_address())
 
-        signed_icx_transaction = SignedTransaction(send_icx_transaction, from_)
+        signed_icx_transaction = self.build_send_icx(from_, to, value)
         tx_result = self.process_transaction(signed_icx_transaction, self.icon_service, self.BLOCK_INTERVAL)
 
         fee = tx_result['stepPrice'] * tx_result['cumulativeStepUsed']
@@ -123,6 +123,18 @@ class BalancedTestBase(IconIntegrateTestBase):
         self.assertEqual(1, tx_result['status'], f"Failure: {tx_result['failure']}" if tx_result['status'] == 0 else "")
         self.assertEqual(previous_to_balance + value, self.get_balance(to))
         self.assertEqual(previous_from_balance - value - fee, self.get_balance(from_.get_address()))
+
+    def build_send_icx(self, from_: KeyWallet, to: str, value: int) -> SignedTransaction:
+        send_icx_transaction = TransactionBuilder(
+            from_=from_.get_address(),
+            to=to,
+            value=value,
+            step_limit=1000000,
+            nid=self.nid,
+            nonce=3
+        ).build()
+        signed_icx_transaction = SignedTransaction(send_icx_transaction, from_)
+        return signed_icx_transaction
 
     def get_balance(self, address: str) -> int:
         if self.icon_service is not None:
