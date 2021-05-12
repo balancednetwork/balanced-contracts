@@ -1,3 +1,4 @@
+from tests.test_integrate_base import BalancedTestBase
 ICX = 10**18
 RETURN_ASSETS_STORIES = {
     "stories": [
@@ -8,7 +9,7 @@ RETURN_ASSETS_STORIES = {
                 "first_meth": "transfer",
                 "second_meth": "returnAsset",
                 "deposited_icx": "0",
-                "first_params": {"_to": "user2.get_address()", "_value": 20 * ICX},
+                "first_params": {"_to": "user2", "_value": 20 * ICX},
                 "second_params": {"_symbol": "bnUSD", "_value": 5 * ICX},
                 "expected_status_result": "1"
             }

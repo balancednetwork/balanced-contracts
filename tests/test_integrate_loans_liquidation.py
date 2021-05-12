@@ -1,5 +1,5 @@
 from .test_integrate_base import BalancedTestBase
-from .stories.liquidation_stories import LIQUIDATION_STORIES
+from tests.stories.loans.liquidation_stories import LIQUIDATION_STORIES
 
 
 class BalancedTestLiquidation(BalancedTestBase):

@@ -1,0 +1,16 @@
+{
+    "governance": "cx11cdf2aa16de98c7d70bfd18a697b9cf2796b3f2",
+    "daofund": "cx5c9bf55bca6f30973750b3dbbc7e66a032cbcf9b",
+    "dex": "cx924e50cbf96dbc54f5e994936caa9433babff11f",
+    "dividends": "cx8c091084690b0c2c67341f8b317baaacc1cca242",
+    "loans": "cx7b9898082ebea4a7eee8e7c4e112483eb776f465",
+    "reserve": "cxd367c3d3dda349c879ba97a59161453cde00d103",
+    "rewards": "cxd8b4efeed562603b5385c3ee9bdd82babe03e5af",
+    "baln": "cx7268ca435d3a8cae8ed212a03bf22ae6a4db2623",
+    "bnUSD": "cxc4c890b2b036d04f280c75332c369879fe846498",
+    "bwt": "cx3ef1e8ba0836528fbb15a015f26e9a9e5abb6dde",
+    "oracle": "cxeae642d26d3f06a94d88c3a8d8a20117a8384308",
+    "staking": "cx6ab7ca9806d5d887f008b037d652025293b20080",
+    "sicx": "cxcb117236dc22b556342879d007ca3e577b4176ed",
+    "system": "cx0000000000000000000000000000000000000000"
+}

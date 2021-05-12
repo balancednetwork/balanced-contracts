@@ -148,9 +148,18 @@ class BalancedTestBase(IconIntegrateTestBase):
         print(f"------------Calling {method}, with params={params} to {get_key(self.contracts, to)} contract----------")
         signed_transaction = self.build_tx(from_, to, value, method, params)
         tx_result = self.process_transaction(signed_transaction, self.icon_service, self.BLOCK_INTERVAL)
-        print(tx_result)
         self.assertTrue('status' in tx_result)
         self.assertEqual(1, tx_result['status'], f"Failure: {tx_result['failure']}" if tx_result['status'] == 0 else "")
+        return tx_result
+
+    def redeem_send_tx(self, from_: KeyWallet, to: str, value: int = 0, method: str = None, params: dict = None) -> dict:
+        print(f"------------Calling {method}, with params={params} to {get_key(self.contracts, to)} contract----------")
+        signed_transaction = self.build_tx(from_, to, value, method, params)
+        tx_result = self.process_transaction(signed_transaction, self.icon_service, self.BLOCK_INTERVAL)
+        self.assertTrue('status' in tx_result)
+        if tx_result['status'] == 0:
+            print(f'Failure: {tx_result["failure"]}')
+        # self.assertEqual(1, tx_result['status'], f"Failure: {tx_result['failure']}" if tx_result['status'] == 0 else "")
         return tx_result
 
     def build_tx(self, from_: KeyWallet, to: str, value: int = 0, method: str = None, params: dict = None) \
@@ -269,7 +278,7 @@ class BalancedTestBase(IconIntegrateTestBase):
                self.build_tx(self.staking_wallet, to=self.contracts['staking'], method='toggleStakingOn'),
                self.build_tx(self.btest_wallet, to=self.contracts['governance'], method='delegate',
                              params={'_delegations': [{'_address': prep,
-                                                       '_votes_in_per': 100 * self.icx_factor // len(self.PREPS)}
+                                                       '_votes_in_per': str(100 * self.icx_factor // len(self.PREPS))}
                                                       for prep in self.PREPS]})]
         results = self.process_transaction_bulk(
             requests=txs,
