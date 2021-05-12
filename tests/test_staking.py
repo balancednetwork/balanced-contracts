@@ -1,20 +1,19 @@
-from .test_integrate_base import BalancedTestBase
+from .test_staking_integrate_base import StakingTestBase
 from .stories.staking.rate_case import stories as rate_story
 from .stories.staking.stakeICX_case import stories as stake_story
 from .stories.staking.delegation_case import stories as delegation_story
 from .stories.staking.sicx_transfer import stories as transfer_story
 from .stories.staking.unstake_case import stories as unstake_story
 import os.path
-import json
 
 GOVERNANCE_ADDRESS = "cx0000000000000000000000000000000000000000"
-fname = os.path.join(os.path.abspath(os.path.dirname(__file__)), "scores_address.json")
+fname = os.path.join(os.path.abspath(os.path.dirname(__file__)), "staking_address.json")
 
 if os.path.isfile(fname):
     os.remove(fname)
 
 
-class BalancedTestStaking(BalancedTestBase):
+class BalancedTestStaking(StakingTestBase):
     def setUp(self):
         super().setUp()
 
@@ -49,8 +48,8 @@ class BalancedTestStaking(BalancedTestBase):
                 dict1 = {}
                 for key, value in _result.items():
                     dict1[key] = int(value, 16)
-                assert dict(dict1) == dict(
-                    case['actions']['unit_test'][0]['output']), 'Test Case not passed for delegations'
+                self.assertEqual(dict(dict1), dict(
+                    case['actions']['unit_test'][0]['output']), 'Test Case not passed for delegations')
                 _result = self.call_tx(GOVERNANCE_ADDRESS, "getDelegation", {'address': self.contracts['staking']})
                 delegation = _result['delegations']
                 for each in delegation:
@@ -79,7 +78,7 @@ class BalancedTestStaking(BalancedTestBase):
                 prep_delegation[key] = int(value, 16)
                 if key not in prep_delegations_dict.keys():
                     prep_delegations_dict[key] = 0
-            assert prep_delegation == prep_delegations_dict, "Failed"
+            self.assertEqual(prep_delegation, prep_delegations_dict, "Failed")
 
     def test_stake_icx(self):
         network_delegations = {}
@@ -138,17 +137,17 @@ class BalancedTestStaking(BalancedTestBase):
                         to_check = int(_result, 16)
                         output_json = int(case['actions']['total_supply_sicx'])
                         # to_print = f'total supply of sICX is  {int(_result, 16)}. Passed '
-                    assert to_check == output_json, f'{_result}, Failed in staking'
+                    self.assertEqual(to_check, output_json, f'{_result}, Failed in staking')
                 for x in case['actions']['unit_test']:
                     _result = self.call_tx(self.contracts['staking'], 'getTotalStake')
-                    assert int(_result, 16) == int(x['getTotalStake']), f'{_result} Failed in staking'
+                    self.assertEqual(int(_result, 16), int(x['getTotalStake']), f'{_result} Failed in staking')
                 _result = self.call_tx(GOVERNANCE_ADDRESS, 'getDelegation', {'address': self.contracts['staking']})
                 delegation = {}
                 for each in _result['delegations']:
                     key = each['address']
                     value = each['value']
                     delegation[key] = int(value, 16)
-                assert delegation == network_delegations, 'Delegations in network failed'
+                self.assertEqual(delegation, network_delegations, 'Delegations in network failed')
             wallet_list = [self.btest_wallet, self.staking_wallet]
             prep_delegations_dict = {}
             for i in wallet_list:
@@ -163,8 +162,7 @@ class BalancedTestStaking(BalancedTestBase):
             prep_delegation = {}
             for key, value in _result.items():
                 prep_delegation[key] = int(value, 16)
-            assert prep_delegation == prep_delegations_dict, "Failed"
-        print('done dona done')
+            self.assertEqual(prep_delegation, prep_delegations_dict, "Failed")
 
     def test_rate(self):
         test_cases = rate_story
@@ -181,9 +179,9 @@ class BalancedTestStaking(BalancedTestBase):
             ab = self.send_tx(self.staking_wallet, self.contracts['staking'], 0, case['actions']['name'], params)
             for unit in case['actions']['unit_test']:
                 _result = self.call_tx(score_address, unit['fn_name'])
-                assert _result == output, 'sICX address not Matched'
+                self.assertEqual(_result, output, 'sICX address not Matched')
         _result = self.call_tx(self.contracts['staking'], 'getTodayRate')
-        assert int(_result, 16) == 1000000000000000000, 'Rate is not set to 1'
+        self.assertEqual(int(_result, 16), 1000000000000000000, 'Rate is not set to 1')
 
     def test_transfer(self):
         test_cases = transfer_story
@@ -204,24 +202,25 @@ class BalancedTestStaking(BalancedTestBase):
             ab = self.send_tx(deployer_wallet, self.contracts['sicx'], 0, "transfer", params)
             if ab['status'] == 1:
                 _result = self.call_tx(self.contracts['sicx'], "balanceOf", {"_owner": receiver_address})
-                assert (int(_result, 16)) == int(
-                    case['actions']['curr_receiver_sicx']), 'The receiver did not receive the sICX from sender. Failed'
+                self.assertEqual(int(_result, 16), int(
+                    case['actions']['curr_receiver_sicx']), 'The receiver did not receive the sICX from sender. Failed')
 
                 _result = self.call_tx(self.contracts['sicx'], "balanceOf", {"_owner": wallet_address})
-                assert (int(_result, 16)) == int(
-                    case['actions']['curr_sender_sicx']), 'The sender failed to send the sICX to receiver. Failed'
+                self.assertEqual(int(_result, 16), int(
+                    case['actions']['curr_sender_sicx']), 'The sender failed to send the sICX to receiver. Failed')
 
                 _result = self.call_tx(self.contracts['staking'], 'getAddressDelegations', {"_address": wallet_address})
                 for key, value in _result.items():
                     dict1[key] = int(value, 16)
-                assert dict1 == case['actions']["delegation_sender"], 'Delegation is changed for sender. Test Failed'
+                self.assertEqual(dict1, case['actions']["delegation_sender"],
+                                 'Delegation is changed for sender. Test Failed')
                 _result = self.call_tx(self.contracts['staking'], "getAddressDelegations",
                                        {"_address": receiver_address})
                 for key, value in _result.items():
                     dict2[key] = int(value, 16)
                 if case['actions']["delegation_receiver"] != "evenly_distribute":
-                    assert dict2 == case['actions'][
-                        "delegation_receiver"], 'Delegation is changed for receiver. Test Failed'
+                    self.assertEqual(dict2, case['actions'][
+                        "delegation_receiver"], 'Delegation is changed for receiver. Test Failed')
                 else:
                     _result = self.call_tx(self.contracts['staking'], "getAddressDelegations",
                                            {"_address": receiver_address})
@@ -230,11 +229,11 @@ class BalancedTestStaking(BalancedTestBase):
                     lis1 = []
                     for x in _result.keys():
                         lis1.append(x)
-                    assert lis1 == _result2, 'delegations is not set to top preps for the random address'
+                    self.assertEqual(lis1, _result2, 'delegations is not set to top preps for the random address')
 
                 _result2 = self.call_tx(self.contracts['staking'], "getTotalStake")
 
-                assert int(_result2, 16) == 110000000000000000000, "Failed to stake"
+                self.assertEqual(int(_result2, 16), 110000000000000000000, "Failed to stake")
 
             wallet_list = [self.btest_wallet, self.staking_wallet, 'user3']
             prep_delegations_dict = {}
@@ -256,7 +255,7 @@ class BalancedTestStaking(BalancedTestBase):
                 prep_delegation[key] = int(value, 16)
                 if key not in prep_delegations_dict.keys():
                     prep_delegations_dict[key] = 0
-            assert prep_delegation == prep_delegations_dict, "Failed"
+            self.assertEqual(prep_delegation, prep_delegations_dict, "Failed")
             top_prep_list = self.call_tx(self.contracts['staking'], "getTopPreps")
             evenly_distributed_value = 0
             to_delete = []
@@ -279,7 +278,7 @@ class BalancedTestStaking(BalancedTestBase):
             network_delegations = {}
             for each in delegation:
                 network_delegations[each['address']] = int(each['value'], 16)
-            assert prep_delegations_dict == network_delegations, 'Failed to delegate in Network'
+            self.assertEqual(prep_delegations_dict, network_delegations, 'Failed to delegate in Network')
 
     def test_preps_list(self):
         _result1 = self.call_tx(self.contracts['staking'], 'getTopPreps')
@@ -288,7 +287,7 @@ class BalancedTestStaking(BalancedTestBase):
         preps = (_result2['preps'])
         for prep in preps:
             top_prep_in_network.append(prep['address'])
-        assert top_prep_in_network == _result1, 'Top preps not set properly'
+        self.assertEqual(top_prep_in_network, _result1, 'Top preps not set properly')
 
     def test_unstake(self):
         test_cases = unstake_story
@@ -310,19 +309,20 @@ class BalancedTestStaking(BalancedTestBase):
                 _result = self.call_tx(self.contracts['staking'], "getUnstakingAmount")
                 total_unstaking_amount = int(_result, 16)
                 total_unstake_json = int(case['actions']['unit_test'][0]['output'])
-                assert total_unstaking_amount == total_unstake_json, 'getUnstakingAmount function test failed'
+                self.assertEqual(total_unstaking_amount, total_unstake_json, 'getUnstakingAmount function test failed')
                 _result = self.call_tx(GOVERNANCE_ADDRESS, "getStake", {"address": self.contracts['staking']})
                 unstake_amount = 0
                 for x in _result['unstakes']:
                     unstake_amount += int(x['unstake'], 16)
-                assert unstake_amount == int(
-                    case['actions']['unit_test'][0]['output']), 'Unstake request is not passed to the network. Failed'
-                assert int(_result['stake'], 16) == int(
-                    case['actions']['curr_total_stake']), 'Total stake in the network is not decreased. Failed'
+                self.assertEqual(unstake_amount, int(
+                    case['actions']['unit_test'][0]['output']), 'Unstake request is not passed to the network. Failed')
+                self.assertEqual(int(_result['stake'], 16), int(
+                    case['actions']['curr_total_stake']), 'Total stake in the network is not decreased. Failed')
                 _result = self.call_tx(self.contracts['sicx'], "balanceOf", {"_owner": wallet_address})
-                assert int(_result, 16) == int(case['actions']['curr_sender_sicx']), "sICX not burned"
+                self.assertEqual(int(_result, 16), int(case['actions']['curr_sender_sicx']), "sICX not burned")
                 _result = self.call_tx(self.contracts['sicx'], "totalSupply")
-                assert int(_result, 16) == int(case['actions']['curr_total_stake']), "total supply not decreased"
+                self.assertEqual(int(_result, 16), int(case['actions']['curr_total_stake']),
+                                 "total supply not decreased")
                 wallet_list = [self.btest_wallet, self.staking_wallet, 'user3']
                 prep_delegations_dict = {}
                 for i in wallet_list:
@@ -343,7 +343,7 @@ class BalancedTestStaking(BalancedTestBase):
                     prep_delegation[key] = int(value, 16)
                     if key not in prep_delegations_dict.keys():
                         prep_delegations_dict[key] = 0
-                assert prep_delegation == prep_delegations_dict, "Failed in unstake of sicx"
+                self.assertEqual(prep_delegation, prep_delegations_dict, "Failed in unstake of sicx")
                 top_prep_list = self.call_tx(self.contracts['staking'], "getTopPreps")
                 evenly_distributed_value = 0
                 to_delete = []
@@ -367,13 +367,14 @@ class BalancedTestStaking(BalancedTestBase):
                 network_delegations = {}
                 for each in delegation:
                     network_delegations[each['address']] = int(each['value'], 16)
-                assert prep_delegations_dict == network_delegations, 'Failed to delegate in Network'
+                self.assertEqual(prep_delegations_dict, network_delegations, 'Failed to delegate in Network')
                 linked_list = self.call_tx(self.contracts['staking'], "getUnstakeInfo")
                 if count == 2:
                     linked_list.pop(0)
                 for each in linked_list:
-                    assert int(each[1], 16) == int(case['actions']['total_sicx_transferred']), "Linked list failed"
-                    assert each[2] == wallet_address, "Linked list failed"
+                    self.assertEqual(int(each[1], 16), int(case['actions']['total_sicx_transferred']),
+                                     "Linked list failed")
+                    self.assertEqual(each[2], wallet_address, "Linked list failed")
 
             else:
                 print(f'Failed... {ab}')
@@ -385,25 +386,31 @@ class BalancedTestStaking(BalancedTestBase):
         if ab['status'] == 1:
             _result = self.call_tx(self.contracts['staking'], "getUnstakingAmount")
             total_unstaking_amount = int(_result, 16)
-            assert total_unstaking_amount == 10000000000000000000, 'Failed'
+            self.assertEqual(total_unstaking_amount, 10000000000000000000, 'Failed')
             # print(
             #     "20 icx is deposited by user2 and as user1 has unstake request in top of the list. User1 will receive "
             #     "20 icx from the contract.")
 
     def test_withdraw_few(self):
         params = {'_to': self.staking_wallet.get_address()}
-
+        _result = self.call_tx(self.contracts['staking'], "getUnstakingAmount")
+        total_unstaking_amount = int(_result, 16)
+        print(total_unstaking_amount)
+        _result = self.call_tx(self.contracts['staking'], "getTotalStake")
+        total_stake = int(_result, 16)
+        print(total_stake)
         ab = self.send_tx(self.staking_wallet, self.contracts['staking'], 3000000000000000000, "stakeICX", params)
+        print(ab)
         if ab['status'] == 1:
             _result = self.call_tx(self.contracts['staking'], "getUnstakingAmount")
             total_unstaking_amount = int(_result, 16)
-            assert total_unstaking_amount == 7000000000000000000, 'Failed'
+            self.assertEqual(total_unstaking_amount, 7000000000000000000, 'Failed')
             # print(
             #     "3 icx is deposited partially by user2 and as user2 has unstake request in top of the list. User1 will receive 3 icx from the contract.")
             _result = self.call_tx(self.contracts['staking'], "getUserUnstakeInfo",
                                    {'_address': self.staking_wallet.get_address()})
             for x in _result:
-                assert int(x['amount'], 16) == 7000000000000000000
+                self.assertEqual(int(x['amount'], 16), 7000000000000000000,'Failed in payout')
 
     def test_withdraw_full(self):
         params = {'_to': self.staking_wallet.get_address()}
@@ -412,11 +419,11 @@ class BalancedTestStaking(BalancedTestBase):
         if ab['status'] == 1:
             _result = self.call_tx(self.contracts['staking'], "getUnstakingAmount")
             total_unstaking_amount = int(_result, 16)
-            assert total_unstaking_amount == 0, 'Failed'
+            self.assertEqual(total_unstaking_amount, 0, 'Failed')
             # print("Left 7 icx is transferred to user1")
             _result = self.call_tx(self.contracts['staking'], "getUserUnstakeInfo",
                                    {'_address': self.staking_wallet.get_address()})
-            assert _result == [], 'Failed'
+            self.assertEqual(_result, [], 'Failed')
 
     def test_zstake_icx_after_delegation(self):
         params = {'_to': self.btest_wallet.get_address()}
@@ -428,5 +435,5 @@ class BalancedTestStaking(BalancedTestBase):
             for key, value in _result.items():
                 dict1[key] = int(value, 16)
 
-            assert dict1 == {"hx9eec61296a7010c867ce24c20e69588e2832bc52": 80000000000000000000}, 'Failed in ' \
-                                                                                                  'stake_icx_after_delegation '
+            self.assertEqual(dict1, {"hx9eec61296a7010c867ce24c20e69588e2832bc52": 80000000000000000000}, 'Failed in ' \
+                                                                                                          'stake_icx_after_delegation ')

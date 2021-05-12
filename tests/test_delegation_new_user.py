@@ -1,10 +1,10 @@
-from .test_integrate_base import BalancedTestBase
+from .test_staking_integrate_base import StakingTestBase
 from .stories.staking.new_user_delegations import stories as new_user_delegation_story
 
 GOVERNANCE_ADDRESS = "cx0000000000000000000000000000000000000000"
 
 
-class BalancedTestStaking(BalancedTestBase):
+class BalancedTestStaking(StakingTestBase):
     def setUp(self):
         super().setUp()
 
@@ -29,5 +29,5 @@ class BalancedTestStaking(BalancedTestBase):
                 dict1 = {}
                 for key, value in _result.items():
                     dict1[key] = int(value, 16)
-                assert dict(dict1) == dict(
-                    case['actions']['unit_test'][0]['output']), 'Test Case not passed for delegations'
+                self.assertEqual(dict(dict1), dict(
+                    case['actions']['unit_test'][0]['output']), 'Test Case not passed for delegations')
