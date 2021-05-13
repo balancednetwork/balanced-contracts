@@ -1,5 +1,5 @@
 from .test_integrate_base import BalancedTestBase
-from tests.stories.loans.loan_retireAssets_stories import RETURN_ASSETS_STORIES
+from tests.stories.loans.retire_assets_stories import RETURN_ASSETS_STORIES
 
 
 class BalancedTestReturnAssets(BalancedTestBase):
@@ -32,9 +32,8 @@ class BalancedTestReturnAssets(BalancedTestBase):
             data2 = case['actions']['second_params']
             second_params = {'_symbol': data2['_symbol'], '_value': data2['_value']}
 
-            self.redeem_send_tx(self.user1, self.contracts['bnUSD'], 0, meth1, first_params)
-            res = self.redeem_send_tx(self.user2, self.contracts['loans'], 0, meth2, second_params)
-            assert res['status'] == int(
-                case['actions']['expected_status_result']), 'Retired amount is greater than the current maximum allowed'
-            print('Test case passed')
+            self.send_tx(self.user1, self.contracts['bnUSD'], 0, meth1, first_params)
+            res = self.send_tx(self.user2, self.contracts['loans'], 0, meth2, second_params)
+            self.assertEqual(res['status'], int(case['actions']['expected_status_result']),
+                             "Retired amount is greater than the current maximum allowed")
 

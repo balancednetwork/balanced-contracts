@@ -21,7 +21,7 @@ def get_key(my_dict: dict, value: Union[str, int]):
     return list(my_dict.keys())[list(my_dict.values()).index(value)]
 
 
-class BalancedTestBase(IconIntegrateTestBase):
+class BalancedTestBaseLoans(IconIntegrateTestBase):
     CORE_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../core_contracts"))
     TOKEN_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../token_contracts"))
 
@@ -55,7 +55,6 @@ class BalancedTestBase(IconIntegrateTestBase):
             self._deploy_all()
             self._config_balanced()
             self._launch_balanced()
-            self._create_bnusd_market()
 
     def _wallet_setup(self):
         self.icx_factor = 10 ** 18
@@ -281,6 +280,3 @@ class BalancedTestBase(IconIntegrateTestBase):
             self.assertEqual(1, tx_result['status'],
                              f"Failure: {tx_result['failure']}" if tx_result['status'] == 0 else "")
 
-    def _create_bnusd_market(self):
-        self.send_tx(self.btest_wallet, to=self.contracts['governance'], value=210 * self.icx_factor,
-                     method='createBnusdMarket')

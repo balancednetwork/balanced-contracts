@@ -34,14 +34,16 @@ class BalancedTestReserveFund(BalancedTestBase):
         day = int(res['platform_day'], 0) - 1
 
         res = self.call_tx(self.contracts['reserve'], 'getBalances', {})
-        assert int(res['BALN'], 0) / 10 ** 18 == 5000 * day, "Reserve not receiving proper rewards"
+        self.assertEqual(int(res['BALN'], 0) / 10 ** 18, 5000 * day, "Reserve not receiving proper rewards")
 
     # Testing redeem method
     def test_redeem(self):
         print('Testing redeem method on reserve fund score')
-        res = self.redeem_send_tx(self.btest_wallet, self.contracts['reserve'], 0, 'redeem',
+        signed_transaction = self.build_tx(self.btest_wallet, self.contracts['reserve'], 0, 'redeem',
                            {'_to': self.user1.get_address(), '_amount': 10 * 10**18, '_sicx_rate': 2})
-        assert res['failure'][
-                   'message'] == 'BalancedReserveFund: The redeem method can only be called by the Loans SCORE.', 'Redeem methos can only be called from loans'
+        res = self.process_transaction(signed_transaction, self.icon_service)
+        self.assertEqual(res['failure'][
+                   'message'], 'BalancedReserveFund: The redeem method can only be called by the Loans SCORE.',
+                         "Redeem methos can only be called from loans")
 
 

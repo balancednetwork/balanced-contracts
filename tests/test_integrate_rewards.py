@@ -13,28 +13,28 @@ class BalancedTestRewards(BalancedTestBase):
     def test_getDataSourceNames(self):
         print('Testing getDataSourceNames method')
         res = self.call_tx(self.contracts['rewards'], 'getDataSourceNames', {})
-        assert res == ['Loans', 'sICX/ICX', 'sICX/bnUSD'], "Data source name error"
+        self.assertEqual(res, ['Loans', 'sICX/ICX', 'sICX/bnUSD'], "Data source name error")
 
     def test_getRecipients(self):
         print('Testing getRecipients method')
         res = self.call_tx(self.contracts['rewards'], 'getRecipients', {})
-        assert res == ['Worker Tokens', 'Reserve Fund', 'DAOfund', 'Loans', 'sICX/ICX', 'sICX/bnUSD'], "Recipients name error"
+        self.assertEqual(res, ['Worker Tokens', 'Reserve Fund', 'DAOfund', 'Loans', 'sICX/ICX', 'sICX/bnUSD'], "Recipients name error")
 
     def test_getRecipientsSplit(self):
         print('Testing getRecipientsSplit method')
         res = self.call_tx(self.contracts['rewards'], 'getRecipientsSplit', {})
-        assert res == {'Worker Tokens': '0x2c68af0bb140000',
+        self.assertEqual(res, {'Worker Tokens': '0x2c68af0bb140000',
                        'Reserve Fund': '0xb1a2bc2ec50000',
                        'DAOfund': '0x31f5c4ed2768000',
                        'Loans': '0x3782dace9d90000',
                        'sICX/ICX': '0x16345785d8a0000',
-                       'sICX/bnUSD': '0x26db992a3b18000'}, "Recipients name error"
+                       'sICX/bnUSD': '0x26db992a3b18000'}, "Recipients name error")
 
     def test_getDataSources(self):
         print('Testing getDataSources method')
         res = self.call_tx(self.contracts['rewards'], 'getDataSources', {})
-        assert int(res['Loans']['dist_percent'], 0) == 250000000000000000, 'Loans distribution precent error'
-        assert int(res['sICX/ICX']['dist_percent'], 0) == 100000000000000000, 'sICX/ICX distribution precent error'
+        self.assertEqual(int(res['Loans']['dist_percent'], 0), 250000000000000000, "Loans distribution precent error")
+        self.assertEqual(int(res['sICX/ICX']['dist_percent'], 0), 100000000000000000, "sICX/ICX distribution precent error")
 
     def test_getSourceData(self):
         test_cases = REWARDS_STORIES
@@ -50,7 +50,7 @@ class BalancedTestRewards(BalancedTestBase):
                 contract = None
 
             res = self.call_tx(self.contracts['rewards'], 'getSourceData', {'_name': _name})
-            assert res['contract_address'] == contract, 'Test case failed for ' + _name
+            self.assertEqual(res['contract_address'], contract, "Test case failed for " + _name)
 
     def getBalnHolding(self):
         for i in range(10):
@@ -90,11 +90,11 @@ class BalancedTestRewards(BalancedTestBase):
 
         #     total_amount = 25000/borrowerCount
         #     for key in holdings:
-        #         assert holdings[key][2] == total_amount , "Loans borrowers token distribution error"
-        assert baln_balances['rewards'] == 52500 * day, "Loans borrowers token distribution error"
-        assert baln_balances['reserve'] == 5000 * day, "Reserve not receiving proper rewards"
-        assert baln_balances['bwt'] == 20000 * day, "Worker token distribution error"
-        assert baln_balances['daofund'] == 22500 * day, "DAO Fund token distribution error"
+        #         self.assertEqual(holdings[key][2], total_amount , "Loans borrowers token distribution error")
+        self.assertEqual(baln_balances['rewards'], 52500 * day, "Loans borrowers token distribution error")
+        self.assertEqual(baln_balances['reserve'], 5000 * day, "Reserve not receiving proper rewards")
+        self.assertEqual(baln_balances['bwt'], 20000 * day, "Worker token distribution error")
+        self.assertEqual(baln_balances['daofund'], 22500 * day, "DAO Fund token distribution error")
 
     def test_getBalnHolding(self):
         print("Test case with only one user")
@@ -123,5 +123,5 @@ class BalancedTestRewards(BalancedTestBase):
             self.send_tx(case['claiming_wallet'], self.contracts['rewards'], 0, 'claimRewards', {})
             res = self.call_tx(self.contracts['rewards'], 'getBalnHolding',
                                            {'_holder': case['claiming_wallet'].get_address()})
-            assert int(res, 0) == 0, 'Rewards claiming issue'
+            self.assertEqual(int(res, 0), 0, "Rewards claiming issue")
             print('Test case passed while claiming rewards')
