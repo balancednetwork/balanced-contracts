@@ -136,6 +136,7 @@ class Dividends(IconScoreBase):
     _SNAPSHOT_ID = "snapshot_id"
 
     _AMOUNT_RECEIVED_STATUS = "amount_received_status"
+    _DAILY_FEES = "daily_fees"
 
     _MAX_LOOP_COUNT = "max_loop_count"
     _MINIMUM_ELIGIBLE_DEBT = "minimum_eligible_debt"
@@ -184,6 +185,7 @@ class Dividends(IconScoreBase):
         self._snapshot_id = VarDB(self._SNAPSHOT_ID, db, value_type=int)
 
         self._amount_received_status = VarDB(self._AMOUNT_RECEIVED_STATUS, db, value_type=bool)
+        self._daily_fees = DictDB(self._DAILY_FEES, db, value_type=int, depth=2)
 
         self._max_loop_count = VarDB(self._MAX_LOOP_COUNT, db, value_type=int)
         self._minimum_eligible_debt = VarDB(self._MINIMUM_ELIGIBLE_DEBT, db, value_type=int)
@@ -206,6 +208,13 @@ class Dividends(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
+        day = loans.getDay()
+        assets = loans.getAssetTokens()
+        self._snapshot_id.set(day)
+        for symbol in ['sICX', 'bnUSD', 'BALN']:
+            token = self.create_interface_score(Address.from_string(assets[symbol]), TokenInterface)
+            self._daily_fees[day][assets[symbol]] = token.balanceOf(self.address)
 
     def _add_initial_categories(self):
         self._dividends_categories.put(DAOFUND)
@@ -395,6 +404,10 @@ class Dividends(IconScoreBase):
         Main method to handle the distribution of tokens to eligible BALN token holders
         :return: True if distribution has completed
         """
+        loans_score = self.create_interface_score(self._loans_score.get(), LoansInterface)
+        current_snapshot_id = loans_score.getDay()
+        if self._snapshot_id.get() < current_snapshot_id:
+            self._snapshot_id.set(current_snapshot_id)
 
         # If distribution is not activated just return true
         if not (self._distribution_activate.get() or _activate):
@@ -652,13 +665,15 @@ class Dividends(IconScoreBase):
                 revert(f"{TAG}: {self.msg.sender} token is not an accepted token for the dividends")
             else:
                 self._accepted_tokens.put(self.msg.sender)
-        self._amount_to_distribute[str(self.msg.sender)] += _value
+        day = self._snapshot_id.get()
+        self._daily_fees[day][str(self.msg.sender)] += _value
         self.DividendsReceived(_value, f"{_value} tokens received as dividends token: {self.msg.sender}")
         self._amount_received_status.set(True)
 
     @payable
     def fallback(self):
-        self._amount_to_distribute[str(ZERO_SCORE_ADDRESS)] += self.msg.value
+        day = self._snapshot_id.get()
+        self._daily_fees[day][str(ZERO_SCORE_ADDRESS)] += self.msg.value
         self.DividendsReceived(self.msg.value, f"{self.msg.value} ICX received as dividends")
         self._amount_received_status.set(True)
 
