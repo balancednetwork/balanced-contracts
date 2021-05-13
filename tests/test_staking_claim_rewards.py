@@ -1,6 +1,5 @@
 from .test_staking_integrate_base import StakingTestBase
-import os.path
-import json
+
 
 GOVERNANCE_ADDRESS = "cx0000000000000000000000000000000000000000"
 to_stake_icx = 10000000000000000000

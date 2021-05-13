@@ -25,8 +25,8 @@ class StakingTestBase(IconIntegrateTestBase):
     CORE_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../core_contracts"))
     TOKEN_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../token_contracts"))
 
-    CORE_CONTRACTS = ["staking", "dividends", "reserve", "daofund", "rewards", "dex", "governance", "oracle"]
-    TOKEN_CONTRACTS = ["sicx", "bnUSD", "baln", "bwt"]
+    CORE_CONTRACTS = ["staking"]
+    TOKEN_CONTRACTS = ["sicx"]
     CONTRACTS = CORE_CONTRACTS + TOKEN_CONTRACTS
 
     BLOCK_INTERVAL = 4
@@ -38,10 +38,7 @@ class StakingTestBase(IconIntegrateTestBase):
     def setUp(self):
         self._wallet_setup()
         self.contracts = {}
-        super().setUp(genesis_accounts=self.genesis_accounts,
-                      block_confirm_interval=2,
-                      network_delay_ms=0,
-                      network_only=True)
+        super().setUp()
         self.icon_service = IconService(HTTPProvider("http://127.0.0.1:9000", 3))
         self.nid = 3
         self.send_icx(self._test1, self.btest_wallet.get_address(), 1_000_000 * self.icx_factor)
@@ -52,7 +49,6 @@ class StakingTestBase(IconIntegrateTestBase):
                 self.contracts = json.load(file)
             return
         else:
-            pass
             self._deploy_all()
             self._toggle_staking_on()
 
@@ -60,16 +56,6 @@ class StakingTestBase(IconIntegrateTestBase):
         self.icx_factor = 10 ** 18
         self.btest_wallet: 'KeyWallet' = self._wallet_array[5]
         self.staking_wallet: 'KeyWallet' = self._wallet_array[6]
-        self.user1: 'KeyWallet' = KeyWallet.create()
-        self.user2: 'KeyWallet' = KeyWallet.create()
-        self.genesis_accounts = [
-            Account("test1", Address.from_string(self._test1.get_address()), 800_000_0000 * self.icx_factor),
-            Account("btest_wallet", Address.from_string(self.btest_wallet.get_address()), 1_000_000 * self.icx_factor),
-            Account("staking_wallet", Address.from_string(self.staking_wallet.get_address()),
-                    1_000_000 * self.icx_factor),
-            Account("user1", Address.from_string(self.user1.get_address()), 1_000_000 * self.icx_factor),
-            Account("user2", Address.from_string(self.user2.get_address()), 1_000_000 * self.icx_factor),
-        ]
 
     def process_deploy_tx(self,
                           from_: KeyWallet,
@@ -241,7 +227,7 @@ class StakingTestBase(IconIntegrateTestBase):
     def _toggle_staking_on(self):
         print("------------------------------------Launching balanced------------------------------------------------")
         txs = [
-               self.build_tx(self.staking_wallet, to=self.contracts['staking'], method='toggleStakingOn')]
+            self.build_tx(self.staking_wallet, to=self.contracts['staking'], method='toggleStakingOn')]
         results = self.process_transaction_bulk(
             requests=txs,
             network=self.icon_service,
@@ -252,4 +238,3 @@ class StakingTestBase(IconIntegrateTestBase):
             self.assertTrue('status' in tx_result, tx_result)
             self.assertEqual(1, tx_result['status'],
                              f"Failure: {tx_result['failure']}" if tx_result['status'] == 0 else "")
-

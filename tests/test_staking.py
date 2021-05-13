@@ -37,30 +37,27 @@ class BalancedTestStaking(StakingTestBase):
             delegation = _result['delegations']
             for each in delegation:
                 previous_network_delegations[each['address']] = int(each['value'], 16)
-            ab = self.send_tx(user, self.contracts['staking'], 0, "delegate", case['actions']['params'])
-            if ab['status'] == 1:
-                _result = self.call_tx(self.contracts['staking'], "getPrepList")
-                for x in case['actions']['unit_test'][0]['output'].keys():
-                    if x not in _result:
-                        print('prepList not updated')
-                        raise e
-                _result = self.call_tx(self.contracts['staking'], "getAddressDelegations", {'_address': wallet_address})
-                dict1 = {}
-                for key, value in _result.items():
-                    dict1[key] = int(value, 16)
-                self.assertEqual(dict(dict1), dict(
-                    case['actions']['unit_test'][0]['output']), 'Test Case not passed for delegations')
-                _result = self.call_tx(GOVERNANCE_ADDRESS, "getDelegation", {'address': self.contracts['staking']})
-                delegation = _result['delegations']
-                for each in delegation:
-                    network_delegations[each['address']] = int(each['value'], 16)
+            self.send_tx(user, self.contracts['staking'], 0, "delegate", case['actions']['params'])
+            _result = self.call_tx(self.contracts['staking'], "getPrepList")
+            for x in case['actions']['unit_test'][0]['output'].keys():
+                assert x in _result, 'prepList not updated'
+            _result = self.call_tx(self.contracts['staking'], "getAddressDelegations", {'_address': wallet_address})
+            dict1 = {}
+            for key, value in _result.items():
+                dict1[key] = int(value, 16)
+            self.assertEqual(dict(dict1), dict(
+                case['actions']['unit_test'][0]['output']), 'Test Case not passed for delegations')
+            _result = self.call_tx(GOVERNANCE_ADDRESS, "getDelegation", {'address': self.contracts['staking']})
+            delegation = _result['delegations']
+            for each in delegation:
+                network_delegations[each['address']] = int(each['value'], 16)
 
-                output = case['actions']['unit_test'][0]['output']
+            output = case['actions']['unit_test'][0]['output']
+            within_top_preps = case['actions']['within_top_preps']
+            if within_top_preps != 'false':
                 for key, value in output.items():
-                    try:
-                        assert network_delegations[key] != previous_network_delegations[key], 'Failed to delegate'
-                    except KeyError as e:
-                        pass
+                    assert network_delegations[key] != previous_network_delegations[key], 'Failed to delegate'
+
             wallet_list = [self.btest_wallet, self.staking_wallet]
             prep_delegations_dict = {}
             for i in wallet_list:
@@ -92,62 +89,61 @@ class BalancedTestStaking(StakingTestBase):
                 wallet_address = self.staking_wallet.get_address()
                 params = {"_to": wallet_address}
                 deployer_wallet = self.staking_wallet
-            ab = self.send_tx(deployer_wallet, self.contracts['staking'], int(case['actions']['deposited_icx']),
-                              case['actions']['name'], params)
-            if ab['status'] == 1:
-                method = ['balanceOf', 'getStake', 'totalSupply', 'getAddressDelegations']
-                for each in method:
-                    if each == 'balanceOf':
-                        score_address = self.contracts['sicx']
-                        params = {"_owner": wallet_address}
-                    elif each == 'getStake':
-                        score_address = GOVERNANCE_ADDRESS
-                        params = {"address": self.contracts['staking']}
-                    elif each == 'getAddressDelegations':
-                        score_address = self.contracts['staking']
-                        params = {"_address": wallet_address}
-                    else:
-                        params = {}
-                        score_address = self.contracts['sicx']
-                    _result = self.call_tx(score_address, each, params)
-                    if each == 'balanceOf':
-                        to_check = int(_result, 16)
-                        output_json = int(case['actions']['expected_sicx_in_user'])
-                        # to_print = f'{wallet_address} total sicx is {int(_result, 16)}. Passed '
+            self.send_tx(deployer_wallet, self.contracts['staking'], int(case['actions']['deposited_icx']),
+                         case['actions']['name'], params)
+            method = ['balanceOf', 'getStake', 'totalSupply', 'getAddressDelegations']
+            for each in method:
+                if each == 'balanceOf':
+                    score_address = self.contracts['sicx']
+                    params = {"_owner": wallet_address}
+                elif each == 'getStake':
+                    score_address = GOVERNANCE_ADDRESS
+                    params = {"address": self.contracts['staking']}
+                elif each == 'getAddressDelegations':
+                    score_address = self.contracts['staking']
+                    params = {"_address": wallet_address}
+                else:
+                    params = {}
+                    score_address = self.contracts['sicx']
+                _result = self.call_tx(score_address, each, params)
+                if each == 'balanceOf':
+                    to_check = int(_result, 16)
+                    output_json = int(case['actions']['expected_sicx_in_user'])
+                    # to_print = f'{wallet_address} total sicx is {int(_result, 16)}. Passed '
 
-                    elif each == 'getStake':
-                        to_check = int(_result['stake'], 16)
-                        output_json = int(case['actions']['expected_icx_staked_from_staking_contract'])
-                        # to_print = f'total ICX staked from contract is  {int(_result["stake"], 16)}. Passed '
-                    elif each == 'getAddressDelegations':
-                        result = 0
-                        dict1 = {}
-                        for key, value in _result.items():
-                            dict1[key] = int(value, 16)
-                            result += int(value, 16)
-                            if case['actions']['mint_to'] == 'user2':
-                                network_delegations[key] += int(value, 16)
-                            else:
-                                network_delegations[key] = int(value, 16)
-                        to_check = result
-                        output_json = int(case['actions']['expected_sicx_in_user'])
-                        # to_print = f'total ICX delegated evenly  {to_check}. Passed '
+                elif each == 'getStake':
+                    to_check = int(_result['stake'], 16)
+                    output_json = int(case['actions']['expected_icx_staked_from_staking_contract'])
+                    # to_print = f'total ICX staked from contract is  {int(_result["stake"], 16)}. Passed '
+                elif each == 'getAddressDelegations':
+                    result = 0
+                    dict1 = {}
+                    for key, value in _result.items():
+                        dict1[key] = int(value, 16)
+                        result += int(value, 16)
+                        if case['actions']['mint_to'] == 'user2':
+                            network_delegations[key] += int(value, 16)
+                        else:
+                            network_delegations[key] = int(value, 16)
+                    to_check = result
+                    output_json = int(case['actions']['expected_sicx_in_user'])
+                    # to_print = f'total ICX delegated evenly  {to_check}. Passed '
 
-                    else:
-                        to_check = int(_result, 16)
-                        output_json = int(case['actions']['total_supply_sicx'])
-                        # to_print = f'total supply of sICX is  {int(_result, 16)}. Passed '
-                    self.assertEqual(to_check, output_json, f'{_result}, Failed in staking')
-                for x in case['actions']['unit_test']:
-                    _result = self.call_tx(self.contracts['staking'], 'getTotalStake')
-                    self.assertEqual(int(_result, 16), int(x['getTotalStake']), f'{_result} Failed in staking')
-                _result = self.call_tx(GOVERNANCE_ADDRESS, 'getDelegation', {'address': self.contracts['staking']})
-                delegation = {}
-                for each in _result['delegations']:
-                    key = each['address']
-                    value = each['value']
-                    delegation[key] = int(value, 16)
-                self.assertEqual(delegation, network_delegations, 'Delegations in network failed')
+                else:
+                    to_check = int(_result, 16)
+                    output_json = int(case['actions']['total_supply_sicx'])
+                    # to_print = f'total supply of sICX is  {int(_result, 16)}. Passed '
+                self.assertEqual(to_check, output_json, f'{_result}, Failed in staking')
+            for x in case['actions']['unit_test']:
+                _result = self.call_tx(self.contracts['staking'], 'getTotalStake')
+                self.assertEqual(int(_result, 16), int(x['getTotalStake']), f'{_result} Failed in staking')
+            _result = self.call_tx(GOVERNANCE_ADDRESS, 'getDelegation', {'address': self.contracts['staking']})
+            delegation = {}
+            for each in _result['delegations']:
+                key = each['address']
+                value = each['value']
+                delegation[key] = int(value, 16)
+            self.assertEqual(delegation, network_delegations, 'Delegations in network failed')
             wallet_list = [self.btest_wallet, self.staking_wallet]
             prep_delegations_dict = {}
             for i in wallet_list:
@@ -176,7 +172,7 @@ class BalancedTestStaking(StakingTestBase):
                     score_address = self.contracts['sicx']
                     params = {'_admin': self.contracts['staking']}
                     output = self.contracts['staking']
-            ab = self.send_tx(self.staking_wallet, self.contracts['staking'], 0, case['actions']['name'], params)
+            self.send_tx(self.staking_wallet, self.contracts['staking'], 0, case['actions']['name'], params)
             for unit in case['actions']['unit_test']:
                 _result = self.call_tx(score_address, unit['fn_name'])
                 self.assertEqual(_result, output, 'sICX address not Matched')
@@ -199,41 +195,40 @@ class BalancedTestStaking(StakingTestBase):
             else:
                 receiver_address = case['actions']['receiver']
             params = {'_to': receiver_address, "_value": case['actions']['total_sicx_transferred'], "_data": ''}
-            ab = self.send_tx(deployer_wallet, self.contracts['sicx'], 0, "transfer", params)
-            if ab['status'] == 1:
-                _result = self.call_tx(self.contracts['sicx'], "balanceOf", {"_owner": receiver_address})
-                self.assertEqual(int(_result, 16), int(
-                    case['actions']['curr_receiver_sicx']), 'The receiver did not receive the sICX from sender. Failed')
+            self.send_tx(deployer_wallet, self.contracts['sicx'], 0, "transfer", params)
+            _result = self.call_tx(self.contracts['sicx'], "balanceOf", {"_owner": receiver_address})
+            self.assertEqual(int(_result, 16), int(
+                case['actions']['curr_receiver_sicx']), 'The receiver did not receive the sICX from sender. Failed')
 
-                _result = self.call_tx(self.contracts['sicx'], "balanceOf", {"_owner": wallet_address})
-                self.assertEqual(int(_result, 16), int(
-                    case['actions']['curr_sender_sicx']), 'The sender failed to send the sICX to receiver. Failed')
+            _result = self.call_tx(self.contracts['sicx'], "balanceOf", {"_owner": wallet_address})
+            self.assertEqual(int(_result, 16), int(
+                case['actions']['curr_sender_sicx']), 'The sender failed to send the sICX to receiver. Failed')
 
-                _result = self.call_tx(self.contracts['staking'], 'getAddressDelegations', {"_address": wallet_address})
-                for key, value in _result.items():
-                    dict1[key] = int(value, 16)
-                self.assertEqual(dict1, case['actions']["delegation_sender"],
-                                 'Delegation is changed for sender. Test Failed')
+            _result = self.call_tx(self.contracts['staking'], 'getAddressDelegations', {"_address": wallet_address})
+            for key, value in _result.items():
+                dict1[key] = int(value, 16)
+            self.assertEqual(dict1, case['actions']["delegation_sender"],
+                             'Delegation is changed for sender. Test Failed')
+            _result = self.call_tx(self.contracts['staking'], "getAddressDelegations",
+                                   {"_address": receiver_address})
+            for key, value in _result.items():
+                dict2[key] = int(value, 16)
+            if case['actions']["delegation_receiver"] != "evenly_distribute":
+                self.assertEqual(dict2, case['actions'][
+                    "delegation_receiver"], 'Delegation is changed for receiver. Test Failed')
+            else:
                 _result = self.call_tx(self.contracts['staking'], "getAddressDelegations",
                                        {"_address": receiver_address})
-                for key, value in _result.items():
-                    dict2[key] = int(value, 16)
-                if case['actions']["delegation_receiver"] != "evenly_distribute":
-                    self.assertEqual(dict2, case['actions'][
-                        "delegation_receiver"], 'Delegation is changed for receiver. Test Failed')
-                else:
-                    _result = self.call_tx(self.contracts['staking'], "getAddressDelegations",
-                                           {"_address": receiver_address})
 
-                    _result2 = self.call_tx(self.contracts['staking'], "getTopPreps")
-                    lis1 = []
-                    for x in _result.keys():
-                        lis1.append(x)
-                    self.assertEqual(lis1, _result2, 'delegations is not set to top preps for the random address')
+                _result2 = self.call_tx(self.contracts['staking'], "getTopPreps")
+                lis1 = []
+                for x in _result.keys():
+                    lis1.append(x)
+                self.assertEqual(lis1, _result2, 'delegations is not set to top preps for the random address')
 
-                _result2 = self.call_tx(self.contracts['staking'], "getTotalStake")
+            _result2 = self.call_tx(self.contracts['staking'], "getTotalStake")
 
-                self.assertEqual(int(_result2, 16), 110000000000000000000, "Failed to stake")
+            self.assertEqual(int(_result2, 16), 110000000000000000000, "Failed to stake")
 
             wallet_list = [self.btest_wallet, self.staking_wallet, 'user3']
             prep_delegations_dict = {}
@@ -304,136 +299,121 @@ class BalancedTestStaking(StakingTestBase):
             data = "{\"method\": \"unstake\"}".encode("utf-8")
             params = {'_to': self.contracts['staking'], "_value": int(case['actions']['total_sicx_transferred']),
                       "_data": data}
-            ab = self.send_tx(deployer_wallet, self.contracts['sicx'], 0, "transfer", params)
-            if ab['status'] == 1:
-                _result = self.call_tx(self.contracts['staking'], "getUnstakingAmount")
-                total_unstaking_amount = int(_result, 16)
-                total_unstake_json = int(case['actions']['unit_test'][0]['output'])
-                self.assertEqual(total_unstaking_amount, total_unstake_json, 'getUnstakingAmount function test failed')
-                _result = self.call_tx(GOVERNANCE_ADDRESS, "getStake", {"address": self.contracts['staking']})
-                unstake_amount = 0
-                for x in _result['unstakes']:
-                    unstake_amount += int(x['unstake'], 16)
-                self.assertEqual(unstake_amount, int(
-                    case['actions']['unit_test'][0]['output']), 'Unstake request is not passed to the network. Failed')
-                self.assertEqual(int(_result['stake'], 16), int(
-                    case['actions']['curr_total_stake']), 'Total stake in the network is not decreased. Failed')
-                _result = self.call_tx(self.contracts['sicx'], "balanceOf", {"_owner": wallet_address})
-                self.assertEqual(int(_result, 16), int(case['actions']['curr_sender_sicx']), "sICX not burned")
-                _result = self.call_tx(self.contracts['sicx'], "totalSupply")
-                self.assertEqual(int(_result, 16), int(case['actions']['curr_total_stake']),
-                                 "total supply not decreased")
-                wallet_list = [self.btest_wallet, self.staking_wallet, 'user3']
-                prep_delegations_dict = {}
-                for i in wallet_list:
-                    if i == "user3":
-                        params = "hx72bff0f887ef183bde1391dc61375f096e75c74a"
-                    else:
-                        params = i.get_address()
-                    _result = self.call_tx(self.contracts['staking'], "getAddressDelegations", {'_address': params})
-                    for key, value in _result.items():
-                        if key not in prep_delegations_dict.keys():
-                            prep_delegations_dict[key] = int(value, 16)
-                        else:
-                            prep_delegations_dict[key] = prep_delegations_dict[key] + int(value, 16)
-
-                _result = self.call_tx(self.contracts['staking'], "getPrepDelegations")
-                prep_delegation = {}
+            self.send_tx(deployer_wallet, self.contracts['sicx'], 0, "transfer", params)
+            _result = self.call_tx(self.contracts['staking'], "getUnstakingAmount")
+            total_unstaking_amount = int(_result, 16)
+            total_unstake_json = int(case['actions']['unit_test'][0]['output'])
+            self.assertEqual(total_unstaking_amount, total_unstake_json, 'getUnstakingAmount function test failed')
+            _result = self.call_tx(GOVERNANCE_ADDRESS, "getStake", {"address": self.contracts['staking']})
+            unstake_amount = 0
+            for x in _result['unstakes']:
+                unstake_amount += int(x['unstake'], 16)
+            self.assertEqual(unstake_amount, int(
+                case['actions']['unit_test'][0]['output']), 'Unstake request is not passed to the network. Failed')
+            self.assertEqual(int(_result['stake'], 16), int(
+                case['actions']['curr_total_stake']), 'Total stake in the network is not decreased. Failed')
+            _result = self.call_tx(self.contracts['sicx'], "balanceOf", {"_owner": wallet_address})
+            self.assertEqual(int(_result, 16), int(case['actions']['curr_sender_sicx']), "sICX not burned")
+            _result = self.call_tx(self.contracts['sicx'], "totalSupply")
+            self.assertEqual(int(_result, 16), int(case['actions']['curr_total_stake']),
+                             "total supply not decreased")
+            wallet_list = [self.btest_wallet, self.staking_wallet, 'user3']
+            prep_delegations_dict = {}
+            for i in wallet_list:
+                if i == "user3":
+                    params = "hx72bff0f887ef183bde1391dc61375f096e75c74a"
+                else:
+                    params = i.get_address()
+                _result = self.call_tx(self.contracts['staking'], "getAddressDelegations", {'_address': params})
                 for key, value in _result.items():
-                    prep_delegation[key] = int(value, 16)
                     if key not in prep_delegations_dict.keys():
-                        prep_delegations_dict[key] = 0
-                self.assertEqual(prep_delegation, prep_delegations_dict, "Failed in unstake of sicx")
-                top_prep_list = self.call_tx(self.contracts['staking'], "getTopPreps")
-                evenly_distributed_value = 0
-                to_delete = []
-                for key, value in prep_delegations_dict.items():
-                    if key not in top_prep_list:
-                        evenly_distributed_value += prep_delegations_dict[key]
-                        if key not in to_delete:
-                            to_delete.append(key)
-                    if prep_delegations_dict[key] == 0:
-                        if key not in to_delete:
-                            to_delete.append(key)
+                        prep_delegations_dict[key] = int(value, 16)
+                    else:
+                        prep_delegations_dict[key] = prep_delegations_dict[key] + int(value, 16)
 
-                for x in to_delete:
-                    del prep_delegations_dict[x]
+            _result = self.call_tx(self.contracts['staking'], "getPrepDelegations")
+            prep_delegation = {}
+            for key, value in _result.items():
+                prep_delegation[key] = int(value, 16)
+                if key not in prep_delegations_dict.keys():
+                    prep_delegations_dict[key] = 0
+            self.assertEqual(prep_delegation, prep_delegations_dict, "Failed in unstake of sicx")
+            top_prep_list = self.call_tx(self.contracts['staking'], "getTopPreps")
+            evenly_distributed_value = 0
+            to_delete = []
+            for key, value in prep_delegations_dict.items():
+                if key not in top_prep_list:
+                    evenly_distributed_value += prep_delegations_dict[key]
+                    if key not in to_delete:
+                        to_delete.append(key)
+                if prep_delegations_dict[key] == 0:
+                    if key not in to_delete:
+                        to_delete.append(key)
 
-                for key, value in prep_delegations_dict.items():
-                    prep_delegations_dict[key] += evenly_distributed_value // 20
+            for x in to_delete:
+                del prep_delegations_dict[x]
 
-                _result = self.call_tx(GOVERNANCE_ADDRESS, "getDelegation", {'address': self.contracts['staking']})
-                delegation = _result['delegations']
-                network_delegations = {}
-                for each in delegation:
-                    network_delegations[each['address']] = int(each['value'], 16)
-                self.assertEqual(prep_delegations_dict, network_delegations, 'Failed to delegate in Network')
-                linked_list = self.call_tx(self.contracts['staking'], "getUnstakeInfo")
-                if count == 2:
-                    linked_list.pop(0)
-                for each in linked_list:
-                    self.assertEqual(int(each[1], 16), int(case['actions']['total_sicx_transferred']),
-                                     "Linked list failed")
-                    self.assertEqual(each[2], wallet_address, "Linked list failed")
+            for key, value in prep_delegations_dict.items():
+                prep_delegations_dict[key] += evenly_distributed_value // 20
 
-            else:
-                print(f'Failed... {ab}')
+            _result = self.call_tx(GOVERNANCE_ADDRESS, "getDelegation", {'address': self.contracts['staking']})
+            delegation = _result['delegations']
+            network_delegations = {}
+            for each in delegation:
+                network_delegations[each['address']] = int(each['value'], 16)
+            self.assertEqual(prep_delegations_dict, network_delegations, 'Failed to delegate in Network')
+            linked_list = self.call_tx(self.contracts['staking'], "getUnstakeInfo")
+            if count == 2:
+                linked_list.pop(0)
+            for each in linked_list:
+                self.assertEqual(int(each[1], 16), int(case['actions']['total_sicx_transferred']),
+                                 "Linked list failed")
+                self.assertEqual(each[2], wallet_address, "Linked list failed")
 
     def test_withdraw(self):
         params = {'_to': self.staking_wallet.get_address()}
 
-        ab = self.send_tx(self.staking_wallet, self.contracts['staking'], 20000000000000000000, "stakeICX", params)
-        if ab['status'] == 1:
-            _result = self.call_tx(self.contracts['staking'], "getUnstakingAmount")
-            total_unstaking_amount = int(_result, 16)
-            self.assertEqual(total_unstaking_amount, 10000000000000000000, 'Failed')
-            # print(
-            #     "20 icx is deposited by user2 and as user1 has unstake request in top of the list. User1 will receive "
-            #     "20 icx from the contract.")
+        self.send_tx(self.staking_wallet, self.contracts['staking'], 20000000000000000000, "stakeICX", params)
+        _result = self.call_tx(self.contracts['staking'], "getUnstakingAmount")
+        total_unstaking_amount = int(_result, 16)
+        self.assertEqual(total_unstaking_amount, 10000000000000000000, 'Failed')
+        # print(
+        #     "20 icx is deposited by user2 and as user1 has unstake request in top of the list. User1 will receive "
+        #     "20 icx from the contract.")
 
     def test_withdraw_few(self):
         params = {'_to': self.staking_wallet.get_address()}
+        self.send_tx(self.staking_wallet, self.contracts['staking'], 3000000000000000000, "stakeICX", params)
         _result = self.call_tx(self.contracts['staking'], "getUnstakingAmount")
         total_unstaking_amount = int(_result, 16)
-        print(total_unstaking_amount)
-        _result = self.call_tx(self.contracts['staking'], "getTotalStake")
-        total_stake = int(_result, 16)
-        print(total_stake)
-        ab = self.send_tx(self.staking_wallet, self.contracts['staking'], 3000000000000000000, "stakeICX", params)
-        print(ab)
-        if ab['status'] == 1:
-            _result = self.call_tx(self.contracts['staking'], "getUnstakingAmount")
-            total_unstaking_amount = int(_result, 16)
-            self.assertEqual(total_unstaking_amount, 7000000000000000000, 'Failed')
-            # print(
-            #     "3 icx is deposited partially by user2 and as user2 has unstake request in top of the list. User1 will receive 3 icx from the contract.")
-            _result = self.call_tx(self.contracts['staking'], "getUserUnstakeInfo",
-                                   {'_address': self.staking_wallet.get_address()})
-            for x in _result:
-                self.assertEqual(int(x['amount'], 16), 7000000000000000000,'Failed in payout')
+        self.assertEqual(total_unstaking_amount, 7000000000000000000, 'Failed')
+        # print(
+        #     "3 icx is deposited partially by user2 and as user2 has unstake request in top of the list. User1 will receive 3 icx from the contract.")
+        _result = self.call_tx(self.contracts['staking'], "getUserUnstakeInfo",
+                               {'_address': self.staking_wallet.get_address()})
+        for x in _result:
+            self.assertEqual(int(x['amount'], 16), 7000000000000000000, 'Failed in payout')
 
     def test_withdraw_full(self):
         params = {'_to': self.staking_wallet.get_address()}
 
-        ab = self.send_tx(self.staking_wallet, self.contracts['staking'], 30000000000000000000, "stakeICX", params)
-        if ab['status'] == 1:
-            _result = self.call_tx(self.contracts['staking'], "getUnstakingAmount")
-            total_unstaking_amount = int(_result, 16)
-            self.assertEqual(total_unstaking_amount, 0, 'Failed')
-            # print("Left 7 icx is transferred to user1")
-            _result = self.call_tx(self.contracts['staking'], "getUserUnstakeInfo",
-                                   {'_address': self.staking_wallet.get_address()})
-            self.assertEqual(_result, [], 'Failed')
+        self.send_tx(self.staking_wallet, self.contracts['staking'], 30000000000000000000, "stakeICX", params)
+        _result = self.call_tx(self.contracts['staking'], "getUnstakingAmount")
+        total_unstaking_amount = int(_result, 16)
+        self.assertEqual(total_unstaking_amount, 0, 'Failed')
+        # print("Left 7 icx is transferred to user1")
+        _result = self.call_tx(self.contracts['staking'], "getUserUnstakeInfo",
+                               {'_address': self.staking_wallet.get_address()})
+        self.assertEqual(_result, [], 'Failed')
 
     def test_zstake_icx_after_delegation(self):
         params = {'_to': self.btest_wallet.get_address()}
-        ab = self.send_tx(self.btest_wallet, self.contracts['staking'], 30000000000000000000, "stakeICX", params)
-        if ab['status'] == 1:
-            _result = self.call_tx(self.contracts['staking'], "getAddressDelegations",
-                                   {'_address': self.btest_wallet.get_address()})
-            dict1 = {}
-            for key, value in _result.items():
-                dict1[key] = int(value, 16)
+        self.send_tx(self.btest_wallet, self.contracts['staking'], 30000000000000000000, "stakeICX", params)
+        _result = self.call_tx(self.contracts['staking'], "getAddressDelegations",
+                               {'_address': self.btest_wallet.get_address()})
+        dict1 = {}
+        for key, value in _result.items():
+            dict1[key] = int(value, 16)
 
-            self.assertEqual(dict1, {"hx9eec61296a7010c867ce24c20e69588e2832bc52": 80000000000000000000}, 'Failed in ' \
-                                                                                                          'stake_icx_after_delegation ')
+        self.assertEqual(dict1, {"hx9eec61296a7010c867ce24c20e69588e2832bc52": 80000000000000000000}, 'Failed in ' \
+                                                                                                      'stake_icx_after_delegation ')
