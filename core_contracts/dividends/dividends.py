@@ -200,7 +200,9 @@ class Dividends(IconScoreBase):
         self._governance.set(_governance)
 
         self._accepted_tokens.put(ZERO_SCORE_ADDRESS)
-        self._snapshot_id.set(1)
+        loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
+        day = loans.getDay()
+        self._snapshot_id.set(day)
         self._max_loop_count.set(MAX_LOOP)
         self._minimum_eligible_debt.set(MINIMUM_ELIGIBLE_DEBT)
         self._add_initial_categories()
@@ -208,13 +210,6 @@ class Dividends(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
-        day = loans.getDay()
-        assets = loans.getAssetTokens()
-        self._snapshot_id.set(day)
-        for symbol in ['sICX', 'bnUSD', 'BALN']:
-            token = self.create_interface_score(Address.from_string(assets[symbol]), TokenInterface)
-            self._daily_fees[day][assets[symbol]] = token.balanceOf(self.address)
 
     def _add_initial_categories(self):
         self._dividends_categories.put(DAOFUND)
