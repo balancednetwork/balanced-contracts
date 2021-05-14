@@ -200,7 +200,7 @@ class Dividends(IconScoreBase):
         self._governance.set(_governance)
 
         self._accepted_tokens.put(ZERO_SCORE_ADDRESS)
-        loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
+        loans = self.create_interface_score(Address.from_string('cx66d4d90f5f113eba575bf793570135f9b10cece1'), LoansInterface)
         day = loans.getDay()
         self._snapshot_id.set(day)
         self._max_loop_count.set(MAX_LOOP)
@@ -340,7 +340,7 @@ class Dividends(IconScoreBase):
         """
         Returns the amount of tokens that will be distributed in the next div cycle. zero score address refers to ICX
         """
-        return {token: self._amount_to_distribute[str(token)] for token in self._accepted_tokens}
+        return {str(token): self._amount_to_distribute[str(token)] for token in self._accepted_tokens}
 
     @external(readonly=True)
     def getAmountBeingDistributed(self) -> dict:
@@ -348,7 +348,7 @@ class Dividends(IconScoreBase):
         Returns the amount of tokens being distributed currently. In the middle of distribution it only shows the
         remaining amount to distribute.
         """
-        return {token: self._amount_being_distributed[str(token)] for token in self._accepted_tokens}
+        return {str(token): self._amount_being_distributed[str(token)] for token in self._accepted_tokens}
 
     @external(readonly=True)
     def getDividendsCategories(self) -> list:
