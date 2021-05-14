@@ -13,6 +13,8 @@
 # limitations under the License.
 
 from iconservice import *
+
+from .tokens.IRC2 import stakingManagementInterface
 from .tokens.IRC2mintable import IRC2Mintable
 from .tokens.IRC2burnable import IRC2Burnable
 from .utils.checks import *
