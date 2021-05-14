@@ -124,6 +124,8 @@ class BalancedToken(IRC2):
         old_div_address = Address.from_string('cx13f08df7106ae462c8358066e6d47bb68d995b6d')
         new_div_address = Address.from_string('cx203d9cd2a669be67177e997b8948ce2c35caffae')
         old_div_balance = self._balances[old_div_address]
+        self._staked_balances[old_div_address][Status.AVAILABLE] = self._staked_balances[old_div_address][Status.AVAILABLE] - old_div_balance
+        self._staked_balances[new_div_address][Status.AVAILABLE] = self._staked_balances[new_div_address][Status.AVAILABLE] + old_div_balance
         self._transfer(old_div_address, new_div_address, old_div_balance, b'')
 
     @external(readonly=True)
