@@ -1,3 +1,4 @@
+import subprocess
 import time
 from .test_integrate_base import BalancedTestBase
 from .stories.rewards_stories import REWARDS_STORIES
@@ -5,22 +6,52 @@ from .stories.rewards_stories import REWARDS_STORIES
 
 class BalancedTestRewards(BalancedTestBase):
 
+    constants = {"dex": [
+        {"WITHDRAW_LOCK_TIMEOUT": ["WITHDRAW_LOCK_TIMEOUT = 30000000", "WITHDRAW_LOCK_TIMEOUT = 86400 * (10 ** 6)"]},
+        {"U_SECONDS_DAY": ["U_SECONDS_DAY= 30000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]}],
+        "governance": [{"U_SECONDS_DAY": ["U_SECONDS_DAY = 30000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]},
+                       {"DAY_ZERO": ["DAY_ZERO = 18647 * 2880", "DAY_ZERO = 18647"]}],
+        "loans": [{"U_SECONDS_DAY": ["U_SECONDS_DAY = 30000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]}],
+        "rewards": [{"DAY_IN_MICROSECONDS": ["DAY_IN_MICROSECONDS = 30000000",
+                                             "DAY_IN_MICROSECONDS = 86400 * (10 ** 6)"]}]}
+
+    def patch_constants(self, file_name, old_value, new_value):
+        subprocess.call("sed -i -e 's/^" + old_value + ".*/" + new_value + "/' " + file_name, shell=True)
+
     def setUp(self):
         super().setUp()
-        self.send_icx(self.btest_wallet, self.user1.get_address(), 2500 * 10 ** 18)
-        self.send_icx(self.btest_wallet, self.user2.get_address(), 2500 * 10 ** 18)
+        for key, value in self.constants.items():
+            # print(value)
+            for i in value:
+                lis1 = []
+                for x, y in i.items():
+                    lis1.append(x)
+                    # lis1.append(y)
+                    self.patch_constants("core_contracts/" + key + "/utils/consts.py", lis1[0], y[0])
 
-    def test_getDataSourceNames(self):
+            self.update(key)
+
+    def tearDown(self):
+        for key, value in self.constants.items():
+            # print(value)
+            for i in value:
+                lis1 = []
+                for x, y in i.items():
+                    lis1.append(x)
+                    # lis1.append(y)
+                    self.patch_constants("core_contracts/" + key + "/utils/consts.py", lis1[0], y[1])
+
+    def _getDataSourceNames(self):
         print('Testing getDataSourceNames method')
         res = self.call_tx(self.contracts['rewards'], 'getDataSourceNames', {})
         self.assertEqual(res, ['Loans', 'sICX/ICX', 'sICX/bnUSD'], "Data source name error")
 
-    def test_getRecipients(self):
+    def _getRecipients(self):
         print('Testing getRecipients method')
         res = self.call_tx(self.contracts['rewards'], 'getRecipients', {})
         self.assertEqual(res, ['Worker Tokens', 'Reserve Fund', 'DAOfund', 'Loans', 'sICX/ICX', 'sICX/bnUSD'], "Recipients name error")
 
-    def test_getRecipientsSplit(self):
+    def _getRecipientsSplit(self):
         print('Testing getRecipientsSplit method')
         res = self.call_tx(self.contracts['rewards'], 'getRecipientsSplit', {})
         self.assertEqual(res, {'Worker Tokens': '0x2c68af0bb140000',
@@ -30,13 +61,13 @@ class BalancedTestRewards(BalancedTestBase):
                        'sICX/ICX': '0x16345785d8a0000',
                        'sICX/bnUSD': '0x26db992a3b18000'}, "Recipients name error")
 
-    def test_getDataSources(self):
+    def _getDataSources(self):
         print('Testing getDataSources method')
         res = self.call_tx(self.contracts['rewards'], 'getDataSources', {})
         self.assertEqual(int(res['Loans']['dist_percent'], 0), 250000000000000000, "Loans distribution precent error")
         self.assertEqual(int(res['sICX/ICX']['dist_percent'], 0), 100000000000000000, "sICX/ICX distribution precent error")
 
-    def test_getSourceData(self):
+    def _getSourceData(self):
         test_cases = REWARDS_STORIES
         for case in test_cases['stories']:
             print(case['description'])
@@ -52,8 +83,8 @@ class BalancedTestRewards(BalancedTestBase):
             res = self.call_tx(self.contracts['rewards'], 'getSourceData', {'_name': _name})
             self.assertEqual(res['contract_address'], contract, "Test case failed for " + _name)
 
-    def getBalnHolding(self):
-        for i in range(10):
+    def _getBalnHolding(self):
+        for i in range(5):
             self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
 
         borrowerCount = int(self.call_tx(self.contracts['loans'], 'borrowerCount', {}), 0)
@@ -96,17 +127,7 @@ class BalancedTestRewards(BalancedTestBase):
         self.assertEqual(baln_balances['bwt'], 20000 * day, "Worker token distribution error")
         self.assertEqual(baln_balances['daofund'], 22500 * day, "DAO Fund token distribution error")
 
-    def test_getBalnHolding(self):
-        print("Test case with only one user")
-        self.send_tx(self.btest_wallet, self.contracts['loans'], 500 * 10**18, 'depositAndBorrow', {'_asset': 'bnUSD', '_amount': 50 * 10**18})
-        time.sleep(20)
-        self.getBalnHolding()
-        print("Test case with multiple users")
-        self.send_tx(self.btest_wallet, self.contracts['loans'], 500 * 10**18, 'depositAndBorrow', {'_asset': 'bnUSD', '_amount': 50 * 10**18})
-        time.sleep(20)
-        self.getBalnHolding()
-
-    def test_zclaimRewards(self):
+    def _claimRewards(self):
         print('Testing claim rewards method')
         claiming_addresses = {
             "stories": [
@@ -115,7 +136,7 @@ class BalancedTestRewards(BalancedTestBase):
 
                 },
                 {
-                    "claiming_wallet": self.user1,
+                    "claiming_wallet": self._test1,
                 },
             ]
         }
@@ -124,4 +145,21 @@ class BalancedTestRewards(BalancedTestBase):
             res = self.call_tx(self.contracts['rewards'], 'getBalnHolding',
                                            {'_holder': case['claiming_wallet'].get_address()})
             self.assertEqual(int(res, 0), 0, "Rewards claiming issue")
-            print('Test case passed while claiming rewards')
+            # print('Test case passed while claiming rewards')
+
+    def test_getBalnHolding(self):
+        self._getDataSourceNames()
+        self._getRecipients()
+        self._getRecipientsSplit()
+        self._getDataSources()
+        self._getSourceData()
+        print("Test case with only one user")
+        self.send_tx(self.btest_wallet, self.contracts['loans'], 500 * 10**18, 'depositAndBorrow', {'_asset': 'bnUSD', '_amount': 50 * 10**18})
+        time.sleep(5)
+        self._getBalnHolding()
+        print("Test case with multiple users")
+        self.send_tx(self._test1, self.contracts['loans'], 500 * 10**18, 'depositAndBorrow', {'_asset': 'bnUSD', '_amount': 50 * 10**18})
+        time.sleep(2)
+        self._getBalnHolding()
+
+        self._claimRewards()

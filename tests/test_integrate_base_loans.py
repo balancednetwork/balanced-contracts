@@ -280,3 +280,24 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
             self.assertEqual(1, tx_result['status'],
                              f"Failure: {tx_result['failure']}" if tx_result['status'] == 0 else "")
 
+    def update(self, name):
+        # self.build_deploy_tx(self.btest_wallet, self.contracts[name] )
+        core_contracts = ["governance","daofund", "dex", "dividends", "loans", "reserve", "rewards"]
+        external_contracts = ["oracle", "staking"]
+        token_contracts = ["baln", "bnUSD", "bwt"]
+        governed_contracts = core_contracts + token_contracts
+        sicx = "sicx"
+        all_contracts = governed_contracts + external_contracts
+
+        if name in governed_contracts:
+            if name in core_contracts:
+                path = self.CORE_CONTRACTS_PATH
+            else:
+                path = self.TOKEN_CONTRACTS_PATH
+            res = self.process_deploy_tx(
+                from_=self.btest_wallet,
+                to=self.contracts.get(name, self.contracts[name]),
+                value=0,
+                content=os.path.abspath(os.path.join(path, name)),
+                params={}
+            )
