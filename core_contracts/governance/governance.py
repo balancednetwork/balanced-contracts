@@ -409,6 +409,12 @@ class Governance(IconScoreBase):
         dex.addLpAddresses(_poolId, _addressList)
 
     @external
+    @only_owner
+    def setRedemptionFee(self, _fee: int) -> None:
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setRedemptionFee(_fee)
+
+    @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
         Used only to receive sICX for unstaking.

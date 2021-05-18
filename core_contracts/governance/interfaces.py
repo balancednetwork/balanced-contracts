@@ -82,6 +82,10 @@ class LoansInterface(InterfaceScore):
     def delegate(self, _user_delegations: List[PrepDelegations]):
         pass
 
+    @interface
+    def setRedemptionFee(self, _fee: int) -> None:
+        pass
+
 
 # An interface to the Loans SCORE
 class DexInterface(InterfaceScore):
