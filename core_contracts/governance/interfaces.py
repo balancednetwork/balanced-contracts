@@ -79,11 +79,19 @@ class LoansInterface(InterfaceScore):
         pass
 
     @interface
-    def delegate(self, _user_delegations: List[PrepDelegations]):
+    def delegate(self, _user_delegations: List[PrepDelegations]) -> None:
         pass
 
     @interface
     def setRedemptionFee(self, _fee: int) -> None:
+        pass
+
+    @interface
+    def setMaxRetirePercent(self, _value: int) -> None:
+        pass
+
+    @interface
+    def setRedeemBatchSize(self, _value: int) -> None:
         pass
 
 
