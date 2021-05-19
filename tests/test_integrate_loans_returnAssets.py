@@ -11,14 +11,14 @@ class BalancedTestReturnAssets(BalancedTestBase):
         self.send_icx(self.btest_wallet, self.user1.get_address(), 2500 * 10**18)
         self.send_icx(self.btest_wallet, self.user2.get_address(), 2500 * 10**18)
 
-        self.call_tx(self.contracts['loans'], 'getAccountPositions', {'_owner': self.user1.get_address()})
-        self.call_tx(self.contracts['loans'], 'getAccountPositions', {'_owner': self.user2.get_address()})
+        # self.call_tx(self.contracts['loans'], 'getAccountPositions', {'_owner': self.user1.get_address()})
+        # self.call_tx(self.contracts['loans'], 'getAccountPositions', {'_owner': self.user2.get_address()})
 
         # add collateral to user1 account
         self.send_tx(self.user1, self.contracts['loans'], 2000 * 10**18, 'depositAndBorrow', {'_asset': 'bnUSD', '_amount': 500 * 10**18})
 
         # gives maximum retire amount
-        self.call_tx(self.contracts['loans'], 'getMaxRetireAmount', {'_symbol': 'bnUSD'})
+        # max = self.call_tx(self.contracts['loans'], 'getMaxRetireAmount', {'_symbol': 'bnUSD'})
         test_cases = RETURN_ASSETS_STORIES
 
         for case in test_cases['stories']:
@@ -32,8 +32,17 @@ class BalancedTestReturnAssets(BalancedTestBase):
             data2 = case['actions']['second_params']
             second_params = {'_symbol': data2['_symbol'], '_value': data2['_value']}
 
-            self.send_tx(self.user1, self.contracts['bnUSD'], 0, meth1, first_params)
-            res = self.send_tx(self.user2, self.contracts['loans'], 0, meth2, second_params)
-            self.assertEqual(res['status'], int(case['actions']['expected_status_result']),
-                             "Retired amount is greater than the current maximum allowed")
+            # transfer some amount to user2 to retire
+            signed_transaction = self.build_tx(self.user1, self.contracts['bnUSD'], 0, meth1, first_params)
+            res = self.process_transaction(signed_transaction, self.icon_service)
+            if res['status'] == 0:
+                self.assertEqual(res['failure']['message'], case['actions']['revertMessage'])
+            else:
+                # retire some amount from user2
+                signed_transaction = self.build_tx(self.user2, self.contracts['loans'], 0, meth2, second_params)
+                res = self.process_transaction(signed_transaction, self.icon_service)
+                if 'revertMessage' in case['actions'].keys():
+                    self.assertEqual(res['failure']['message'], case['actions']['revertMessage'])
+                else:
+                    self.assertEqual(res['status'], int(case['actions']['expected_status_result']))
 
