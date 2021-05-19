@@ -984,6 +984,8 @@ class Loans(IconScoreBase):
     @external
     @only_admin
     def setMaxRetirePercent(self, _value: int) -> None:
+        if not 0 <= _value <= 10000:
+            revert(f'Input parameter must be in the range 0 to 10000 points.')
         self._max_retire_percent.set(_value)
 
     @external
