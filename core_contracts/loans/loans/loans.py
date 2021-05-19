@@ -631,8 +631,7 @@ class Loans(IconScoreBase):
                 _value -= repay
         price = asset.priceInLoop()
         sicx_rate = self._assets['sICX'].priceInLoop()
-        fee = _value * self._redemption_fee.get() // POINTS
-        redeemed = _value - fee
+        redeemed = _value
         bad_debt = asset.bad_debt.get()
         asset.burnFrom(_from, _value)
         sicx: int = 0
@@ -643,14 +642,12 @@ class Loans(IconScoreBase):
             redeemed -= bd_value
             sicx += self.bd_redeem(_from, asset, bd_value, sicx_rate, price)
         if redeemed > 0:
-            sicx_from_lenders = redeemed * price // sicx_rate
+            sicx_from_lenders = redeemed * price * (POINTS - self._redemption_fee.get()) // (sicx_rate * POINTS)
             sicx += sicx_from_lenders
             batch_dict = self._retire_redeem(_symbol, redeemed, sicx_from_lenders)
             total_batch_debt = batch_dict[0]
             del batch_dict[0]
         self._send_token("sICX", _from, sicx, "Collateral redeemed.")
-        asset.mint(self._dividends.get(), fee)
-        self.FeePaid(_symbol, fee, "redemption")
         asset.is_dead()
         self.AssetRetired(_from, _symbol, _value, price, redeemed,
                           total_batch_debt, str(batch_dict))
@@ -985,8 +982,13 @@ class Loans(IconScoreBase):
         self._time_offset.set(_delta_time)
 
     @external
-    @only_owner
-    def setRedeemBatchSize(self, _value: int):
+    @only_admin
+    def setMaxRetirePercent(self, _value: int) -> None:
+        self._max_retire_percent.set(_value)
+
+    @external
+    @only_admin
+    def setRedeemBatchSize(self, _value: int) -> None:
         self._redeem_batch.set(_value)
 
     @external(readonly=True)
@@ -1008,7 +1010,8 @@ class Loans(IconScoreBase):
             "min mining debt": self._min_mining_debt.get(),
             "max div debt length": self._max_debts_list_length.get(),
             "time offset": self._time_offset.get(),
-            "redeem batch size": self._redeem_batch.get()
+            "redeem batch size": self._redeem_batch.get(),
+            "retire percent max": self._max_retire_percent.get()
         }
 
     # --------------------------------------------------------------------------
