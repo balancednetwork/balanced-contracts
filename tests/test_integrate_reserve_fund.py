@@ -1,43 +1,43 @@
 import time
-from .test_integrate_base_loans import BalancedTestBaseLoans
+from .test_integrate_base_rewards import BalancedTestBaseRewards
 import subprocess
 
 
-class BalancedTestReserveFund(BalancedTestBaseLoans):
-    constants = {"dex": [
-        {"WITHDRAW_LOCK_TIMEOUT": ["WITHDRAW_LOCK_TIMEOUT = 30000000", "WITHDRAW_LOCK_TIMEOUT = 86400 * (10 ** 6)"]},
-        {"U_SECONDS_DAY": ["U_SECONDS_DAY= 30000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]}],
-                 "governance": [{"U_SECONDS_DAY": ["U_SECONDS_DAY = 30000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]},
-                                {"DAY_ZERO": ["DAY_ZERO = 18647 * 2880", "DAY_ZERO = 18647"]}],
-                 "loans": [{"U_SECONDS_DAY": ["U_SECONDS_DAY = 30000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]}],
-                 "rewards": [{"DAY_IN_MICROSECONDS": ["DAY_IN_MICROSECONDS = 30000000",
-                                                      "DAY_IN_MICROSECONDS = 86400 * (10 ** 6)"]}]}
-
-    def patch_constants(self, file_name, old_value, new_value):
-        subprocess.call("sed -i -e 's/^" + old_value + ".*/" + new_value + "/' " + file_name, shell=True)
+class BalancedTestReserveFund(BalancedTestBaseRewards):
+    # constants = {"dex": [
+    #     {"WITHDRAW_LOCK_TIMEOUT": ["WITHDRAW_LOCK_TIMEOUT = 30000000", "WITHDRAW_LOCK_TIMEOUT = 86400 * (10 ** 6)"]},
+    #     {"U_SECONDS_DAY": ["U_SECONDS_DAY= 30000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]}],
+    #              "governance": [{"U_SECONDS_DAY": ["U_SECONDS_DAY = 30000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]},
+    #                             {"DAY_ZERO": ["DAY_ZERO = 18647 * 2880", "DAY_ZERO = 18647"]}],
+    #              "loans": [{"U_SECONDS_DAY": ["U_SECONDS_DAY = 30000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]}],
+    #              "rewards": [{"DAY_IN_MICROSECONDS": ["DAY_IN_MICROSECONDS = 30000000",
+    #                                                   "DAY_IN_MICROSECONDS = 86400 * (10 ** 6)"]}]}
+    #
+    # def patch_constants(self, file_name, old_value, new_value):
+    #     subprocess.call("sed -i -e 's/^" + old_value + ".*/" + new_value + "/' " + file_name, shell=True)
 
     def setUp(self):
         super().setUp()
-        for key, value in self.constants.items():
-            # print(value)
-            for i in value:
-                lis1 = []
-                for x, y in i.items():
-                    lis1.append(x)
-                    # lis1.append(y)
-                    self.patch_constants("core_contracts/" + key + "/utils/consts.py", lis1[0], y[0])
-
-            self.update(key)
-
-    def tearDown(self):
-        for key, value in self.constants.items():
-            # print(value)
-            for i in value:
-                lis1 = []
-                for x, y in i.items():
-                    lis1.append(x)
-                    # lis1.append(y)
-                    self.patch_constants("core_contracts/" + key + "/utils/consts.py", lis1[0], y[1])
+    #     for key, value in self.constants.items():
+    #         # print(value)
+    #         for i in value:
+    #             lis1 = []
+    #             for x, y in i.items():
+    #                 lis1.append(x)
+    #                 # lis1.append(y)
+    #                 self.patch_constants("core_contracts/" + key + "/utils/consts.py", lis1[0], y[0])
+    #
+    #         self.update(key)
+    #
+    # def tearDown(self):
+    #     for key, value in self.constants.items():
+    #         # print(value)
+    #         for i in value:
+    #             lis1 = []
+    #             for x, y in i.items():
+    #                 lis1.append(x)
+    #                 # lis1.append(y)
+    #                 self.patch_constants("core_contracts/" + key + "/utils/consts.py", lis1[0], y[1])
 
     def _add(self):
         self.send_icx(self.btest_wallet, self.user1.get_address(), 2500 * 10 ** 18)
