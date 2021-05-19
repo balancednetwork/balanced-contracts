@@ -309,25 +309,3 @@ class BalancedTestBase(BalancedTestUtils):
     def test_basic_balanced_setup(self):
         # Running this test checks for a basic deployment of balanced
         pass
-
-    def update(self, name):
-        # self.build_deploy_tx(self.btest_wallet, self.contracts[name] )
-        core_contracts = ["governance","daofund", "dex", "dividends", "loans", "reserve", "rewards"]
-        external_contracts = ["oracle", "staking"]
-        token_contracts = ["baln", "bnUSD", "bwt"]
-        governed_contracts = core_contracts + token_contracts
-        sicx = "sicx"
-        all_contracts = governed_contracts + external_contracts
-
-        if name in governed_contracts:
-            if name in core_contracts:
-                path = self.CORE_CONTRACTS_PATH
-            else:
-                path = self.TOKEN_CONTRACTS_PATH
-            res = self.deploy_tx(
-                from_=self.btest_wallet,
-                to=self.contracts.get(name, self.contracts[name]),
-                value=0,
-                content=os.path.abspath(os.path.join(path, name)),
-                params={}
-            )
