@@ -595,7 +595,7 @@ class Loans(IconScoreBase):
 
     @loans_on
     @external
-    def returnAsset(self, _symbol: str, _value: int) -> None:
+    def returnAsset(self, _symbol: str, _value: int, _repay: bool = True) -> None:
         """
         All returned assets come back to Balanced through this method.
         A borrower will use this method to pay off their loan.
@@ -609,6 +609,8 @@ class Loans(IconScoreBase):
         :type _symbol: str
         :param _value: Number of tokens sent.
         :type _value: int
+        :param _repay: Whether returned funds should be used to repay loan first.
+        :type _repay: bool
         """
         _from = self.msg.sender
         if not _value > 0:
@@ -618,17 +620,17 @@ class Loans(IconScoreBase):
             revert(f'{TAG}: {_symbol} is not an active, borrowable asset on Balanced.')
         if asset.balanceOf(_from) < _value:
             revert(f'{TAG}: Insufficient balance.')
-        if self._positions._exists(_from):
+        if self._positions._exists(_from) and _repay:
             pos = self._positions.get_pos(_from)
-            repay = min(pos[_symbol], _value)
-            if repay > 0:
-                self._repay_loan(_symbol, repay)
-            if repay == _value:
+            repaid: int = min(pos[_symbol], _value)
+            if repaid > 0:
+                self._repay_loan(_symbol, repaid)
+            if repaid == _value:
                 day, new_day = self.checkForNewDay()
                 self.checkDistributions(day, new_day)
                 return
             else:
-                _value -= repay
+                _value -= repaid
         price = asset.priceInLoop()
         sicx_rate = self._assets['sICX'].priceInLoop()
         redeemed = _value
