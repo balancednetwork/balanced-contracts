@@ -1,6 +1,5 @@
 import time
 from .test_integrate_base_rewards import BalancedTestBaseRewards
-import subprocess
 
 
 class BalancedTestReserveFund(BalancedTestBaseRewards):
@@ -18,8 +17,11 @@ class BalancedTestReserveFund(BalancedTestBaseRewards):
         self._add()
         time.sleep(5)
         print('Testing rewards distribution and redeem method on reserve fund score')
-        for i in range(5):
-            self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
+        txs = []
+        for i in range(10):
+            deploy_tx = self.build_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
+            txs.append(deploy_tx)
+        self.process_transaction_bulk_without_txresult(txs, self.icon_service)
 
         total_balances = 0
         for contract in ['rewards', 'reserve', 'bwt', 'dex', 'daofund']:
