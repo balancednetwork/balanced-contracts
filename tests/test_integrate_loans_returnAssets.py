@@ -1,8 +1,8 @@
-from .test_integrate_base import BalancedTestBase
+from .test_integrate_base_loans import BalancedTestBaseLoans
 from tests.stories.loans.retire_assets_stories import RETURN_ASSETS_STORIES
 
 
-class BalancedTestReturnAssets(BalancedTestBase):
+class BalancedTestReturnAssets(BalancedTestBaseLoans):
 
     def setUp(self):
         super().setUp()
@@ -10,9 +10,6 @@ class BalancedTestReturnAssets(BalancedTestBase):
     def test_retire(self):
         self.send_icx(self.btest_wallet, self.user1.get_address(), 2500 * 10**18)
         self.send_icx(self.btest_wallet, self.user2.get_address(), 2500 * 10**18)
-
-        # self.call_tx(self.contracts['loans'], 'getAccountPositions', {'_owner': self.user1.get_address()})
-        # self.call_tx(self.contracts['loans'], 'getAccountPositions', {'_owner': self.user2.get_address()})
 
         # add collateral to user1 account
         self.send_tx(self.user1, self.contracts['loans'], 2000 * 10**18, 'depositAndBorrow', {'_asset': 'bnUSD', '_amount': 500 * 10**18})
