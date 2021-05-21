@@ -189,23 +189,23 @@ class BalancedTestBaseRewards(BalancedTestUtils):
             self._wallet_array[0].get_address(),
             self._wallet_array[1].get_address()
         }
-        if os.path.exists(os.path.join(DIR_PATH, "scores_address.json")):
-            with open(os.path.join(DIR_PATH, "scores_address.json"), "r") as file:
-                self.contracts = json.load(file)
-            return
-        else:
-            for key, value in self.constants.items():
-                # print(value)
-                for i in value:
-                    lis1 = []
-                    for x, y in i.items():
-                        lis1.append(x)
-                        # lis1.append(y)
-                        self.patch_constants("core_contracts/" + key + "/utils/consts.py", lis1[0], y[0])
-            self._deploy_all()
-            self._config_balanced()
-            self._launch_balanced()
-            # self._create_bnusd_market()
+        # if os.path.exists(os.path.join(DIR_PATH, "scores_address.json")):
+        #     with open(os.path.join(DIR_PATH, "scores_address.json"), "r") as file:
+        #         self.contracts = json.load(file)
+        #     return
+        # else:
+        for key, value in self.constants.items():
+            # print(value)
+            for i in value:
+                lis1 = []
+                for x, y in i.items():
+                    lis1.append(x)
+                    # lis1.append(y)
+                    self.patch_constants("core_contracts/" + key + "/utils/consts.py", lis1[0], y[0])
+        self._deploy_all()
+        self._config_balanced()
+        self._launch_balanced()
+        # self._create_bnusd_market()
 
     def tearDown(self):
         for key, value in self.constants.items():

@@ -47,14 +47,14 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
         self.send_icx(self._test1, self.btest_wallet.get_address(), 1_000_000 * self.icx_factor)
         self.send_icx(self._test1, self.staking_wallet.get_address(), 1_000_000 * self.icx_factor)
 
-        if os.path.exists(os.path.join(DIR_PATH, "scores_address.json")):
-            with open(os.path.join(DIR_PATH, "scores_address.json"), "r") as file:
-                self.contracts = json.load(file)
-            return
-        else:
-            self._deploy_all()
-            self._config_balanced()
-            self._launch_balanced()
+        # if os.path.exists(os.path.join(DIR_PATH, "scores_address.json")):
+        #     with open(os.path.join(DIR_PATH, "scores_address.json"), "r") as file:
+        #         self.contracts = json.load(file)
+        #     return
+        # else:
+        self._deploy_all()
+        self._config_balanced()
+        self._launch_balanced()
 
     def _wallet_setup(self):
         self.icx_factor = 10 ** 18
