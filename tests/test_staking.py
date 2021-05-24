@@ -428,7 +428,6 @@ class BalancedTestStaking(StakingTestBase):
         data = "{\"method\": \"unstake\"}".encode("utf-8")
         params = {'_to': self.contracts['staking'], "_value": 10 * 10 ** 18,
                   "_data": data}
-        self.send_tx(self.staking_wallet, self.contracts['sicx'], 0, "transfer", params)
         signed_transaction = self.build_tx(self.staking_wallet, self.contracts['sicx'], 0, "transfer",
                                            params)
         tx_result = self.process_transaction(signed_transaction, self.icon_service, self.BLOCK_INTERVAL)
