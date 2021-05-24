@@ -29,7 +29,7 @@ class StakingTestBase(IconIntegrateTestBase):
     TOKEN_CONTRACTS = ["sicx"]
     CONTRACTS = CORE_CONTRACTS + TOKEN_CONTRACTS
 
-    BLOCK_INTERVAL = 4
+    BLOCK_INTERVAL = 6
     PREPS = {
         "hx9eec61296a7010c867ce24c20e69588e2832bc52",
         "hx000e0415037ae871184b2c7154e5924ef2bc075e"
@@ -41,21 +41,51 @@ class StakingTestBase(IconIntegrateTestBase):
         super().setUp()
         self.icon_service = IconService(HTTPProvider("http://127.0.0.1:9000", 3))
         self.nid = 3
-        self.send_icx(self._test1, self.btest_wallet.get_address(), 1_000_000 * self.icx_factor)
-        self.send_icx(self._test1, self.staking_wallet.get_address(), 1_000_000 * self.icx_factor)
+        # self._register_100_preps(100, 110)
+        # self._register_100_preps(110, 130)
+        # self._register_100_preps(130, 150)
+        # self._register_100_preps(150, 170)
+        # self._register_100_preps(170, 190)
+        # self._register_100_preps(190, 201)
+        # self._register_100_preps(201, 221)
+        # self._register_100_preps(50, 55)
+        # self._register_100_preps(55, 60)
+
+        self.send_icx(self._test1, self.btest_wallet.get_address(), 5000 * self.icx_factor)
+        self.send_icx(self._test1, self.staking_wallet.get_address(), 5000 * self.icx_factor)
 
         if os.path.exists(os.path.join(DIR_PATH, "staking_address.json")):
             with open(os.path.join(DIR_PATH, "staking_address.json"), "r") as file:
                 self.contracts = json.load(file)
             return
         else:
+            # pass
             self._deploy_all()
             self._toggle_staking_on()
+
+    # def test_a(self):
+    #     print('test')
 
     def _wallet_setup(self):
         self.icx_factor = 10 ** 18
         self.btest_wallet: 'KeyWallet' = self._wallet_array[5]
         self.staking_wallet: 'KeyWallet' = self._wallet_array[6]
+
+    def _register_100_preps(self, start, end):
+        txs = []
+        for i in range(start, end):
+            params = {"name": "Test P-rep " + str(i), "country": "KOR", "city": "Unknown",
+                      "email": "nodehx9eec61296a7010c867ce24c20e69588e28321" + str(i) + "@example.com", "website":
+                          'https://nodehx9eec61296a7010c867ce24c20e69588e28321' + str(i) + '.example.com',
+                      "details": 'https'
+                                 '://nodehx9eec61296a7010c867ce24c20e69588e28321' + str(i) + '.example.com/details',
+                      "p2pEndpoint": "nodehx9eec61296a7010c867ce24c20e69588e28321" + str(i) + ".example.com:7100",
+                      "nodeAddress": "hx9eec61296a7010c867ce24c20e69588e28321" + str(i)}
+            self.send_icx(self._test1, self._wallet_array[i].get_address(), 3000000000000000000000)
+            txs.append(self.build_tx(self._wallet_array[i], "cx0000000000000000000000000000000000000000",
+                                     2000000000000000000000, "registerPRep", params))
+        ab = self.process_transaction_bulk(txs, self.icon_service, 10)
+        print(ab)
 
     def process_deploy_tx(self,
                           from_: KeyWallet,
@@ -133,7 +163,13 @@ class StakingTestBase(IconIntegrateTestBase):
         print(f"------------Calling {method}, with params={params} to {get_key(self.contracts, to)} contract----------")
         signed_transaction = self.build_tx(from_, to, value, method, params)
         tx_result = self.process_transaction(signed_transaction, self.icon_service, self.BLOCK_INTERVAL)
-
+        # ab = tx_result
+        # print(ab)
+        # step_price = ab['stepPrice']
+        # step_used = ab['stepUsed']
+        # print(step_used)
+        # print(step_price)
+        # print((step_price * step_used) / 10 ** 18)
         self.assertTrue('status' in tx_result)
         self.assertEqual(1, tx_result['status'], f"Failure: {tx_result['failure']}" if tx_result['status'] == 0 else "")
         return tx_result
@@ -164,7 +200,7 @@ class StakingTestBase(IconIntegrateTestBase):
         ).build()
         response = self.process_call(call, self.icon_service)
         print(f"-----Reading method={method}, with params={params} on the {get_key(self.contracts, to)} contract------")
-        print(f"-------------------The output is: : {response}")
+        # print(f"-------------------The output is: : {response}")
         return response
 
     def _deploy_all(self):
@@ -180,13 +216,12 @@ class StakingTestBase(IconIntegrateTestBase):
                 content=os.path.abspath(os.path.join(self.CORE_CONTRACTS_PATH, contract))
             )
             txs.append(deploy_tx)
-
         results = self.process_transaction_bulk(
             requests=txs,
             network=self.icon_service,
             block_confirm_interval=self.BLOCK_INTERVAL
         )
-
+        print(results)
         for idx, tx_result in enumerate(results):
             self.assertTrue('status' in tx_result)
             self.assertEqual(1, tx_result['status'],
