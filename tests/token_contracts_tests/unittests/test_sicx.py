@@ -13,14 +13,16 @@ class TestSICX(ScoreTestCase):
         # initialize test accounts
         self.test_account3 = Address.from_string(f"hx{'12345' * 8}")
         self.test_account4 = Address.from_string(f"hx{'1234' * 10}")
+        self.owner_address = Address.from_string(f"hx{'1589' * 10}")
         account_info = {
+            self.owner_address: 10 ** 21,
             self.test_account3: 10 ** 21,
             self.test_account4: 10 ** 21}
         self.initialize_accounts(account_info)
 
         # create test score
         self.mock_score_address = Address.from_string(f"cx{'1234' * 10}")
-        self.score = self.get_score_instance(StakedICX, self.test_account1,
+        self.score = self.get_score_instance(StakedICX, self.owner_address,
                                              score_address=self.mock_score_address,
                                              on_install_params={'_admin': self.test_account3})
 
@@ -35,14 +37,16 @@ class TestSICX(ScoreTestCase):
         except SenderNotScoreOwnerError as err:
             self.assertNotEqual(self.test_account2, err)
 
-    def test_set_staking_address(self):
-        self.set_msg(self.test_account1)
+    def _set_staking_address(self):
+        self.set_msg(self.owner_address)
         self.score.setStakingAddress(self.test_account2)
+
+    def test_set_staking_address(self):
+        self._set_staking_address()
         self.assertEqual(self.score._staking_address.get(), self.test_account2)
 
     def test_get_staking_address(self):
-        self.set_msg(self.test_account1)
-        self.score.setStakingAddress(self.test_account2)
+        self._set_staking_address()
         self.assertEqual(self.score.getStakingAddress(), self.test_account2)
 
     def test_mint_non_owner(self):
