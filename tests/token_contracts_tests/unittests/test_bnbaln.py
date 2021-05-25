@@ -611,21 +611,6 @@ class TestBNXLM(ScoreTestCase):
         else:
             self.assertTrue(False)
 
-    def test_stake_zero_stake(self):
-        self._toggle_staking_enabled()
-        self._set_admin()
-
-        self.set_msg(self.admin_address)
-        self.score.mintTo(self.test_account2, 12)
-
-        self.set_msg(self.test_account2)
-        try:
-            self.score.stake(0)
-        except IconScoreException as err:
-            self.assertIn("BALN: Staked BALN must be greater than the minimum stake amount and non zero.", str(err))
-        else:
-            self.assertTrue(False)
-
     def test_stake_negative_stake(self):
         self._toggle_staking_enabled()
         self._set_admin()
@@ -808,7 +793,7 @@ class TestBNXLM(ScoreTestCase):
         raise
 
 
-class CreateMockObject():
+class CreateMockObject:
 
     def __init__(self, dex_address, oracle_address):
         self.dex_address = dex_address
