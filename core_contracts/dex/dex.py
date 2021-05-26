@@ -1376,7 +1376,7 @@ class DEX(IconScoreBase):
             return self._total_supply_snapshot[_id]['values'][matched_index]
 
     @external(readonly=True)
-    def totalBalnAt(self, _id: int, _snapshot_id: int) -> int:
+    def totalBalnAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
         matched_index = 0
         if _snapshot_id < 0:
             revert(f'Snapshot id is equal to or greater then Zero')
@@ -1397,7 +1397,7 @@ class DEX(IconScoreBase):
         else:
             matched_index = low - 1
 
-        if self._baln_snapshot[_id]['ids'][matched_index] == _snapshot_id:
+        if self._baln_snapshot[_id]['ids'][matched_index] == _snapshot_id and _twa:
             return self._baln_snapshot[_id]['avgs'][matched_index]
         else:
             return self._baln_snapshot[_id]['values'][matched_index]
