@@ -19,7 +19,6 @@ class TestBNXLM(ScoreTestCase):
         self.governance_address = Address.from_string(f"hx{'1434' * 10}")
 
         account_info = {
-            self.owner_address: 10 * 21,
             self.governance_address: 10 ** 21,
             self.owner_address: 10 ** 21,
             self.admin_address: 10 ** 21,

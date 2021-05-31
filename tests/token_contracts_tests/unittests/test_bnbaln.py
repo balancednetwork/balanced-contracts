@@ -308,7 +308,7 @@ class TestBNXLM(ScoreTestCase):
         try:
             self.set_msg(self.test_account2)
             self.score.burn(1)
-        except SenderNotAuthorized as err:
+        except SenderNotAuthorized:
             self.assertTrue(True)
         else:
             self.assertTrue(False)
@@ -483,7 +483,7 @@ class TestBNXLM(ScoreTestCase):
         self.set_msg(self.governance_address)
         self.score.setDividends(self.dividends_address)
 
-    def test_set_dividends_not_governance(self):
+    def test_set_dividends(self):
         self._set_dividends()
         self.assertEqual(self.dividends_address, self.score._dividends_score.get())
 
