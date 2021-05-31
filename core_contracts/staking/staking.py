@@ -273,19 +273,17 @@ class Staking(IconScoreBase):
         :params _address : the wallet address whose delegation is to be known.
          """
         address_delegation_string = self._address_delegations[str(_address)]
-        if address_delegation_string != '':
+        if len(address_delegation_string):
             dict_address_delegation_percent = {}
-            split_string_to_list = (address_delegation_string.split("."))
-            split_string_to_list.pop()
-            for one in split_string_to_list:
-                list_split = (one.split(":"))
-                if list_split[0] not in dict_address_delegation_percent.keys():
-                    dict_address_delegation_percent[list_split[0]] = int(list_split[1])
+            for one in address_delegation_string.split("."):
+                list_key, list_value = one.split(":")
+                if dict_address_delegation_percent.get(list_key) is None:
+                    dict_address_delegation_percent[list_key] = int(list_value)
                 else:
-                    if list_split[1] != '0':
-                        dict_address_delegation_percent[list_split[0]] += int(list_split[1])
+                    if list_value != '0':
+                        dict_address_delegation_percent[list_key] += int(list_value)
                     else:
-                        dict_address_delegation_percent[list_split[0]] = 0
+                        dict_address_delegation_percent[list_key] = 0
             return dict_address_delegation_percent
         else:
             return {}
@@ -334,10 +332,12 @@ class Staking(IconScoreBase):
         """Weekly this function is called to set the top 100 prep address in an arraydb"""
         prep_dict = self._system.getPReps(1, TOP_PREP_COUNT)
         preps = prep_dict['preps']
+        db_prep_list = {i: True for i in self._prep_list}
         for prep in preps:
             prep_address = prep['address']
-            if prep_address not in self._prep_list:
+            if db_prep_list.get(prep_address) is None:
                 self._prep_list.put(prep_address)
+                db_prep_list[prep_address] = True
             self._top_preps.put(prep_address)
 
     def _delegate_votes(self, _to: Address, _user_delegations: list, user_icx_hold: int) -> int:
@@ -351,19 +351,22 @@ class Staking(IconScoreBase):
         amount_to_stake = 0
         similar_prep_list_check = []
         address_delegations = ''
+        db_prep_list = {i: True for i in self._prep_list}
         for single_prep in _user_delegations:
-            if single_prep["_address"] not in self._prep_list:
-                self._prep_list.put(single_prep["_address"])
-            if single_prep["_address"] in similar_prep_list_check:
+            single_prep_address = single_prep["_address"]
+            if db_prep_list.get(single_prep_address) is None:
+                self._prep_list.put(single_prep_address)
+                db_prep_list[single_prep_address] = True
+            if single_prep_address in similar_prep_list_check:
                 revert(
                     f'{TAG}: You can not delegate same Prep twice in a transaction.Your delegation preference is {_user_delegations}')
             if single_prep["_votes_in_per"] < 10 ** 15:
                 revert(
                     f'{TAG}: You should provide delegation percentage more than 0.001. Your delegation preference is {_user_delegations}.')
-            similar_prep_list_check.append(single_prep["_address"])
+            similar_prep_list_check.append(single_prep_address)
             amount_to_stake += single_prep["_votes_in_per"]
-            address_delegations += f'{str(single_prep["_address"])}:{single_prep["_votes_in_per"]}.'
-            self._set_address_delegations(_to, single_prep['_address'],
+            address_delegations += f'{str(single_prep_address)}:{single_prep["_votes_in_per"]}.'
+            self._set_address_delegations(_to, single_prep_address,
                                           single_prep["_votes_in_per"], user_icx_hold)
         self._address_delegations[str(_to)] = address_delegations
         return amount_to_stake
@@ -433,7 +436,7 @@ class Staking(IconScoreBase):
         address_str = str(_to)
         previous_address_delegations = self._get_address_delegations_in_per(_to)
         icx_hold_previously = (self.get_sICX_score().balanceOf(_to) * self._rate.get()) // DENOMINATOR
-        if previous_address_delegations != {}:
+        if len(previous_address_delegations):
             self._address_delegations[address_str] = ''
             for address, votes_per in previous_address_delegations.items():
                 self._prep_delegations[address] -= (votes_per * icx_hold_previously) // (100 * DENOMINATOR)
@@ -445,9 +448,11 @@ class Staking(IconScoreBase):
         that are out of 100 and returns an integer.
         """
         to_distribute = 0
+        db_top_preps = {i: True for i in self._top_preps}
         for prep in self._prep_list:
-            if prep not in self._top_preps:
+            if db_top_preps.get(prep) is None:
                 to_distribute += self._prep_delegations[str(prep)]
+                db_top_preps[prep] = True
         to_evenly_distribute_value = self._distribute_evenly(to_distribute)
         return to_evenly_distribute_value
 
@@ -463,9 +468,7 @@ class Staking(IconScoreBase):
             for _ in range(TOP_PREP_COUNT):
                 self._top_preps.pop()
             self._set_top_preps()
-            return self._reset_top_preps()
-        else:
-            return self._reset_top_preps()
+        return self._reset_top_preps()
 
     def _check_for_iscore(self) -> None:
         """
@@ -483,27 +486,29 @@ class Staking(IconScoreBase):
          data from linked list one at a transaction.
          """
         balance = self.icx.get_balance(self.address) - self._daily_reward.get()
-        if balance > 0:
-            unstaking_requests = self.getUnstakeInfo()
-            for i, request in enumerate(unstaking_requests):
-                if i > self._unstake_batch_limit.get():
-                    return
-                unstake_amount = request[1]
-                if balance > 0:
-                    if unstake_amount <= balance:
-                        payout = unstake_amount
-                        self._linked_list_var.remove(self._linked_list_var._head_id.get())
-                    else:
-                        payout = balance
-                        self._linked_list_var.update_node(request[2], unstake_amount - payout,
-                                                          request[3], request[4],
-                                                          request[0])
-                    self._total_unstake_amount.set(self._total_unstake_amount.get() - payout)
-                    balance -= payout
-                    self.UnstakeAmountTransfer(request[4], payout)
-                    self._send_ICX(request[4], payout)
-                else:
-                    return
+
+        if balance <= 0:
+            return
+
+        unstaking_requests = self.getUnstakeInfo()
+        for i, request in enumerate(unstaking_requests):
+            if i > self._unstake_batch_limit.get():
+                return
+            if balance <= 0:
+                return
+            unstake_amount = request[1]
+            if unstake_amount <= balance:
+                payout = unstake_amount
+                self._linked_list_var.remove(self._linked_list_var._head_id.get())
+            else:
+                payout = balance
+                self._linked_list_var.update_node(request[2], unstake_amount - payout,
+                                                  request[3], request[4],
+                                                  request[0])
+            self._total_unstake_amount.set(self._total_unstake_amount.get() - payout)
+            balance -= payout
+            self.UnstakeAmountTransfer(request[4], payout)
+            self._send_ICX(request[4], payout)
 
     @payable
     @staking_on
@@ -527,7 +532,7 @@ class Staking(IconScoreBase):
         previous_address_delegations = self._get_address_delegations_in_per(_to)
         self.get_sICX_score().mintTo(_to, amount, _data)
         user_new_icx = (self.get_sICX_score().balanceOf(_to) * self._rate.get()) // DENOMINATOR
-        if previous_address_delegations == {}:
+        if len(previous_address_delegations):
             is_first_tx = 1
             amount_to_stake_in_per = 100 * DENOMINATOR
             self._distribute_evenly(amount_to_stake_in_per, is_first_tx, _to)
@@ -585,7 +590,7 @@ class Staking(IconScoreBase):
         for address, votes_per in sender_delegation_in_per.items():
             amount_to_remove_from_prep = self._calculate_percent_to_icx(votes_per, sicx_to_icx_conversion)
             self._prep_delegations[address] -= amount_to_remove_from_prep
-        if receiver_delegation_in_per != {}:
+        if len(receiver_delegation_in_per):
             for address, votes_per in receiver_delegation_in_per.items():
                 amount_to_add_to_prep = self._calculate_percent_to_icx(votes_per, sicx_to_icx_conversion)
                 self._prep_delegations[address] += amount_to_add_to_prep
@@ -603,10 +608,10 @@ class Staking(IconScoreBase):
         If the iscore is claimed then the new rate is set
         and it also calls multiple check functions.
         """
-        if self._distributing.get() is True:
+        if self._distributing.get():
             stake_in_network = self._system.getStake(self.address)
             total_unstake_in_network = 0
-            if 'unstakes' in stake_in_network.keys():
+            if stake_in_network.get("unstakes") is not None:
                 for each in stake_in_network['unstakes']:
                     total_unstake_in_network += each['unstake']
             daily_reward = total_unstake_in_network + self.icx.get_balance(
@@ -663,13 +668,14 @@ class Staking(IconScoreBase):
             d = json_loads(_data.decode("utf-8"))
         except BaseException as e:
             revert(f'{TAG}: Invalid data: {_data}. Exception: {e}')
-        if 'method' in d and d["method"] == "unstake":
-            if "user" in d:
-                self._unstake(_from, _value, Address.from_string(d["user"]))
-            else:
-                self._unstake(_from, _value)
         else:
-            revert(f'{TAG}: Invalid Parameters.')
+            if 'method' in d and d["method"] == "unstake":
+                if "user" in d:
+                    self._unstake(_from, _value, Address.from_string(d["user"]))
+                else:
+                    self._unstake(_from, _value)
+            else:
+                revert(f'{TAG}: Invalid Parameters.')
 
     def _delegations(self, evenly_distribute_value: int) -> None:
         """
