@@ -612,10 +612,12 @@ class Staking(IconScoreBase):
             stake_in_network = self._system.getStake(self.address)
             total_unstake_in_network = 0
             if stake_in_network.get("unstakes") is not None:
-                for each in stake_in_network['unstakes']:
-                    total_unstake_in_network += each['unstake']
-            daily_reward = total_unstake_in_network + self.icx.get_balance(
-                self.address) - self._total_unstake_amount.get() - self.msg.value
+                total_unstake_in_network = sum(each['unstake'] for each in stake_in_network['unstakes'])
+
+            daily_reward = (total_unstake_in_network
+                            + self.icx.get_balance(self.address)
+                            - self._total_unstake_amount.get()
+                            - self.msg.value)
             self._daily_reward.set(daily_reward)
             self._total_lifetime_reward.set(self.getLifetimeReward() + daily_reward)
             self._rate.set(self.getRate())
@@ -722,7 +724,8 @@ class Staking(IconScoreBase):
         if _sender_address is not None:
             address_to_send = _sender_address
         self._linked_list_var.append(_to, amount_to_unstake,
-                                     stake_in_network['unstakes'][-1]['unstakeBlockHeight'], address_to_send,
+                                     stake_in_network['unstakes'][-1]['unstakeBlockHeight'],
+                                     address_to_send,
                                      self._linked_list_var._tail_id.get() + 1)
         self._sICX_supply.set(self._sICX_supply.get() - _value)
         self.UnstakeRequest(address_to_send, amount_to_unstake)
