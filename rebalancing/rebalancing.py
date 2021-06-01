@@ -2,10 +2,16 @@ from iconservice import *
 
 TAG = 'Rebalancing'
 
+POINTS = 10000
+
 
 class sICXTokenInterface(InterfaceScore):
     @interface
     def transfer(self, _to: Address, _value: int, _data: bytes = None):
+        pass
+
+    @interface
+    def priceInLoop(self) -> int:
         pass
 
 
@@ -13,6 +19,11 @@ class bnUSDTokenInterface(InterfaceScore):
     @interface
     def transfer(self, _to: Address, _value: int, _data: bytes = None):
         pass
+
+    @interface
+    def priceInLoop(self) -> int:
+        pass
+
 
 class loansTokenInterface(InterfaceScore):
     @interface
@@ -23,6 +34,15 @@ class loansTokenInterface(InterfaceScore):
     def returnAsset(self, _symbol: str, _value: int, _repay: bool = True) -> None:
         pass
 
+    @interface
+    def getParameters(self) -> dict:
+        pass
+
+class dexTokenInterface(InterfaceScore):
+    @interface
+    def getPriceByName(self, _name: str) -> int:
+        pass
+
 class Rebalancing(IconScoreBase):
     _bnUSD_ADDRESS = 'bnUSD_address'
     _SICX_ADDRESS = 'sicx_address'
@@ -31,11 +51,10 @@ class Rebalancing(IconScoreBase):
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
-        self._bnUSD = VarDB(
-            self._bnUSD_ADDRESS, db, value_type=Address)
+        self._bnUSD = VarDB(self._bnUSD_ADDRESS, db, value_type=Address)
         self._sicx = VarDB(self._SICX_ADDRESS, db, value_type=Address)
         self._dex = VarDB(self._DEX_ADDRESS, db, value_type=Address)
-        self._loans = VarDB(self._DEX_ADDRESS, db, value_type=Address)
+        self._loans = VarDB(self._LOANS_ADDRESS, db, value_type=Address)
 
     def on_install(self) -> None:
         super().on_install()
@@ -91,6 +110,19 @@ class Rebalancing(IconScoreBase):
         self._sICX_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
         self.bnUSD_score = self.create_interface_score(self._bnUSD.get(), bnUSDTokenInterface)
         self.loans_score = self.create_interface_score(self._loans.get(), loansTokenInterface)
+        self.dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
         self._sICX_score.transfer(self._dex.get(), 1000 * 10 ** 18, data_bytes)
         max_retire_amount = self.loans_score.getMaxRetireAmount("bnUSD")
-        self.loans_score.returnAsset("bnUSD",max_retire_amount)
+        price = self.bnUSD_score.priceInLoop()
+        sicx_rate = self._sICX_score.priceInLoop()
+        # redeemed = max_retire_amount
+        params_loan = self.loans_score.getParameters()
+        redemption_fee =  params_loan["redemption fee"]
+        sicx_from_lenders = 1 * price * (POINTS - redemption_fee) // (sicx_rate * POINTS)
+        pool_price_dex = self.dex_score.getPriceByName("sICX/bnUSD")
+        if sicx_from_lenders * pool_price_dex > 1:
+            self.loans_score.returnAsset("bnUSD", max_retire_amount)
+
+    @external
+    def tokenFallback(self) -> None:
+        pass
