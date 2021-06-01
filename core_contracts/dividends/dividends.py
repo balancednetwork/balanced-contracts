@@ -470,6 +470,125 @@ class Dividends(IconScoreBase):
         self.DividendsReceived(self.msg.value, f"{self.msg.value} ICX received as dividends")
         self._amount_received_status.set(True)
 
+    @external(readonly=True)
+    def getUserDividends(self, _account: Address, _start: int = 0, _end: int = 0) -> dict:
+        """
+        Returns the dividends accrued by the user. Provides option to select the dividends for arbitrary days. Both
+        _start and _end are inclusive. If _start or _end is only provided dividends batch size items are returned.
+        :param _account: Address of the user
+        :param _start: Starting day of the dividends(inclusive)
+        :param _end: Ending day of the dividends(inclusive)
+        """
+        _start, _end = self._check_start_end(_start, _end)
+
+        total_dividends = {}
+        for day in range(_start, _end):
+            dividends = self._get_dividends_for_day(_account, day)
+            total_dividends = self._add_dividends(total_dividends, dividends)
+        return total_dividends
+
+    @external(readonly=True)
+    def getDaofundDividends(self, _start: int = 0, _end: int = 0) -> dict:
+        _start, _end = self._check_start_end(_start, _end)
+
+        total_dividends = {}
+        for day in range(_start, _end):
+            dividends = self._get_dividends_for_daofund(day)
+            total_dividends = self._add_dividends(total_dividends, dividends)
+        return total_dividends
+
+    def _check_start_end(self, _start: int, _end: int) -> (int, int):
+        if _start == 0 and _end == 0:
+            _end = self._snapshot_id.get()
+            _start = min(1, _end - self._dividends_batch_size.get())
+        elif _end == 0:
+            _end = min(self._snapshot_id.get(), _start + self._dividends_batch_size.get() + 1)
+        elif _start == 0:
+            _start = min(1, _end - self._dividends_batch_size.get())
+        else:
+            _end = min(self._snapshot_id.get(), _end + 1)
+            _start = min(1, _start)
+        if not (1 <= _start < self._snapshot_id.get()):
+            revert("Invalid value of start provided")
+        if not (1 <= _end <= self._snapshot_id.get()):
+            revert("Invalid value of end provided")
+        if _start == _end:
+            revert("start and end can't be same")
+        return _start, _end
+
+    def _get_dividends_for_day(self, _account: Address, _day: int) -> dict:
+
+        if self._is_claimed(_account, _day):
+            return {}
+
+        baln_token_score = self.create_interface_score(self._baln_score.get(), BalnTokenInterface)
+        dex_score = self.create_interface_score(self._dex_score.get(), DexInterface)
+
+        staked_baln = baln_token_score.stakedBalanceOfAt(_account, _day)
+        total_staked_baln = baln_token_score.totalBalanceOfAt(_day)
+
+        my_baln_from_pools = 0
+        total_baln_from_pools = 0
+        for pool_id in (BALNBNUSD_ID, BALNSICX_ID):
+            my_lp = dex_score.balanceOfAt(_account, pool_id, _day)
+            total_lp = dex_score.totalSupplyAt(pool_id, _day)
+            total_baln = dex_score.totalBalnAt(pool_id, _day)
+
+            equivalent_baln = 0
+            if my_lp > 0 and total_lp > 0 and total_baln > 0:
+                equivalent_baln = (my_lp * total_baln) // total_lp
+
+            my_baln_from_pools += equivalent_baln
+            total_baln_from_pools += total_baln
+
+        my_total_baln_token = staked_baln + my_baln_from_pools
+        total_baln_token = total_staked_baln + total_baln_from_pools
+
+        my_dividends = {}
+        if my_total_baln_token > 0 and total_baln_token > 0:
+            for token in self._accepted_tokens:
+                my_dividends[str(token)] = (my_total_baln_token * self._dividends_categories[BALN_HOLDERS]
+                                            * self._daily_fees[_day][str(token)]) // (total_baln_token * 10**18)
+
+        return my_dividends
+
+    def _get_dividends_for_daofund(self, _day: int) -> dict:
+        if self._is_claimed(self._daofund.get(), _day):
+            return {}
+
+        daofund_dividends = {}
+        for token in self._accepted_tokens:
+            daofund_dividends[str(token)] = (self._dividends_categories[DAOFUND] * self._daily_fees[_day][str(token)]) \
+                                            // 10**18
+        return daofund_dividends
+
+    def _add_dividends(self, a: dict, b: dict) -> dict:
+        if a and b:
+            response = {}
+            for token in self._accepted_tokens:
+                response[str(token)] = a.get(str(token), 0) + b.get(str(token), 0)
+            return response
+        elif a:
+            return a
+        elif b:
+            return b
+        else:
+            return {}
+
+    def _set_claimed(self, _account: Address, _day: int):
+        claimed_bit_map = DictDB(self._CLAIMED_BIT_MAP + str(_account), self.db, value_type=int)
+        claimed_word_index = _day // 256
+        claimed_bit_index = _day % 256
+        claimed_bit_map[claimed_word_index] = claimed_bit_map[claimed_word_index] | (1 << claimed_bit_index)
+
+    def _is_claimed(self, _account: Address, _day: int) -> bool:
+        claimed_bit_map = DictDB(self._CLAIMED_BIT_MAP + str(_account), self.db, value_type=int)
+        claimed_word_index = _day // 256
+        claimed_bit_index = _day % 256
+        claimed_word = claimed_bit_map[claimed_word_index]
+        mask = (1 << claimed_bit_index)
+        return claimed_word & mask == mask
+
     # -------------------------------------------------------------------------------
     #   EVENT LOGS
     # -------------------------------------------------------------------------------
