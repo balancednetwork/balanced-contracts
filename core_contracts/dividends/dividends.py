@@ -409,9 +409,7 @@ class Dividends(IconScoreBase):
         if self.msg.sender not in self._accepted_tokens:
             loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
             available_tokens = loans.getAssetTokens()
-            if str(self.msg.sender) not in available_tokens.values():
-                revert(f"{TAG}: {self.msg.sender} token is not an accepted token for the dividends")
-            else:
+            if str(self.msg.sender) in available_tokens.values():
                 self._accepted_tokens.put(self.msg.sender)
         day = self._snapshot_id.get()
         self._daily_fees[day][str(self.msg.sender)] += _value
