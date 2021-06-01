@@ -15,7 +15,6 @@
 from .utils.checks import *
 from .utils.consts import *
 from .utils.arraydb_helpers import *
-from .utils.linked_list import *
 
 TAG = 'Balanced Dividends'
 
@@ -118,8 +117,6 @@ class Dividends(IconScoreBase):
     _AMOUNT_TO_DISTRIBUTE = "amount_to_distribute"
     _AMOUNT_BEING_DISTRIBUTED = "amount_being_distributed"
 
-    _ELIGIBLE_BALN_HOLDERS = "eligible_baln_holders"
-    _TOTAL_ELIGIBILE_BALN_TOKENS = "total_eligible_baln_tokens"
     _BALN_DIST_INDEX = "baln_dist_index"
 
     _STAKED_BALN_HOLDERS = "staked_baln_holders"
@@ -164,13 +161,8 @@ class Dividends(IconScoreBase):
         # Amount that is being distributed is recorded here
         self._amount_being_distributed = DictDB(self._AMOUNT_BEING_DISTRIBUTED, db, value_type=int)
 
-        # Eligible baln token holders retrieved from staked baln token and from baln pool
-        self._eligible_baln_holders = LinkedListDB(self._ELIGIBLE_BALN_HOLDERS, db, value_type=int)
-        self._total_eligible_baln_tokens = VarDB(self._TOTAL_ELIGIBILE_BALN_TOKENS, db, value_type=int)
         self._baln_dist_index = VarDB(self._BALN_DIST_INDEX, db, value_type=str)
 
-        # Staked baln token holders and their balance retrieved from baln token contract
-        self._staked_baln_holders = LinkedListDB(self._STAKED_BALN_HOLDERS, db, value_type=int)
         self._staked_dist_index = VarDB(self._STAKED_DIST_INDEX, db, value_type=str)
 
         self._baln_in_dex = VarDB(self._BALN_IN_DEX, db, value_type=int)
