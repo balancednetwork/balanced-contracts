@@ -84,6 +84,14 @@ class BalnTokenInterface(InterfaceScore):
     def balanceOf(self, _owner: Address) -> int:
         pass
 
+    @interface
+    def stakedBalanceOfAt(self, _owner: Address, _day: int) -> int:
+        pass
+
+    @interface
+    def totalBalanceOfAt(self, _day: int) -> int:
+        pass
+
 
 class IRC2Interface(InterfaceScore):
 
