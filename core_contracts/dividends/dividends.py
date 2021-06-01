@@ -163,6 +163,11 @@ class Dividends(IconScoreBase):
 
     _DISTRIBUTION_ACTIVATE = "distribution_activate"
 
+    _DIVIDENDS_START_ID = "dividends_start_id"
+    _DIVIDENDS_BATCH_SIZE = "dividends_batch_size"
+
+    _CLAIMED_BIT_MAP = "claimed_bit_map_"
+
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
 
@@ -206,6 +211,9 @@ class Dividends(IconScoreBase):
         self._dividends_percentage = DictDB(self._DIVIDENDS_PERCENTAGE, db, value_type=int)
 
         self._distribution_activate = VarDB(self._DISTRIBUTION_ACTIVATE, db, value_type=bool)
+
+        self._dividends_start_id = VarDB(self._DIVIDENDS_START_ID, db, value_type=int)
+        self._dividends_batch_size = VarDB(self._DIVIDENDS_BATCH_SIZE, db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
@@ -369,6 +377,18 @@ class Dividends(IconScoreBase):
 
         if total_percentage != 10**18:
             revert(f"{TAG}: Total percentage doesn't sum up to 100 i.e. 10**18")
+
+    @external(readonly=True)
+    def getDividendsBatchSize(self) -> int:
+        return self._dividends_batch_size.get()
+
+    @external
+    @only_admin
+    def setDividendsBatchSize(self, _size: int) -> None:
+        if _size <= 0:
+            revert(f"{TAG}: Size can't be negative or zero")
+
+        self._dividends_batch_size.set(_size)
 
     @external
     def distribute(self, _activate: int = 0) -> bool:
