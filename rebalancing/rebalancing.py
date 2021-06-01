@@ -38,10 +38,12 @@ class loansTokenInterface(InterfaceScore):
     def getParameters(self) -> dict:
         pass
 
+
 class dexTokenInterface(InterfaceScore):
     @interface
     def getPriceByName(self, _name: str) -> int:
         pass
+
 
 class Rebalancing(IconScoreBase):
     _bnUSD_ADDRESS = 'bnUSD_address'
@@ -103,7 +105,7 @@ class Rebalancing(IconScoreBase):
         self._dex.set(_address)
 
     @external
-    def rebalance(self) -> None:
+    def rebalance(self, ) -> None:
         data = {"method": "_swap", "params": {"toToken": str(self._bnUSD.get())}}
         data_string = json_dumps(data)
         data_bytes = str.encode(data_string)
@@ -117,12 +119,12 @@ class Rebalancing(IconScoreBase):
         sicx_rate = self._sICX_score.priceInLoop()
         # redeemed = max_retire_amount
         params_loan = self.loans_score.getParameters()
-        redemption_fee =  params_loan["redemption fee"]
+        redemption_fee = params_loan["redemption fee"]
         sicx_from_lenders = 1 * price * (POINTS - redemption_fee) // (sicx_rate * POINTS)
         pool_price_dex = self.dex_score.getPriceByName("sICX/bnUSD")
         if sicx_from_lenders * pool_price_dex > 1:
             self.loans_score.returnAsset("bnUSD", max_retire_amount)
 
     @external
-    def tokenFallback(self) -> None:
+    def tokenFallback(self, _from: Address, value: int, _data: bytes) -> None:
         pass
