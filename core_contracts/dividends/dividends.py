@@ -65,6 +65,18 @@ class DexInterface(InterfaceScore):
     def getDataBatch(self, _name: str, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
         pass
 
+    @interface
+    def balanceOfAt(self, _account: Address, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
+        pass
+
+    @interface
+    def totalSupplyAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
+        pass
+
+    @interface
+    def totalBalnAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
+        pass
+
 
 class BalnTokenInterface(InterfaceScore):
 
