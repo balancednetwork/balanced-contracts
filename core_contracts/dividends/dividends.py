@@ -296,6 +296,13 @@ class Dividends(IconScoreBase):
         return balances
 
     @external(readonly=True)
+    def getDailyFees(self, _day: int) -> dict:
+        fees = {}
+        for token in self._accepted_tokens:
+            fees[str(token)] = self._daily_fees[_day][str(token)]
+        return fees
+
+    @external(readonly=True)
     def getAcceptedTokens(self) -> list:
         """
         Returns the list of accepted tokens for dividends, zero score address represents ICX
