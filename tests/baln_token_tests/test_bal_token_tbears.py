@@ -3,6 +3,7 @@ from iconsdk.builder.call_builder import CallBuilder
 from iconsdk.exception import JSONRPCException
 from iconsdk.icon_service import IconService
 from iconsdk.libs.in_memory_zip import gen_deploy_data_content
+from iconsdk.providers.http_provider import HTTPProvider
 from iconsdk.signed_transaction import SignedTransaction
 from iconsdk.wallet.wallet import KeyWallet
 from iconservice import Address
@@ -40,8 +41,9 @@ print('======================================================================')
 
 
 class TestScoreTest(IconIntegrateTestBase):
-    # TEST_HTTP_ENDPOINT_URI_V3 = "http://18.144.108.38:9000/api/v3"
-    TEST_HTTP_ENDPOINT_URI_V3 = "http://127.0.0.1:9000/api/v3"
+    TEST_HTTP_ENDPOINT_URI_V3 = "http://18.144.108.38:9000/api/v3"
+
+    # TEST_HTTP_ENDPOINT_URI_V3 = "http://127.0.0.1:9000/api/v3"
 
     def setUp(self):
         super().setUp()
@@ -52,7 +54,7 @@ class TestScoreTest(IconIntegrateTestBase):
         self.test_account2 = KeyWallet.create()
         self._governance = self.test_account2.get_address()
         # If you want to send request to network, uncomment next line and set self.TEST_HTTP_ENDPOINT_URI_V3
-        # self.icon_service = IconService(HTTPProvider(self.TEST_HTTP_ENDPOINT_URI_V3))
+        self.icon_service = IconService(HTTPProvider(self.TEST_HTTP_ENDPOINT_URI_V3))
 
         # REQUIRED VARIABLES
         self._oracle_name = ""
@@ -141,7 +143,7 @@ class TestScoreTest(IconIntegrateTestBase):
             self.assertTrue('status' in tx_result)
             self.assertEqual(1, tx_result['status'])
 
-    def test_mint_stake(self):
+    def _mint_stake(self):
         for _cases in stories:
             _actions = _cases['actions']
             method_name = _actions['name']
@@ -309,13 +311,12 @@ class TestScoreTest(IconIntegrateTestBase):
 
         return tx_result
 
-    def _loadBalnStakeSnapshot(self):
-        _cases = {2: [{'address': self._test1.get_address(), 'amount': 3456},
-                      {'address': self._governance, 'amount': 4455}]}
-        _data = json.dumps(_cases).encode('utf-8')
+    def test_loadBalnStakeSnapshot(self):
+        _data = [{'_day': 2, '_address': self._test1.get_address(), '_amount': 3456},
+                  {'_day': 2, '_address': self._governance, '_amount': 4455}]
         params = {'_data': _data}
         print('--------------------------------------------------------')
-        print(f'----------------- Test : Setting User Stake Snapshot with data {_cases}-----------------')
+        print(f'----------------- Test : Setting User Stake Snapshot with data {_data}-----------------')
         print('--------------------------------------------------------')
 
         tx_result = self._call_transaction_builder('loadBalnStakeSnapshot', params)
@@ -324,9 +325,8 @@ class TestScoreTest(IconIntegrateTestBase):
 
         print(f"----------------------- Status: {tx_result.get('status')}  -----------------------")
         print('--------------------------------------------------------')
-        print(f'----------------- Test : Getting User Stake Snapshot of data {_cases}-----------------')
+        print(f'----------------- Test : Getting User Stake Snapshot of data {_data}-----------------')
         print(f"Day", "Address", f" --> Amount")
-        # self._stakedBalanceOfAt(self._test1.get_address(), 1)
         self._stakedBalanceOfAt(self._test1.get_address(), 2)
         self._stakedBalanceOfAt(self._governance, 2)
 
@@ -334,12 +334,11 @@ class TestScoreTest(IconIntegrateTestBase):
         print('--------------------------------------------------------')
 
     def _loadTotalStakeSnapshot(self):
-        _cases = {2: 3414, 3: 9347}
-        _data = json.dumps(_cases).encode('utf-8')
+        _data = [{'_day': 2, '_amount': 3414}, {'_day': 3, '_amount': 9347}]
         params = {'_data': _data}
 
         print('--------------------------------------------------------')
-        print(f'----------------- Test : Setting Total Stake Snapshot with data {_cases}-----------------')
+        print(f'----------------- Test : Setting Total Stake Snapshot with data {_data}-----------------')
         print('--------------------------------------------------------')
         tx_result = self._call_transaction_builder('loadTotalStakeSnapshot', params)
 
@@ -347,10 +346,10 @@ class TestScoreTest(IconIntegrateTestBase):
 
         print(f"----------------------- Status: {tx_result.get('status')}  -----------------------")
         print('--------------------------------------------------------')
-        print(f'----------------- Test : Getting Total Stake Snapshot of data {_cases}-----------------')
+        print(f'----------------- Test : Getting Total Stake Snapshot of data {_data}-----------------')
         print(f"Day", f" ---> Amount")
-        # self.assertEqual(self._totalStakedBalanceOfAt(1), 1234)
         self.assertEqual(self._totalStakedBalanceOfAt(2), 3414)
         self.assertEqual(self._totalStakedBalanceOfAt(3), 9347)
+
         print('----------------- Setting and Getting Total Stake Snapshot Passed -----------------')
         print('--------------------------------------------------------')
