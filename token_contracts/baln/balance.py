@@ -45,6 +45,10 @@ class DexInterface(InterfaceScore):
     def getBalnPrice(self) -> int:
         pass
 
+    @interface
+    def getTimeOffset(self) -> int:
+        pass
+
 
 class BalancedToken(IRC2):
 
@@ -74,6 +78,8 @@ class BalancedToken(IRC2):
     _BNUSD_SCORE = "bnUSD_score"
     _ORACLE = "oracle"
     _ORACLE_NAME = "oracle_name"
+
+    _TIME_OFFSET = 'time_offset'
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
@@ -105,6 +111,8 @@ class BalancedToken(IRC2):
 
         self._dividends_score = VarDB(self._DIVIDENDS_SCORE, db, value_type=Address)
 
+        self._time_offset = VarDB(self._TIME_OFFSET, db, value_type=int)
+
     def on_install(self, _governance: Address) -> None:
         super().on_install(TOKEN_NAME, SYMBOL_NAME)
         self._governance.set(_governance)
@@ -121,6 +129,7 @@ class BalancedToken(IRC2):
 
     def on_update(self) -> None:
         super().on_update()
+        self.setTimeOffset()
 
     @external(readonly=True)
     def getPeg(self) -> str:
@@ -521,6 +530,17 @@ class BalancedToken(IRC2):
         self._staked_balances[_account][Status.AVAILABLE] = self._staked_balances[_account][Status.AVAILABLE] - _amount
 
         self._burn(_account, _amount)
+
+    @external
+    @only_owner
+    def setTimeOffset(self) -> None:
+        _dex = self.create_interface_score(self._dex_score.get(), DexInterface)
+        _delta_time = _dex.getTimeOffset()
+        self._time_offset.set(_delta_time)
+
+    @external(readonly=True)
+    def getTimeOffset(self) -> int:
+        return self._time_offset.get()
 
     # --------------------------------------------------------------------------
     # EVENTS
