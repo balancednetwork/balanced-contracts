@@ -132,7 +132,7 @@ class BalancedToken(IRC2):
 
     @external(readonly=True)
     def getPeg(self) -> str:
-        return "BALN"
+        return TAG
 
     @external
     @only_governance
