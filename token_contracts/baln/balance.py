@@ -44,6 +44,17 @@ class DexInterface(InterfaceScore):
         pass
 
 
+class StakedBalnTokenSnapshots(TypedDict):
+    _address: Address
+    _amount: int
+    _day: int
+
+
+class TotalStakedBalnTokenSnapshots(TypedDict):
+    _amount: int
+    _day: int
+
+
 class BalancedToken(IRC2):
     _PRICE_UPDATE_TIME = "price_update_time"
     _LAST_PRICE = "last_price"
@@ -635,31 +646,29 @@ class BalancedToken(IRC2):
 
     @external
     @only_owner
-    def loadBalnStakeSnapshot(self, _data: bytes) -> None:
-        d = json_loads(_data.decode("utf-8"))
-        _days = list(d.keys())
-        for current_id in _days:
-            if int(current_id) < self.getDay():
-                for _id in d.get(current_id):
-                    _account = Address.from_string(_id.get('address'))
-                    length = self._stake_snapshot[_account]['length'][0]
-                    self._stake_snapshot[_account]['ids'][length] = int(current_id)
-                    self._stake_snapshot[_account]['amounts'][length] = int(_id.get('amount'))
-                    self._stake_snapshot[_account]['length'][0] += 1
+    def loadBalnStakeSnapshot(self, _data: List[StakedBalnTokenSnapshots]) -> None:
+        for _stake in _data:
+            current_id = int(_stake.get('_day'))
+            if current_id < self.getDay():
+                _account = _stake.get('_address')
+                length = self._stake_snapshot[_account]['length'][0]
+                self._stake_snapshot[_account]['ids'][length] = current_id
+                self._stake_snapshot[_account]['amounts'][length] = int(_stake.get('_amount'))
+                self._stake_snapshot[_account]['length'][0] += 1
             else:
                 pass
 
     @external
     @only_owner
-    def loadTotalStakeSnapshot(self, _data: bytes) -> None:
-        d = json_loads(_data.decode("utf-8"))
-        _days = list(d.keys())
-        for current_id in _days:
-            if int(current_id) < self.getDay():
-                length = self._total_stake_snapshot[int(current_id)]['length'][0]
-                self._total_stake_snapshot[int(current_id)]['ids'][length] = int(current_id)
-                self._total_stake_snapshot[int(current_id)]['amounts'][length] = int(d.get(current_id))
-                self._total_stake_snapshot[int(current_id)]['length'][0] += 1
+    def loadTotalStakeSnapshot(self, _data: List[TotalStakedBalnTokenSnapshots]) -> None:
+        for _id in _data:
+            current_id = int(_id.get('_day'))
+            if current_id < self.getDay():
+                amount = int(_id.get('_amount'))
+                length = self._total_stake_snapshot[current_id]['length'][0]
+                self._total_stake_snapshot[current_id]['ids'][length] = current_id
+                self._total_stake_snapshot[current_id]['amounts'][length] = amount
+                self._total_stake_snapshot[current_id]['length'][0] += 1
 
             else:
                 pass
