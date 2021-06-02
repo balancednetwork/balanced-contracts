@@ -17,12 +17,6 @@ from .tokens.IRC2 import IRC2
 from .utils.checks import *
 from .utils.consts import *
 
-TAG = 'BALN'
-
-TOKEN_NAME = 'Balance Token'
-SYMBOL_NAME = 'BALN'
-DEFAULT_ORACLE_NAME = 'Balanced DEX'
-
 
 # An interface to the Band Price Oracle
 class OracleInterface(InterfaceScore):
