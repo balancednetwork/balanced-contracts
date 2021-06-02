@@ -537,6 +537,14 @@ class BalancedToken(IRC2):
     def getTimeOffset(self) -> int:
         return self._time_offset.get()
 
+    @external(readonly=True)
+    def getDay(self) -> int:
+        """
+        Returns the current day (floored). Used for snapshotting,
+        paying rewards, and paying dividends.
+        """
+        return (self.now() - self._time_offset.get()) // DAY_TO_MICROSECOND
+
     # --------------------------------------------------------------------------
     # EVENTS
     # --------------------------------------------------------------------------
