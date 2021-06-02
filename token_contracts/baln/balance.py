@@ -51,7 +51,6 @@ class DexInterface(InterfaceScore):
 
 
 class BalancedToken(IRC2):
-
     _PRICE_UPDATE_TIME = "price_update_time"
     _LAST_PRICE = "last_price"
     _MIN_INTERVAL = "min_interval"
@@ -463,6 +462,7 @@ class BalancedToken(IRC2):
         See {IRC2-_mint}
 
         :param _amount: Number of tokens to be created at the account.
+        :param _data: data to mint
         """
         if _data is None:
             _data = b'None'
@@ -483,6 +483,7 @@ class BalancedToken(IRC2):
 
         :param _account: The account at which token is to be created.
         :param _amount: Number of tokens to be created at the account.
+        :param _data: data to mint
         """
         if _data is None:
             _data = b'None'
