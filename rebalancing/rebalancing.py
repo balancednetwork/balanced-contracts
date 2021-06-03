@@ -14,6 +14,10 @@ class sICXTokenInterface(InterfaceScore):
     def priceInLoop(self) -> int:
         pass
 
+    @interface
+    def balanceOf(self, _owner: Address) -> int:
+        pass
+
 
 class bnUSDTokenInterface(InterfaceScore):
     @interface
@@ -22,6 +26,10 @@ class bnUSDTokenInterface(InterfaceScore):
 
     @interface
     def priceInLoop(self) -> int:
+        pass
+
+    @interface
+    def balanceOf(self, _owner: Address) -> int:
         pass
 
 
@@ -109,22 +117,24 @@ class Rebalancing(IconScoreBase):
         data = {"method": "_swap", "params": {"toToken": str(self._bnUSD.get())}}
         data_string = json_dumps(data)
         data_bytes = str.encode(data_string)
-        self._sICX_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
+        self.sICX_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
         self.bnUSD_score = self.create_interface_score(self._bnUSD.get(), bnUSDTokenInterface)
         self.loans_score = self.create_interface_score(self._loans.get(), loansTokenInterface)
         self.dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
-        self._sICX_score.transfer(self._dex.get(), 1000 * 10 ** 18, data_bytes)
-        max_retire_amount = self.loans_score.getMaxRetireAmount("bnUSD")
+        sicx_in_contract = self.sICX_score.balanceOf(self.address)
         price = self.bnUSD_score.priceInLoop()
-        sicx_rate = self._sICX_score.priceInLoop()
+        sicx_rate = self.sICX_score.priceInLoop()
         # redeemed = max_retire_amount
         params_loan = self.loans_score.getParameters()
         redemption_fee = params_loan["redemption fee"]
-        sicx_from_lenders = 1 * price * (POINTS - redemption_fee) // (sicx_rate * POINTS)
+        sicx_from_lenders = 1*10**18 * price * (POINTS - redemption_fee) // (sicx_rate * POINTS)
         pool_price_dex = self.dex_score.getPriceByName("sICX/bnUSD")
-        if sicx_from_lenders * pool_price_dex > 1:
-            self.loans_score.returnAsset("bnUSD", max_retire_amount)
+        if sicx_from_lenders * pool_price_dex > 10**18:
+            self.sICX_score.transfer(self._dex.get(), sicx_in_contract, data_bytes)
+            bnusd_in_contract = self.bnUSD_score.balanceOf(self.address)
+            self.loans_score.returnAsset("bnUSD", bnusd_in_contract)
 
     @external
     def tokenFallback(self, _from: Address, value: int, _data: bytes) -> None:
         pass
+
