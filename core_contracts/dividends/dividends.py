@@ -500,20 +500,21 @@ class Dividends(IconScoreBase):
     def _check_start_end(self, _start: int, _end: int) -> (int, int):
         if _start == 0 and _end == 0:
             _end = self._snapshot_id.get()
-            _start = min(1, _end - self._dividends_batch_size.get())
+            _start = max(1, _end - self._dividends_batch_size.get())
         elif _end == 0:
-            _end = min(self._snapshot_id.get(), _start + self._dividends_batch_size.get() + 1)
+            _end = min(self._snapshot_id.get(), _start + self._dividends_batch_size.get())
         elif _start == 0:
-            _start = min(1, _end - self._dividends_batch_size.get())
+            _end = _end + 1
+            _start = max(1, _end - self._dividends_batch_size.get())
         else:
-            _end = min(self._snapshot_id.get(), _end + 1)
-            _start = min(1, _start)
+            _end = _end + 1
+
         if not (1 <= _start < self._snapshot_id.get()):
             revert("Invalid value of start provided")
         if not (1 <= _end <= self._snapshot_id.get()):
             revert("Invalid value of end provided")
-        if _start == _end:
-            revert("start and end can't be same")
+        if _start >= _end:
+            revert("Neither start and end can't be same nor start can be greater")
         return _start, _end
 
     def _get_dividends_for_day(self, _account: Address, _day: int) -> dict:
