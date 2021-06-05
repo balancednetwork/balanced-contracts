@@ -97,11 +97,11 @@ class BalnTokenInterface(InterfaceScore):
         pass
 
     @interface
-    def stakedBalanceOfAt(self, _owner: Address, _day: int) -> int:
+    def stakedBalanceOfAt(self, _account: Address, _day: int) -> int:
         pass
 
     @interface
-    def totalBalanceOfAt(self, _day: int) -> int:
+    def totalStakedBalanceOfAt(self, _day: int) -> int:
         pass
 
 
@@ -526,7 +526,7 @@ class Dividends(IconScoreBase):
         dex_score = self.create_interface_score(self._dex_score.get(), DexInterface)
 
         staked_baln = baln_token_score.stakedBalanceOfAt(_account, _day)
-        total_staked_baln = baln_token_score.totalBalanceOfAt(_day)
+        total_staked_baln = baln_token_score.totalStakedBalanceOfAt(_day)
 
         my_baln_from_pools = 0
         total_baln_from_pools = 0
