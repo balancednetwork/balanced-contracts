@@ -17,12 +17,6 @@ from .tokens.IRC2 import IRC2
 from .utils.checks import *
 from .utils.consts import *
 
-TAG = 'BALN'
-
-TOKEN_NAME = 'Balance Token'
-SYMBOL_NAME = 'BALN'
-DEFAULT_ORACLE_NAME = 'Balanced DEX'
-
 
 # An interface to the Band Price Oracle
 class OracleInterface(InterfaceScore):
@@ -45,9 +39,23 @@ class DexInterface(InterfaceScore):
     def getBalnPrice(self) -> int:
         pass
 
+    @interface
+    def getTimeOffset(self) -> int:
+        pass
+
+
+class StakedBalnTokenSnapshots(TypedDict):
+    _address: Address
+    _amount: int
+    _day: int
+
+
+class TotalStakedBalnTokenSnapshots(TypedDict):
+    _amount: int
+    _day: int
+
 
 class BalancedToken(IRC2):
-
     _PRICE_UPDATE_TIME = "price_update_time"
     _LAST_PRICE = "last_price"
     _MIN_INTERVAL = "min_interval"
@@ -74,6 +82,8 @@ class BalancedToken(IRC2):
     _BNUSD_SCORE = "bnUSD_score"
     _ORACLE = "oracle"
     _ORACLE_NAME = "oracle_name"
+
+    _TIME_OFFSET = 'time_offset'
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
@@ -105,6 +115,11 @@ class BalancedToken(IRC2):
 
         self._dividends_score = VarDB(self._DIVIDENDS_SCORE, db, value_type=Address)
 
+        self._time_offset = VarDB(self._TIME_OFFSET, db, value_type=int)
+
+        self._stake_snapshot = DictDB('stakeSnapshot', db, value_type=int, depth=3)
+        self._total_stake_snapshot = DictDB('totalStakeSnapshot', db, value_type=int, depth=3)
+
     def on_install(self, _governance: Address) -> None:
         super().on_install(TOKEN_NAME, SYMBOL_NAME)
         self._governance.set(_governance)
@@ -121,16 +136,11 @@ class BalancedToken(IRC2):
 
     def on_update(self) -> None:
         super().on_update()
-        old_div_address = Address.from_string('cx13f08df7106ae462c8358066e6d47bb68d995b6d')
-        new_div_address = Address.from_string('cx203d9cd2a669be67177e997b8948ce2c35caffae')
-        old_div_balance = self._balances[old_div_address]
-        self._staked_balances[old_div_address][Status.AVAILABLE] = self._staked_balances[old_div_address][Status.AVAILABLE] - old_div_balance
-        self._staked_balances[new_div_address][Status.AVAILABLE] = self._staked_balances[new_div_address][Status.AVAILABLE] + old_div_balance
-        self._transfer(old_div_address, new_div_address, old_div_balance, b'')
+        self.setTimeOffset()
 
     @external(readonly=True)
     def getPeg(self) -> str:
-        return "BALN"
+        return TAG
 
     @external
     @only_governance
@@ -355,6 +365,9 @@ class BalancedToken(IRC2):
         stake_address_changes = self._stake_changes[self._stake_address_update_db.get()]
         stake_address_changes.put(_from)
 
+        self._update_baln_staked_snapshot(self.msg.sender)
+        self._update_total_staked_snapshot(self.msg.sender)
+
     @external
     @only_governance
     def setMinimumStake(self, _amount: int) -> None:
@@ -460,6 +473,7 @@ class BalancedToken(IRC2):
         See {IRC2-_mint}
 
         :param _amount: Number of tokens to be created at the account.
+        :param _data: data to mint
         """
         if _data is None:
             _data = b'None'
@@ -480,6 +494,7 @@ class BalancedToken(IRC2):
 
         :param _account: The account at which token is to be created.
         :param _amount: Number of tokens to be created at the account.
+        :param _data: data to mint
         """
         if _data is None:
             _data = b'None'
@@ -527,6 +542,136 @@ class BalancedToken(IRC2):
         self._staked_balances[_account][Status.AVAILABLE] = self._staked_balances[_account][Status.AVAILABLE] - _amount
 
         self._burn(_account, _amount)
+
+    @external
+    @only_owner
+    def setTimeOffset(self) -> None:
+        _dex = self.create_interface_score(self._dex_score.get(), DexInterface)
+        _delta_time = _dex.getTimeOffset()
+        self._time_offset.set(_delta_time)
+
+    @external(readonly=True)
+    def getTimeOffset(self) -> int:
+        return self._time_offset.get()
+
+    @external(readonly=True)
+    def getDay(self) -> int:
+        """
+        Returns the current day (floored). Used for snapshotting,
+        paying rewards, and paying dividends.
+        """
+        return (self.now() - self._time_offset.get()) // DAY_TO_MICROSECOND
+
+    # ----------------------------------------------------------
+    # Snapshots
+    # ----------------------------------------------------------
+
+    def _update_baln_staked_snapshot(self, _account: Address) -> None:
+        current_id = self.getDay()
+        current_value = self.detailsBalanceOf(_account)['Staked balance']
+        length = self._stake_snapshot[_account]['length'][0]
+
+        if length == 0:
+            self._stake_snapshot[_account]['amounts'][length] = current_value
+            self._stake_snapshot[_account]['length'][0] += 1
+            return
+        else:
+            last_snapshot_id = self._stake_snapshot[_account]['ids'][length - 1]
+
+        if last_snapshot_id < current_id:
+            self._stake_snapshot[_account]['ids'][length] = current_id
+            self._stake_snapshot[_account]['amounts'][length] = current_value
+            self._stake_snapshot[_account]['length'][0] += 1
+        else:
+            self._stake_snapshot[_account]['values'][length - 1] = current_value
+
+    def _update_total_staked_snapshot(self, _account: Address) -> None:
+        current_id = self.getDay()
+        current_value = self.detailsBalanceOf(_account)['Staked balance']
+        length = self._total_stake_snapshot[current_id]['length'][0]
+
+        if length == 0:
+            self._total_stake_snapshot[current_id]['amounts'][length] = current_value
+            self._total_stake_snapshot[current_id]['length'][0] += 1
+            return
+        else:
+            last_snapshot_id = self._total_stake_snapshot[current_id]['ids'][length - 1]
+
+        if last_snapshot_id < current_id:
+            self._total_stake_snapshot[current_id]['ids'][length] = current_id
+            self._total_stake_snapshot[current_id]['amounts'][length] = current_value
+            self._total_stake_snapshot[current_id]['length'][0] += 1
+        else:
+            self._total_stake_snapshot[current_id]['values'][length - 1] = current_value
+
+    @external(readonly=True)
+    def stakedBalanceOfAt(self, _account: Address, _day: int) -> int:
+        if _day < 0:
+            revert(f'{TAG}: snapshot id is equal to or greater then Zero')
+        low = 0
+        high = self._stake_snapshot[_account]['length'][0]
+
+        while low < high:
+            mid = (low + high) // 2
+            if self._stake_snapshot[_account]['ids'][mid] > _day:
+                high = mid
+            else:
+                low = mid + 1
+        if self._stake_snapshot[_account]['ids'][0] == _day:
+            return self._stake_snapshot[_account]['amounts'][0]
+        elif low == 0:
+            return 0
+        else:
+            return self._stake_snapshot[_account]['amounts'][low - 1]
+
+    @external(readonly=True)
+    def totalStakedBalanceOfAt(self, _day: int) -> int:
+        if _day < 0:
+            revert(f'{TAG}: snapshot id is equal to or greater then Zero')
+        low = 0
+        high = self._total_stake_snapshot[_day]['length'][0]
+
+        while low < high:
+            mid = (low + high) // 2
+            if self._total_stake_snapshot[_day]['ids'][mid] > _day:
+                high = mid
+            else:
+                low = mid + 1
+        if self._total_stake_snapshot[_day]['ids'][0] == _day:
+            return self._total_stake_snapshot[_day]['amounts'][0]
+        elif low == 0:
+            return 0
+        else:
+            return self._total_stake_snapshot[_day]['amounts'][low - 1]
+
+    @external
+    @only_owner
+    def loadBalnStakeSnapshot(self, _data: List[StakedBalnTokenSnapshots]) -> None:
+        for _stake in _data:
+            current_id = int(_stake.get('_day'))
+            if current_id < self.getDay():
+                _account = _stake.get('_address')
+                length = self._stake_snapshot[_account]['length'][0]
+                self._stake_snapshot[_account]['ids'][length] = current_id
+                self._stake_snapshot[_account]['amounts'][length] = int(_stake.get('_amount'))
+                self._stake_snapshot[_account]['length'][0] += 1
+            else:
+                pass
+
+    @external
+    @only_owner
+    def loadTotalStakeSnapshot(self, _data: List[TotalStakedBalnTokenSnapshots]) -> None:
+        for _id in _data:
+            current_id = int(_id.get('_day'))
+            if current_id < self.getDay():
+                amount = int(_id.get('_amount'))
+                length = self._total_stake_snapshot[current_id]['length'][0]
+                self._total_stake_snapshot[current_id]['ids'][length] = current_id
+                self._total_stake_snapshot[current_id]['amounts'][length] = amount
+                self._total_stake_snapshot[current_id]['length'][0] += 1
+
+            else:
+                pass
 
     # --------------------------------------------------------------------------
     # EVENTS
