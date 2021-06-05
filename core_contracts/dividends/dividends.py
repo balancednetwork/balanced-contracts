@@ -548,7 +548,7 @@ class Dividends(IconScoreBase):
         my_dividends = {}
         if my_total_baln_token > 0 and total_baln_token > 0:
             for token in self._accepted_tokens:
-                my_dividends[str(token)] = (my_total_baln_token * self._dividends_categories[BALN_HOLDERS]
+                my_dividends[str(token)] = (my_total_baln_token * self._dividends_percentage[BALN_HOLDERS]
                                             * self._daily_fees[_day][str(token)]) // (total_baln_token * 10**18)
 
         return my_dividends
@@ -559,7 +559,7 @@ class Dividends(IconScoreBase):
 
         daofund_dividends = {}
         for token in self._accepted_tokens:
-            daofund_dividends[str(token)] = (self._dividends_categories[DAOFUND] * self._daily_fees[_day][str(token)]) \
+            daofund_dividends[str(token)] = (self._dividends_percentage[DAOFUND] * self._daily_fees[_day][str(token)]) \
                                             // 10**18
         return daofund_dividends
 
