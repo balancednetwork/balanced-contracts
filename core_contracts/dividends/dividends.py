@@ -77,6 +77,10 @@ class DexInterface(InterfaceScore):
     def totalBalnAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
         pass
 
+    @interface
+    def getTimeOffset(self) -> int:
+        pass
+
 
 class BalnTokenInterface(InterfaceScore):
 
@@ -166,6 +170,7 @@ class Dividends(IconScoreBase):
     _DIVIDENDS_BATCH_SIZE = "dividends_batch_size"
 
     _CLAIMED_BIT_MAP = "claimed_bit_map_"
+    _TIME_OFFSET = "time_offset"
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
@@ -213,6 +218,8 @@ class Dividends(IconScoreBase):
 
         self._dividends_batch_size = VarDB(self._DIVIDENDS_BATCH_SIZE, db, value_type=int)
 
+        self._time_offset = VarDB(self._TIME_OFFSET, db, value_type=int)
+
     def on_install(self, _governance: Address) -> None:
         super().on_install()
         self._governance.set(_governance)
@@ -229,6 +236,13 @@ class Dividends(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        self._dividends_batch_size.set(50)
+        self._set_time_offset()
+
+    def _set_time_offset(self) -> None:
+        _dex = self.create_interface_score(self._dex_score.get(), DexInterface)
+        offset_time = _dex.getTimeOffset()
+        self._time_offset.set(offset_time)
 
     def _add_initial_categories(self):
         self._dividends_categories.put(DAOFUND)
@@ -394,11 +408,15 @@ class Dividends(IconScoreBase):
         Main method to handle the distribution of tokens to eligible BALN token holders
         :return: True if distribution has completed
         """
-        loans_score = self.create_interface_score(self._loans_score.get(), LoansInterface)
-        current_snapshot_id = loans_score.getDay()
+        self._check_for_new_day()
+        return True
+
+    def _check_for_new_day(self):
+        if self._time_offset.get() == 0:
+            self._set_time_offset()
+        current_snapshot_id = self.getDay()
         if self._snapshot_id.get() < current_snapshot_id:
             self._snapshot_id.set(current_snapshot_id)
-        return True
 
     @external
     def claim(self) -> None:
@@ -456,6 +474,7 @@ class Dividends(IconScoreBase):
             available_tokens = loans.getAssetTokens()
             if str(self.msg.sender) in available_tokens.values():
                 self._accepted_tokens.put(self.msg.sender)
+        self._check_for_new_day()
         day = self._snapshot_id.get()
         self._daily_fees[day][str(self.msg.sender)] += _value
         self.DividendsReceived(_value, f"{_value} tokens received as dividends token: {self.msg.sender}")
@@ -463,6 +482,7 @@ class Dividends(IconScoreBase):
 
     @payable
     def fallback(self):
+        self._check_for_new_day()
         day = self._snapshot_id.get()
         self._daily_fees[day][str(ZERO_SCORE_ADDRESS)] += self.msg.value
         self.DividendsReceived(self.msg.value, f"{self.msg.value} ICX received as dividends")
