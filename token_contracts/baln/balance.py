@@ -83,7 +83,11 @@ class BalancedToken(IRC2):
     _ORACLE = "oracle"
     _ORACLE_NAME = "oracle_name"
 
-    _TIME_OFFSET = 'time_offset'
+    _TIME_OFFSET = "time_offset"
+    _STAKE_SNAPSHOTS = "stake_snapshots"
+    _TOTAL_SNAPSHOTS = "total_snapshots"
+    _TOTAL_STAKED_SNAPSHOT = "total_staked_snapshot"
+    _TOTAL_STAKED_SNAPSHOT_COUNT = "total_staked_snapshot_count"
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
@@ -117,8 +121,14 @@ class BalancedToken(IRC2):
 
         self._time_offset = VarDB(self._TIME_OFFSET, db, value_type=int)
 
-        self._stake_snapshot = DictDB('stakeSnapshot', db, value_type=int, depth=3)
-        self._total_stake_snapshot = DictDB('totalStakeSnapshot', db, value_type=int, depth=3)
+        # [address][snapshot_id]["ids" || "amount"]
+        self._stake_snapshots = DictDB(self._STAKE_SNAPSHOTS, db, value_type=int, depth=3)
+        # [address] = total_number_of_snapshots_taken
+        self._total_snapshots = DictDB(self._TOTAL_SNAPSHOTS, db, value_type=int)
+
+        # [snapshot_id]["ids" || "amount"]
+        self._total_staked_snapshot = DictDB(self._TOTAL_STAKED_SNAPSHOT, db, value_type=int, depth=2)
+        self._total_staked_snapshot_count = VarDB(self._TOTAL_STAKED_SNAPSHOT_COUNT, db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install(TOKEN_NAME, SYMBOL_NAME)
@@ -365,8 +375,8 @@ class BalancedToken(IRC2):
         stake_address_changes = self._stake_changes[self._stake_address_update_db.get()]
         stake_address_changes.put(_from)
 
-        self._update_baln_staked_snapshot(self.msg.sender)
-        self._update_total_staked_snapshot(self.msg.sender)
+        self._update_snapshot_for_address(self.msg.sender, _value)
+        self._update_total_staked_snapshot(self._total_staked_balance.get())
 
     @external
     @only_governance
@@ -566,109 +576,123 @@ class BalancedToken(IRC2):
     # Snapshots
     # ----------------------------------------------------------
 
-    def _update_baln_staked_snapshot(self, _account: Address) -> None:
+    def _update_snapshot_for_address(self, _account: Address, _amount: int) -> None:
+        if self._time_offset.get() == 0:
+            self.setTimeOffset()
         current_id = self.getDay()
-        current_value = self.detailsBalanceOf(_account)['Staked balance']
-        length = self._stake_snapshot[_account]['length'][0]
+        total_snapshots_taken = self._total_snapshots[_account]
 
-        if length == 0:
-            self._stake_snapshot[_account]['amounts'][length] = current_value
-            self._stake_snapshot[_account]['length'][0] += 1
-            return
+        if total_snapshots_taken > 0 and self._stake_snapshots[_account][total_snapshots_taken - 1][IDS] == current_id:
+            self._stake_snapshots[_account][total_snapshots_taken - 1][AMOUNT] = _amount
         else:
-            last_snapshot_id = self._stake_snapshot[_account]['ids'][length - 1]
+            self._stake_snapshots[_account][total_snapshots_taken][IDS] = current_id
+            self._stake_snapshots[_account][total_snapshots_taken][AMOUNT] = _amount
+            self._total_snapshots[_account] = total_snapshots_taken + 1
 
-        if last_snapshot_id < current_id:
-            self._stake_snapshot[_account]['ids'][length] = current_id
-            self._stake_snapshot[_account]['amounts'][length] = current_value
-            self._stake_snapshot[_account]['length'][0] += 1
-        else:
-            self._stake_snapshot[_account]['values'][length - 1] = current_value
+    def _update_total_staked_snapshot(self, _amount: int):
 
-    def _update_total_staked_snapshot(self, _account: Address) -> None:
+        if self._time_offset.get() == 0:
+            self.setTimeOffset()
         current_id = self.getDay()
-        current_value = self.detailsBalanceOf(_account)['Staked balance']
-        length = self._total_stake_snapshot[current_id]['length'][0]
+        total_snapshots_taken = self._total_staked_snapshot_count.get()
 
-        if length == 0:
-            self._total_stake_snapshot[current_id]['amounts'][length] = current_value
-            self._total_stake_snapshot[current_id]['length'][0] += 1
-            return
+        if total_snapshots_taken > 0 and self._total_staked_snapshot[total_snapshots_taken - 1][IDS] == current_id:
+            self._total_staked_snapshot[total_snapshots_taken - 1][AMOUNT] = _amount
         else:
-            last_snapshot_id = self._total_stake_snapshot[current_id]['ids'][length - 1]
-
-        if last_snapshot_id < current_id:
-            self._total_stake_snapshot[current_id]['ids'][length] = current_id
-            self._total_stake_snapshot[current_id]['amounts'][length] = current_value
-            self._total_stake_snapshot[current_id]['length'][0] += 1
-        else:
-            self._total_stake_snapshot[current_id]['values'][length - 1] = current_value
+            self._total_staked_snapshot[total_snapshots_taken][IDS] = current_id
+            self._total_staked_snapshot[total_snapshots_taken][AMOUNT] = _amount
+            self._total_staked_snapshot_count.set(total_snapshots_taken + 1)
 
     @external(readonly=True)
     def stakedBalanceOfAt(self, _account: Address, _day: int) -> int:
-        if _day < 0:
-            revert(f'{TAG}: snapshot id is equal to or greater then Zero')
-        low = 0
-        high = self._stake_snapshot[_account]['length'][0]
+        current_day = self.getDay()
+        if _day > current_day:
+            revert(f'{TAG}: Asked _day is greater than current day')
 
-        while low < high:
-            mid = (low + high) // 2
-            if self._stake_snapshot[_account]['ids'][mid] > _day:
-                high = mid
-            else:
-                low = mid + 1
-        if self._stake_snapshot[_account]['ids'][0] == _day:
-            return self._stake_snapshot[_account]['amounts'][0]
-        elif low == 0:
+        total_snapshots_taken = self._total_snapshots[_account]
+        if total_snapshots_taken == 0:
             return 0
-        else:
-            return self._stake_snapshot[_account]['amounts'][low - 1]
+
+        if self._stake_snapshots[_account][total_snapshots_taken - 1][IDS] <= _day:
+            return self._stake_snapshots[_account][total_snapshots_taken - 1][AMOUNT]
+
+        if self._stake_snapshots[_account][0][IDS] > _day:
+            return 0
+
+        low = 0
+        high = total_snapshots_taken - 1
+        while high > low:
+            mid = high - (high - low)//2
+            mid_value = self._stake_snapshots[_account][mid]
+            if mid_value[IDS] == _day:
+                return mid_value[AMOUNT]
+            elif mid_value[IDS] < _day:
+                low = mid
+            else:
+                high = mid - 1
+
+        return self._stake_snapshots[_account][low][AMOUNT]
 
     @external(readonly=True)
     def totalStakedBalanceOfAt(self, _day: int) -> int:
-        if _day < 0:
-            revert(f'{TAG}: snapshot id is equal to or greater then Zero')
-        low = 0
-        high = self._total_stake_snapshot[_day]['length'][0]
+        current_day = self.getDay()
 
-        while low < high:
-            mid = (low + high) // 2
-            if self._total_stake_snapshot[_day]['ids'][mid] > _day:
-                high = mid
-            else:
-                low = mid + 1
-        if self._total_stake_snapshot[_day]['ids'][0] == _day:
-            return self._total_stake_snapshot[_day]['amounts'][0]
-        elif low == 0:
+        if _day > current_day:
+            revert(f"{TAG}: Asked _day is greater than current day")
+
+        total_snapshots_taken = self._total_staked_snapshot_count.get()
+        if total_snapshots_taken == 0:
             return 0
-        else:
-            return self._total_stake_snapshot[_day]['amounts'][low - 1]
+
+        if self._total_staked_snapshot[total_snapshots_taken - 1][IDS] <= _day:
+            return self._total_staked_snapshot[total_snapshots_taken - 1][AMOUNT]
+
+        if self._total_staked_snapshot[0][IDS] > _day:
+            return 0
+
+        low = 0
+        high = total_snapshots_taken - 1
+        while high > low:
+            mid = high - (high-low)//2
+            mid_value = self._total_staked_snapshot[mid]
+            if mid_value[IDS] == _day:
+                return mid_value[AMOUNT]
+            elif mid_value[IDS] < _day:
+                low = mid
+            else:
+                high = mid - 1
+
+        return self._total_staked_snapshot[low][AMOUNT]
 
     @external
     @only_owner
     def loadBalnStakeSnapshot(self, _data: List[StakedBalnTokenSnapshots]) -> None:
+        if self._time_offset.get() == 0:
+            self.setTimeOffset()
         for _stake in _data:
-            current_id = int(_stake.get('_day'))
+            current_id = int(_stake.get('day'))
             if current_id < self.getDay():
-                _account = _stake.get('_address')
-                length = self._stake_snapshot[_account]['length'][0]
-                self._stake_snapshot[_account]['ids'][length] = current_id
-                self._stake_snapshot[_account]['amounts'][length] = int(_stake.get('_amount'))
-                self._stake_snapshot[_account]['length'][0] += 1
+                _account = _stake.get('address')
+                length = self._total_snapshots[_account]
+                self._stake_snapshots[_account][length][IDS] = current_id
+                self._stake_snapshots[_account][length][AMOUNT] = int(_stake.get('amount'))
+                self._total_snapshots[_account] += 1
             else:
                 pass
 
     @external
     @only_owner
     def loadTotalStakeSnapshot(self, _data: List[TotalStakedBalnTokenSnapshots]) -> None:
+        if self._time_offset.get() == 0:
+            self.setTimeOffset()
         for _id in _data:
-            current_id = int(_id.get('_day'))
+            current_id = int(_id.get('day'))
             if current_id < self.getDay():
-                amount = int(_id.get('_amount'))
-                length = self._total_stake_snapshot[current_id]['length'][0]
-                self._total_stake_snapshot[current_id]['ids'][length] = current_id
-                self._total_stake_snapshot[current_id]['amounts'][length] = amount
-                self._total_stake_snapshot[current_id]['length'][0] += 1
+                amount = int(_id.get('amount'))
+                length = self._total_staked_snapshot_count.get()
+                self._total_staked_snapshot[length][IDS] = current_id
+                self._total_staked_snapshot[length][AMOUNT] = amount
+                self._total_staked_snapshot_count.set(self._total_staked_snapshot_count.get() + 1)
 
             else:
                 pass
