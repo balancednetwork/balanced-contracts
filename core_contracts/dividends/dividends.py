@@ -163,7 +163,6 @@ class Dividends(IconScoreBase):
 
     _DISTRIBUTION_ACTIVATE = "distribution_activate"
 
-    _DIVIDENDS_START_ID = "dividends_start_id"
     _DIVIDENDS_BATCH_SIZE = "dividends_batch_size"
 
     _CLAIMED_BIT_MAP = "claimed_bit_map_"
@@ -212,7 +211,6 @@ class Dividends(IconScoreBase):
 
         self._distribution_activate = VarDB(self._DISTRIBUTION_ACTIVATE, db, value_type=bool)
 
-        self._dividends_start_id = VarDB(self._DIVIDENDS_START_ID, db, value_type=int)
         self._dividends_batch_size = VarDB(self._DIVIDENDS_BATCH_SIZE, db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:

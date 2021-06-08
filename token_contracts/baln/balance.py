@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from iconservice import *
 from .tokens.IRC2 import IRC2
 from .utils.checks import *
 from .utils.consts import *
@@ -45,14 +44,14 @@ class DexInterface(InterfaceScore):
 
 
 class StakedBalnTokenSnapshots(TypedDict):
-    _address: Address
-    _amount: int
-    _day: int
+    address: Address
+    amount: int
+    day: int
 
 
 class TotalStakedBalnTokenSnapshots(TypedDict):
-    _amount: int
-    _day: int
+    amount: int
+    day: int
 
 
 class BalancedToken(IRC2):
