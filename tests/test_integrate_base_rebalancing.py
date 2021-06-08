@@ -146,8 +146,7 @@ class BalancedTestUtils(IconIntegrateTestBase):
         ).build()
         response = self.process_call(call, self.icon_service)
         print(f"-----Reading method={method}, with params={params} on the {to} contract------")
-        # print(f"-------------------The output is: : {response}")
-        print(f"-------------------The output is: : {int(response,16)/10**18}")
+        print(f"-------------------The output is: : {response}")
         return response
 
 
