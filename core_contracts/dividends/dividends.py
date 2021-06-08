@@ -402,6 +402,18 @@ class Dividends(IconScoreBase):
 
         self._dividends_batch_size.set(_size)
 
+    @external(readonly=True)
+    def getSnapshotId(self) -> int:
+        return self._snapshot_id.get()
+
+    @external(readonly=True)
+    def getDay(self) -> int:
+        return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
+
+    @external(readonly=True)
+    def getTimeOffset(self) -> int:
+        return self._time_offset.get()
+
     @external
     def distribute(self, _activate: int = 0) -> bool:
         """
