@@ -63,7 +63,7 @@ class BalancedToken(IRC2):
     _ODD_DAY_STAKE_CHANGES = "odd_day_stake_changes"
 
     _INDEX_STAKE_ADDRESS_CHANGES = "index_stake_address_changes"
-    _INDEX_UDPATE_STAKE = "index_update_stake"
+    _INDEX_UPDATE_STAKE = "index_update_stake"
     _STAKE_UPDATE_DB = "stake_update_db"
     _STAKE_ADDRESS_UPDATE_DB = "stake_address_update_db"
 
@@ -88,6 +88,8 @@ class BalancedToken(IRC2):
     _TOTAL_STAKED_SNAPSHOT = "total_staked_snapshot"
     _TOTAL_STAKED_SNAPSHOT_COUNT = "total_staked_snapshot_count"
 
+    _ENABLE_SNAPSHOTS = "enable_snapshots"
+
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self._dex_score = VarDB(self._DEX_SCORE, db, value_type=Address)
@@ -103,7 +105,7 @@ class BalancedToken(IRC2):
         self._odd_day_stake_changes = ArrayDB(self._ODD_DAY_STAKE_CHANGES, db, value_type=Address)
         self._stake_changes = [self._even_day_stake_changes, self._odd_day_stake_changes]
 
-        self._index_update_stake = VarDB(self._INDEX_UDPATE_STAKE, db, value_type=int)
+        self._index_update_stake = VarDB(self._INDEX_UPDATE_STAKE, db, value_type=int)
         self._index_stake_address_changes = VarDB(self._INDEX_STAKE_ADDRESS_CHANGES, db, value_type=int)
 
         self._stake_update_db = VarDB(self._STAKE_UPDATE_DB, db, value_type=int)
@@ -129,6 +131,8 @@ class BalancedToken(IRC2):
         self._total_staked_snapshot = DictDB(self._TOTAL_STAKED_SNAPSHOT, db, value_type=int, depth=2)
         self._total_staked_snapshot_count = VarDB(self._TOTAL_STAKED_SNAPSHOT_COUNT, db, value_type=int)
 
+        self._enable_snapshots = VarDB(self._ENABLE_SNAPSHOTS, db, value_type=bool)
+
     def on_install(self, _governance: Address) -> None:
         super().on_install(TOKEN_NAME, SYMBOL_NAME)
         self._governance.set(_governance)
@@ -146,6 +150,7 @@ class BalancedToken(IRC2):
     def on_update(self) -> None:
         super().on_update()
         self.setTimeOffset()
+        self._enable_snapshots.set(False)
 
     @external(readonly=True)
     def getPeg(self) -> str:
@@ -332,6 +337,15 @@ class BalancedToken(IRC2):
             revert(f"{TAG}: Staking must first be enabled.")
 
     @external
+    @only_owner
+    def toggleEnableSnapshot(self) -> None:
+        self._enable_snapshots.set(not self._enable_snapshots.get())
+
+    @external(readonly=True)
+    def getSnapshotEnabled(self) -> bool:
+        return self._enable_snapshots.get()
+
+    @external
     @only_governance
     def toggleStakingEnabled(self) -> None:
         self._staking_enabled.set(not self._staking_enabled.get())
@@ -371,11 +385,9 @@ class BalancedToken(IRC2):
         self._staked_balances[_from][Status.UNSTAKING_PERIOD] = self.now() + self._unstaking_period.get()
         self._total_staked_balance.set(self._total_staked_balance.get() + stake_increment)
 
-        stake_address_changes = self._stake_changes[self._stake_address_update_db.get()]
-        stake_address_changes.put(_from)
-
-        self._update_snapshot_for_address(self.msg.sender, _value)
-        self._update_total_staked_snapshot(self._total_staked_balance.get())
+        if self._enable_snapshots.get():
+            self._update_snapshot_for_address(self.msg.sender, _value)
+            self._update_total_staked_snapshot(self._total_staked_balance.get())
 
     @external
     @only_governance
