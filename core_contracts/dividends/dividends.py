@@ -544,9 +544,9 @@ class Dividends(IconScoreBase):
         if not (1 < _end <= self._snapshot_id.get()):
             revert("Invalid value of end provided")
         if _start >= _end:
-            revert("Neither start and end can't be same nor start can be greater")
+            revert("Start must not be greater than or equal to end.")
         if _end - _start > self._dividends_batch_size.get():
-            revert(f"Please select with a difference between start and end of max {self._dividends_batch_size.get()}")
+            revert(f"Maximum allowed range is {self._dividends_batch_size.get()}")
         return _start, _end
 
     def _get_dividends_for_day(self, _account: Address, _day: int) -> dict:
