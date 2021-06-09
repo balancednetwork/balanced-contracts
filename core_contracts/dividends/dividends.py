@@ -489,7 +489,8 @@ class Dividends(IconScoreBase):
         self._check_for_new_day()
         day = self._snapshot_id.get()
         self._daily_fees[day][str(self.msg.sender)] += _value
-        self.DividendsReceived(_value, f"{_value} tokens received as dividends token: {self.msg.sender}")
+        self.DividendsReceived(_value, f"{_value} tokens received as dividends token: {self.msg.sender} "
+                                       f"Snapshot id: {self._snapshot_id.get()}")
         self._amount_received_status.set(True)
 
     @payable
@@ -497,7 +498,8 @@ class Dividends(IconScoreBase):
         self._check_for_new_day()
         day = self._snapshot_id.get()
         self._daily_fees[day][str(ZERO_SCORE_ADDRESS)] += self.msg.value
-        self.DividendsReceived(self.msg.value, f"{self.msg.value} ICX received as dividends")
+        self.DividendsReceived(self.msg.value, f"{self.msg.value} ICX received as dividends. "
+                                               f"Snapshot ID: {self._snapshot_id.get()}")
         self._amount_received_status.set(True)
 
     @external(readonly=True)
