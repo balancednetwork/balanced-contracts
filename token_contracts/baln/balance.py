@@ -682,7 +682,7 @@ class BalancedToken(IRC2):
             self.setTimeOffset()
         for _stake in _data:
             current_id = int(_stake.get('day'))
-            if current_id < self.getDay():
+            if current_id <= self.getDay():
                 _account = _stake.get('address')
                 length = self._total_snapshots[_account]
                 self._stake_snapshots[_account][length][IDS] = current_id
@@ -698,7 +698,7 @@ class BalancedToken(IRC2):
             self.setTimeOffset()
         for _id in _data:
             current_id = int(_id.get('day'))
-            if current_id < self.getDay():
+            if current_id <= self.getDay():
                 amount = int(_id.get('amount'))
                 length = self._total_staked_snapshot_count.get()
                 self._total_staked_snapshot[length][IDS] = current_id
