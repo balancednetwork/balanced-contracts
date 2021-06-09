@@ -259,7 +259,7 @@ class Dividends(IconScoreBase):
         return self._distribution_activate.get()
 
     @external
-    @only_owner
+    @only_governance
     def setDistributionActivationStatus(self, _status: bool) -> None:
         self._distribution_activate.set(_status)
 
