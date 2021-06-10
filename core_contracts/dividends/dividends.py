@@ -349,6 +349,14 @@ class Dividends(IconScoreBase):
         """
         return [token for token in self._accepted_tokens]
 
+    @only_governance
+    @external
+    def addAcceptedTokens(self, _token: Address) -> None:
+        if not _token.is_contract:
+            revert(f"{TAG}: {_token} is not a contract address")
+        if _token not in self._accepted_tokens:
+            self._accepted_tokens.put(_token)
+
     @external(readonly=True)
     def getDividendsCategories(self) -> list:
         return [item for item in self._dividends_categories]
