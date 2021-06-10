@@ -41,12 +41,12 @@ class StakingTestBase(IconIntegrateTestBase):
         super().setUp()
         self.icon_service = IconService(HTTPProvider("http://127.0.0.1:9000", 3))
         self.nid = 3
-        # self._register_100_preps(100, 110)
-        # self._register_100_preps(110, 130)
-        # self._register_100_preps(130, 150)
-        # self._register_100_preps(150, 170)
-        # self._register_100_preps(170, 190)
-        # self._register_100_preps(190, 201)
+        # self._register_100_preps(10, 20)
+        # self._register_100_preps(20, 40)
+        # self._register_100_preps(40, 60)
+        # self._register_100_preps(60, 80)
+        # self._register_100_preps(80, 100)
+        # self._register_100_preps(100, 120)
         # self._register_100_preps(201, 221)
         # self._register_100_preps(50, 55)
         # self._register_100_preps(55, 60)
@@ -57,7 +57,7 @@ class StakingTestBase(IconIntegrateTestBase):
         if os.path.exists(os.path.join(DIR_PATH, "staking_address.json")):
             with open(os.path.join(DIR_PATH, "staking_address.json"), "r") as file:
                 self.contracts = json.load(file)
-            return
+            # return
         else:
             # pass
             self._deploy_all()
@@ -74,14 +74,20 @@ class StakingTestBase(IconIntegrateTestBase):
     def _register_100_preps(self, start, end):
         txs = []
         for i in range(start, end):
+            len_str = str(start)
+            if len(len_str) == 2:
+                j = "0" + str(i)
+            else:
+                j = str(i)
             params = {"name": "Test P-rep " + str(i), "country": "KOR", "city": "Unknown",
-                      "email": "nodehx9eec61296a7010c867ce24c20e69588e28321" + str(i) + "@example.com", "website":
-                          'https://nodehx9eec61296a7010c867ce24c20e69588e28321' + str(i) + '.example.com',
+                      "email": "nodehx9eec61296a7010c867ce24c20e69588e28321" + j + "@example.com", "website":
+                          'https://nodehx9eec61296a7010c867ce24c20e69588e28321' + j + '.example.com',
                       "details": 'https'
-                                 '://nodehx9eec61296a7010c867ce24c20e69588e28321' + str(i) + '.example.com/details',
-                      "p2pEndpoint": "nodehx9eec61296a7010c867ce24c20e69588e28321" + str(i) + ".example.com:7100",
-                      "nodeAddress": "hx9eec61296a7010c867ce24c20e69588e28321" + str(i)}
+                                 '://nodehx9eec61296a7010c867ce24c20e69588e28321' + j + '.example.com/details',
+                      "p2pEndpoint": "nodehx9eec61296a7010c867ce24c20e69588e28321" + j + ".example.com:7100",
+                      "nodeAddress": "hx9eec61296a7010c867ce24c20e69588e28321" + j}
             self.send_icx(self._test1, self._wallet_array[i].get_address(), 3000000000000000000000)
+            print(params["nodeAddress"])
             txs.append(self.build_tx(self._wallet_array[i], "cx0000000000000000000000000000000000000000",
                                      2000000000000000000000, "registerPRep", params))
         ab = self.process_transaction_bulk(txs, self.icon_service, 10)
@@ -165,11 +171,12 @@ class StakingTestBase(IconIntegrateTestBase):
         tx_result = self.process_transaction(signed_transaction, self.icon_service, self.BLOCK_INTERVAL)
         # ab = tx_result
         # print(ab)
-        # step_price = ab['stepPrice']
-        # step_used = ab['stepUsed']
+        step_price = tx_result['stepPrice']
+        step_used = tx_result['stepUsed']
         # print(step_used)
         # print(step_price)
-        # print((step_price * step_used) / 10 ** 18)
+        print("The tx fee is ....")
+        print((step_price * step_used) / 10 ** 18)
         self.assertTrue('status' in tx_result)
         self.assertEqual(1, tx_result['status'], f"Failure: {tx_result['failure']}" if tx_result['status'] == 0 else "")
         return tx_result
@@ -213,7 +220,7 @@ class StakingTestBase(IconIntegrateTestBase):
             deploy_tx = self.build_deploy_tx(
                 from_=self.staking_wallet,
                 to=self.contracts.get(contract, SCORE_INSTALL_ADDRESS),
-                content=os.path.abspath(os.path.join(self.CORE_CONTRACTS_PATH, contract))
+                content=os.path.abspath(os.path.join(self.CORE_CONTRACTS_PATH, "old_staking"))
             )
             txs.append(deploy_tx)
         results = self.process_transaction_bulk(

@@ -6,14 +6,13 @@ stories = {
                     "name": "transfer",
                     "sender": "user1",
                     "receiver": "user2",
-                    "prev_sender_sicx": "80000000000000000000",
+                    "prev_sender_sicx": "160000000000000000000",
                     "prev_receiver_sicx": "30000000000000000000",
                     "total_sicx_transferred": "10000000000000000000",
-                    "curr_sender_sicx": "70000000000000000000",
+                    "curr_sender_sicx": "150000000000000000000",
                     "curr_receiver_sicx": "40000000000000000000",
-                    "delegation_sender": {"hx243d2388c934fe123a2a2abffe9d48f4c7520c25": 70000000000000000000},
-                    "delegation_receiver": {"hxe064ff8825a522d933f2922b846dfae3c5ecd02f": 20000000000000000000,
-                                            "hx4491a4dfc2e71474d938ce77d37be0a8654efe73": 20000000000000000000}
+                    "delegation_sender": {"hx14219ac1b4cca98a29ec7d057afb6651a0eae461": 150000000000000000000},
+                    "delegation_receiver": {"hxe064ff8825a522d933f2922b846dfae3c5ecd02f": 40000000000000000000}
 
                 }
             },
@@ -22,14 +21,13 @@ stories = {
                 "actions": {
                     "name": "transfer",
                     "sender": "user2",
-                    "receiver": "hx72bff0f887ef183bde1391dc61375f096e75c74a",
+                    "receiver": "hx72bff0f887ef183bde1391dc61375f096e75c74b",
                     "prev_sender_sicx": "40000000000000000000",
                     "prev_receiver_sicx": "0",
                     "total_sicx_transferred": "20000000000000000000",
                     "curr_sender_sicx": "20000000000000000000",
                     "curr_receiver_sicx": "20000000000000000000",
-                    "delegation_sender": {"hxe064ff8825a522d933f2922b846dfae3c5ecd02f": 10000000000000000000,
-                                          "hx4491a4dfc2e71474d938ce77d37be0a8654efe73": 10000000000000000000},
+                    "delegation_sender": {"hxe064ff8825a522d933f2922b846dfae3c5ecd02f": 20000000000000000000},
                     "delegation_receiver": "evenly_distribute"
 
                 }

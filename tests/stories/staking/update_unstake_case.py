@@ -5,9 +5,9 @@ stories  = {
                 "actions": {
                     "name": "transfer",
                     "sender": "user1",
-                    "prev_total_stake": "110000000000000000000",
-                    "curr_total_stake": "90000000000000000000",
-                    "curr_sender_sicx": "50000000000000000000",
+                    "prev_total_stake": "210000000000000000000",
+                    "curr_total_stake": "190000000000000000000",
+                    "curr_sender_sicx": "130000000000000000000",
                     "total_sicx_transferred": "20000000000000000000",
                     "unit_test": [
                         {
@@ -23,9 +23,9 @@ stories  = {
                 "actions": {
                     "name": "transfer",
                     "sender": "user2",
-                    "prev_total_stake": "90000000000000000000",
+                    "prev_total_stake": "190000000000000000000",
                     "curr_sender_sicx": "10000000000000000000",
-                    "curr_total_stake": "80000000000000000000",
+                    "curr_total_stake": "180000000000000000000",
                     "total_sicx_transferred": "10000000000000000000",
                     "unit_test": [
                         {
@@ -39,4 +39,3 @@ stories  = {
 
         ]
     }
-
