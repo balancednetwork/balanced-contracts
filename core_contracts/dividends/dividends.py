@@ -439,8 +439,9 @@ class Dividends(IconScoreBase):
 
         total_dividends = {}
         for day in range(start, end):
-            self._set_claimed(self._daofund.get(), day)
             dividends = self._get_dividends_for_daofund(day)
+            if dividends:
+                self._set_claimed(self._daofund.get(), day)
             total_dividends = self._add_dividends(total_dividends, dividends)
 
         try:
@@ -467,8 +468,9 @@ class Dividends(IconScoreBase):
 
         total_dividends = {}
         for day in range(_start, _end):
-            self._set_claimed(_account, day)
             dividends = self._get_dividends_for_day(_account, day)
+            if dividends:
+                self._set_claimed(_account, day)
             total_dividends = self._add_dividends(total_dividends, dividends)
 
         try:
