@@ -275,7 +275,7 @@ class Staking(IconScoreBase):
         address_delegation_string = self._address_delegations[str(_address)]
         if len(address_delegation_string):
             dict_address_delegation_percent = {}
-            for one in address_delegation_string.split("."):
+            for one in address_delegation_string[:-1].split("."):
                 list_key, list_value = one.split(":")
                 if dict_address_delegation_percent.get(list_key) is None:
                     dict_address_delegation_percent[list_key] = int(list_value)
@@ -517,7 +517,6 @@ class Staking(IconScoreBase):
         """
         Adds received ICX to the pool then mints an equivalent value of sICX to
         the recipient address, _to.
-
         :params _to: Wallet address where sICX is minted to.
         :params _data: Data forwarded with the minted sICX.
         """
@@ -532,7 +531,7 @@ class Staking(IconScoreBase):
         previous_address_delegations = self._get_address_delegations_in_per(_to)
         self.get_sICX_score().mintTo(_to, amount, _data)
         user_new_icx = (self.get_sICX_score().balanceOf(_to) * self._rate.get()) // DENOMINATOR
-        if len(previous_address_delegations):
+        if not len(previous_address_delegations):
             is_first_tx = 1
             amount_to_stake_in_per = 100 * DENOMINATOR
             self._distribute_evenly(amount_to_stake_in_per, is_first_tx, _to)
@@ -682,7 +681,6 @@ class Staking(IconScoreBase):
     def _delegations(self, evenly_distribute_value: int) -> None:
         """
         Delegates the ICX to top prep addresses.
-
         :param evenly_distribute_value: Share of even distribution to each P-Rep.
         """
         delegation_list = []
