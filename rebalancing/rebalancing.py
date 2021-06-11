@@ -130,6 +130,7 @@ class Rebalancing(IconScoreBase):
         sicx_from_lenders = 1*10**18 * price * (POINTS - redemption_fee) // (sicx_rate * POINTS)
         pool_price_dex = self.dex_score.getPriceByName("sICX/bnUSD")
         if (sicx_from_lenders * pool_price_dex * 10**18) // 10**36 > 10**18:
+            revert(f'{sicx_from_lenders,pool_price_dex}')
             self.sICX_score.transfer(self._dex.get(), sicx_in_contract, data_bytes)
             bnusd_in_contract = self.bnUSD_score.balanceOf(self.address)
             self.loans_score.returnAsset("bnUSD", bnusd_in_contract)

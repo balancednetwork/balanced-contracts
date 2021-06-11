@@ -37,12 +37,14 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             res = self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
             self.assertEqual(int(res, 0), case['actions']['initial_sicx_in_rebalancer'])
 
-            # self.call_tx(self.contracts['dex'], 'getPriceByName', {"_name": "sICX/bnUSD"})
+            self.call_tx(self.contracts['dex'], 'getPoolStats', {"_id": 2})
 
             dat = "{\"method\": \"_swap\", \"params\": {\"toToken\": \""+self.contracts['sicx']+"\"}}"
             data = dat.encode("utf-8")
             self.send_tx(self._test1, self.contracts['bnUSD'], 0, case['actions']['method'],
                          {'_to': self.contracts['dex'], '_value': case['actions']['amount'], "_data": data})
+
+            self.call_tx(self.contracts['dex'], 'getPoolStats', {"_id": 2})
 
             self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'rebalance', {})
 
