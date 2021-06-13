@@ -480,8 +480,7 @@ class Loans(IconScoreBase):
 
         if _new_day and rewards_done and dividends_done:
             self._rewards_done.set(False)
-            if _day % 7 == 0:
-                self._dividends_done.set(False)
+            self._dividends_done.set(False)
         elif not dividends_done:
             dividends = self.create_interface_score(self._dividends.get(), Dividends)
             self._dividends_done.set(dividends.distribute())
@@ -596,7 +595,7 @@ class Loans(IconScoreBase):
 
     @loans_on
     @external
-    def returnAsset(self, _symbol: str, _value: int) -> None:
+    def returnAsset(self, _symbol: str, _value: int, _repay: bool = True) -> None:
         """
         All returned assets come back to Balanced through this method.
         A borrower will use this method to pay off their loan.
@@ -610,6 +609,8 @@ class Loans(IconScoreBase):
         :type _symbol: str
         :param _value: Number of tokens sent.
         :type _value: int
+        :param _repay: Whether returned funds should be used to repay loan first.
+        :type _repay: bool
         """
         _from = self.msg.sender
         if not _value > 0:
@@ -619,21 +620,20 @@ class Loans(IconScoreBase):
             revert(f'{TAG}: {_symbol} is not an active, borrowable asset on Balanced.')
         if asset.balanceOf(_from) < _value:
             revert(f'{TAG}: Insufficient balance.')
-        if self._positions._exists(_from):
+        if self._positions._exists(_from) and _repay:
             pos = self._positions.get_pos(_from)
-            repay = min(pos[_symbol], _value)
-            if repay > 0:
-                self._repay_loan(_symbol, repay)
-            if repay == _value:
+            repaid: int = min(pos[_symbol], _value)
+            if repaid > 0:
+                self._repay_loan(_symbol, repaid)
+            if repaid == _value:
                 day, new_day = self.checkForNewDay()
                 self.checkDistributions(day, new_day)
                 return
             else:
-                _value -= repay
+                _value -= repaid
         price = asset.priceInLoop()
         sicx_rate = self._assets['sICX'].priceInLoop()
-        fee = _value * self._redemption_fee.get() // POINTS
-        redeemed = _value - fee
+        redeemed = _value
         bad_debt = asset.bad_debt.get()
         asset.burnFrom(_from, _value)
         sicx: int = 0
@@ -644,14 +644,12 @@ class Loans(IconScoreBase):
             redeemed -= bd_value
             sicx += self.bd_redeem(_from, asset, bd_value, sicx_rate, price)
         if redeemed > 0:
-            sicx_from_lenders = redeemed * price // sicx_rate
+            sicx_from_lenders = redeemed * price * (POINTS - self._redemption_fee.get()) // (sicx_rate * POINTS)
             sicx += sicx_from_lenders
             batch_dict = self._retire_redeem(_symbol, redeemed, sicx_from_lenders)
             total_batch_debt = batch_dict[0]
             del batch_dict[0]
         self._send_token("sICX", _from, sicx, "Collateral redeemed.")
-        asset.mint(self._dividends.get(), fee)
-        self.FeePaid(_symbol, fee, "redemption")
         asset.is_dead()
         self.AssetRetired(_from, _symbol, _value, price, redeemed,
                           total_batch_debt, str(batch_dict))
@@ -986,8 +984,15 @@ class Loans(IconScoreBase):
         self._time_offset.set(_delta_time)
 
     @external
-    @only_owner
-    def setRedeemBatchSize(self, _value: int):
+    @only_admin
+    def setMaxRetirePercent(self, _value: int) -> None:
+        if not 0 <= _value <= 10000:
+            revert(f'Input parameter must be in the range 0 to 10000 points.')
+        self._max_retire_percent.set(_value)
+
+    @external
+    @only_admin
+    def setRedeemBatchSize(self, _value: int) -> None:
         self._redeem_batch.set(_value)
 
     @external(readonly=True)
@@ -1009,7 +1014,8 @@ class Loans(IconScoreBase):
             "min mining debt": self._min_mining_debt.get(),
             "max div debt length": self._max_debts_list_length.get(),
             "time offset": self._time_offset.get(),
-            "redeem batch size": self._redeem_batch.get()
+            "redeem batch size": self._redeem_batch.get(),
+            "retire percent max": self._max_retire_percent.get()
         }
 
     # --------------------------------------------------------------------------
