@@ -163,12 +163,10 @@ class Rebalancing(IconScoreBase):
         pool_price_dex = self.dex_score.getPriceByName("sICX/bnUSD")
         if (sicx_from_lenders * pool_price_dex * 10**18) // 10**36 > 10**18:
             sicx_to_retire = self._calculate_sicx_to_retire()
-            if sicx_to_retire < sicx_in_contract:
-                self.sICX_score.transfer(self._dex.get(), sicx_to_retire, data_bytes)
-            else:
+            if sicx_to_retire > sicx_in_contract:
                 self.sICX_score.transfer(self._dex.get(), sicx_in_contract, data_bytes)
-            bnusd_in_contract = self.bnUSD_score.balanceOf(self.address)
-            self.loans_score.returnAsset("bnUSD", bnusd_in_contract)
+                bnusd_in_contract = self.bnUSD_score.balanceOf(self.address)
+                self.loans_score.returnAsset("bnUSD", bnusd_in_contract)
 
     @external
     def tokenFallback(self, _from: Address, value: int, _data: bytes) -> None:
