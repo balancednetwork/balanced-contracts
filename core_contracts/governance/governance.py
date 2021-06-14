@@ -52,6 +52,17 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def cancelVote(self, name: str) -> None:
+        """
+        Cancels a vote, in case a mistake was made in its definition.
+        """
+        if name not in self._votes[0]:
+            revert(f'That is not a valid vote name.')
+        vote_index = self._votes[0][name]['id']
+        self._votes[vote_index][0]['active'] = 0
+
+    @external
+    @only_owner
     def defineVote(self, name: str, quorum: int, duration: int, actions: str, majority: int = MAJORITY) -> None:
         """
         Names a new vote, defines quorum, and actions.
@@ -104,23 +115,31 @@ class Governance(IconScoreBase):
             if majority * result['for'] > EXA * result['against']:
                 self._execute_vote_actions(self._votes[vote_index][0]['vote_actions'])
 
-    def _execute_vote_actions(self, _vote_actions) -> None:
+    def _execute_vote_actions(self, _vote_actions: str) -> None:
         actions = json_loads(_vote_actions)
         for action in actions:
             self.vote_execute[action['method']](**action['params'])
 
     @external(readonly=True)
-    def getVoteIndex(self, _name) -> int:
+    def getVoteIndex(self, _name: str) -> int:
         return self._votes[0][_name]['id']
 
     @external(readonly=True)
-    def checkVote(self, _vote_index) -> dict:
+    def checkVote(self, _vote_index: int) -> dict:
+        if _vote_index < 1 or _vote_index > self._vote_count.get():
+            revert(f'Provided vote index, {_vote_index}, out of range.')
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         total_stake = baln.totalStakedBalance()
-        total_voted = (self._total_voted[_vote_index]['for'], self._total_voted[_vote_index]['against'])
+        if total_stake == 0:
+            _for = 0
+            _against = 0
+        else:
+            total_voted = (self._total_voted[_vote_index]['for'], self._total_voted[_vote_index]['against'])
+            _for = EXA * total_voted[0] // total_stake
+            _against = EXA * total_voted[1] // total_stake
         return {'quorum': self._votes[_vote_index][0]['quorum'],
-                'for': EXA * total_voted[0] // total_stake,
-                'against': EXA * total_voted[1] // total_stake}
+                'for': _for,
+                'against': _against}
 
     @external
     @only_owner
