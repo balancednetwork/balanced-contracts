@@ -25,6 +25,22 @@ class BalancedAddresses(TypedDict):
     bwt: Address
 
 
+class VoteActions(object):
+
+    def __init__(self, db: IconScoreDatabase, gov: IconScoreBase) -> None:
+        self._db = db
+        self._gov = gov
+        self._actions = {
+            'enable_dividends': self._gov.enableDividends
+        }
+
+    def __getitem__(self, key: str):
+        return self._actions[key]
+
+    def __setitem__(self, key, value):
+        revert('illegal access')
+
+
 class Addresses(object):
 
     def __init__(self, db: IconScoreDatabase, gov: IconScoreBase) -> None:
