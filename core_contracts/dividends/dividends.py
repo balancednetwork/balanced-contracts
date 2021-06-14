@@ -199,15 +199,6 @@ class Dividends(IconScoreBase):
         super().on_install()
         self._governance.set(_governance)
 
-        self._accepted_tokens.put(ZERO_SCORE_ADDRESS)
-        loans = self.create_interface_score(Address.from_string('cx66d4d90f5f113eba575bf793570135f9b10cece1'), LoansInterface)
-        day = loans.getDay()
-        self._snapshot_id.set(day)
-        self._max_loop_count.set(MAX_LOOP)
-        self._minimum_eligible_debt.set(MINIMUM_ELIGIBLE_DEBT)
-        self._add_initial_categories()
-        self._distribution_activate.set(False)
-
     def on_update(self) -> None:
         super().on_update()
 
