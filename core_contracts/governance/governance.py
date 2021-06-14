@@ -28,9 +28,15 @@ class Governance(IconScoreBase):
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self.addresses = Addresses(db, self)
+        self.vote_execute = VoteActions(db, self)
         self._launch_day = VarDB('launch_day', db, int)
         self._launch_time = VarDB('launch_time', db, int)
         self._launched = VarDB('launched', db, bool)
+        self._votes = DictDB('votes', db, int, depth=3)
+        self._total_voted = DictDB('total_voted', db, int, depth=2)
+        self._minimum_vote_duration = VarDB('min_duration', db, int)
+        self._vote_actions = DictDB('vote_actions', db, str)
+        self._vote_count = VarDB('vote_count', db, int)
 
     def on_install(self) -> None:
         super().on_install()
@@ -38,10 +44,83 @@ class Governance(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        self._minimum_vote_duration.set(42300)
 
     @external(readonly=True)
     def name(self) -> str:
         return "Balanced Governance"
+
+    @external
+    @only_owner
+    def defineVote(self, name: str, quorum: int, duration: int, actions: str, majority: int = MAJORITY) -> None:
+        """
+        Names a new vote, defines quorum, and actions.
+        """
+        if 0 > quorum > 100:
+            revert(f'Quorum must be greater than 0 and less than 100.')
+        min_duration = self._minimum_vote_duration.get()
+        if duration < min_duration:
+            revert(f'Votes must have a minimum duration of {min_duration} blocks.')
+        if name in self._votes[0]:
+            revert(f'Poll name {name} has already been used.')
+        vote_index = self._vote_count.get() + 1
+        self._vote_count.set(vote_index)
+        self._votes[0][name]['id'] = vote_index
+        self._votes[vote_index][0]['active'] = 1
+        self._votes[vote_index][0]['quorum'] = quorum
+        self._votes[vote_index][0]['majority'] = majority
+        self._votes[vote_index][0]['last_block'] = self.block.height + duration
+        self._vote_actions[vote_index] = actions
+
+    @external
+    def castVote(self, name: str, vote: bool) -> None:
+        """
+        Casts a vote in the named poll.
+        """
+        if name not in self._votes[0] or not self._votes[self._votes[0][name]['id']][0]['active']:
+            revert(f'That is not an active poll.')
+        vote_index = self._votes[0][name]['id']
+        sender = self.msg.sender
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        stake = baln.stakedBalanceOf(sender)
+        prior_vote = (self._votes[vote_index][sender]['for'],
+                      self._votes[vote_index][sender]['against'])
+        if vote:
+            self._votes[vote_index][sender]['for'] = stake
+            self._votes[vote_index][sender]['against'] = 0
+            self._total_voted[vote_index]['for'] += stake - prior_vote[0]
+            self._total_voted[vote_index]['against'] -= prior_vote[1]
+        else:
+            self._votes[vote_index][sender]['for'] = 0
+            self._votes[vote_index][sender]['against'] = stake
+            self._total_voted[vote_index]['for'] -= prior_vote[0]
+            self._total_voted[vote_index]['against'] += stake - prior_vote[1]
+        result = self.checkVote(vote_index)
+        if (self.block.height > self._votes[vote_index][0]['last_block']
+                and result['for'] != result['against']
+                and result['for'] + result['against'] >= result['quorum']):
+            self._votes[vote_index][0]['active'] = 0
+            majority = self._votes[vote_index][0]['majority']
+            if majority * result['for'] > EXA * result['against']:
+                self._execute_vote_actions(self._votes[vote_index][0]['vote_actions'])
+
+    def _execute_vote_actions(self, _vote_actions) -> None:
+        actions = json_loads(_vote_actions)
+        for action in actions:
+            self.vote_execute[action['method']](**action['params'])
+
+    @external(readonly=True)
+    def getVoteIndex(self, _name) -> int:
+        return self._votes[0][_name]['id']
+
+    @external(readonly=True)
+    def checkVote(self, _vote_index) -> dict:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        total_stake = baln.totalStakedBalance()
+        total_voted = (self._total_voted[_vote_index]['for'], self._total_voted[_vote_index]['against'])
+        return {'quorum': self._votes[_vote_index][0]['quorum'],
+                'for': EXA * total_voted[0] // total_stake,
+                'against': EXA * total_voted[1] // total_stake}
 
     @external
     @only_owner
@@ -50,8 +129,7 @@ class Governance(IconScoreBase):
         Set parameters after deployment and before launch.
         Add Assets to Loans.
         """
-        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
-        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         self.addresses.setAdmins()
         self.addresses.setContractAddresses()
         addresses: dict = self.addresses.getAddresses()
@@ -66,9 +144,9 @@ class Governance(IconScoreBase):
         if self._launched.get():
             return
         self._launched.set(True)
-        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
-        dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
-        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         offset = DAY_ZERO + self._launch_day.get()
         day = (self.now() - DAY_START) // U_SECONDS_DAY - offset
         self._set_launch_day(day)
@@ -103,7 +181,7 @@ class Governance(IconScoreBase):
         sICX = self.create_interface_score(sICX_address, AssetInterface)
         dex = self.create_interface_score(dex_address, DexInterface)
         price = bnUSD.priceInLoop()
-        amount = UNITS_PER_TOKEN * value // (price * 7)
+        amount = EXA * value // (price * 7)
         staking.icx(value // 7).stakeICX()
         loans.icx(self.icx.get_balance(self.address)).depositAndBorrow('bnUSD', amount)
         bnUSD_value = bnUSD.balanceOf(self.address)
@@ -190,6 +268,10 @@ class Governance(IconScoreBase):
     @external(readonly=True)
     def getLaunchTime(self) -> int:
         return self._launch_time.get()
+
+    def enableDividends(self) -> None:
+        dividends = self.create_interface_score(self.addresses['dividends'], DividendsInterface)
+        dividends.setDistributionActivationStatus(True)
 
     @external
     @only_owner
@@ -347,7 +429,7 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def daoDisburse(self, _recipient: Address, _amounts: List[Disbursement]) -> bool:
+    def daoDisburse(self, _recipient: Address, _amounts: List[Disbursement]) -> None:
         dao = self.create_interface_score(self.addresses['daofund'], DAOfundInterface)
         dao.disburse(_recipient, _amounts)
 

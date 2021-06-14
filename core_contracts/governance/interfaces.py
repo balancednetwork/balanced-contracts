@@ -197,6 +197,15 @@ class RewardsInterface(InterfaceScore):
     def bonusDist(self, _addresses: List[Address], _amounts: List[int]) -> None:
         pass
 
+
+# An interface to the Dividends SCORE.
+class DividendsInterface(InterfaceScore):
+
+    @interface
+    def setDistributionActivationStatus(self, _status: bool) -> None:
+        pass
+
+
 # An interface to call the setAddress methods on each SCORE.
 class SetAddressesInterface(InterfaceScore):
 
@@ -256,7 +265,15 @@ class SetAddressesInterface(InterfaceScore):
 class BalancedInterface(InterfaceScore):
 
     @interface
+    def totalStakedBalance(self) -> int:
+        pass
+
+    @interface
     def balanceOf(self, _owner: Address) -> int:
+        pass
+
+    @interface
+    def stakedBalanceOf(self, _owner: Address) -> int:
         pass
 
     @interface
