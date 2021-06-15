@@ -199,6 +199,13 @@ class Dividends(IconScoreBase):
         super().on_install()
         self._governance.set(_governance)
 
+        self._accepted_tokens.put(ZERO_SCORE_ADDRESS)
+        self._snapshot_id.set(1)
+        self._max_loop_count.set(MAX_LOOP)
+        self._minimum_eligible_debt.set(MINIMUM_ELIGIBLE_DEBT)
+        self._add_initial_categories()
+        self._distribution_activate.set(False)
+
     def on_update(self) -> None:
         super().on_update()
 
