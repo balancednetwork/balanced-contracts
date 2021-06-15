@@ -443,7 +443,7 @@ class Dividends(IconScoreBase):
         if not self._distribution_activate.get():
             revert("Balanced Dividends: Distribution is not activated. Can't transfer")
 
-        start, end = self._check_start_end()
+        start, end = self._check_start_end(_start, _end)
 
         total_dividends = {}
         for day in range(start, end):
