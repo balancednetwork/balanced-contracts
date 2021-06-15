@@ -32,6 +32,7 @@ class Governance(IconScoreBase):
         self._launch_day = VarDB('launch_day', db, int)
         self._launch_time = VarDB('launch_time', db, int)
         self._launched = VarDB('launched', db, bool)
+        self._time_offset = VarDB('time_offset', db, value_type=int)
         self._votes = DictDB('votes', db, int, depth=3)
         self._total_voted = DictDB('total_voted', db, int, depth=2)
         self._minimum_vote_duration = VarDB('min_duration', db, int)
@@ -44,11 +45,16 @@ class Governance(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self._minimum_vote_duration.set(42300)
+        self._time_offset.set(DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1))
+        self._minimum_vote_duration.set(1)
 
     @external(readonly=True)
     def name(self) -> str:
         return "Balanced Governance"
+
+    @external(readonly=True)
+    def getDay(self) -> int:
+        return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
 
     @external
     @only_owner
@@ -63,24 +69,26 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def defineVote(self, name: str, quorum: int, duration: int, actions: str, majority: int = MAJORITY) -> None:
+    def defineVote(self, name: str, quorum: int, duration: int, snapshot: int, actions: str, majority: int = MAJORITY) -> None:
         """
         Names a new vote, defines quorum, and actions.
         """
         if 0 > quorum > 100:
             revert(f'Quorum must be greater than 0 and less than 100.')
+        if snapshot < 1:
+            revert(f'The reference snapshot index must be greater than zero.')
         min_duration = self._minimum_vote_duration.get()
         if duration < min_duration:
-            revert(f'Votes must have a minimum duration of {min_duration} blocks.')
+            revert(f'Votes must have a minimum duration of {min_duration} days.')
         if name in self._votes[0]:
             revert(f'Poll name {name} has already been used.')
         vote_index = self._vote_count.get() + 1
         self._vote_count.set(vote_index)
         self._votes[0][name]['id'] = vote_index
-        self._votes[vote_index][0]['active'] = 1
         self._votes[vote_index][0]['quorum'] = quorum
         self._votes[vote_index][0]['majority'] = majority
-        self._votes[vote_index][0]['last_block'] = self.block.height + duration
+        self._votes[vote_index][0]['end_snapshot'] = snapshot + duration
+        self._votes[vote_index][0]['vote_snapshot'] = snapshot
         self._vote_actions[vote_index] = actions
 
     @external
@@ -88,12 +96,14 @@ class Governance(IconScoreBase):
         """
         Casts a vote in the named poll.
         """
-        if name not in self._votes[0] or not self._votes[self._votes[0][name]['id']][0]['active']:
-            revert(f'That is not an active poll.')
         vote_index = self._votes[0][name]['id']
+        start_snap = self._votes[vote_index][0]['vote_snapshot']
+        end_snap = self._votes[vote_index][0]['end_snapshot']
+        if name not in self._votes[0] or not self.getDay() >= start_snap:
+            revert(f'That is not an active poll.')
         sender = self.msg.sender
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
-        stake = baln.stakedBalanceOf(sender)
+        stake = baln.stakedBalanceOfAt(sender, start_snap)
         prior_vote = (self._votes[vote_index][sender]['for'],
                       self._votes[vote_index][sender]['against'])
         if vote:
@@ -107,10 +117,9 @@ class Governance(IconScoreBase):
             self._total_voted[vote_index]['for'] -= prior_vote[0]
             self._total_voted[vote_index]['against'] += stake - prior_vote[1]
         result = self.checkVote(vote_index)
-        if (self.block.height > self._votes[vote_index][0]['last_block']
+        if (self.getDay() > end_snap
                 and result['for'] != result['against']
                 and result['for'] + result['against'] >= result['quorum']):
-            self._votes[vote_index][0]['active'] = 0
             majority = self._votes[vote_index][0]['majority']
             if majority * result['for'] > EXA * result['against']:
                 self._execute_vote_actions(self._votes[vote_index][0]['vote_actions'])
