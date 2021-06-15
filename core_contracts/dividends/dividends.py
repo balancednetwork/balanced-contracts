@@ -543,8 +543,8 @@ class Dividends(IconScoreBase):
         self._check_for_new_day()
         day = self._snapshot_id.get()
         self._daily_fees[day][str(self.msg.sender)] += _value
-        self.DividendsReceived(_value, f"{_value} tokens received as dividends token: {self.msg.sender} "
-                                       f"Snapshot id: {self._snapshot_id.get()}")
+        self.DividendsReceivedV2(_value, self._snapshot_id.get(),
+                                 f"{_value} tokens received as dividends token: {self.msg.sender} ")
         self._amount_received_status.set(True)
 
     @payable
@@ -552,8 +552,8 @@ class Dividends(IconScoreBase):
         self._check_for_new_day()
         day = self._snapshot_id.get()
         self._daily_fees[day][str(ZERO_SCORE_ADDRESS)] += self.msg.value
-        self.DividendsReceived(self.msg.value, f"{self.msg.value} ICX received as dividends. "
-                                               f"Snapshot ID: {self._snapshot_id.get()}")
+        self.DividendsReceivedV2(self.msg.value, self._snapshot_id.get(),
+                                 f"{self.msg.value} ICX received as dividends.")
         self._amount_received_status.set(True)
 
     @external(readonly=True)
@@ -680,6 +680,6 @@ class Dividends(IconScoreBase):
     #   EVENT LOGS
     # -------------------------------------------------------------------------------
 
-    @eventlog(indexed=1)
-    def DividendsReceived(self, _amount: int, _data: str) -> None:
+    @eventlog(indexed=2)
+    def DividendsReceivedV2(self, _amount: int, _day: int, _data: str) -> None:
         pass
