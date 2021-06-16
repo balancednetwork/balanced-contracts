@@ -1,6 +1,5 @@
 from .utils.consts import *
 from .interfaces import *
-from .governance import Governance
 
 
 # TypedDict for disbursement specs
@@ -27,7 +26,7 @@ class BalancedAddresses(TypedDict):
 
 class VoteActions(object):
 
-    def __init__(self, db: IconScoreDatabase, gov: 'Governance') -> None:
+    def __init__(self, db: IconScoreDatabase, gov: IconScoreBase) -> None:
         self._db = db
         self._gov = gov
         self._actions = {
