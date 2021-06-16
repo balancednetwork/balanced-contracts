@@ -281,6 +281,10 @@ class BalancedInterface(InterfaceScore):
         pass
 
     @interface
+    def totalStakedBalanceOfAt(self, _day: int) -> int:
+        pass
+
+    @interface
     def transfer(self, _to: Address, _value: int, _data: bytes = None):
         pass
 
