@@ -63,6 +63,7 @@ class Governance(IconScoreBase):
             revert(f'That is not a valid vote name.')
         proposal = ProposalDB(vote_index, self.db)
         proposal.active.set(True)
+        proposal.status.set(ProposalStatus.PROPOSAL_STATUS[ProposalStatus.ACTIVE])
 
     @external
     @only_owner
@@ -75,6 +76,7 @@ class Governance(IconScoreBase):
             revert(f'That is not a valid vote name.')
         proposal = ProposalDB(vote_index, self.db)
         proposal.active.set(False)
+        proposal.status.set(ProposalStatus.PROPOSAL_STATUS[ProposalStatus.CANCELLED])
 
     @external
     @only_owner
@@ -144,9 +146,9 @@ class Governance(IconScoreBase):
                     self._execute_vote_actions(proposal.actions.get())
                     proposal.result.set('Passed')
                 else:
-                    proposal.result.set('Failed')
+                    proposal.status.set(ProposalStatus.PROPOSAL_STATUS[ProposalStatus.DEFEATED])
             else:
-                proposal.result.set('No Quorum')
+                proposal.status.set(ProposalStatus.PROPOSAL_STATUS[ProposalStatus.NO_QUORUM])
             proposal.active.set(False)
 
     def _execute_vote_actions(self, _vote_actions: str) -> None:
@@ -183,8 +185,14 @@ class Governance(IconScoreBase):
                        'quorum': vote_data.quorum.get(),
                        'for': _for,
                        'against': _against}
-        if vote_data.result.get():
-            vote_status['result'] = vote_data.result.get()
+        status = vote_data.status.get()
+        majority = vote_status['majority']
+        if status:
+            vote_status['result'] = status
+        elif vote_status['for'] + vote_status['against'] < vote_status['quorum']:
+            vote_status['result'] = ProposalStatus.PROPOSAL_STATUS[ProposalStatus.NO_QUORUM]
+        elif (EXA - majority) * vote_status['for'] > majority * vote_status['against']:
+            vote_status['result'] = ProposalStatus.PROPOSAL_STATUS[ProposalStatus.SUCCEEDED]
         return vote_status
 
     @external
