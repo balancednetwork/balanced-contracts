@@ -145,24 +145,32 @@ class Rebalancing(IconScoreBase):
         value = ((((oracle_rate * 10 ** 18 * sicx_supply * bnusd_supply) ** 0.5) // 10 ** 18) - sicx_supply)
         return value
 
-    @external
-    def rebalance(self, ) -> None:
-        data = {"method": "_swap", "params": {"toToken": str(self._bnUSD.get())}}
-        data_string = json_dumps(data)
-        data_bytes = str.encode(data_string)
+    @external(readonly=True)
+    def getRebalancingStatus(self) -> tuple:
         self.sICX_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
         self.bnUSD_score = self.create_interface_score(self._bnUSD.get(), bnUSDTokenInterface)
         self.loans_score = self.create_interface_score(self._loans.get(), loansTokenInterface)
         self.dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
-        sicx_in_contract = self.sICX_score.balanceOf(self.address)
         price = self.bnUSD_score.priceInLoop()
         sicx_rate = self.sICX_score.priceInLoop()
         params_loan = self.loans_score.getParameters()
         redemption_fee = params_loan["redemption fee"]
         sicx_from_lenders = 1 * 10 ** 18 * price * (POINTS - redemption_fee) // (sicx_rate * POINTS)
         pool_price_dex = self.dex_score.getPriceByName("sICX/bnUSD")
-        if (sicx_from_lenders * pool_price_dex * 10**18) // 10**36 > 10**18:
-            sicx_to_retire = self._calculate_sicx_to_retire()
+        if (sicx_from_lenders * pool_price_dex * 10 ** 18) // 10 ** 36 > 10 ** 18:
+            return True, self._calculate_sicx_to_retire()
+
+
+    @external
+    def rebalance(self, ) -> None:
+        data = {"method": "_swap", "params": {"toToken": str(self._bnUSD.get())}}
+        data_string = json_dumps(data)
+        data_bytes = str.encode(data_string)
+        self.sICX_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
+        sicx_in_contract = self.sICX_score.balanceOf(self.address)
+        rebalancing_status = self.getRebalancingStatus()
+        if rebalancing_status[0]:
+            sicx_to_retire = rebalancing_status[1]
             if sicx_to_retire > sicx_in_contract:
                 self.sICX_score.transfer(self._dex.get(), sicx_in_contract, data_bytes)
                 bnusd_in_contract = self.bnUSD_score.balanceOf(self.address)
