@@ -33,11 +33,7 @@ class Governance(IconScoreBase):
         self._launch_time = VarDB('launch_time', db, int)
         self._launched = VarDB('launched', db, bool)
         self._time_offset = VarDB('time_offset', db, value_type=int)
-        self._votes = DictDB('votes', db, int, depth=3)
-        self._total_voted = DictDB('total_voted', db, int, depth=2)
         self._minimum_vote_duration = VarDB('min_duration', db, int)
-        self._vote_actions = DictDB('vote_actions', db, str, depth=2)
-        self._vote_count = VarDB('vote_count', db, int)
 
     def on_install(self) -> None:
         super().on_install()
@@ -62,10 +58,11 @@ class Governance(IconScoreBase):
         """
         After defining a vote it will have to be activated.
         """
-        if name not in self._votes[0]:
+        vote_index = ProposalDB.proposal_id(name, self.db)
+        if vote_index > 0:
             revert(f'That is not a valid vote name.')
-        vote_index = self._votes[0][name]['id']
-        self._votes[vote_index][0]['active'] = 1
+        proposal = ProposalDB(vote_index, self.db)
+        proposal.active.set(True)
 
     @external
     @only_owner
@@ -73,14 +70,16 @@ class Governance(IconScoreBase):
         """
         Cancels a vote, in case a mistake was made in its definition.
         """
-        if name not in self._votes[0]:
+        vote_index = ProposalDB.proposal_id(name, self.db)
+        if vote_index > 0:
             revert(f'That is not a valid vote name.')
-        vote_index = self._votes[0][name]['id']
-        self._votes[vote_index][0]['active'] = 0
+        proposal = ProposalDB(vote_index, self.db)
+        proposal.active.set(False)
 
     @external
     @only_owner
-    def defineVote(self, name: str, quorum: int, vote_start: int, duration: int, snapshot: int, actions: str, majority: int = MAJORITY) -> None:
+    def defineVote(self, name: str, quorum: int, vote_start: int, duration: int, snapshot: int, actions: str,
+                   majority: int = MAJORITY) -> None:
         """
         Names a new vote, defines quorum, and actions.
         """
@@ -93,47 +92,42 @@ class Governance(IconScoreBase):
         min_duration = self._minimum_vote_duration.get()
         if duration < min_duration:
             revert(f'Votes must have a minimum duration of {min_duration} days.')
-        if name in self._votes[0]:
+        vote_index = ProposalDB.proposal_id(name, self.db)
+        if vote_index > 0:
             revert(f'Poll name {name} has already been used.')
-        vote_index = self._vote_count.get() + 1
-        self._vote_count.set(vote_index)
-        self._votes[0][name]['id'] = vote_index
-        self._votes[vote_index][0]['quorum'] = quorum
-        self._votes[vote_index][0]['majority'] = majority
-        self._votes[vote_index][0]['vote_snapshot'] = snapshot
-        self._votes[vote_index][0]['vote_start'] = vote_start
-        self._votes[vote_index][0]['end_snapshot'] = vote_start + duration
-        self._vote_actions[vote_index]['actions'] = actions
-        self._vote_actions[vote_index]['name'] = name
+
+        ProposalDB.create_proposal(name=name, proposer=self.msg.sender, quorum=quorum, majority=majority,
+                                   snapshot=snapshot, start=vote_start, end=vote_start + duration, actions=actions,
+                                   db=self.db)
 
     @external
     def castVote(self, name: str, vote: bool) -> None:
         """
         Casts a vote in the named poll.
         """
-        vote_index = self._votes[0][name]['id']
-        start_snap = self._votes[vote_index][0]['vote_start']
-        end_snap = self._votes[vote_index][0]['end_snapshot']
-        if name not in self._votes[0] \
-                or not start_snap <= self.getDay() < end_snap \
-                or self._votes[vote_index][0]['active'] == 0:
+        vote_index = ProposalDB.proposal_id(name, self.db)
+        proposal = ProposalDB(var_key=vote_index, db=self.db)
+        start_snap = proposal.start_snapshot.get()
+        end_snap = proposal.end_snapshot.get()
+        if vote_index <= 0 or not start_snap <= self.getDay() < end_snap or proposal.active.get() is False:
             revert(f'That is not an active poll.')
         sender = self.msg.sender
-        snapshot = self._votes[vote_index][0]['vote_snapshot']
+        snapshot = proposal.vote_snapshot.get()
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         stake = baln.stakedBalanceOfAt(sender, snapshot)
-        prior_vote = (self._votes[vote_index][sender]['for'],
-                      self._votes[vote_index][sender]['against'])
+        prior_vote = (proposal.for_votes_of_user[sender], proposal.against_votes_of_user[sender])
+        total_for_votes = proposal.total_for_votes.get()
+        total_against_votes = proposal.total_against_votes.get()
         if vote:
-            self._votes[vote_index][sender]['for'] = stake
-            self._votes[vote_index][sender]['against'] = 0
-            self._total_voted[vote_index]['for'] += stake - prior_vote[0]
-            self._total_voted[vote_index]['against'] -= prior_vote[1]
+            proposal.for_votes_of_user[sender] = stake
+            proposal.against_votes_of_user[sender] = 0
+            proposal.total_for_votes.set(total_for_votes + stake - prior_vote[0])
+            proposal.total_against_votes.set(total_against_votes - prior_vote[1])
         else:
-            self._votes[vote_index][sender]['for'] = 0
-            self._votes[vote_index][sender]['against'] = stake
-            self._total_voted[vote_index]['for'] -= prior_vote[0]
-            self._total_voted[vote_index]['against'] += stake - prior_vote[1]
+            proposal.for_votes_of_user[sender] = 0
+            proposal.against_votes_of_user[sender] = stake
+            proposal.total_for_votes.set(total_for_votes - prior_vote[0])
+            proposal.total_against_votes.set(total_against_votes + stake - prior_vote[1])
 
     @external
     def executeVoteAction(self, vote_index: int) -> None:
@@ -141,18 +135,19 @@ class Governance(IconScoreBase):
         Executes the vote action if the vote has completed and passed.
         """
         result = self.checkVote(vote_index)
-        end_snap = self._votes[vote_index][0]['end_snapshot']
+        proposal = ProposalDB(vote_index, self.db)
+        end_snap = proposal.end_snapshot.get()
         if self.getDay() >= end_snap and result['for'] != result['against']:
             if result['for'] + result['against'] >= result['quorum']:
-                majority = self._votes[vote_index][0]['majority']
+                majority = proposal.majority.get()
                 if majority * result['for'] > EXA * result['against']:
-                    self._execute_vote_actions(self._vote_actions[vote_index]['actions'])
-                    self._vote_actions[vote_index]['result'] = 'Passed'
+                    self._execute_vote_actions(proposal.actions.get())
+                    proposal.result.set('Passed')
                 else:
-                    self._vote_actions[vote_index]['result'] = 'Failed'
+                    proposal.result.set('Failed')
             else:
-                self._vote_actions[vote_index]['result'] = 'No Quorum'
-            self._votes[vote_index][0]['active'] = 0
+                proposal.result.set('No Quorum')
+            proposal.active.set(False)
 
     def _execute_vote_actions(self, _vote_actions: str) -> None:
         actions = json_loads(_vote_actions)
@@ -161,35 +156,35 @@ class Governance(IconScoreBase):
 
     @external(readonly=True)
     def getVoteIndex(self, _name: str) -> int:
-        return self._votes[0][_name]['id']
+        return ProposalDB.proposal_id(_name, self.db)
 
     @external(readonly=True)
     def checkVote(self, _vote_index: int) -> dict:
-        if _vote_index < 1 or _vote_index > self._vote_count.get():
+        if _vote_index < 1 or _vote_index > ProposalDB.proposal_count(self.db):
             revert(f'Provided vote index, {_vote_index}, out of range.')
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
-        vote_data = self._votes[_vote_index][0]
-        total_stake = baln.totalStakedBalanceOfAt(vote_data['vote_snapshot'])
+        vote_data = ProposalDB(_vote_index, self.db)
+        total_stake = baln.totalStakedBalanceOfAt(vote_data.vote_snapshot.get())
         if total_stake == 0:
             _for = 0
             _against = 0
         else:
-            total_voted = (self._total_voted[_vote_index]['for'], self._total_voted[_vote_index]['against'])
+            total_voted = (vote_data.total_for_votes.get(), vote_data.total_against_votes.get())
             _for = EXA * total_voted[0] // total_stake
             _against = EXA * total_voted[1] // total_stake
-        vote_actions = self._vote_actions[_vote_index]
+
         vote_status = {'id': _vote_index,
-                       'name': vote_actions['name'],
-                       'majority': vote_data['majority'],
-                       'vote snapshot': vote_data['vote_snapshot'],
-                       'start day': vote_data['vote_start'],
-                       'end day': vote_data['end_snapshot'],
-                       'actions': vote_actions['actions'],
-                       'quorum': vote_data['quorum'],
+                       'name': vote_data.name.get(),
+                       'majority': vote_data.majority.get(),
+                       'vote snapshot': vote_data.vote_snapshot.get(),
+                       'start day': vote_data.start_snapshot.get(),
+                       'end day': vote_data.end_snapshot.get(),
+                       'actions': vote_data.actions.get(),
+                       'quorum': vote_data.quorum.get(),
                        'for': _for,
                        'against': _against}
-        if vote_actions['result']:
-            vote_status['result'] = vote_actions['result']
+        if vote_data.result.get():
+            vote_status['result'] = vote_data.result.get()
         return vote_status
 
     @external
