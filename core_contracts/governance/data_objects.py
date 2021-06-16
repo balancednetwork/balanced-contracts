@@ -155,7 +155,7 @@ class ProposalDB:
         self.against_votes_of_user = DictDB(self._key + "_against_votes_of_user", db, value_type=int)
         self.total_for_votes = VarDB(self._key + "_total_for_votes", db, value_type=int)
         self.total_against_votes = VarDB(self._key + "_total_against_votes", db, value_type=int)
-        self.result = VarDB(self._key + "_result", db, value_type=str)
+        self.status = VarDB(self._key + "_status", db, value_type=str)
 
     @classmethod
     def proposal_id(cls, _proposal_name: str, db: IconScoreDatabase) -> int:
@@ -184,5 +184,18 @@ class ProposalDB:
         new_proposal.end_snapshot.set(end)
         new_proposal.actions.set(actions)
         new_proposal.name.set(name)
-
+        new_proposal.status.set(ProposalStatus.PROPOSAL_STATUS[ProposalStatus.PENDING])
         return new_proposal
+
+
+class ProposalStatus:
+    PENDING = 0
+    ACTIVE = 1
+    CANCELLED = 2
+    DEFEATED = 3
+    SUCCEEDED = 4
+    NO_QUORUM = 5
+    EXECUTED = 6
+    FAILED_EXECUTION = 7
+    PROPOSAL_STATUS = ["Pending", "Active", "Cancelled", "Defeated", "Succeeded", "No Quorum", "Executed",
+                       "Failed Execution"]
