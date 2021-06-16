@@ -98,7 +98,7 @@ class Governance(IconScoreBase):
         if vote_index > 0:
             revert(f'Poll name {name} has already been used.')
 
-        ProposalDB.create_proposal(name=name, proposer=self.msg.sender, quorum=quorum, majority=majority,
+        ProposalDB.create_proposal(name=name, proposer=self.msg.sender, quorum=quorum*EXA//100, majority=majority,
                                    snapshot=snapshot, start=vote_start, end=vote_start + duration, actions=actions,
                                    db=self.db)
 
@@ -142,9 +142,12 @@ class Governance(IconScoreBase):
         if self.getDay() >= end_snap and result['for'] != result['against']:
             if result['for'] + result['against'] >= result['quorum']:
                 majority = proposal.majority.get()
-                if majority * result['for'] > EXA * result['against']:
-                    self._execute_vote_actions(proposal.actions.get())
-                    proposal.result.set('Passed')
+                if (EXA - majority) * result['for'] > majority * result['against']:
+                    try:
+                        self._execute_vote_actions(proposal.actions.get())
+                    except BaseException as e:
+                        revert(f"Failed Execution of action. Reason: {e}")
+                    proposal.status.set(ProposalStatus.PROPOSAL_STATUS[ProposalStatus.EXECUTED])
                 else:
                     proposal.status.set(ProposalStatus.PROPOSAL_STATUS[ProposalStatus.DEFEATED])
             else:
