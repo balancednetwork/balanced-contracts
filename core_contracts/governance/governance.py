@@ -63,7 +63,7 @@ class Governance(IconScoreBase):
             revert(f'That is not a valid vote name.')
         proposal = ProposalDB(vote_index, self.db)
         proposal.active.set(True)
-        proposal.status.set(ProposalStatus.PROPOSAL_STATUS[ProposalStatus.ACTIVE])
+        proposal.status.set(ProposalStatus.STATUS[ProposalStatus.ACTIVE])
 
     @external
     @only_owner
@@ -76,7 +76,7 @@ class Governance(IconScoreBase):
             revert(f'That is not a valid vote name.')
         proposal = ProposalDB(vote_index, self.db)
         proposal.active.set(False)
-        proposal.status.set(ProposalStatus.PROPOSAL_STATUS[ProposalStatus.CANCELLED])
+        proposal.status.set(ProposalStatus.STATUS[ProposalStatus.CANCELLED])
 
     @external
     @only_owner
@@ -137,6 +137,8 @@ class Governance(IconScoreBase):
         Executes the vote action if the vote has completed and passed.
         """
         result = self.checkVote(vote_index)
+        if result == {}:
+            revert(f'Provided vote index, {vote_index}, out of range.')
         proposal = ProposalDB(vote_index, self.db)
         end_snap = proposal.end_snapshot.get()
         if self.getDay() >= end_snap and result['for'] != result['against']:
@@ -147,11 +149,11 @@ class Governance(IconScoreBase):
                         self._execute_vote_actions(proposal.actions.get())
                     except BaseException as e:
                         revert(f"Failed Execution of action. Reason: {e}")
-                    proposal.status.set(ProposalStatus.PROPOSAL_STATUS[ProposalStatus.EXECUTED])
+                    proposal.status.set(ProposalStatus.STATUS[ProposalStatus.EXECUTED])
                 else:
-                    proposal.status.set(ProposalStatus.PROPOSAL_STATUS[ProposalStatus.DEFEATED])
+                    proposal.status.set(ProposalStatus.STATUS[ProposalStatus.DEFEATED])
             else:
-                proposal.status.set(ProposalStatus.PROPOSAL_STATUS[ProposalStatus.NO_QUORUM])
+                proposal.status.set(ProposalStatus.STATUS[ProposalStatus.NO_QUORUM])
             proposal.active.set(False)
 
     def _execute_vote_actions(self, _vote_actions: str) -> None:
@@ -166,7 +168,7 @@ class Governance(IconScoreBase):
     @external(readonly=True)
     def checkVote(self, _vote_index: int) -> dict:
         if _vote_index < 1 or _vote_index > ProposalDB.proposal_count(self.db):
-            revert(f'Provided vote index, {_vote_index}, out of range.')
+            return {}
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         vote_data = ProposalDB(_vote_index, self.db)
         total_stake = baln.totalStakedBalanceOfAt(vote_data.vote_snapshot.get())
@@ -193,9 +195,9 @@ class Governance(IconScoreBase):
         if status:
             vote_status['result'] = status
         elif vote_status['for'] + vote_status['against'] < vote_status['quorum']:
-            vote_status['result'] = ProposalStatus.PROPOSAL_STATUS[ProposalStatus.NO_QUORUM]
+            vote_status['result'] = ProposalStatus.STATUS[ProposalStatus.NO_QUORUM]
         elif (EXA - majority) * vote_status['for'] > majority * vote_status['against']:
-            vote_status['result'] = ProposalStatus.PROPOSAL_STATUS[ProposalStatus.SUCCEEDED]
+            vote_status['result'] = ProposalStatus.STATUS[ProposalStatus.SUCCEEDED]
         return vote_status
 
     @external

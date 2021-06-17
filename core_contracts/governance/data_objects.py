@@ -184,7 +184,7 @@ class ProposalDB:
         new_proposal.end_snapshot.set(end)
         new_proposal.actions.set(actions)
         new_proposal.name.set(name)
-        new_proposal.status.set(ProposalStatus.PROPOSAL_STATUS[ProposalStatus.PENDING])
+        new_proposal.status.set(ProposalStatus.STATUS[ProposalStatus.PENDING])
         return new_proposal
 
 
@@ -197,5 +197,4 @@ class ProposalStatus:
     NO_QUORUM = 5
     EXECUTED = 6
     FAILED_EXECUTION = 7
-    PROPOSAL_STATUS = ["Pending", "Active", "Cancelled", "Defeated", "Succeeded", "No Quorum", "Executed",
-                       "Failed Execution"]
+    STATUS = ["Pending", "Active", "Cancelled", "Defeated", "Succeeded", "No Quorum", "Executed", "Failed Execution"]
