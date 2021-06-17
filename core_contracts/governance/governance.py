@@ -59,7 +59,7 @@ class Governance(IconScoreBase):
         After defining a vote it will have to be activated.
         """
         vote_index = ProposalDB.proposal_id(name, self.db)
-        if vote_index > 0:
+        if vote_index == 0:
             revert(f'That is not a valid vote name.')
         proposal = ProposalDB(vote_index, self.db)
         proposal.active.set(True)
