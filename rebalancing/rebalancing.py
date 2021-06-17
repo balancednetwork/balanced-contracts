@@ -39,7 +39,7 @@ class loansTokenInterface(InterfaceScore):
         pass
 
     @interface
-    def returnAsset(self, _symbol: str, _value: int, _repay: bool = True) -> None:
+    def retireRedeem(self, _symbol: str, _redeemed: int, _sicx_from_lenders: int) -> None:
         pass
 
     @interface
@@ -174,7 +174,7 @@ class Rebalancing(IconScoreBase):
             if sicx_to_retire > sicx_in_contract:
                 self.sICX_score.transfer(self._dex.get(), sicx_in_contract, data_bytes)
                 bnusd_in_contract = self.bnUSD_score.balanceOf(self.address)
-                self.loans_score.returnAsset("bnUSD", bnusd_in_contract)
+                self.loans_score.retireRedeem("bnUSD", bnusd_in_contract,1000*10**18)
 
     @external
     def tokenFallback(self, _from: Address, value: int, _data: bytes) -> None:
