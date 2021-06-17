@@ -159,6 +159,8 @@ class Rebalancing(IconScoreBase):
         pool_price_dex = self.dex_score.getPriceByName("sICX/bnUSD")
         if (sicx_from_lenders * pool_price_dex) // 10 ** 18 > 10 ** 18:
             return True, self._calculate_sicx_to_retire()
+        else:
+            return False, self._calculate_sicx_to_retire()
 
 
     @external
