@@ -171,7 +171,10 @@ class Governance(IconScoreBase):
             return {}
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         vote_data = ProposalDB(_vote_index, self.db)
-        total_stake = baln.totalStakedBalanceOfAt(vote_data.vote_snapshot.get())
+        try:
+            total_stake = baln.totalStakedBalanceOfAt(vote_data.vote_snapshot.get())
+        except BaseException:
+            total_stake = 0
         if total_stake == 0:
             _for = 0
             _against = 0
