@@ -47,9 +47,19 @@ class loansTokenInterface(InterfaceScore):
         pass
 
 
+class oracleTokenInterface(InterfaceScore):
+    @interface
+    def get_reference_data(self, _base: str, _quote: str) -> dict:
+        pass
+
+
 class dexTokenInterface(InterfaceScore):
     @interface
     def getPriceByName(self, _name: str) -> int:
+        pass
+
+    @interface
+    def getPoolStats(self, _id: int) -> dict:
         pass
 
 
@@ -58,6 +68,7 @@ class Rebalancing(IconScoreBase):
     _SICX_ADDRESS = 'sicx_address'
     _DEX_ADDRESS = 'dex_address'
     _LOANS_ADDRESS = 'loans_address'
+    _ORACLE_ADDRESS = 'oracle_address'
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
@@ -65,6 +76,7 @@ class Rebalancing(IconScoreBase):
         self._sicx = VarDB(self._SICX_ADDRESS, db, value_type=Address)
         self._dex = VarDB(self._DEX_ADDRESS, db, value_type=Address)
         self._loans = VarDB(self._LOANS_ADDRESS, db, value_type=Address)
+        self._oracle = VarDB(self._ORACLE_ADDRESS, db, value_type=Address)
 
     def on_install(self) -> None:
         super().on_install()
@@ -103,14 +115,36 @@ class Rebalancing(IconScoreBase):
         self._sicx.set(_address)
 
     @external
+    def setOracle(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new Oracle address.
+        """
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
+        self._oracle.set(_address)
+
+    @external
     def setDex(self, _address: Address) -> None:
         """
         :param _address: New contract address to set.
-        Sets new SICX address.
+        Sets new DEX address.
         """
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._dex.set(_address)
+
+    @external(readonly=True)
+    def _calculate_sicx_to_retire(self) -> int:
+        self.oracle_score = self.create_interface_score(self._oracle.get(), oracleTokenInterface)
+        self.dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
+        oracle_price = self.oracle_score.get_reference_data("USD", "ICX")
+        oracle_rate = oracle_price["rate"]
+        pool_stats = self.dex_score.getPoolStats(2)
+        sicx_supply = int(pool_stats['base'])
+        bnusd_supply = int(pool_stats['quote'])
+        value = ((((oracle_rate * 10 ** 18 * sicx_supply * bnusd_supply) ** 0.5) // 10 ** 18) - sicx_supply)
+        return value
 
     @external
     def rebalance(self, ) -> None:
@@ -124,16 +158,16 @@ class Rebalancing(IconScoreBase):
         sicx_in_contract = self.sICX_score.balanceOf(self.address)
         price = self.bnUSD_score.priceInLoop()
         sicx_rate = self.sICX_score.priceInLoop()
-        # redeemed = max_retire_amount
         params_loan = self.loans_score.getParameters()
         redemption_fee = params_loan["redemption fee"]
-        sicx_from_lenders = 1*10**18 * price * (POINTS - redemption_fee) // (sicx_rate * POINTS)
+        sicx_from_lenders = 1 * 10 ** 18 * price * (POINTS - redemption_fee) // (sicx_rate * POINTS)
         pool_price_dex = self.dex_score.getPriceByName("sICX/bnUSD")
-        if (sicx_from_lenders * pool_price_dex * 10**18) // 10**36 > 10**18:
-            revert(f'{sicx_from_lenders,pool_price_dex}')
-            self.sICX_score.transfer(self._dex.get(), sicx_in_contract, data_bytes)
-            bnusd_in_contract = self.bnUSD_score.balanceOf(self.address)
-            self.loans_score.returnAsset("bnUSD", bnusd_in_contract)
+        if (sicx_from_lenders * pool_price_dex) // 10**18 > 10**18:
+            sicx_to_retire = self._calculate_sicx_to_retire()
+            if sicx_to_retire > sicx_in_contract:
+                self.sICX_score.transfer(self._dex.get(), sicx_in_contract, data_bytes)
+                bnusd_in_contract = self.bnUSD_score.balanceOf(self.address)
+                self.loans_score.returnAsset("bnUSD", bnusd_in_contract)
 
     @external
     def tokenFallback(self, _from: Address, value: int, _data: bytes) -> None:
