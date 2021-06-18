@@ -20,6 +20,8 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
                      {"_address": self.contracts['dex']})
         self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'setOracle',
                      {"_address": self.contracts['oracle']})
+        self.send_tx(self.btest_wallet, self.contracts['loans'], 0, 'setRebalance',
+                     {"_address": self.contracts['rebalancing']})
 
     def test_rebalance(self):
         test_cases = REBALANCING_STORIES
@@ -34,7 +36,8 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             print("############################################################################################")
             print(case['description'])
 
-            # self.call_tx(self.contracts['bnUSD'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
+            self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
+            self.call_tx(self.contracts['bnUSD'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
 
             res = self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
             self.assertEqual(int(res, 0), case['actions']['initial_sicx_in_rebalancer'])
@@ -48,7 +51,7 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
 
             self.call_tx(self.contracts['dex'], 'getPoolStats', {"_id": 2})
 
-            self.call_tx(self.contracts['rebalancing'], '_calculate_sicx_to_retire', {})
+            self.call_tx(self.contracts['rebalancing'], 'getRebalancingStatus', {})
 
             self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'rebalance', {})
 
@@ -56,5 +59,8 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             # self.assertEqual(int(res, 0), case['actions']['final_sicx_in_rebalancer'])
 
             # self.call_tx(self.contracts['dex'], 'getPriceByName', {"_name": "sICX/bnUSD"})
-            res = self.call_tx(self.contracts['rebalancing'], '_calculate_sicx_to_retire', {})
-            self.assertEqual(res/10**18, case['actions']['sicx_to_retire'])
+            res = self.call_tx(self.contracts['rebalancing'], 'getRebalancingStatus', {})
+            self.assertEqual(res[1]/10**18, case['actions']['sicx_to_retire'])
+
+            self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
+            self.call_tx(self.contracts['bnUSD'], 'balanceOf', {"_owner": self.contracts['rebalancing']})

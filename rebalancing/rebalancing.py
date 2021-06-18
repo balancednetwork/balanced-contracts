@@ -1,3 +1,4 @@
+
 from iconservice import *
 
 TAG = 'Rebalancing'
@@ -39,7 +40,7 @@ class loansTokenInterface(InterfaceScore):
         pass
 
     @interface
-    def returnAsset(self, _symbol: str, _value: int, _repay: bool = True) -> None:
+    def retireRedeem(self, _symbol: str, _redeemed: int, _sicx_from_lenders: int) -> None:
         pass
 
     @interface
@@ -134,7 +135,6 @@ class Rebalancing(IconScoreBase):
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._dex.set(_address)
 
-    @external(readonly=True)
     def _calculate_sicx_to_retire(self) -> int:
         self.oracle_score = self.create_interface_score(self._oracle.get(), oracleTokenInterface)
         self.dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
@@ -146,32 +146,38 @@ class Rebalancing(IconScoreBase):
         value = ((((oracle_rate * 10 ** 18 * sicx_supply * bnusd_supply) ** 0.5) // 10 ** 18) - sicx_supply)
         return value
 
-    @external
-    def rebalance(self, ) -> None:
-        data = {"method": "_swap", "params": {"toToken": str(self._bnUSD.get())}}
-        data_string = json_dumps(data)
-        data_bytes = str.encode(data_string)
+    @external(readonly=True)
+    def getRebalancingStatus(self) -> tuple:
         self.sICX_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
         self.bnUSD_score = self.create_interface_score(self._bnUSD.get(), bnUSDTokenInterface)
         self.loans_score = self.create_interface_score(self._loans.get(), loansTokenInterface)
         self.dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
-        sicx_in_contract = self.sICX_score.balanceOf(self.address)
         price = self.bnUSD_score.priceInLoop()
         sicx_rate = self.sICX_score.priceInLoop()
         params_loan = self.loans_score.getParameters()
         redemption_fee = params_loan["redemption fee"]
         sicx_from_lenders = 1 * 10 ** 18 * price * (POINTS - redemption_fee) // (sicx_rate * POINTS)
         pool_price_dex = self.dex_score.getPriceByName("sICX/bnUSD")
-        if (sicx_from_lenders * pool_price_dex) // 10**18 > 10**18:
-            sicx_to_retire = self._calculate_sicx_to_retire()
+        if (sicx_from_lenders * pool_price_dex * 10 ** 18) // 10 ** 36 > 10 ** 18:
+            return True, self._calculate_sicx_to_retire()
+        else:
+            return False, self._calculate_sicx_to_retire()
+
+    @external
+    def rebalance(self, ) -> None:
+        data = {"method": "_swap", "params": {"toToken": str(self._bnUSD.get())}}
+        data_string = json_dumps(data)
+        data_bytes = str.encode(data_string)
+        self.sICX_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
+        sicx_in_contract = self.sICX_score.balanceOf(self.address)
+        rebalancing_status = self.getRebalancingStatus()
+        if rebalancing_status[0]:
+            sicx_to_retire = rebalancing_status[1]
             if sicx_to_retire > sicx_in_contract:
                 self.sICX_score.transfer(self._dex.get(), sicx_in_contract, data_bytes)
                 bnusd_in_contract = self.bnUSD_score.balanceOf(self.address)
-                self.loans_score.returnAsset("bnUSD", bnusd_in_contract)
+                self.loans_score.retireRedeem("bnUSD", bnusd_in_contract, 1000*10**18)
 
     @external
     def tokenFallback(self, _from: Address, value: int, _data: bytes) -> None:
-        pass
-
-    def fallback(self) -> None:
         pass
