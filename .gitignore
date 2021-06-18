@@ -2,6 +2,7 @@
 .DS_Store
 keystores/*
 *keystore*
+data
 
 # tbears test files
 .testscore/
