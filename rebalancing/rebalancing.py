@@ -1,4 +1,3 @@
-
 from iconservice import *
 
 TAG = 'Rebalancing'
@@ -158,7 +157,7 @@ class Rebalancing(IconScoreBase):
         redemption_fee = params_loan["redemption fee"]
         sicx_from_lenders = 1 * 10 ** 18 * price * (POINTS - redemption_fee) // (sicx_rate * POINTS)
         pool_price_dex = self.dex_score.getPriceByName("sICX/bnUSD")
-        if (sicx_from_lenders * pool_price_dex * 10 ** 18) // 10 ** 36 > 10 ** 18:
+        if (sicx_from_lenders * pool_price_dex) // 10 ** 18 > 10 ** 18:
             return True, self._calculate_sicx_to_retire()
         else:
             return False, self._calculate_sicx_to_retire()
@@ -176,7 +175,7 @@ class Rebalancing(IconScoreBase):
             if sicx_to_retire > sicx_in_contract:
                 self.sICX_score.transfer(self._dex.get(), sicx_in_contract, data_bytes)
                 bnusd_in_contract = self.bnUSD_score.balanceOf(self.address)
-                self.loans_score.retireRedeem("bnUSD", bnusd_in_contract, 1000*10**18)
+                self.loans_score.retireRedeem("bnUSD", bnusd_in_contract,1000*10**18)
 
     @external
     def tokenFallback(self, _from: Address, value: int, _data: bytes) -> None:

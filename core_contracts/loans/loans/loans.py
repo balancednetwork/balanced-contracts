@@ -437,7 +437,6 @@ class Loans(IconScoreBase):
         loop_value = self._positions._snapshot_db[-2].total_mining_debt.get()
         return EXA * loop_value // bnUSD_price
 
-
     @external(readonly=True)
     def getDataCount(self, _snapshot_id: int) -> int:
         """
@@ -592,7 +591,7 @@ class Loans(IconScoreBase):
                 self._positions.remove_nonzero(pos_id)
         asset.burnFrom(_from, repaid)
         self.LoanRepaid(_from, _symbol, repaid,
-            f'Loan of {repaid} {_symbol} repaid to Balanced.')
+                        f'Loan of {repaid} {_symbol} repaid to Balanced.')
         asset.is_dead()
 
     @loans_on
@@ -615,6 +614,7 @@ class Loans(IconScoreBase):
         :type _repay: bool
         """
         _from = self.msg.sender
+        event_flag = 0
         if not _value > 0:
             revert(f'{TAG}: Amount retired must be greater than zero.')
         asset = self._assets[_symbol]
@@ -645,6 +645,7 @@ class Loans(IconScoreBase):
             bd_value = min(bad_debt, redeemed)
             redeemed -= bd_value
             sicx += self.bd_redeem(_from, asset, bd_value, sicx_rate, price)
+            event_flag = 1
         # if redeemed > 0:
         #     sicx_from_lenders = redeemed * price * (POINTS - self._redemption_fee.get()) // (sicx_rate * POINTS)
         #     sicx += sicx_from_lenders
@@ -653,7 +654,10 @@ class Loans(IconScoreBase):
         #     del batch_dict[0]
         self._send_token("sICX", _from, sicx, "Collateral redeemed.")
         asset.is_dead()
-        self.AssetRetired(_from, _symbol, _value, price, redeemed,
+        if event_flag == 1:
+            self.BaddebtRetired(_from, _symbol, _value, redeemed)
+        else:
+            self.AssetRetired(_from, _symbol, _value, price, redeemed,
                           total_batch_debt, str(batch_dict))
         if redeemed == 0:
             day, new_day = self.checkForNewDay()
@@ -792,7 +796,7 @@ class Loans(IconScoreBase):
         new_debt = _amount + fee
         pos[_asset] = pos[_asset] + new_debt
         self.OriginateLoan(_from, _asset, _amount,
-            f'Loan of {_amount} {_asset} from Balanced.')
+                           f'Loan of {_amount} {_asset} from Balanced.')
         self._assets[_asset].mint(_from, _amount)
 
         # Pay fee
@@ -913,6 +917,13 @@ class Loans(IconScoreBase):
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._governance.set(_address)
+
+    @external
+    @only_owner
+    def setRebalance(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
+        self._rebalance.set(_address)
 
     @external
     @only_governance
@@ -1070,6 +1081,11 @@ class Loans(IconScoreBase):
     def AssetRetired(self, account: Address, symbol: str, amount: int, price: int,
                      redeemed_from_batch: int, total_batch_debt: int, batch_dict: str):
         pass
+
+    @eventlog(indexed=3)
+    def BaddebtRetired(self, account: Address, symbol: str, amount: int, price: int):
+        pass
+
 
     @eventlog(indexed=2)
     def Liquidate(self, account: Address, amount: int, note: str):
