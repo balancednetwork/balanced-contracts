@@ -1,4 +1,5 @@
-import time
+import json
+from json import JSONDecodeError
 
 from iconservice import Address
 from tbears.libs.scoretest.score_test_case import ScoreTestCase
@@ -32,3 +33,21 @@ class TestGovernanceUnit(ScoreTestCase):
                     'start day': 150, 'end day': 152, 'actions': 'hello', 'quorum': 400000000000000000, 'for': 0,
                     'against': 0, 'result': 'Pending'}
         self.assertEqual(expected, self.governance.checkVote(_vote_index=1))
+
+    def test_execute_vote_actions(self):
+
+        dividends = Address.from_string(f"cx{'12345'*8}")
+        self.governance.addresses._dividends.set(dividends)
+        self.patch_internal_method(dividends, "setDistributionActivationStatus", lambda x: x)
+
+        incorrect_actions = json.dumps({"enable_dividends": {"status": True}})
+        correct_actions = json.dumps({"enable_dividends": {}})
+        incorrect_json = "method: enable_dividends, params: {'status': True}"
+
+        self.assertRaises(TypeError, self.governance._execute_vote_actions, incorrect_actions)
+        try:
+            self.governance._execute_vote_actions(correct_actions)
+        except TypeError:
+            self.fail("Raised type error unexpectedly")
+
+        self.assertRaises(JSONDecodeError, self.governance._execute_vote_actions, incorrect_json)
