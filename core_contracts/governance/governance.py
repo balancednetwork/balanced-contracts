@@ -214,6 +214,11 @@ class Governance(IconScoreBase):
             vote_status['result'] = ProposalStatus.STATUS[ProposalStatus.SUCCEEDED]
         return vote_status
 
+    @external(readonly=True)
+    def getVotesOfUser(self, vote_index: int, user: Address) -> dict:
+        vote_data = ProposalDB(vote_index, self.db)
+        return {"for": vote_data.for_votes_of_user[user], "against": vote_data.against_votes_of_user[user]}
+
     @external
     @only_owner
     def configureBalanced(self) -> None:
