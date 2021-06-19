@@ -98,9 +98,17 @@ class Governance(IconScoreBase):
         if vote_index > 0:
             revert(f'Poll name {name} has already been used.')
 
+        actions_dict = json_loads(actions)
+        if len(actions_dict) > self.maxActions():
+            revert(f"Balanced Governance: Only {self.maxActions()} actions are allowed")
+
         ProposalDB.create_proposal(name=name, proposer=self.msg.sender, quorum=quorum*EXA//100, majority=majority,
                                    snapshot=snapshot, start=vote_start, end=vote_start + duration, actions=actions,
                                    db=self.db)
+
+    @external(readonly=True)
+    def maxActions(self) -> int:
+        return 5
 
     @external
     def castVote(self, name: str, vote: bool) -> None:
