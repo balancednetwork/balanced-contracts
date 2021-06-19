@@ -420,7 +420,7 @@ class Dividends(IconScoreBase):
         return self._time_offset.get()
 
     @external
-    def distribute(self, _activate: int = 0) -> bool:
+    def distribute(self) -> bool:
         """
         Main method to handle the distribution of tokens to eligible BALN token holders
         :return: True if distribution has completed
