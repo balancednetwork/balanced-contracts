@@ -91,8 +91,3 @@ class TestDividendsUnit(ScoreTestCase):
         self.assertEqual({}, self.dividends._get_dividends_for_daofund(day))
 
 
-
-
-
-
-
