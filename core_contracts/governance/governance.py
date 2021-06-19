@@ -210,12 +210,16 @@ class Governance(IconScoreBase):
                        'against': _against}
         status = vote_data.status.get()
         majority = vote_status['majority']
-        if status:
-            vote_status['result'] = status
-        elif vote_status['for'] + vote_status['against'] < vote_status['quorum']:
-            vote_status['result'] = ProposalStatus.STATUS[ProposalStatus.NO_QUORUM]
-        elif (EXA - majority) * vote_status['for'] > majority * vote_status['against']:
-            vote_status['result'] = ProposalStatus.STATUS[ProposalStatus.SUCCEEDED]
+        if status == ProposalStatus.STATUS[ProposalStatus.ACTIVE] and self.getDay() >= vote_status["end day"]:
+            if vote_status['for'] + vote_status['against'] < vote_status['quorum']:
+                vote_status['status'] = ProposalStatus.STATUS[ProposalStatus.NO_QUORUM]
+            elif (EXA - majority) * vote_status['for'] > majority * vote_status['against']:
+                vote_status['status'] = ProposalStatus.STATUS[ProposalStatus.SUCCEEDED]
+            else:
+                vote_status['status'] = ProposalStatus.STATUS[ProposalStatus.DEFEATED]
+        else:
+            vote_status['status'] = status
+
         return vote_status
 
     @external(readonly=True)
