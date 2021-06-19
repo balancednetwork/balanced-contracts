@@ -62,6 +62,8 @@ class Governance(IconScoreBase):
         if vote_index == 0:
             revert(f'That is not a valid vote name.')
         proposal = ProposalDB(vote_index, self.db)
+        if proposal.status.get() != ProposalStatus.STATUS[ProposalStatus.PENDING]:
+            revert("Balanced Governance: A vote can be activated only from Pending status")
         proposal.active.set(True)
         proposal.status.set(ProposalStatus.STATUS[ProposalStatus.ACTIVE])
 
@@ -75,6 +77,8 @@ class Governance(IconScoreBase):
         if vote_index == 0:
             revert(f'That is not a valid vote name.')
         proposal = ProposalDB(vote_index, self.db)
+        if proposal.status.get() != ProposalStatus.STATUS[ProposalStatus.PENDING]:
+            revert("Balanced Governance: Proposal can be cancelled only from pending status")
         proposal.active.set(False)
         proposal.status.set(ProposalStatus.STATUS[ProposalStatus.CANCELLED])
 
@@ -98,9 +102,17 @@ class Governance(IconScoreBase):
         if vote_index > 0:
             revert(f'Poll name {name} has already been used.')
 
+        actions_dict = json_loads(actions)
+        if len(actions_dict) > self.maxActions():
+            revert(f"Balanced Governance: Only {self.maxActions()} actions are allowed")
+
         ProposalDB.create_proposal(name=name, proposer=self.msg.sender, quorum=quorum*EXA//100, majority=majority,
                                    snapshot=snapshot, start=vote_start, end=vote_start + duration, actions=actions,
                                    db=self.db)
+
+    @external(readonly=True)
+    def maxActions(self) -> int:
+        return 5
 
     @external
     def castVote(self, name: str, vote: bool) -> None:
@@ -141,20 +153,23 @@ class Governance(IconScoreBase):
             revert(f'Provided vote index, {vote_index}, out of range.')
         proposal = ProposalDB(vote_index, self.db)
         end_snap = proposal.end_snapshot.get()
-        if self.getDay() >= end_snap and result['for'] != result['against']:
-            if result['for'] + result['against'] >= result['quorum']:
-                majority = proposal.majority.get()
-                if (EXA - majority) * result['for'] > majority * result['against']:
-                    try:
-                        self._execute_vote_actions(proposal.actions.get())
-                    except BaseException as e:
-                        revert(f"Failed Execution of action. Reason: {e}")
-                    proposal.status.set(ProposalStatus.STATUS[ProposalStatus.EXECUTED])
-                else:
-                    proposal.status.set(ProposalStatus.STATUS[ProposalStatus.DEFEATED])
+        
+        if self.getDay() < end_snap:
+            revert("Balanced Governance: Voting period has not ended")
+
+        if result['for'] + result['against'] >= result['quorum']:
+            majority = proposal.majority.get()
+            if (EXA - majority) * result['for'] > majority * result['against']:
+                try:
+                    self._execute_vote_actions(proposal.actions.get())
+                except BaseException as e:
+                    revert(f"Failed Execution of action. Reason: {e}")
+                proposal.status.set(ProposalStatus.STATUS[ProposalStatus.EXECUTED])
             else:
-                proposal.status.set(ProposalStatus.STATUS[ProposalStatus.NO_QUORUM])
-            proposal.active.set(False)
+                proposal.status.set(ProposalStatus.STATUS[ProposalStatus.DEFEATED])
+        else:
+            proposal.status.set(ProposalStatus.STATUS[ProposalStatus.NO_QUORUM])
+        proposal.active.set(False)
 
     def _execute_vote_actions(self, _vote_actions: str) -> None:
         actions = json_loads(_vote_actions)
@@ -195,13 +210,22 @@ class Governance(IconScoreBase):
                        'against': _against}
         status = vote_data.status.get()
         majority = vote_status['majority']
-        if status:
-            vote_status['result'] = status
-        elif vote_status['for'] + vote_status['against'] < vote_status['quorum']:
-            vote_status['result'] = ProposalStatus.STATUS[ProposalStatus.NO_QUORUM]
-        elif (EXA - majority) * vote_status['for'] > majority * vote_status['against']:
-            vote_status['result'] = ProposalStatus.STATUS[ProposalStatus.SUCCEEDED]
+        if status == ProposalStatus.STATUS[ProposalStatus.ACTIVE] and self.getDay() >= vote_status["end day"]:
+            if vote_status['for'] + vote_status['against'] < vote_status['quorum']:
+                vote_status['status'] = ProposalStatus.STATUS[ProposalStatus.NO_QUORUM]
+            elif (EXA - majority) * vote_status['for'] > majority * vote_status['against']:
+                vote_status['status'] = ProposalStatus.STATUS[ProposalStatus.SUCCEEDED]
+            else:
+                vote_status['status'] = ProposalStatus.STATUS[ProposalStatus.DEFEATED]
+        else:
+            vote_status['status'] = status
+
         return vote_status
+
+    @external(readonly=True)
+    def getVotesOfUser(self, vote_index: int, user: Address) -> dict:
+        vote_data = ProposalDB(vote_index, self.db)
+        return {"for": vote_data.for_votes_of_user[user], "against": vote_data.against_votes_of_user[user]}
 
     @external
     @only_owner
