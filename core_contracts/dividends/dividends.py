@@ -451,7 +451,7 @@ class Dividends(IconScoreBase):
 
         try:
             for token in self._accepted_tokens:
-                if total_dividends[str(token)] > 0:
+                if total_dividends.get(str(token), 0) > 0:
                     if str(token) == str(ZERO_SCORE_ADDRESS):
                         self._send_ICX(self._daofund.get(), total_dividends[str(token)], "Daofund dividends")
                     else:
@@ -481,7 +481,7 @@ class Dividends(IconScoreBase):
 
         try:
             for token in self._accepted_tokens:
-                if total_dividends[str(token)] > 0:
+                if total_dividends.get(str(token), 0) > 0:
                     if str(token) == str(ZERO_SCORE_ADDRESS):
                         self._send_ICX(_account, total_dividends[str(token)], "User dividends")
                     else:
