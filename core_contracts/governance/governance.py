@@ -62,6 +62,8 @@ class Governance(IconScoreBase):
         if vote_index == 0:
             revert(f'That is not a valid vote name.')
         proposal = ProposalDB(vote_index, self.db)
+        if proposal.status.get() != ProposalStatus.STATUS[ProposalStatus.PENDING]:
+            revert("Balanced Governance: A vote can be activated only from Pending status")
         proposal.active.set(True)
         proposal.status.set(ProposalStatus.STATUS[ProposalStatus.ACTIVE])
 
@@ -75,6 +77,8 @@ class Governance(IconScoreBase):
         if vote_index == 0:
             revert(f'That is not a valid vote name.')
         proposal = ProposalDB(vote_index, self.db)
+        if proposal.status.get() != ProposalStatus.STATUS[ProposalStatus.PENDING]:
+            revert("Balanced Governance: Proposal can be cancelled only from pending status")
         proposal.active.set(False)
         proposal.status.set(ProposalStatus.STATUS[ProposalStatus.CANCELLED])
 
