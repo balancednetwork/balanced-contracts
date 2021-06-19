@@ -149,20 +149,23 @@ class Governance(IconScoreBase):
             revert(f'Provided vote index, {vote_index}, out of range.')
         proposal = ProposalDB(vote_index, self.db)
         end_snap = proposal.end_snapshot.get()
-        if self.getDay() >= end_snap and result['for'] != result['against']:
-            if result['for'] + result['against'] >= result['quorum']:
-                majority = proposal.majority.get()
-                if (EXA - majority) * result['for'] > majority * result['against']:
-                    try:
-                        self._execute_vote_actions(proposal.actions.get())
-                    except BaseException as e:
-                        revert(f"Failed Execution of action. Reason: {e}")
-                    proposal.status.set(ProposalStatus.STATUS[ProposalStatus.EXECUTED])
-                else:
-                    proposal.status.set(ProposalStatus.STATUS[ProposalStatus.DEFEATED])
+        
+        if self.getDay() < end_snap:
+            revert("Balanced Governance: Voting period has not ended")
+
+        if result['for'] + result['against'] >= result['quorum']:
+            majority = proposal.majority.get()
+            if (EXA - majority) * result['for'] > majority * result['against']:
+                try:
+                    self._execute_vote_actions(proposal.actions.get())
+                except BaseException as e:
+                    revert(f"Failed Execution of action. Reason: {e}")
+                proposal.status.set(ProposalStatus.STATUS[ProposalStatus.EXECUTED])
             else:
-                proposal.status.set(ProposalStatus.STATUS[ProposalStatus.NO_QUORUM])
-            proposal.active.set(False)
+                proposal.status.set(ProposalStatus.STATUS[ProposalStatus.DEFEATED])
+        else:
+            proposal.status.set(ProposalStatus.STATUS[ProposalStatus.NO_QUORUM])
+        proposal.active.set(False)
 
     def _execute_vote_actions(self, _vote_actions: str) -> None:
         actions = json_loads(_vote_actions)
