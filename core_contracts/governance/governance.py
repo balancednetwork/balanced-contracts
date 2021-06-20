@@ -28,9 +28,12 @@ class Governance(IconScoreBase):
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self.addresses = Addresses(db, self)
+        self.vote_execute = VoteActions(db, self)
         self._launch_day = VarDB('launch_day', db, int)
         self._launch_time = VarDB('launch_time', db, int)
         self._launched = VarDB('launched', db, bool)
+        self._time_offset = VarDB('time_offset', db, value_type=int)
+        self._minimum_vote_duration = VarDB('min_duration', db, int)
 
     def on_install(self) -> None:
         super().on_install()
@@ -38,10 +41,191 @@ class Governance(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        self._time_offset.set(DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1))
+        self._minimum_vote_duration.set(1)
 
     @external(readonly=True)
     def name(self) -> str:
         return "Balanced Governance"
+
+    @external(readonly=True)
+    def getDay(self) -> int:
+        return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
+
+    @external
+    @only_owner
+    def activateVote(self, name: str) -> None:
+        """
+        After defining a vote it will have to be activated.
+        """
+        vote_index = ProposalDB.proposal_id(name, self.db)
+        if vote_index == 0:
+            revert(f'That is not a valid vote name.')
+        proposal = ProposalDB(vote_index, self.db)
+        if proposal.status.get() != ProposalStatus.STATUS[ProposalStatus.PENDING]:
+            revert("Balanced Governance: A vote can be activated only from Pending status")
+        proposal.active.set(True)
+        proposal.status.set(ProposalStatus.STATUS[ProposalStatus.ACTIVE])
+
+    @external
+    @only_owner
+    def cancelVote(self, name: str) -> None:
+        """
+        Cancels a vote, in case a mistake was made in its definition.
+        """
+        vote_index = ProposalDB.proposal_id(name, self.db)
+        if vote_index == 0:
+            revert(f'That is not a valid vote name.')
+        proposal = ProposalDB(vote_index, self.db)
+        if proposal.status.get() != ProposalStatus.STATUS[ProposalStatus.PENDING]:
+            revert("Balanced Governance: Proposal can be cancelled only from pending status")
+        proposal.active.set(False)
+        proposal.status.set(ProposalStatus.STATUS[ProposalStatus.CANCELLED])
+
+    @external
+    @only_owner
+    def defineVote(self, name: str, quorum: int, vote_start: int, duration: int, snapshot: int, actions: str,
+                   majority: int = MAJORITY) -> None:
+        """
+        Names a new vote, defines quorum, and actions.
+        """
+        if not 0 < quorum < 100:
+            revert(f'Quorum must be greater than 0 and less than 100.')
+        if vote_start <= self.getDay():
+            revert(f'Vote cannot start before the current time.')
+        if snapshot < 1:
+            revert(f'The reference snapshot index must be greater than zero.')
+        min_duration = self._minimum_vote_duration.get()
+        if duration < min_duration:
+            revert(f'Votes must have a minimum duration of {min_duration} days.')
+        vote_index = ProposalDB.proposal_id(name, self.db)
+        if vote_index > 0:
+            revert(f'Poll name {name} has already been used.')
+
+        actions_dict = json_loads(actions)
+        if len(actions_dict) > self.maxActions():
+            revert(f"Balanced Governance: Only {self.maxActions()} actions are allowed")
+
+        ProposalDB.create_proposal(name=name, proposer=self.msg.sender, quorum=quorum*EXA//100, majority=majority,
+                                   snapshot=snapshot, start=vote_start, end=vote_start + duration, actions=actions,
+                                   db=self.db)
+
+    @external(readonly=True)
+    def maxActions(self) -> int:
+        return 5
+
+    @external
+    def castVote(self, name: str, vote: bool) -> None:
+        """
+        Casts a vote in the named poll.
+        """
+        vote_index = ProposalDB.proposal_id(name, self.db)
+        proposal = ProposalDB(var_key=vote_index, db=self.db)
+        start_snap = proposal.start_snapshot.get()
+        end_snap = proposal.end_snapshot.get()
+        if vote_index <= 0 or not start_snap <= self.getDay() < end_snap or proposal.active.get() is False:
+            revert(f'That is not an active poll.')
+        sender = self.msg.sender
+        snapshot = proposal.vote_snapshot.get()
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        stake = baln.stakedBalanceOfAt(sender, snapshot)
+        prior_vote = (proposal.for_votes_of_user[sender], proposal.against_votes_of_user[sender])
+        total_for_votes = proposal.total_for_votes.get()
+        total_against_votes = proposal.total_against_votes.get()
+        if vote:
+            proposal.for_votes_of_user[sender] = stake
+            proposal.against_votes_of_user[sender] = 0
+            proposal.total_for_votes.set(total_for_votes + stake - prior_vote[0])
+            proposal.total_against_votes.set(total_against_votes - prior_vote[1])
+        else:
+            proposal.for_votes_of_user[sender] = 0
+            proposal.against_votes_of_user[sender] = stake
+            proposal.total_for_votes.set(total_for_votes - prior_vote[0])
+            proposal.total_against_votes.set(total_against_votes + stake - prior_vote[1])
+
+    @external
+    def executeVoteAction(self, vote_index: int) -> None:
+        """
+        Executes the vote action if the vote has completed and passed.
+        """
+        result = self.checkVote(vote_index)
+        if result == {}:
+            revert(f'Provided vote index, {vote_index}, out of range.')
+        proposal = ProposalDB(vote_index, self.db)
+        end_snap = proposal.end_snapshot.get()
+        
+        if self.getDay() < end_snap:
+            revert("Balanced Governance: Voting period has not ended")
+
+        if result['for'] + result['against'] >= result['quorum']:
+            majority = proposal.majority.get()
+            if (EXA - majority) * result['for'] > majority * result['against']:
+                try:
+                    self._execute_vote_actions(proposal.actions.get())
+                except BaseException as e:
+                    revert(f"Failed Execution of action. Reason: {e}")
+                proposal.status.set(ProposalStatus.STATUS[ProposalStatus.EXECUTED])
+            else:
+                proposal.status.set(ProposalStatus.STATUS[ProposalStatus.DEFEATED])
+        else:
+            proposal.status.set(ProposalStatus.STATUS[ProposalStatus.NO_QUORUM])
+        proposal.active.set(False)
+
+    def _execute_vote_actions(self, _vote_actions: str) -> None:
+        actions = json_loads(_vote_actions)
+        for action in actions:
+            self.vote_execute[action](**actions[action])
+
+    @external(readonly=True)
+    def getVoteIndex(self, _name: str) -> int:
+        return ProposalDB.proposal_id(_name, self.db)
+
+    @external(readonly=True)
+    def checkVote(self, _vote_index: int) -> dict:
+        if _vote_index < 1 or _vote_index > ProposalDB.proposal_count(self.db):
+            return {}
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        vote_data = ProposalDB(_vote_index, self.db)
+        try:
+            total_stake = baln.totalStakedBalanceOfAt(vote_data.vote_snapshot.get())
+        except BaseException:
+            total_stake = 0
+        if total_stake == 0:
+            _for = 0
+            _against = 0
+        else:
+            total_voted = (vote_data.total_for_votes.get(), vote_data.total_against_votes.get())
+            _for = EXA * total_voted[0] // total_stake
+            _against = EXA * total_voted[1] // total_stake
+
+        vote_status = {'id': _vote_index,
+                       'name': vote_data.name.get(),
+                       'majority': vote_data.majority.get(),
+                       'vote snapshot': vote_data.vote_snapshot.get(),
+                       'start day': vote_data.start_snapshot.get(),
+                       'end day': vote_data.end_snapshot.get(),
+                       'actions': vote_data.actions.get(),
+                       'quorum': vote_data.quorum.get(),
+                       'for': _for,
+                       'against': _against}
+        status = vote_data.status.get()
+        majority = vote_status['majority']
+        if status == ProposalStatus.STATUS[ProposalStatus.ACTIVE] and self.getDay() >= vote_status["end day"]:
+            if vote_status['for'] + vote_status['against'] < vote_status['quorum']:
+                vote_status['status'] = ProposalStatus.STATUS[ProposalStatus.NO_QUORUM]
+            elif (EXA - majority) * vote_status['for'] > majority * vote_status['against']:
+                vote_status['status'] = ProposalStatus.STATUS[ProposalStatus.SUCCEEDED]
+            else:
+                vote_status['status'] = ProposalStatus.STATUS[ProposalStatus.DEFEATED]
+        else:
+            vote_status['status'] = status
+
+        return vote_status
+
+    @external(readonly=True)
+    def getVotesOfUser(self, vote_index: int, user: Address) -> dict:
+        vote_data = ProposalDB(vote_index, self.db)
+        return {"for": vote_data.for_votes_of_user[user], "against": vote_data.against_votes_of_user[user]}
 
     @external
     @only_owner
@@ -50,8 +234,7 @@ class Governance(IconScoreBase):
         Set parameters after deployment and before launch.
         Add Assets to Loans.
         """
-        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
-        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         self.addresses.setAdmins()
         self.addresses.setContractAddresses()
         addresses: dict = self.addresses.getAddresses()
@@ -66,9 +249,9 @@ class Governance(IconScoreBase):
         if self._launched.get():
             return
         self._launched.set(True)
-        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
-        dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
-        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         offset = DAY_ZERO + self._launch_day.get()
         day = (self.now() - DAY_START) // U_SECONDS_DAY - offset
         self._set_launch_day(day)
@@ -103,7 +286,7 @@ class Governance(IconScoreBase):
         sICX = self.create_interface_score(sICX_address, AssetInterface)
         dex = self.create_interface_score(dex_address, DexInterface)
         price = bnUSD.priceInLoop()
-        amount = UNITS_PER_TOKEN * value // (price * 7)
+        amount = EXA * value // (price * 7)
         staking.icx(value // 7).stakeICX()
         loans.icx(self.icx.get_balance(self.address)).depositAndBorrow('bnUSD', amount)
         bnUSD_value = bnUSD.balanceOf(self.address)
@@ -190,6 +373,10 @@ class Governance(IconScoreBase):
     @external(readonly=True)
     def getLaunchTime(self) -> int:
         return self._launch_time.get()
+
+    def enableDividends(self) -> None:
+        dividends = self.create_interface_score(self.addresses['dividends'], DividendsInterface)
+        dividends.setDistributionActivationStatus(True)
 
     @external
     @only_owner
@@ -347,7 +534,7 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def daoDisburse(self, _recipient: Address, _amounts: List[Disbursement]) -> bool:
+    def daoDisburse(self, _recipient: Address, _amounts: List[Disbursement]) -> None:
         dao = self.create_interface_score(self.addresses['daofund'], DAOfundInterface)
         dao.disburse(_recipient, _amounts)
 
