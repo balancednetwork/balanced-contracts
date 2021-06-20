@@ -175,7 +175,7 @@ class Rebalancing(IconScoreBase):
         self._sicx_receivable.set(_value)
 
     @external(readonly=True)
-    def getRebalancingStatus(self) -> tuple:
+    def getRebalancingStatus(self) -> list:
         self.bnUSD_score = self.create_interface_score(self._bnUSD.get(), bnUSDTokenInterface)
         self.dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
         self.loans_score = self.create_interface_score(self._loans.get(), loansTokenInterface)
@@ -183,10 +183,10 @@ class Rebalancing(IconScoreBase):
         pool_price_dex = self.dex_score.getPriceByName("sICX/bnUSD")
         difference = price - (10 ** 36 // pool_price_dex)
         change_in_percent = (difference * 10 ** 18 // price) * 100
-        if change_in_percent > 5 * 10 ** 19:
-            return True, self._calculate_sicx_to_retire()
+        if change_in_percent > 5 * 10 ** 17:
+            return [True, self._calculate_sicx_to_retire()]
         else:
-            return False, self._calculate_sicx_to_retire()
+            return [False, self._calculate_sicx_to_retire()]
 
     @external
     def rebalance(self) -> None:
