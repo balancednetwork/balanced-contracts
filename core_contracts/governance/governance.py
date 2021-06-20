@@ -114,6 +114,10 @@ class Governance(IconScoreBase):
     def maxActions(self) -> int:
         return 5
 
+    @external(readonly=True)
+    def getProposalCount(self) -> int:
+        return ProposalDB.proposal_count(self.db)
+
     @external
     def castVote(self, name: str, vote: bool) -> None:
         """
@@ -135,13 +139,16 @@ class Governance(IconScoreBase):
         if vote:
             proposal.for_votes_of_user[sender] = stake
             proposal.against_votes_of_user[sender] = 0
-            proposal.total_for_votes.set(total_for_votes + stake - prior_vote[0])
-            proposal.total_against_votes.set(total_against_votes - prior_vote[1])
+            total_for = total_for_votes + stake - prior_vote[0]
+            total_against = total_against_votes - prior_vote[1]
         else:
             proposal.for_votes_of_user[sender] = 0
             proposal.against_votes_of_user[sender] = stake
-            proposal.total_for_votes.set(total_for_votes - prior_vote[0])
-            proposal.total_against_votes.set(total_against_votes + stake - prior_vote[1])
+            total_for = total_for_votes - prior_vote[0]
+            total_against = total_against_votes + stake - prior_vote[1]
+        proposal.total_for_votes.set(total_for)
+        proposal.total_against_votes.set(total_against)
+        self.VoteCast(name, vote, sender, stake, total_for, total_against)
 
     @external
     def executeVoteAction(self, vote_index: int) -> None:
@@ -629,3 +636,8 @@ class Governance(IconScoreBase):
     @payable
     def fallback(self):
         pass
+
+    @eventlog(indexed=2)
+    def VoteCast(self, vote_name: str, vote: bool, voter: Address, stake: int, total_for: int, total_against: int):
+        pass
+
