@@ -456,7 +456,7 @@ class Dividends(IconScoreBase):
                         self._send_ICX(self._daofund.get(), total_dividends[str(token)], "Daofund dividends")
                     else:
                         self._send_token(self._daofund.get(), total_dividends[str(token)], token, "Daofund dividends")
-            self.Claimed(self._daofund.get(), start, end, total_dividends)
+            self.Claimed(self._daofund.get(), start, end, str(total_dividends))
         except BaseException as e:
             revert(f"Balanced Dividends: Error in transferring daofund dividends: Error {e}")
 
@@ -486,7 +486,7 @@ class Dividends(IconScoreBase):
                         self._send_ICX(_account, total_dividends[str(token)], "User dividends")
                     else:
                         self._send_token(_account, total_dividends[str(token)], token, "User dividends")
-            self.Claimed(_account, _start, _end, total_dividends)
+            self.Claimed(_account, _start, _end, str(total_dividends))
         except BaseException as e:
             revert(f"Balanced Dividends: Error in claiming dividends. Error: {e}")
 
@@ -684,5 +684,5 @@ class Dividends(IconScoreBase):
         pass
 
     @eventlog(indexed=1)
-    def Claimed(self, _address: Address, _start: int, _end: int, _dividends: dict):
+    def Claimed(self, _address: Address, _start: int, _end: int, _dividends: str):
         pass
