@@ -1,6 +1,4 @@
 from iconservice import *
-from .consts import *
-
 
 # ================================================
 #  Exceptions

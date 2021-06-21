@@ -88,6 +88,7 @@ class Rebalancing(IconScoreBase):
 
     def on_install(self) -> None:
         super().on_install()
+        self._admin.set(self.msg.sender)
 
     def on_update(self) -> None:
         super().on_update()
@@ -170,7 +171,7 @@ class Rebalancing(IconScoreBase):
         return value
 
     @external
-    @only_governance
+    # @only_governance
     def setSicxReceivable(self, _value: int):
         self._sicx_receivable.set(_value)
 
