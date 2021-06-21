@@ -480,8 +480,6 @@ class Loans(IconScoreBase):
 
         if _new_day and rewards_done and dividends_done:
             self._rewards_done.set(False)
-            self._dividends_done.set(False)
-        elif not dividends_done:
             dividends = self.create_interface_score(self._dividends.get(), Dividends)
             self._dividends_done.set(dividends.distribute())
         elif not rewards_done:
