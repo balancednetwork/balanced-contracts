@@ -420,7 +420,7 @@ class Dividends(IconScoreBase):
         return self._time_offset.get()
 
     @external
-    def distribute(self, _activate: int = 0) -> bool:
+    def distribute(self) -> bool:
         """
         Main method to handle the distribution of tokens to eligible BALN token holders
         :return: True if distribution has completed
@@ -451,11 +451,12 @@ class Dividends(IconScoreBase):
 
         try:
             for token in self._accepted_tokens:
-                if total_dividends[str(token)] > 0:
+                if total_dividends.get(str(token), 0) > 0:
                     if str(token) == str(ZERO_SCORE_ADDRESS):
                         self._send_ICX(self._daofund.get(), total_dividends[str(token)], "Daofund dividends")
                     else:
                         self._send_token(self._daofund.get(), total_dividends[str(token)], token, "Daofund dividends")
+            self.Claimed(self._daofund.get(), start, end, total_dividends)
         except BaseException as e:
             revert(f"Balanced Dividends: Error in transferring daofund dividends: Error {e}")
 
@@ -480,11 +481,12 @@ class Dividends(IconScoreBase):
 
         try:
             for token in self._accepted_tokens:
-                if total_dividends[str(token)] > 0:
+                if total_dividends.get(str(token), 0) > 0:
                     if str(token) == str(ZERO_SCORE_ADDRESS):
                         self._send_ICX(_account, total_dividends[str(token)], "User dividends")
                     else:
                         self._send_token(_account, total_dividends[str(token)], token, "User dividends")
+            self.Claimed(_account, _start, _end, total_dividends)
         except BaseException as e:
             revert(f"Balanced Dividends: Error in claiming dividends. Error: {e}")
 
@@ -679,4 +681,8 @@ class Dividends(IconScoreBase):
 
     @eventlog(indexed=2)
     def DividendsReceivedV2(self, _amount: int, _day: int, _data: str) -> None:
+        pass
+
+    @eventlog(indexed=1)
+    def Claimed(self, _address: Address, _start: int, _end: int, _dividends: dict):
         pass
