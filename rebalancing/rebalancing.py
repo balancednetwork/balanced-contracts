@@ -73,6 +73,7 @@ class Rebalancing(IconScoreBase):
     _GOVERNANCE_ADDRESS = 'governance_address'
     _SICX_RECEIVABLE = 'sicx_receivable'
     _ADMIN = 'admin'
+    _PRICE_THRESHOLD = '_price_threshold'
 
 
     def __init__(self, db: IconScoreDatabase) -> None:
@@ -85,6 +86,7 @@ class Rebalancing(IconScoreBase):
         self._governance = VarDB(self._GOVERNANCE_ADDRESS, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._sicx_receivable = VarDB(self._SICX_RECEIVABLE, db, value_type=int)
+        self._price_threshold = VarDB(self._PRICE_THRESHOLD, db, value_type=int)
 
     def on_install(self) -> None:
         super().on_install()
@@ -159,21 +161,47 @@ class Rebalancing(IconScoreBase):
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._dex.set(_address)
 
+    def _sqrt(self, x: int) -> int:
+        """
+        Babylonian Square root implementation
+        """
+        z = (x + 1) // 2
+        y = x
+
+        while z < y:
+            y = z
+            z = ((x // z) + z) // 2
+
+        return y
+
     def _calculate_sicx_to_retire(self) -> int:
         self.oracle_score = self.create_interface_score(self._oracle.get(), oracleTokenInterface)
         self.dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
         oracle_price = self.oracle_score.get_reference_data("USD", "ICX")
         oracle_rate = oracle_price["rate"]
         pool_stats = self.dex_score.getPoolStats(2)
-        sicx_supply = int(pool_stats['base'], 16)
-        bnusd_supply = int(pool_stats['quote'], 16)
-        value = ((((oracle_rate * 10 ** 18 * sicx_supply * bnusd_supply) ** 0.5) // 10 ** 18) - sicx_supply)
+        sicx_supply = pool_stats['base']
+        bnusd_supply = pool_stats['quote']
+        value = (self._sqrt(oracle_rate * sicx_supply * bnusd_supply) // 10 ** 9) - sicx_supply
         return value
+
+    @external
+    @only_governance
+    def setPriceChangeThreshold(self, _value: int) -> None:
+        self._price_threshold.set(_value)
+
+    @external(readonly=True)
+    def getPriceChangeThreshold(self) -> int:
+        return self._price_threshold.get()
 
     @external
     @only_governance
     def setSicxReceivable(self, _value: int) -> None:
         self._sicx_receivable.set(_value)
+
+    @external(readonly=True)
+    def getSicxReceivable(self) -> int:
+        return self._sicx_receivable.get()
 
     @external(readonly=True)
     def getRebalancingStatus(self) -> list:
@@ -184,7 +212,7 @@ class Rebalancing(IconScoreBase):
         pool_price_dex = self.dex_score.getPriceByName("sICX/bnUSD")
         difference = price - (10 ** 36 // pool_price_dex)
         change_in_percent = (difference * 10 ** 18 // price) * 100
-        if change_in_percent > 5 * 10 ** 17:
+        if change_in_percent > self._price_threshold.get():
             return [True, self._calculate_sicx_to_retire()]
         else:
             return [False, self._calculate_sicx_to_retire()]

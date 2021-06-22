@@ -25,6 +25,16 @@ class StakingInterface(InterfaceScore):
         pass
 
 
+class RebalancingInterface(InterfaceScore):
+    @interface
+    def setSicxReceivable(self, _value: int) -> None:
+        pass
+
+    @interface
+    def setPriceChangeThreshold(self, _value: int) -> None:
+        pass
+
+
 # An interface to the Loans SCORE
 class LoansInterface(InterfaceScore):
     @interface
@@ -196,6 +206,7 @@ class RewardsInterface(InterfaceScore):
     @interface
     def bonusDist(self, _addresses: List[Address], _amounts: List[int]) -> None:
         pass
+
 
 # An interface to call the setAddress methods on each SCORE.
 class SetAddressesInterface(InterfaceScore):

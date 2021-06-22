@@ -596,6 +596,36 @@ class Loans(IconScoreBase):
 
     @loans_on
     @external
+    def retireBadDebt(self, _symbol: str, _value: int) -> None:
+        _from = self.msg.sender
+        if not _value > 0:
+            revert(f'{TAG}: Amount retired must be greater than zero.')
+        asset = self._assets[_symbol]
+        if not (asset and asset.is_active()) or asset.is_collateral():
+            revert(f'{TAG}: {_symbol} is not an active, borrowable asset on Balanced.')
+        if asset.balanceOf(_from) < _value:
+            revert(f'{TAG}: Insufficient balance.')
+        price = asset.priceInLoop()
+        sicx_rate = self._assets['sICX'].priceInLoop()
+        redeemed = _value
+        bad_debt = asset.bad_debt.get()
+        asset.burnFrom(_from, _value)
+        sicx: int = 0
+        if bad_debt > 0:
+            bd_value = min(bad_debt, redeemed)
+            redeemed -= bd_value
+            sicx += self.bd_redeem(_from, asset, bd_value, sicx_rate, price)
+        else:
+            revert(f'{TAG}: No bad debts to retire.')
+        self._send_token("sICX", _from, sicx, "Bad Debt redeemed.")
+        asset.is_dead()
+        self.BaddebtRetired(_from, _symbol, _value, redeemed)
+        if redeemed == 0:
+            day, new_day = self.checkForNewDay()
+            self.checkDistributions(day, new_day)
+
+    @loans_on
+    @external
     def returnAsset(self, _symbol: str, _value: int, _repay: bool = True) -> None:
         """
         All returned assets come back to Balanced through this method.
@@ -614,7 +644,6 @@ class Loans(IconScoreBase):
         :type _repay: bool
         """
         _from = self.msg.sender
-        event_flag = 0
         if not _value > 0:
             revert(f'{TAG}: Amount retired must be greater than zero.')
         asset = self._assets[_symbol]
@@ -632,42 +661,32 @@ class Loans(IconScoreBase):
                 self.checkDistributions(day, new_day)
                 return
             else:
-                _value -= repaid
+                revert(f'{TAG}: Repaid amount is greater than the amount in the position of {_from}')
+        else:
+            revert(f"{TAG}: {_from} doesn't have any position in the Balanced.")
         price = asset.priceInLoop()
-        sicx_rate = self._assets['sICX'].priceInLoop()
         redeemed = _value
-        bad_debt = asset.bad_debt.get()
         asset.burnFrom(_from, _value)
-        sicx: int = 0
         total_batch_debt = 0
         batch_dict = {}
-        if bad_debt > 0:
-            bd_value = min(bad_debt, redeemed)
-            redeemed -= bd_value
-            sicx += self.bd_redeem(_from, asset, bd_value, sicx_rate, price)
-            event_flag = 1
-        # if redeemed > 0:
-        #     sicx_from_lenders = redeemed * price * (POINTS - self._redemption_fee.get()) // (sicx_rate * POINTS)
-        #     sicx += sicx_from_lenders
-        #     batch_dict = self._retire_redeem(_symbol, redeemed, sicx_from_lenders)
-        #     total_batch_debt = batch_dict[0]
-        #     del batch_dict[0]
-        self._send_token("sICX", _from, sicx, "Collateral redeemed.")
         asset.is_dead()
-        if event_flag == 1:
-            self.BaddebtRetired(_from, _symbol, _value, redeemed)
-        else:
-            self.AssetRetired(_from, _symbol, _value, price, redeemed,
+        self.AssetRetired(_from, _symbol, _value, price, redeemed,
                           total_batch_debt, str(batch_dict))
-        if redeemed == 0:
-            day, new_day = self.checkForNewDay()
-            self.checkDistributions(day, new_day)
+        # if redeemed == 0:
+        #     day, new_day = self.checkForNewDay()
+        #     self.checkDistributions(day, new_day)
 
     @only_rebalance
     @external
     def retireRedeem(self, _symbol: str, _redeemed: int, _sicx_from_lenders: int) -> None:
         _from = self.msg.sender
+        if not _redeemed > 0:
+            revert(f'{TAG}: Amount retired must be greater than zero.')
         asset = self._assets[_symbol]
+        if not (asset and asset.is_active()) or asset.is_collateral():
+            revert(f'{TAG}: {_symbol} is not an active, borrowable asset on Balanced.')
+        if asset.balanceOf(_from) < _redeemed:
+            revert(f'{TAG}: Insufficient balance.')
         price = asset.priceInLoop()
         batch_size = self._redeem_batch.get()
         borrowers = self._assets[_symbol].get_borrowers()
