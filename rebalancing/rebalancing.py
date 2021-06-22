@@ -171,8 +171,8 @@ class Rebalancing(IconScoreBase):
         return value
 
     @external
-    # @only_governance
-    def setSicxReceivable(self, _value: int):
+    @only_governance
+    def setSicxReceivable(self, _value: int) -> None:
         self._sicx_receivable.set(_value)
 
     @external(readonly=True)

@@ -18,6 +18,12 @@ from .utils.checks import *
 TAG = 'Governance'
 
 
+class RebalancingInterface(InterfaceScore):
+    @interface
+    def setSicxReceivable(self, _value: int) -> None:
+        pass
+
+
 class Governance(IconScoreBase):
     """
     The Governance SCORE will have control of all parameters in BalancedDAO.
@@ -31,6 +37,7 @@ class Governance(IconScoreBase):
         self._launch_day = VarDB('launch_day', db, int)
         self._launch_time = VarDB('launch_time', db, int)
         self._launched = VarDB('launched', db, bool)
+        self._rebalancing = VarDB('rebalancing', db, Address)
 
     def on_install(self) -> None:
         super().on_install()
@@ -59,6 +66,17 @@ class Governance(IconScoreBase):
             loans.addAsset(addresses[asset['address']],
                            asset['active'],
                            asset['collateral'])
+
+    @external
+    @only_owner
+    def setRebalancing(self, _address: Address) -> None:
+        self._rebalancing.set(_address)
+
+    @external
+    @only_owner
+    def setRebalancingSicx(self, _value: int) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setSicxReceivable(_value)
 
     @external
     @only_owner

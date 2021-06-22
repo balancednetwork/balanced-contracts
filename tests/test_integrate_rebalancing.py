@@ -22,7 +22,11 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
                      {"_address": self.contracts['oracle']})
         self.send_tx(self.btest_wallet, self.contracts['loans'], 0, 'setRebalance',
                      {"_address": self.contracts['rebalancing']})
-        self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'setSicxReceivable',
+        self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'setGovernance',
+                     {"_address": self.contracts['governance']})
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancing',
+                     {"_address": self.contracts['rebalancing']})
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingSicx',
                      {"_value": 1000 * 10**18})
 
     def test_rebalance(self):
