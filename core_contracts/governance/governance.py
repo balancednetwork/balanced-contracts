@@ -18,12 +18,6 @@ from .utils.checks import *
 TAG = 'Governance'
 
 
-class RebalancingInterface(InterfaceScore):
-    @interface
-    def setSicxReceivable(self, _value: int) -> None:
-        pass
-
-
 class Governance(IconScoreBase):
     """
     The Governance SCORE will have control of all parameters in BalancedDAO.
@@ -77,6 +71,12 @@ class Governance(IconScoreBase):
     def setRebalancingSicx(self, _value: int) -> None:
         rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
         rebalancing.setSicxReceivable(_value)
+
+    @external
+    @only_owner
+    def setRebalancingThreshold(self, _value: int) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setPriceChangeThreshold(_value)
 
     @external
     @only_owner
