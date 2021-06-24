@@ -1,5 +1,5 @@
 ICX = 10 ** 18
-REPAY_LOANS = {
+RETURN_ASSETS = {
     "stories": [
         {
             "description": "User 1 deposits 500 ICX as collateral and borrows 50 bnUSD loan",
@@ -96,6 +96,26 @@ REPAY_LOANS = {
                 "expected_sicx_baln_loan": 500 * ICX,
                 "expected_bnUSD_debt_baln_loan": 0,
                 "expected_bnUSD_bal_wallet": 0
+            }
+        },
+        {
+            "description": "user 2 repays a loan of 10 bnUSD by calling returnAsset method to loans score.",
+            "actions": {
+                "prev_sicx_bal_loan": 0 * ICX,
+                "prev_bnUSD_debt_bal_loan": 0 * ICX,
+                "prev_bnUSD_bal_wallet": 10 * ICX,
+                "sender": "user2",
+                "name": "returnAsset",
+                "deposited_icx": 0 * ICX,
+                "args": {
+                    "_symbol": "bnUSD",
+                    "_value": 10 * ICX
+                },
+                "expected": "0",
+                "revertMessage": "BalancedLoans: The address doesn't have any position in the Balanced.",
+                "expected_sicx_baln_loan": 0 * ICX,
+                "expected_bnUSD_debt_baln_loan": 10 * ICX,
+                "expected_bnUSD_bal_wallet": 10 * ICX
             }
         }
     ]

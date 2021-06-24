@@ -1,5 +1,5 @@
 from .test_integrate_base_loans import BalancedTestBaseLoans
-from tests.stories.loans.repay_loan_stories import REPAY_LOANS
+from tests.stories.loans.return_assets_stories import RETURN_ASSETS
 
 
 class BalancedTestRepayLoan(BalancedTestBaseLoans):
@@ -12,7 +12,7 @@ class BalancedTestRepayLoan(BalancedTestBaseLoans):
         self.send_icx(self.btest_wallet, self.user1.get_address(), 2500 * 10 ** 18)
         self.send_icx(self.btest_wallet, self.user2.get_address(), 2500 * 10 ** 18)
 
-        test_cases = REPAY_LOANS
+        test_cases = RETURN_ASSETS
         for case in test_cases['stories']:
             _tx_result = {}
             print(case['description'])
@@ -22,6 +22,8 @@ class BalancedTestRepayLoan(BalancedTestBaseLoans):
             else:
                 wallet_address = self.user2.get_address()
                 wallet = self.user2
+                self.send_tx(self.btest_wallet, self.contracts['loans'], 100*10**18, 'depositAndBorrow', {'_asset': 'bnUSD', '_amount':10*10**18})
+                self.send_tx(self.btest_wallet, self.contracts['bnUSD'], 0, 'transfer', {'_to': self.user2.get_address(), '_value':10*10**18})
             if case['actions']['name'] == 'depositAndBorrow':
                 _to = self.contracts['loans']
                 meth = case['actions']['name']
