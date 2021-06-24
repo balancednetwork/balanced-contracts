@@ -661,9 +661,9 @@ class Loans(IconScoreBase):
                 self.checkDistributions(day, new_day)
                 return
             else:
-                revert(f'{TAG}: Repaid amount is greater than the amount in the position of {_from}')
+                revert(f'{TAG}: Repaid amount is greater than the amount in the position.')
         else:
-            revert(f"{TAG}: {_from} doesn't have any position in the Balanced.")
+            revert(f"{TAG}: The address doesn't have any position in the Balanced.")
         price = asset.priceInLoop()
         redeemed = _value
         asset.burnFrom(_from, _value)
