@@ -3,48 +3,37 @@ REBALANCING_STORIES = {
     "stories": [
         {
             "description": "In this condition rebalancing doesn't happen as price of dex is not less than 0.5% of "
-                           "oracle price",
+                           "oracle price.",
             "actions": {
                 "initial_sicx_in_rebalancer": 1000 * ICX,
                 "method": "transfer",
                 "amount": 200 * ICX,
-                "final_sicx_in_rebalancer": 1000 * ICX,
-                # "sicx_to_retire": 119.29717293045304
-
+                "rebalancing_status": 0,
+                "final_sicx_in_rebalancer": 1000 * ICX
             }
         },
         {
-            "description": "In this condition 2 rebalancing doens't happen",
+            "description": "In this condition rebalancing doens't happen as price of dedx is not less than 0.5% "
+                           "of oracle price although sicx to retire is more than 1000 sicx.",
             "actions": {
                 "initial_sicx_in_rebalancer": 1000 * ICX,
                 "method": "transfer",
                 "amount": 1600 * ICX,
-                "final_sicx_in_rebalancer": 1000 * ICX,
-                # "sicx_to_retire": 119.29717293045304
+                "rebalancing_status": 0,
+                "final_sicx_in_rebalancer": 1000 * ICX
 
             }
         },
         {
-            "description": "In this condition 3 rebalancing happens",
+            "description": "In this condition rebalancing happens as sex price changes with more than 0.5% of "
+                           "oracle price.",
             "actions": {
                 "initial_sicx_in_rebalancer": 1000 * ICX,
                 "method": "transfer",
-                "amount": 3000 * ICX,
-                "final_sicx_in_rebalancer": 1000 * ICX,
-                # "sicx_to_retire": 119.29717293045304
-
+                "amount": 1000 * ICX,
+                "rebalancing_status": 1,
+                "final_sicx_in_rebalancer": 1000 * ICX
             }
         }
-        # {
-        #     "description": "Here re-balancing happens and the icx transferred from re-balancing is swapped "
-        #                    "to bnUSD and retired",
-        #     "actions": {
-        #         "initial_sicx_in_rebalancer": 1000 * ICX,
-        #         "method": "transfer",
-        #         "amount": 200000 * ICX,
-        #         "final_sicx_in_rebalancer": 1447011182227727316505,
-        #         # "sicx_to_retire": 97806.93532549939
-        #     }
-        # }
     ]
 }
