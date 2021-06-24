@@ -176,14 +176,14 @@ class BalancedTestBaseLiquidation(BalancedTestUtils):
             self._wallet_array[0].get_address(),
             self._wallet_array[1].get_address()
         }
-        if os.path.exists(os.path.join(DIR_PATH, "scores_address.json")):
-            with open(os.path.join(DIR_PATH, "scores_address.json"), "r") as file:
-                self.contracts = json.load(file)
-            return
-        else:
-            self._deploy_all()
-            self._config_balanced()
-            self._launch_balanced()
+        # if os.path.exists(os.path.join(DIR_PATH, "scores_address.json")):
+        #     with open(os.path.join(DIR_PATH, "scores_address.json"), "r") as file:
+        #         self.contracts = json.load(file)
+        #     return
+        # else:
+        self._deploy_all()
+        self._config_balanced()
+        self._launch_balanced()
 
     def _wallet_setup(self):
         self.icx_factor = 10 ** 18
