@@ -66,7 +66,7 @@ class BagDB(object):
     def last(self):
         if not self._order:
             raise BagDBIsNotOrdered(self._name)
-        return self._items[len(self._items) - 1]
+        return self._items[-1]
 
     def __contains__(self, item) -> bool:
         return item in self._items
