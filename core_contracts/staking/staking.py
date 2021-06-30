@@ -101,6 +101,7 @@ class Staking(IconScoreBase):
     _UNSTAKE_BATCH_LIMIT = '_unstake_batch_limit'
     _STAKING_ON = 'staking_on'
     _ICX_PAYABLE = 'icx_payable'
+    _ICX_TO_CLAIM = 'icx_to_claim'
 
     @eventlog(indexed=3)
     def Transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
@@ -142,6 +143,7 @@ class Staking(IconScoreBase):
         # array to store top 100 preps
         self._top_preps = ArrayDB(self._TOP_PREPS, db, value_type=Address)
         self._prep_list = ArrayDB(self._PREP_LIST, db, value_type=Address)
+        self._icx_to_claim = VarDB(self._ICX_TO_CLAIM, db, value_type=int)
         # dictdb for storing the address and their delegations
         self._address_delegations = DictDB(self._ADDRESS_DELEGATIONS, db, value_type=str)
         self._icx_payable = DictDB(self._ICX_PAYABLE, db, value_type=int)
@@ -475,12 +477,15 @@ class Staking(IconScoreBase):
             self._claim_iscore()
 
     @external
-    def claimUnstakeAmount(self, _to: Address = None) -> None:
+    def claimUnstakedICX(self, _to: Address = None) -> None:
         if _to is None:
             _to = self.msg.sender
         if self._icx_payable[_to] > 0:
+            payout = self._icx_payable[_to]
+            self._icx_to_claim.set(self._icx_to_claim.get() - payout)
             self._icx_payable[_to] = 0
-            self._send_ICX(_to, self._icx_payable[_to])
+            self._send_ICX(_to, payout)
+            self.UnstakeAmountTransfer(_to, payout)
 
     @external(readonly=True)
     def claimableICX(self, _address: Address) -> int:
@@ -492,7 +497,7 @@ class Staking(IconScoreBase):
          unstaked amount to the address and removing the
          data from linked list one at a transaction.
          """
-        balance = self.icx.get_balance(self.address) - self._daily_reward.get()
+        balance = self.icx.get_balance(self.address) - self._daily_reward.get() - self._icx_to_claim.get()
         if balance > 0:
             unstaking_requests = self.getUnstakeInfo()
             for i, request in enumerate(unstaking_requests):
@@ -510,8 +515,9 @@ class Staking(IconScoreBase):
                                                           request[0])
                     self._total_unstake_amount.set(self._total_unstake_amount.get() - payout)
                     balance -= payout
-                    self.UnstakeAmountTransfer(request[4], payout)
+                    # self.UnstakeAmountTransfer(request[4], payout)
                     # self._send_ICX(request[4], payout)
+                    self._icx_to_claim.set(self._icx_to_claim.get() + payout)
                     self._icx_payable[request[4]] += payout
                 else:
                     return
@@ -523,7 +529,6 @@ class Staking(IconScoreBase):
         """
         Adds received ICX to the pool then mints an equivalent value of sICX to
         the recipient address, _to.
-
         :params _to: Wallet address where sICX is minted to.
         :params _data: Data forwarded with the minted sICX.
         """
@@ -619,7 +624,7 @@ class Staking(IconScoreBase):
                 for each in stake_in_network['unstakes']:
                     total_unstake_in_network += each['unstake']
             daily_reward = total_unstake_in_network + self.icx.get_balance(
-                self.address) - self._total_unstake_amount.get() - self.msg.value
+                self.address) - self._total_unstake_amount.get() - self.msg.value - self._icx_to_claim.get()
             self._daily_reward.set(daily_reward)
             self._total_lifetime_reward.set(self.getLifetimeReward() + daily_reward)
             self._rate.set(self.getRate())
@@ -682,7 +687,6 @@ class Staking(IconScoreBase):
     def _delegations(self, evenly_distribute_value: int) -> None:
         """
         Delegates the ICX to top prep addresses.
-
         :param evenly_distribute_value: Share of even distribution to each P-Rep.
         """
         delegation_list = []
