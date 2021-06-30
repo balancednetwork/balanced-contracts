@@ -220,7 +220,7 @@ class StakingTestBase(IconIntegrateTestBase):
             deploy_tx = self.build_deploy_tx(
                 from_=self.staking_wallet,
                 to=self.contracts.get(contract, SCORE_INSTALL_ADDRESS),
-                content=os.path.abspath(os.path.join(self.CORE_CONTRACTS_PATH, "old_staking"))
+                content=os.path.abspath(os.path.join(self.CORE_CONTRACTS_PATH, "staking"))
             )
             txs.append(deploy_tx)
         results = self.process_transaction_bulk(

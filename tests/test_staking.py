@@ -374,18 +374,29 @@ class BalancedTestStaking(StakingTestBase):
 
     def test_withdraw(self):
         params = {'_to': self.staking_wallet.get_address()}
+        prev_icx = self.get_balance(self.btest_wallet.get_address())
         self.send_tx(self.staking_wallet, self.contracts['staking'], 20000000000000000000, "stakeICX", params)
         _result = self.call_tx(self.contracts['staking'], "getUnstakingAmount")
         total_unstaking_amount = int(_result, 16)
         self.assertEqual(total_unstaking_amount, 10000000000000000000, 'Failed')
+        _result = self.call_tx(self.contracts['staking'], "claimableICX", {"_address": self.btest_wallet.get_address()})
+        self.assertEqual(int(_result, 16), 20 * 10 ** 18, "Failed in storing claimable ICX data in db")
+        tx_result = self.send_tx(self.btest_wallet, self.contracts["staking"], 0, "claimUnstakedICX", {})
+        step_price = tx_result['stepPrice']
+        step_used = tx_result['stepUsed']
+        txfee = (step_price * step_used)
+        self.assertEqual(self.get_balance(self.btest_wallet.get_address()), prev_icx + 20 * 10 ** 18 - txfee,
+                         'Failed in sending ICX')
 
         # print(
         #     "20 icx is deposited by user2 and as user1 has unstake request in top of the list. User1 will receive "
         #     "20 icx from the contract.")
 
     def test_withdraw_few(self):
+        prev_icx = self.get_balance(self.staking_wallet.get_address())
         params = {'_to': self.staking_wallet.get_address()}
-        self.send_tx(self.staking_wallet, self.contracts['staking'], 3000000000000000000, "stakeICX", params)
+        tx_result = self.send_tx(self.staking_wallet, self.contracts['staking'], 3000000000000000000, "stakeICX",
+                                 params)
         _result = self.call_tx(self.contracts['staking'], "getUnstakingAmount")
         total_unstaking_amount = int(_result, 16)
         self.assertEqual(total_unstaking_amount, 7000000000000000000, 'Failed')
@@ -395,13 +406,39 @@ class BalancedTestStaking(StakingTestBase):
                                {'_address': self.staking_wallet.get_address()})
         for x in _result:
             self.assertEqual(int(x['amount'], 16), 7000000000000000000, 'Failed in payout')
+        step_price = tx_result['stepPrice']
+        step_used = tx_result['stepUsed']
+        txfee = (step_price * step_used)
+        _result = self.call_tx(self.contracts['staking'], "claimableICX",
+                               {"_address": self.staking_wallet.get_address()})
+        self.assertEqual(int(_result, 16), 3000000000000000000, "Failed in storing claimable ICX data in db")
+        tx_result = self.send_tx(self.staking_wallet, self.contracts["staking"], 0, "claimUnstakedICX", {})
+        step_price = tx_result['stepPrice']
+        step_used = tx_result['stepUsed']
+        txfee2 = (step_price * step_used)
+        self.assertEqual(self.get_balance(self.staking_wallet.get_address()), prev_icx - txfee - txfee2,
+                         'Failed in sending '
+                         'ICX')
 
     def test_withdraw_full(self):
+        prev_icx = self.get_balance(self.staking_wallet.get_address())
         params = {'_to': self.staking_wallet.get_address()}
-        self.send_tx(self.staking_wallet, self.contracts['staking'], 7000000000000000000, "stakeICX", params)
+        tx_result = self.send_tx(self.staking_wallet, self.contracts['staking'], 7000000000000000000, "stakeICX",
+                                 params)
         _result = self.call_tx(self.contracts['staking'], "getUnstakingAmount")
         total_unstaking_amount = int(_result, 16)
         self.assertEqual(total_unstaking_amount, 0, 'Failed')
+        step_price = tx_result['stepPrice']
+        step_used = tx_result['stepUsed']
+        txfee = (step_price * step_used)
+        _result = self.call_tx(self.contracts['staking'], "claimableICX",
+                               {"_address": self.staking_wallet.get_address()})
+        self.assertEqual(int(_result, 16), 7000000000000000000, "Failed in storing claimable ICX data in db")
+        tx_result = self.send_tx(self.btest_wallet, self.contracts["staking"], 0, "claimUnstakedICX",
+                                 {"_to": self.staking_wallet.get_address()})
+        self.assertEqual(self.get_balance(self.staking_wallet.get_address()), prev_icx - txfee,
+                         'Failed in sending '
+                         'ICX')
         # print("Left 7 icx is transferred to user1")
         _result = self.call_tx(self.contracts['staking'], "getUserUnstakeInfo",
                                {'_address': self.staking_wallet.get_address()})
@@ -433,19 +470,43 @@ class BalancedTestStaking(StakingTestBase):
         self.assertEqual(tx_result['failure']['message'], "Insufficient balance.", "Failed")
 
     def test_zstake_icx_after_delegation(self):
+        prev_icx = self.get_balance(self.staking_wallet.get_address())
         _result = self.call_tx(self.contracts['staking'], "getAddressDelegations",
                                {'_address': self.btest_wallet.get_address()})
         dict2 = {}
+
         for key, value in _result.items():
             dict2[key] = int(value, 16)
         params = {'_to': self.btest_wallet.get_address()}
         self.send_tx(self.btest_wallet, self.contracts['staking'], 30000000000000000000, "stakeICX", params)
+        _result = self.call_tx(self.contracts['staking'], "claimableICX",
+                               {"_address": self.staking_wallet.get_address()})
+        self.assertEqual(int(_result, 16), 30 * 10 ** 18, "Failed in storing claimable ICX data in db")
+        # self.assertEqual(self.get_balance(self.staking_wallet.get_address()), prev_icx + 30*10**18,
+        #                  'Failed in sending '
+        #                  'ICX')
+        self.send_tx(self.btest_wallet, self.contracts['staking'], 5000000000000000000, "stakeICX", params)
+        _result = self.call_tx(self.contracts['staking'], "claimableICX",
+                               {"_address": self.staking_wallet.get_address()})
+        self.assertEqual(int(_result, 16), 35 * 10 ** 18, "Failed in storing claimable ICX data in db")
+        tx_result = self.send_tx(self.staking_wallet, self.contracts["staking"], 0, "claimUnstakedICX",
+                                 {"_to": self.staking_wallet.get_address()})
+        step_price = tx_result['stepPrice']
+        step_used = tx_result['stepUsed']
+        txfee = (step_price * step_used)
+        self.assertEqual(self.get_balance(self.staking_wallet.get_address()), prev_icx + 35 * 10 ** 18 - txfee,
+                         'Failed in sending '
+                         'ICX')
+        self.send_tx(self.btest_wallet, self.contracts['staking'], 3000000000000000000, "stakeICX", params)
+        _result = self.call_tx(self.contracts['staking'], "claimableICX",
+                               {"_address": self.staking_wallet.get_address()})
+        self.assertEqual(int(_result, 16), 3 * 10 ** 18, "Failed in storing claimable ICX data in db")
         _result = self.call_tx(self.contracts['staking'], "getAddressDelegations",
                                {'_address': self.btest_wallet.get_address()})
         dict1 = {}
         for key, value in _result.items():
             dict1[key] = int(value, 16)
-        self.assertEqual(dict1, {"hx243d2388c934fe123a2a2abffe9d48f4c7520c25": 80000000000000000000}, 'Failed in ' \
+        self.assertEqual(dict1, {"hx243d2388c934fe123a2a2abffe9d48f4c7520c25": 88000000000000000000}, 'Failed in ' \
                                                                                                       'stake_icx_after_delegation ')
 
     def test_zz_user_data(self):
