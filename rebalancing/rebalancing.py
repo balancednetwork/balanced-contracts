@@ -5,6 +5,10 @@ TAG = 'Rebalancing'
 
 POINTS = 10000
 
+data = {"method": "_swap", "params": {"toToken": "cxd037f211d8030425439d046c3db500b411fc251e"}}
+data_string = json_dumps(data)
+data_bytes = str.encode(data_string)
+
 
 class sICXTokenInterface(InterfaceScore):
     @interface
@@ -26,7 +30,7 @@ class bnUSDTokenInterface(InterfaceScore):
         pass
 
     @interface
-    def priceInLoop(self) -> int:
+    def lastPriceInLoop(self) -> int:
         pass
 
     @interface
@@ -74,7 +78,6 @@ class Rebalancing(IconScoreBase):
     _SICX_RECEIVABLE = 'sicx_receivable'
     _ADMIN = 'admin'
     _PRICE_THRESHOLD = '_price_threshold'
-
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
@@ -175,11 +178,11 @@ class Rebalancing(IconScoreBase):
         return y
 
     def _calculate_sicx_to_retire(self) -> int:
-        self.oracle_score = self.create_interface_score(self._oracle.get(), oracleTokenInterface)
-        self.dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
-        oracle_price = self.oracle_score.get_reference_data("USD", "ICX")
+        oracle_score = self.create_interface_score(self._oracle.get(), oracleTokenInterface)
+        dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
+        oracle_price = oracle_score.get_reference_data("USD", "ICX")
         oracle_rate = oracle_price["rate"]
-        pool_stats = self.dex_score.getPoolStats(2)
+        pool_stats = dex_score.getPoolStats(2)
         sicx_supply = pool_stats['base']
         bnusd_supply = pool_stats['quote']
         value = (self._sqrt(oracle_rate * sicx_supply * bnusd_supply) // 10 ** 9) - sicx_supply
@@ -208,20 +211,20 @@ class Rebalancing(IconScoreBase):
         self.bnUSD_score = self.create_interface_score(self._bnUSD.get(), bnUSDTokenInterface)
         self.dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
         self.loans_score = self.create_interface_score(self._loans.get(), loansTokenInterface)
-        price = self.bnUSD_score.priceInLoop()
+        price = self.bnUSD_score.lastPriceInLoop()
         pool_price_dex = self.dex_score.getPriceByName("sICX/bnUSD")
         difference = price - (10 ** 36 // pool_price_dex)
         change_in_percent = (difference * 10 ** 18 // price) * 100
         if change_in_percent > self._price_threshold.get():
             return [True, self._calculate_sicx_to_retire()]
         else:
-            return [False, self._calculate_sicx_to_retire()]
+            return [False, 0]
 
     @external
     def rebalance(self) -> None:
-        data = {"method": "_swap", "params": {"toToken": str(self._bnUSD.get())}}
-        data_string = json_dumps(data)
-        data_bytes = str.encode(data_string)
+        # data = {"method": "_swap", "params": {"toToken": str(self._bnUSD.get())}}
+        # data_string = json_dumps(data)
+        # data_bytes = str.encode(data_string)
         self.sICX_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
         sicx_in_contract = self.sICX_score.balanceOf(self.address)
         rebalancing_status = self.getRebalancingStatus()

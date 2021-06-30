@@ -609,10 +609,12 @@ class Loans(IconScoreBase):
         sicx_rate = self._assets['sICX'].priceInLoop()
         redeemed = _value
         bad_debt = asset.bad_debt.get()
-        asset.burnFrom(_from, _value)
         sicx: int = 0
         if bad_debt > 0:
+            day, new_day = self.checkForNewDay()
+            self.checkDistributions(day, new_day)
             bd_value = min(bad_debt, redeemed)
+            asset.burnFrom(_from, bd_value)
             redeemed -= bd_value
             sicx += self.bd_redeem(_from, asset, bd_value, sicx_rate, price)
         else:
@@ -620,9 +622,9 @@ class Loans(IconScoreBase):
         self._send_token("sICX", _from, sicx, "Bad Debt redeemed.")
         asset.is_dead()
         self.BaddebtRetired(_from, _symbol, _value, redeemed)
-        if redeemed == 0:
-            day, new_day = self.checkForNewDay()
-            self.checkDistributions(day, new_day)
+        # if redeemed == 0:
+        #     day, new_day = self.checkForNewDay()
+        #     self.checkDistributions(day, new_day)
 
     @loans_on
     @external
@@ -652,26 +654,30 @@ class Loans(IconScoreBase):
         if asset.balanceOf(_from) < _value:
             revert(f'{TAG}: Insufficient balance.')
         if self._positions._exists(_from) and _repay:
+            day, new_day = self.checkForNewDay()
+            self.checkDistributions(day, new_day)
             pos = self._positions.get_pos(_from)
-            repaid: int = min(pos[_symbol], _value)
-            if repaid > 0:
-                self._repay_loan(_symbol, repaid)
-            if repaid == _value:
-                day, new_day = self.checkForNewDay()
-                self.checkDistributions(day, new_day)
-                return
-            else:
-                revert(f'{TAG}: Repaid amount is greater than the amount in the position.')
+            # repaid: int = min(pos[_symbol], _value)
+            if _value > pos[_symbol]:
+                revert(f'{TAG}: Repaid amount is greater than the amount in the position of {_from}')
+            if _value > 0:
+                self._repay_loan(_symbol, _value)
+            # if repaid <= _value:
+            # day, new_day = self.checkForNewDay()
+            # self.checkDistributions(day, new_day)
+            return
+            # else:
+            #     revert(f'{TAG}: Repaid amount is greater than the amount in the position of {_from}')
         else:
-            revert(f"{TAG}: The address doesn't have any position in the Balanced.")
-        price = asset.priceInLoop()
-        redeemed = _value
-        asset.burnFrom(_from, _value)
-        total_batch_debt = 0
-        batch_dict = {}
-        asset.is_dead()
-        self.AssetRetired(_from, _symbol, _value, price, redeemed,
-                          total_batch_debt, str(batch_dict))
+            revert(f"{TAG}: {_from} doesn't have any position in the Balanced.")
+        # price = asset.priceInLoop()
+        # redeemed = _value
+        # asset.burnFrom(_from, _value)
+        # total_batch_debt = 0
+        # batch_dict = {}
+        # asset.is_dead()
+        # self.AssetRetired(_from, _symbol, _value, price, redeemed,
+        #                   total_batch_debt, str(batch_dict))
         # if redeemed == 0:
         #     day, new_day = self.checkForNewDay()
         #     self.checkDistributions(day, new_day)
@@ -702,8 +708,8 @@ class Loans(IconScoreBase):
             node_id = borrowers.get_head_id()
         borrowers.serialize()
 
-        if POINTS * _redeemed > self._max_retire_percent.get() * total_batch_debt:
-            revert(f'{TAG}: Retired amount is greater than the current maximum allowed.')
+        # if POINTS * _redeemed > self._max_retire_percent.get() * total_batch_debt:
+        #     revert(f'{TAG}: Retired amount is greater than the current maximum allowed.')
         remaining_value = _redeemed
         remaining_supply = total_batch_debt
         returned_sicx_remaining = _sicx_from_lenders
