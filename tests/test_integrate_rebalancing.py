@@ -60,7 +60,7 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             self.call_tx(self.contracts['dex'], 'getPoolStats', {"_id": 2})
 
             status = self.call_tx(self.contracts['rebalancing'], 'getRebalancingStatus', {})
-            # self.assertEqual(int(status[0]), case['action']['rebalancing_status'])
+            self.assertEqual(int(status[0], 0), case['actions']['rebalancing_status'])
 
             self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'rebalance', {})
 
