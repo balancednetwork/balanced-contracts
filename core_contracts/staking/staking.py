@@ -100,6 +100,7 @@ class Staking(IconScoreBase):
     _TOTAL_UNSTAKE_AMOUNT = '_total_unstake_amount'
     _UNSTAKE_BATCH_LIMIT = '_unstake_batch_limit'
     _STAKING_ON = 'staking_on'
+    _ICX_PAYABLE = 'icx_payable'
 
     @eventlog(indexed=3)
     def Transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
@@ -143,6 +144,7 @@ class Staking(IconScoreBase):
         self._prep_list = ArrayDB(self._PREP_LIST, db, value_type=Address)
         # dictdb for storing the address and their delegations
         self._address_delegations = DictDB(self._ADDRESS_DELEGATIONS, db, value_type=str)
+        self._icx_payable = DictDB(self._ICX_PAYABLE, db, value_type=int)
         # dictdb for storing the prep address and their delegated value
         self._prep_delegations = DictDB(self._PREP_DELEGATIONS, db, value_type=int)
         # initializing the system score
@@ -472,6 +474,18 @@ class Staking(IconScoreBase):
             self._block_height_day.set(next_prep_term)
             self._claim_iscore()
 
+    @external
+    def claimUnstakeAmount(self, _to: Address = None) -> None:
+        if _to is None:
+            _to = self.msg.sender
+        if self._icx_payable[_to] > 0:
+            self._icx_payable[_to] = 0
+            self._send_ICX(_to, self._icx_payable[_to])
+
+    @external(readonly=True)
+    def claimableICX(self, _address: Address) -> int:
+        return self._icx_payable[_address]
+
     def _checkForBalance(self) -> None:
         """
         Checks the balance of the score and transfer the
@@ -497,7 +511,8 @@ class Staking(IconScoreBase):
                     self._total_unstake_amount.set(self._total_unstake_amount.get() - payout)
                     balance -= payout
                     self.UnstakeAmountTransfer(request[4], payout)
-                    self._send_ICX(request[4], payout)
+                    # self._send_ICX(request[4], payout)
+                    self._icx_payable[request[4]] += payout
                 else:
                     return
 
