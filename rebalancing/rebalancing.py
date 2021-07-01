@@ -5,7 +5,7 @@ TAG = 'Rebalancing'
 
 POINTS = 10000
 
-data = {"method": "_swap", "params": {"toToken": "cxd037f211d8030425439d046c3db500b411fc251e"}}
+data = {"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}
 data_string = json_dumps(data)
 data_bytes = str.encode(data_string)
 
