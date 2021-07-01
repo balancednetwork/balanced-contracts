@@ -1,3 +1,4 @@
+import subprocess
 
 from .test_integrate_base_rebalancing import BalancedTestBaseRebalancing
 from .stories.rebalancing_stories import REBALANCING_STORIES
@@ -6,8 +7,21 @@ from iconservice import *
 
 class BalancedTestLiquidation(BalancedTestBaseRebalancing):
 
+    def patch_constants(self, file_name, old_value, new_value):
+        subprocess.call("sed -i -e 's/^" + old_value + ".*/" + new_value + "/' " + file_name, shell=True)
+
     def setUp(self):
         super().setUp()
+        bnUSD = self.get_bnusd_address()
+        old = 'data = {"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
+        new = 'data = {"method": "_swap", "params": {"toToken": "' + bnUSD + '"}}'
+        self.patch_constants("rebalancing/rebalancing.py", old, new)
+
+    def tearDown(self):
+        bnUSD = self.get_bnusd_address()
+        old = 'data = {"method": "_swap", "params": {"toToken": "' + bnUSD + '"}}'
+        new = 'data = {"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
+        self.patch_constants("rebalancing/rebalancing.py", old, new)
 
     def setAddresses(self):
         self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'setSicx',
@@ -32,10 +46,10 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
                      {"_value": 5 * 10 ** 17})
 
     def test_rebalance(self):
+        self.test_update()
         test_cases = REBALANCING_STORIES
         self.send_tx(self._test1, self.contracts['loans'], 750000 * 10 ** 18, 'depositAndBorrow',
                      {'_asset': 'bnUSD', '_amount': 300000 * 10 ** 18})
-
         self.send_tx(self.btest_wallet, self.contracts['staking'], 1000 * 10 ** 18, 'stakeICX',
                      {"_to": self.contracts['rebalancing']})
         self.setAddresses()

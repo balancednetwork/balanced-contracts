@@ -178,16 +178,15 @@ class BalancedTestBaseRebalancing(BalancedTestUtils):
             self._wallet_array[0].get_address(),
             self._wallet_array[1].get_address()
         }
-        if os.path.exists(os.path.join(DIR_PATH, "scores_address.json")):
-            with open(os.path.join(DIR_PATH, "scores_address.json"), "r") as file:
-                self.contracts = json.load(file)
-            return
-        else:
-            self._deploy_all()
-            self._config_balanced()
-            self._launch_balanced()
-            self._create_bnusd_market()
-
+        # if os.path.exists(os.path.join(DIR_PATH, "scores_address.json")):
+        #     with open(os.path.join(DIR_PATH, "scores_address.json"), "r") as file:
+        #         self.contracts = json.load(file)
+        #     return
+        # else:
+        self._deploy_all()
+        self._config_balanced()
+        self._launch_balanced()
+        self._create_bnusd_market()
 
     def _wallet_setup(self):
         self.icx_factor = 10 ** 18
@@ -322,3 +321,16 @@ class BalancedTestBaseRebalancing(BalancedTestUtils):
     def test_basic_balanced_setup(self):
         # Running this test checks for a basic deployment of balanced
         pass
+
+    def get_bnusd_address(self) -> str:
+        return self.contracts['bnUSD']
+
+    def test_update(self):
+        rebalancing = "rebalancing"
+        rebalancer_deploy_tx = self.deploy_tx(
+            from_=self.btest_wallet,
+            to=self.contracts.get(rebalancing, self.contracts['rebalancing']),
+            content=os.path.abspath(os.path.join(self.BALANCER_CONTRACTS_PATH, rebalancing)),
+            params={}
+        )
+        self.contracts[rebalancing] = rebalancer_deploy_tx[SCORE_ADDRESS]
