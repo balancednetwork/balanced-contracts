@@ -4,7 +4,7 @@ from .utils.checks import *
 TAG = 'Rebalancing'
 
 POINTS = 10000
-
+# bnUSD token address in toToken
 data = {"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}
 data_string = json_dumps(data)
 data_bytes = str.encode(data_string)
@@ -177,9 +177,9 @@ class Rebalancing(IconScoreBase):
 
         return y
 
-    def _calculate_sicx_to_retire(self) -> int:
+    def _calculate_sicx_to_retire(self, dex_score: dexTokenInterface) -> int:
         oracle_score = self.create_interface_score(self._oracle.get(), oracleTokenInterface)
-        dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
+        # dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
         oracle_price = oracle_score.get_reference_data("USD", "ICX")
         oracle_rate = oracle_price["rate"]
         pool_stats = dex_score.getPoolStats(2)
@@ -216,7 +216,7 @@ class Rebalancing(IconScoreBase):
         difference = price - (10 ** 36 // pool_price_dex)
         change_in_percent = (difference * 10 ** 18 // price) * 100
         if change_in_percent > self._price_threshold.get():
-            return [True, self._calculate_sicx_to_retire()]
+            return [True, self._calculate_sicx_to_retire(self.dex_score)]
         else:
             return [False, 0]
 
