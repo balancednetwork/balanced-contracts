@@ -564,39 +564,19 @@ class Loans(IconScoreBase):
             return
         self._originate_loan(_asset, _amount, _from)
 
-    def _repay_loan(self, _symbol: str, _value: int) -> None:
+    @loans_on
+    @external
+    def retireBadDebt(self, _symbol: str, _value: int) -> None:
         """
-        If the repaid token type is in the asset list the loan position for
-        the account of the token sender will be reduced by _value.
+         Returned assets come back to Balanced through this method.
+         This will pay off bad debt in exchange for
+        collateral from the liquidation pool.
 
-        :param _symbol: repaid token symbol.
+        :param _symbol: retired token symbol.
         :type _symbol: str
         :param _value: Number of tokens sent.
         :type _value: int
         """
-        _from = self.msg.sender
-        asset = self._assets[_symbol]
-        pos = self._positions.get_pos(_from)
-
-        borrowed = pos[_symbol]
-        remaining = borrowed - _value
-        if remaining > 0:
-            pos[_symbol] = remaining
-            repaid = _value
-        else:
-            repaid = borrowed
-            del pos[_symbol]
-            pos_id = pos.id.get()
-            if not pos.has_debt():
-                self._positions.remove_nonzero(pos_id)
-        asset.burnFrom(_from, repaid)
-        self.LoanRepaid(_from, _symbol, repaid,
-                        f'Loan of {repaid} {_symbol} repaid to Balanced.')
-        asset.is_dead()
-
-    @loans_on
-    @external
-    def retireBadDebt(self, _symbol: str, _value: int) -> None:
         _from = self.msg.sender
         if not _value > 0:
             revert(f'{TAG}: Amount retired must be greater than zero.')
@@ -622,21 +602,12 @@ class Loans(IconScoreBase):
         self._send_token("sICX", _from, sicx, "Bad Debt redeemed.")
         asset.is_dead()
         self.BaddebtRetired(_from, _symbol, _value, redeemed)
-        # if redeemed == 0:
-        #     day, new_day = self.checkForNewDay()
-        #     self.checkDistributions(day, new_day)
 
     @loans_on
     @external
     def returnAsset(self, _symbol: str, _value: int, _repay: bool = True) -> None:
         """
-        All returned assets come back to Balanced through this method.
         A borrower will use this method to pay off their loan.
-        An asset holder who does not hold a position in the asset will retire
-        it here as well. This will either pay off bad debt in exchange for
-        collateral from the liquidation pool or pay off debt from a batch of
-        borrowers proportionately, returning a share of collateral from each
-        position in the batch.
 
         :param _symbol: retired token symbol.
         :type _symbol: str
@@ -657,34 +628,43 @@ class Loans(IconScoreBase):
             day, new_day = self.checkForNewDay()
             self.checkDistributions(day, new_day)
             pos = self._positions.get_pos(_from)
-            # repaid: int = min(pos[_symbol], _value)
             if _value > pos[_symbol]:
                 revert(f'{TAG}: Repaid amount is greater than the amount in the position of {_from}')
             if _value > 0:
-                self._repay_loan(_symbol, _value)
-            # if repaid <= _value:
-            # day, new_day = self.checkForNewDay()
-            # self.checkDistributions(day, new_day)
+                borrowed = pos[_symbol]
+                remaining = borrowed - _value
+                if remaining > 0:
+                    pos[_symbol] = remaining
+                    repaid = _value
+                else:
+                    repaid = borrowed
+                    del pos[_symbol]
+                    pos_id = pos.id.get()
+                    if not pos.has_debt():
+                        self._positions.remove_nonzero(pos_id)
+                asset.burnFrom(_from, repaid)
+                self.LoanRepaid(_from, _symbol, repaid,
+                                f'Loan of {repaid} {_symbol} repaid to Balanced.')
+                asset.is_dead()
             return
-            # else:
-            #     revert(f'{TAG}: Repaid amount is greater than the amount in the position of {_from}')
         else:
             revert(f"{TAG}: {_from} doesn't have any position in the Balanced.")
-        # price = asset.priceInLoop()
-        # redeemed = _value
-        # asset.burnFrom(_from, _value)
-        # total_batch_debt = 0
-        # batch_dict = {}
-        # asset.is_dead()
-        # self.AssetRetired(_from, _symbol, _value, price, redeemed,
-        #                   total_batch_debt, str(batch_dict))
-        # if redeemed == 0:
-        #     day, new_day = self.checkForNewDay()
-        #     self.checkDistributions(day, new_day)
 
     @only_rebalance
     @external
     def retireRedeem(self, _symbol: str, _redeemed: int, _sicx_from_lenders: int) -> None:
+        """
+        This function will  pay off debt from a batch of
+        borrowers proportionately, returning a share of collateral from each
+        position in the batch.
+
+        :param _symbol: retired token symbol.
+        :type _symbol: str
+        :param _redeemed: Number of tokens sent.
+        :type _redeemed: int
+        :param _sicx_from_lenders: Total sICX token as a share of collateral.
+        :type _sicx_from_lenders: int
+        """
         _from = self.msg.sender
         if not _redeemed > 0:
             revert(f'{TAG}: Amount retired must be greater than zero.')
@@ -707,9 +687,6 @@ class Loans(IconScoreBase):
             borrowers.move_head_to_tail()
             node_id = borrowers.get_head_id()
         borrowers.serialize()
-
-        # if POINTS * _redeemed > self._max_retire_percent.get() * total_batch_debt:
-        #     revert(f'{TAG}: Retired amount is greater than the current maximum allowed.')
         remaining_value = _redeemed
         remaining_supply = total_batch_debt
         returned_sicx_remaining = _sicx_from_lenders
@@ -725,8 +702,6 @@ class Loans(IconScoreBase):
             self._positions[pos_id]['sICX'] -= sicx_share
 
             remaining_supply -= user_debt
-        # redeemed_dict[0] = total_batch_debt
-        # return redeemed_dict
         self._send_token("sICX", _from, _sicx_from_lenders, "Collateral redeemed.")
         self.AssetRetired(_from, _symbol, _redeemed, price, _redeemed,
                           total_batch_debt, str(redeemed_dict))
