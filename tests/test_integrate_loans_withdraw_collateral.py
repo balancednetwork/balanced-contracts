@@ -37,7 +37,6 @@ class BalancedTestWithdrawCollateral(BalancedTestBaseLoans):
 
             signed_transaction = self.build_tx(wallet, _to, val, meth, params)
             _tx_result = self.process_transaction(signed_transaction, self.icon_service)
-            print("Status:", _tx_result['status'])
             if 'revertMessage' in case['actions'].keys():
                 self.assertEqual(_tx_result['failure']['message'], case['actions']['revertMessage'])
                 # print('Revert Matched')

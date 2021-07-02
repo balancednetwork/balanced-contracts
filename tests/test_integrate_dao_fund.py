@@ -20,10 +20,10 @@ class BalancedTestReserveFund(BalancedTestBaseRewards):
     def test_getBalances(self):
         self._add()
         self.get_loans()
-        time.sleep(15)
+        time.sleep(10)
         print('Testing rewards distribution and redeem method on reserve fund score')
         txs = []
-        for i in range(10):
+        for i in range(200):
             deploy_tx = self.build_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
             txs.append(deploy_tx)
         self.process_transaction_bulk_without_txresult(txs, self.icon_service)
