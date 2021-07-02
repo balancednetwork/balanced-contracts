@@ -629,7 +629,7 @@ class Loans(IconScoreBase):
             self.checkDistributions(day, new_day)
             pos = self._positions.get_pos(_from)
             if _value > pos[_symbol]:
-                revert(f'{TAG}: Repaid amount is greater than the amount in the position of {_from}')
+                revert(f'{TAG}: Repaid amount is greater than the amount in the position of the address')
             if _value > 0:
                 borrowed = pos[_symbol]
                 remaining = borrowed - _value
@@ -648,7 +648,7 @@ class Loans(IconScoreBase):
                 asset.is_dead()
             return
         else:
-            revert(f"{TAG}: {_from} doesn't have any position in the Balanced.")
+            revert(f"{TAG}: The address doesn't have any position in the Balanced.")
 
     @only_rebalance
     @external
