@@ -4,7 +4,7 @@ from .utils.checks import *
 TAG = 'Rebalancing'
 
 POINTS = 10000
-
+# bnUSD token address in toToken
 data = {"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}
 data_string = json_dumps(data)
 data_bytes = str.encode(data_string)
@@ -177,9 +177,13 @@ class Rebalancing(IconScoreBase):
 
         return y
 
-    def _calculate_sicx_to_retire(self) -> int:
+    def _calculate_sicx_to_retire(self, dex_score: dexTokenInterface) -> int:
+        """
+        :param dex_score: Interface of dex score.
+        Returns the amount of sICX required for rebalancing the price.
+        """
         oracle_score = self.create_interface_score(self._oracle.get(), oracleTokenInterface)
-        dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
+        # dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
         oracle_price = oracle_score.get_reference_data("USD", "ICX")
         oracle_rate = oracle_price["rate"]
         pool_stats = dex_score.getPoolStats(2)
@@ -191,23 +195,40 @@ class Rebalancing(IconScoreBase):
     @external
     @only_governance
     def setPriceChangeThreshold(self, _value: int) -> None:
+        """
+        :param _value: threshold to set.
+        Sets the threshold .
+        """
         self._price_threshold.set(_value)
 
     @external(readonly=True)
     def getPriceChangeThreshold(self) -> int:
+        """
+        Returns the threshold value set by Governance contract.
+        """
         return self._price_threshold.get()
 
     @external
     @only_governance
     def setSicxReceivable(self, _value: int) -> None:
+        """
+        :param _value: sICX amount to set.
+        Sets the sICX amount to receive by rebalancing contract.
+        """
         self._sicx_receivable.set(_value)
 
     @external(readonly=True)
     def getSicxReceivable(self) -> int:
+        """
+        Returns the sICX amount to receive by rebalancing contract.
+        """
         return self._sicx_receivable.get()
 
     @external(readonly=True)
     def getRebalancingStatus(self) -> list:
+        """
+        Checks the Rebalancing status of the pool.
+        """
         self.bnUSD_score = self.create_interface_score(self._bnUSD.get(), bnUSDTokenInterface)
         self.dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
         self.loans_score = self.create_interface_score(self._loans.get(), loansTokenInterface)
@@ -216,12 +237,16 @@ class Rebalancing(IconScoreBase):
         difference = price - (10 ** 36 // pool_price_dex)
         change_in_percent = (difference * 10 ** 18 // price) * 100
         if change_in_percent > self._price_threshold.get():
-            return [True, self._calculate_sicx_to_retire()]
+            return [True, self._calculate_sicx_to_retire(self.dex_score)]
         else:
             return [False, 0]
 
     @external
     def rebalance(self) -> None:
+        """
+           Calls the retireRedeem function of loans and retire the value of bnUSD.
+           Rebalances only if the rate of change in dex pool price and oracle price is greater than the threshold set.
+        """
         # data = {"method": "_swap", "params": {"toToken": str(self._bnUSD.get())}}
         # data_string = json_dumps(data)
         # data_bytes = str.encode(data_string)
