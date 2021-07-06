@@ -1,7 +1,7 @@
 import subprocess
 
 from .test_integrate_base_rebalancing import BalancedTestBaseRebalancing
-from .stories.rebalancing_stories import REBALANCING_STORIES
+from .stories.rebalancing_stories import REBALANCING_STORIES, REBALANCING_DOWN_STORIES
 from iconservice import *
 
 
@@ -42,6 +42,8 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
                      {"_address": self.contracts['rebalancing']})
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingSicx',
                      {"_value": 1000 * 10**18})
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingBnusd',
+                     {"_value": 1000 * 10 ** 18})
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingThreshold',
                      {"_value": 5 * 10 ** 17})
 
@@ -52,13 +54,16 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
                      {'_asset': 'bnUSD', '_amount': 300000 * 10 ** 18})
         self.send_tx(self.btest_wallet, self.contracts['staking'], 1000 * 10 ** 18, 'stakeICX',
                      {"_to": self.contracts['rebalancing']})
+        self.send_tx(self._test1, self.contracts['bnUSD'], 0, 'transfer',
+                     {'_to': self.contracts['rebalancing'], '_value': 1000*10**18})
+
         self.setAddresses()
 
         for case in test_cases['stories']:
             print("############################################################################################")
             print(case['description'])
 
-            self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
+            # self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
             self.call_tx(self.contracts['bnUSD'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
 
             res = self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
@@ -79,6 +84,47 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'rebalance', {})
 
             res = self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
+            self.assertEqual(int(res, 0), case['actions']['final_sicx_in_rebalancer'])
+
+            self.call_tx(self.contracts['rebalancing'], 'getRebalancingStatus', {})
+
+    def test_rebalance_down(self):
+        self.test_update()
+        test_cases = REBALANCING_DOWN_STORIES
+        self.send_tx(self._test1, self.contracts['loans'], 750000 * 10 ** 18, 'depositAndBorrow',
+                     {'_asset': 'bnUSD', '_amount': 300000 * 10 ** 18})
+        self.send_tx(self.btest_wallet, self.contracts['staking'], 5000 * 10 ** 18, 'stakeICX',
+                     {"_to": self._test1.get_address()})
+        self.send_tx(self._test1, self.contracts['bnUSD'], 0, 'transfer',
+                     {'_to': self.contracts['rebalancing'], '_value': 1000*10**18})
+
+        self.setAddresses()
+
+        for case in test_cases['stories']:
+            print("############################################################################################")
+            print(case['description'])
+
+            self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
+            # self.call_tx(self.contracts['bnUSD'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
+
+            res = self.call_tx(self.contracts['bnUSD'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
+            self.assertEqual(int(res, 0), case['actions']['initial_sicx_in_rebalancer'])
+
+            self.call_tx(self.contracts['dex'], 'getPoolStats', {"_id": 2})
+
+            dat = "{\"method\": \"_swap\", \"params\": {\"toToken\": \""+self.contracts['bnUSD']+"\"}}"
+            data = dat.encode("utf-8")
+            self.send_tx(self._test1, self.contracts['sicx'], 0, case['actions']['method'],
+                         {'_to': self.contracts['dex'], '_value': case['actions']['amount'], "_data": data})
+
+            self.call_tx(self.contracts['dex'], 'getPoolStats', {"_id": 2})
+
+            status = self.call_tx(self.contracts['rebalancing'], 'getRebalancingStatus', {})
+            self.assertEqual(int(status[0], 0), case['actions']['rebalancing_status'])
+
+            self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'rebalance', {})
+
+            res = self.call_tx(self.contracts['bnUSD'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
             self.assertEqual(int(res, 0), case['actions']['final_sicx_in_rebalancer'])
 
             self.call_tx(self.contracts['rebalancing'], 'getRebalancingStatus', {})
