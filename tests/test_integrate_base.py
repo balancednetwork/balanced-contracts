@@ -84,7 +84,7 @@ class BalancedTestUtils(IconIntegrateTestBase):
         previous_from_balance = self.get_balance(from_.get_address())
 
         signed_icx_transaction = self.build_send_icx(from_, to, value)
-        tx_result = self.process_transaction(signed_icx_transaction, self.icon_service, self._block_confirm_interval)
+        tx_result = self.process_transaction(signed_icx_transaction, self.icon_service, self.tx_result_wait)
 
         self.assertTrue('status' in tx_result, tx_result)
         self.assertEqual(1, tx_result['status'], f"Failure: {tx_result['failure']}" if tx_result['status'] == 0 else "")
