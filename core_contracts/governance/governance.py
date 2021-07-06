@@ -264,6 +264,12 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def setRebalancingBnusd(self, _value: int) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setBnusdReceivable(_value)
+
+    @external
+    @only_owner
     def setRebalancingThreshold(self, _value: int) -> None:
         rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
         rebalancing.setPriceChangeThreshold(_value)
