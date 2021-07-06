@@ -183,7 +183,6 @@ class Rebalancing(IconScoreBase):
         Returns the amount of sICX required for rebalancing the price.
         """
         oracle_score = self.create_interface_score(self._oracle.get(), oracleTokenInterface)
-        # dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
         oracle_price = oracle_score.get_reference_data("USD", "ICX")
         oracle_rate = oracle_price["rate"]
         pool_stats = dex_score.getPoolStats(2)
@@ -247,9 +246,6 @@ class Rebalancing(IconScoreBase):
            Calls the retireRedeem function of loans and retire the value of bnUSD.
            Rebalances only if the rate of change in dex pool price and oracle price is greater than the threshold set.
         """
-        # data = {"method": "_swap", "params": {"toToken": str(self._bnUSD.get())}}
-        # data_string = json_dumps(data)
-        # data_bytes = str.encode(data_string)
         self.sICX_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
         sicx_in_contract = self.sICX_score.balanceOf(self.address)
         rebalancing_status = self.getRebalancingStatus()
