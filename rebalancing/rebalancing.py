@@ -230,7 +230,7 @@ class Rebalancing(IconScoreBase):
     def setBnusdReceivable(self, _value: int) -> None:
         """
         :param _value: sICX amount to set.
-        Sets the sICX amount to receive by rebalancing contract.
+        Sets the bnUSD amount to receive by rebalancing contract.
         """
         self._bnusd_receivable.set(_value)
 
@@ -242,11 +242,18 @@ class Rebalancing(IconScoreBase):
         return self._sicx_receivable.get()
 
     @external(readonly=True)
+    def getBnusdReceivable(self) -> int:
+        """
+        Returns the bnUSD amount to receive by rebalancing contract.
+        """
+        return self._bnusd_receivable.get()
+
+    @external(readonly=True)
     def getRebalancingStatus(self) -> list:
         """
         Checks the Rebalancing status of the pool.
         """
-        temp = 0
+        rebalancing_direction = 0
         self.bnUSD_score = self.create_interface_score(self._bnUSD.get(), bnUSDTokenInterface)
         self.dex_score = self.create_interface_score(self._dex.get(), dexTokenInterface)
         self.loans_score = self.create_interface_score(self._loans.get(), loansTokenInterface)
@@ -255,10 +262,10 @@ class Rebalancing(IconScoreBase):
         difference = price - (10 ** 36 // pool_price_dex)
         if price < (10 ** 36 // pool_price_dex):
             difference = (10 ** 36 // pool_price_dex) - price
-            temp = 1
+            rebalancing_direction = 1
         change_in_percent = self._change_in_percent(price, difference)
         if change_in_percent > self._price_threshold.get():
-            if temp == 1:
+            if rebalancing_direction == 1:
                 return [True, self._calculate_sicx_to_retire(self.dex_score, 1), "bnUSD"]
             return [True, self._calculate_sicx_to_retire(self.dex_score, 0), "sICX"]
         else:
