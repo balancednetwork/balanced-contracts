@@ -11,8 +11,9 @@ data_bytes = str.encode(data_string)
 
 # sICX token address in toToken
 data_sicx = {"method": "_swap", "params": {"toToken": "cx2609b924e33ef00b648a409245c7ea394c467824"}}
-data_string_sicx= json_dumps(data)
+data_string_sicx = json_dumps(data)
 data_bytes_sicx = str.encode(data_string)
+
 
 class sICXTokenInterface(InterfaceScore):
     @interface
@@ -196,9 +197,9 @@ class Rebalancing(IconScoreBase):
         bnusd_supply = pool_stats['quote']
         value = (self._sqrt(oracle_rate * sicx_supply * bnusd_supply) // 10 ** 9) - sicx_supply
         if flag == 1:
-            value = (self._sqrt(oracle_rate * sicx_supply * bnusd_supply) // 10 ** 9) - bnusd_supply
+            # value = (self._sqrt(oracle_rate * sicx_supply * bnusd_supply) // 10 ** 9) - bnusd_supply
+            value = (self._sqrt((sicx_supply * bnusd_supply) // oracle_rate) * 10 ** 9) - bnusd_supply
         return value
-
 
     @external
     @only_governance
@@ -297,7 +298,12 @@ class Rebalancing(IconScoreBase):
                 if bnusd_to_retire > bnusd_in_contract:
                     self.bnUSD_score.transfer(self._dex.get(), bnusd_in_contract, data_bytes_sicx)
                     sicx_in_contract = self.sICX_score.balanceOf(self.address) - self._sicx_receivable.get()
-                    self.loans_score.retireRedeem("sICX", sicx_in_contract, self._bnusd_receivable.get())
+                    data_to_send = {"method": "retireSicx",
+                                    "_bnusd_from_lenders": self._bnusd_receivable.get()}
+                    data_in_string = json_dumps(data_to_send)
+                    data_in_bytes = str.encode(data_in_string)
+                    self.sICX_score.transfer(self._loans.get(), sicx_in_contract, data_in_bytes)
+                    # self.loans_score.retireRedeem("sICX", sicx_in_contract, self._bnusd_receivable.get())
 
     @external
     def tokenFallback(self, _from: Address, value: int, _data: bytes) -> None:
