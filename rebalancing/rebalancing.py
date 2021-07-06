@@ -289,14 +289,14 @@ class Rebalancing(IconScoreBase):
                 sicx_in_contract = self.sICX_score.balanceOf(self.address)
                 if sicx_to_retire > sicx_in_contract:
                     self.sICX_score.transfer(self._dex.get(), sicx_in_contract, data_bytes)
-                    bnusd_in_contract = self.bnUSD_score.balanceOf(self.address)
+                    bnusd_in_contract = self.bnUSD_score.balanceOf(self.address) - self._bnusd_receivable.get()
                     self.loans_score.retireRedeem("bnUSD", bnusd_in_contract, self._sicx_receivable.get())
             else:
                 bnusd_to_retire = rebalancing_status[1]
                 bnusd_in_contract = self.bnUSD_score.balanceOf(self.address)
                 if bnusd_to_retire > bnusd_in_contract:
                     self.bnUSD_score.transfer(self._dex.get(), bnusd_in_contract, data_bytes_sicx)
-                    sicx_in_contract = self.sICX_score.balanceOf(self.address)
+                    sicx_in_contract = self.sICX_score.balanceOf(self.address) - self._sicx_receivable.get()
                     self.loans_score.retireRedeem("sICX", sicx_in_contract, self._bnusd_receivable.get())
 
     @external
