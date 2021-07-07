@@ -513,9 +513,14 @@ class Loans(IconScoreBase):
             d = json_loads(_data.decode("utf-8"))
         except BaseException as e:
             revert(f'{TAG}: Invalid data: {_data}, returning tokens. Exception: {e}')
-        if set(d.keys()) != {"_asset", "_amount"}:
+        if set(d.keys()) == {"_asset", "_amount"} or 'method' in set(d.keys()) and d["method"] == "retireSicx":
+            if 'method' in set(d.keys()) and d["method"] == "retireSicx":
+                self.retireSicx("sICX", _value, d["_bnusd_from_lenders"])
+            if set(d.keys()) == {"_asset", "_amount"}:
+                self.depositAndBorrow(d['_asset'], d['_amount'], _from, _value)
+        else:
             revert(f'{TAG}: Invalid parameters.')
-        self.depositAndBorrow(d['_asset'], d['_amount'], _from, _value)
+
 
     @loans_on
     @payable
@@ -703,6 +708,63 @@ class Loans(IconScoreBase):
 
             remaining_supply -= user_debt
         self._send_token("sICX", _from, _sicx_from_lenders, "Collateral redeemed.")
+        self.AssetRetired(_from, _symbol, _redeemed, price, _redeemed,
+                          total_batch_debt, str(redeemed_dict))
+
+    @only_rebalance
+    @external
+    def retireSicx(self, _symbol: str, _redeemed: int, _bnusd_from_lenders: int) -> None:
+        """
+        This function will  pay off debt from a batch of
+        borrowers proportionately, returning a share of collateral from each
+        position in the batch.
+
+        :param _symbol: retired token symbol.
+        :type _symbol: str
+        :param _redeemed: Number of tokens sent.
+        :type _redeemed: int
+        :param _bnusd_from_lenders: Total bnUSD token to mint.
+        :type _bnusd_from_lenders: int
+        """
+        _from = self.msg.sender
+        if not _redeemed > 0:
+            revert(f'{TAG}: Amount retired must be greater than zero.')
+        asset = self._assets[_symbol]
+        if not (asset and asset.is_active()) or asset.is_collateral():
+            revert(f'{TAG}: {_symbol} is not an active, borrowable asset on Balanced.')
+        if asset.balanceOf(_from) < _redeemed:
+            revert(f'{TAG}: Insufficient balance.')
+        price = asset.priceInLoop()
+        batch_size = self._redeem_batch.get()
+        borrowers = self._assets[_symbol].get_borrowers()
+        node_id = borrowers.get_head_id()
+        total_batch_debt: int = 0
+        positions_dict = {}
+        # asset.burnFrom(_from, _redeemed)
+        for _ in range(min(batch_size, len(borrowers))):
+            user_debt = borrowers.node_value(node_id)
+            positions_dict[node_id] = user_debt
+            total_batch_debt += user_debt
+            borrowers.move_head_to_tail()
+            node_id = borrowers.get_head_id()
+        borrowers.serialize()
+        remaining_value = _redeemed
+        remaining_supply = total_batch_debt
+        returned_sicx_remaining = _bnusd_from_lenders
+
+        redeemed_dict = {}
+        for pos_id, user_debt in positions_dict.items():
+            redeemed_dict[pos_id] = remaining_value * user_debt // remaining_supply
+            remaining_value -= redeemed_dict[pos_id]
+            self._positions[pos_id][_symbol] = user_debt + redeemed_dict[pos_id]
+
+            sicx_share = returned_sicx_remaining * user_debt // remaining_supply
+            returned_sicx_remaining -= sicx_share
+            self._positions[pos_id]['sICX'] += sicx_share
+
+            remaining_supply -= user_debt
+        asset.mint(_from, _redeemed)
+        self._send_token("sICX", _from, _bnusd_from_lenders, "Collateral redeemed.")
         self.AssetRetired(_from, _symbol, _redeemed, price, _redeemed,
                           total_batch_debt, str(redeemed_dict))
 
