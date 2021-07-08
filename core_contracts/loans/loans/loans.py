@@ -515,7 +515,7 @@ class Loans(IconScoreBase):
             revert(f'{TAG}: Invalid data: {_data}, returning tokens. Exception: {e}')
         if set(d.keys()) == {"_asset", "_amount"} or 'method' in set(d.keys()) and d["method"] == "retireSicx":
             if 'method' in set(d.keys()) and d["method"] == "retireSicx":
-                self.retireSicx("sICX", _value, d["_bnusd_from_lenders"])
+                self.retireSicx( "sICX", _value, d["_bnusd_from_lenders"], Address.from_string(d['rebalancing_address']))
             if set(d.keys()) == {"_asset", "_amount"}:
                 self.depositAndBorrow(d['_asset'], d['_amount'], _from, _value)
         else:
@@ -711,9 +711,8 @@ class Loans(IconScoreBase):
         self.AssetRetired(_from, _symbol, _redeemed, price, _redeemed,
                           total_batch_debt, str(redeemed_dict))
 
-    @only_rebalance
     @external
-    def retireSicx(self, _symbol: str, _redeemed: int, _bnusd_from_lenders: int) -> None:
+    def retireSicx(self, _symbol: str, _redeemed: int, _bnusd_from_lenders: int, _from: Address) -> None:
         """
         This function will  pay off debt from a batch of
         borrowers proportionately, returning a share of collateral from each
@@ -726,7 +725,7 @@ class Loans(IconScoreBase):
         :param _bnusd_from_lenders: Total bnUSD token to mint.
         :type _bnusd_from_lenders: int
         """
-        _from = self.msg.sender
+        # _from = self.msg.sender
         if not _redeemed > 0:
             revert(f'{TAG}: Amount retired must be greater than zero.')
         asset = self._assets[_symbol]
@@ -741,6 +740,7 @@ class Loans(IconScoreBase):
         total_batch_debt: int = 0
         positions_dict = {}
         # asset.burnFrom(_from, _redeemed)
+        asset.mint(_from, _bnusd_from_lenders)
         for _ in range(min(batch_size, len(borrowers))):
             user_debt = borrowers.node_value(node_id)
             positions_dict[node_id] = user_debt
@@ -763,8 +763,8 @@ class Loans(IconScoreBase):
             self._positions[pos_id]['sICX'] += sicx_share
 
             remaining_supply -= user_debt
-        asset.mint(_from, _redeemed)
-        self._send_token("sICX", _from, _bnusd_from_lenders, "Collateral redeemed.")
+
+        self._send_token("bnUSD", _from, _bnusd_from_lenders, "Collateral redeemed.")
         self.AssetRetired(_from, _symbol, _redeemed, price, _redeemed,
                           total_batch_debt, str(redeemed_dict))
 

@@ -184,7 +184,7 @@ class Rebalancing(IconScoreBase):
 
         return y
 
-    def _calculate_sicx_to_retire(self, dex_score: dexTokenInterface, flag: int) -> int:
+    def _calculate_tokens_to_retire(self, dex_score: dexTokenInterface, flag: int) -> int:
         """
         :param dex_score: Interface of dex score.
         Returns the amount of sICX required for rebalancing the price.
@@ -197,8 +197,8 @@ class Rebalancing(IconScoreBase):
         bnusd_supply = pool_stats['quote']
         value = (self._sqrt(oracle_rate * sicx_supply * bnusd_supply) // 10 ** 9) - sicx_supply
         if flag == 1:
-            # value = (self._sqrt(oracle_rate * sicx_supply * bnusd_supply) // 10 ** 9) - bnusd_supply
-            value = (self._sqrt((sicx_supply * bnusd_supply) // oracle_rate) * 10 ** 9) - bnusd_supply
+            value = (self._sqrt(oracle_rate * sicx_supply * bnusd_supply) // 10 ** 9) - bnusd_supply
+            # value = (self._sqrt((sicx_supply * bnusd_supply) // oracle_rate) * 10 ** 9) - bnusd_supply
         return value
 
     @external
@@ -267,8 +267,8 @@ class Rebalancing(IconScoreBase):
         change_in_percent = self._change_in_percent(price, difference)
         if change_in_percent > self._price_threshold.get():
             if rebalancing_direction == 1:
-                return [True, self._calculate_sicx_to_retire(self.dex_score, 1), "bnUSD"]
-            return [True, self._calculate_sicx_to_retire(self.dex_score, 0), "sICX"]
+                return [True, self._calculate_tokens_to_retire(self.dex_score, 1), "bnUSD"]
+            return [True, self._calculate_tokens_to_retire(self.dex_score, 0), "sICX"]
         else:
             return [False, 0]
 
@@ -299,7 +299,7 @@ class Rebalancing(IconScoreBase):
                     self.bnUSD_score.transfer(self._dex.get(), bnusd_in_contract, data_bytes_sicx)
                     sicx_in_contract = self.sICX_score.balanceOf(self.address) - self._sicx_receivable.get()
                     data_to_send = {"method": "retireSicx",
-                                    "_bnusd_from_lenders": self._bnusd_receivable.get()}
+                                    "_bnusd_from_lenders": self._bnusd_receivable.get(), "rebalancing_address": str(self.address)}
                     data_in_string = json_dumps(data_to_send)
                     data_in_bytes = str.encode(data_in_string)
                     self.sICX_score.transfer(self._loans.get(), sicx_in_contract, data_in_bytes)
