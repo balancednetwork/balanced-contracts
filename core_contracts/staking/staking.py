@@ -753,4 +753,4 @@ class Staking(IconScoreBase):
     @payable
     def fallback(self):
         """Only for the dummy contract, to simulate claiming Iscore."""
-        pass
+        self.stakeICX(self.msg.sender)
