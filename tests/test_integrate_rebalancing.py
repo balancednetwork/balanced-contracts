@@ -13,15 +13,26 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
     def setUp(self):
         super().setUp()
         bnUSD = self.get_bnusd_address()
-        old = 'data = {"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
-        new = 'data = {"method": "_swap", "params": {"toToken": "' + bnUSD + '"}}'
-        self.patch_constants("rebalancing/rebalancing.py", old, new)
+        sicx = self.get_sicx_address()
+        old = ['data = {"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}',
+               'data_sicx = {"method": "_swap", "params": {"toToken": "cx2609b924e33ef00b648a409245c7ea394c467824"}}']
+        new = ['data = {"method": "_swap", "params": {"toToken": "' + bnUSD + '"}}',
+               'data_sicx = {"method": "_swap", "params": {"toToken": "' + sicx + '"}}']
+
+        for i in range(0, 2):
+            print(old[i], new[i])
+            self.patch_constants("rebalancing/rebalancing.py", old[i], new[i])
 
     def tearDown(self):
         bnUSD = self.get_bnusd_address()
-        old = 'data = {"method": "_swap", "params": {"toToken": "' + bnUSD + '"}}'
-        new = 'data = {"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
-        self.patch_constants("rebalancing/rebalancing.py", old, new)
+        sicx = self.get_sicx_address()
+        old = ['data = {"method": "_swap", "params": {"toToken": "' + bnUSD + '"}}',
+               'data_sicx = {"method": "_swap", "params": {"toToken": "' + sicx + '"}}']
+        new = ['data = {"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}',
+               'data_sicx = {"method": "_swap", "params": {"toToken": "cx2609b924e33ef00b648a409245c7ea394c467824"}}']
+
+        for i in range(0, 2):
+            self.patch_constants("rebalancing/rebalancing.py", old[i], new[i])
 
     def setAddresses(self):
         self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'setSicx',
@@ -95,6 +106,8 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
                      {'_asset': 'bnUSD', '_amount': 300000 * 10 ** 18})
         self.send_tx(self.btest_wallet, self.contracts['staking'], 5000 * 10 ** 18, 'stakeICX',
                      {"_to": self._test1.get_address()})
+        self.send_tx(self.btest_wallet, self.contracts['staking'], 1000 * 10 ** 18, 'stakeICX',
+                     {"_to": self.contracts['rebalancing']})
         self.send_tx(self._test1, self.contracts['bnUSD'], 0, 'transfer',
                      {'_to': self.contracts['rebalancing'], '_value': 1000*10**18})
 

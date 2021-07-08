@@ -58,7 +58,7 @@ REBALANCING_DOWN_STORIES = {
                 "initial_sicx_in_rebalancer": 1000 * ICX,
                 "method": "transfer",
                 "amount": 1800 * ICX,
-                "rebalancing_status": 0,
+                "rebalancing_status": 1,
                 "final_sicx_in_rebalancer": 1000 * ICX
 
             }

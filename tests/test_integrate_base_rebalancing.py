@@ -325,6 +325,9 @@ class BalancedTestBaseRebalancing(BalancedTestUtils):
     def get_bnusd_address(self) -> str:
         return self.contracts['bnUSD']
 
+    def get_sicx_address(self) -> str:
+        return self.contracts['sicx']
+
     def test_update(self):
         rebalancing = "rebalancing"
         rebalancer_deploy_tx = self.deploy_tx(
