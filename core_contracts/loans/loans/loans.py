@@ -515,7 +515,7 @@ class Loans(IconScoreBase):
             revert(f'{TAG}: Invalid data: {_data}, returning tokens. Exception: {e}')
         if set(d.keys()) == {"_asset", "_amount"} or ('method' in set(d.keys()) and d["method"] == "retireSicx"):
             if 'method' in set(d.keys()) and d["method"] == "retireSicx":
-                self.retireSicx("sICX", _value, d["_bnusd_from_lenders"], Address.from_string(d['rebalancing_address']))
+                self._retireSicx("sICX", _value, d["_bnusd_from_lenders"], Address.from_string(d['rebalancing_address']))
             if set(d.keys()) == {"_asset", "_amount"}:
                 self.depositAndBorrow(d['_asset'], d['_amount'], _from, _value)
         else:
@@ -711,8 +711,7 @@ class Loans(IconScoreBase):
         self.AssetRetired(_from, _symbol, _redeemed, price, _redeemed,
                           total_batch_debt, str(redeemed_dict))
 
-    @external
-    def retireSicx(self, _symbol: str, _redeemed: int, _bnusd_from_lenders: int, _from: Address) -> None:
+    def _retireSicx(self, _symbol: str, _redeemed: int, _bnusd_from_lenders: int, _from: Address) -> None:
         """
         This function will  add off debt to a batch of
         borrowers proportionately.
@@ -736,7 +735,7 @@ class Loans(IconScoreBase):
         #     revert(f'{TAG}: Insufficient balance.')
         price = asset.priceInLoop()
         batch_size = self._redeem_batch.get()
-        borrowers = self._assets[_symbol].get_borrowers()
+        borrowers = self._assets['bnUSD'].get_borrowers()
         node_id = borrowers.get_head_id()
         total_batch_debt: int = 0
         positions_dict = {}
@@ -747,9 +746,9 @@ class Loans(IconScoreBase):
             borrowers.move_head_to_tail()
             node_id = borrowers.get_head_id()
         borrowers.serialize()
-        remaining_value = _redeemed
+        remaining_value = _bnusd_from_lenders
         remaining_supply = total_batch_debt
-        returned_sicx_remaining = _bnusd_from_lenders
+        returned_sicx_remaining = _redeemed
 
         redeemed_dict = {}
         for pos_id, user_debt in positions_dict.items():
