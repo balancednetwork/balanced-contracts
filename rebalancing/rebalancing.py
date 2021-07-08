@@ -11,8 +11,8 @@ data_bytes = str.encode(data_string)
 
 # sICX token address in toToken
 data_sicx = {"method": "_swap", "params": {"toToken": "cx2609b924e33ef00b648a409245c7ea394c467824"}}
-data_string_sicx = json_dumps(data)
-data_bytes_sicx = str.encode(data_string)
+data_string_sicx = json_dumps(data_sicx)
+data_bytes_sicx = str.encode(data_string_sicx)
 
 
 class sICXTokenInterface(InterfaceScore):
@@ -197,8 +197,8 @@ class Rebalancing(IconScoreBase):
         bnusd_supply = pool_stats['quote']
         value = (self._sqrt(oracle_rate * sicx_supply * bnusd_supply) // 10 ** 9) - sicx_supply
         if flag == 1:
-            value = (self._sqrt(oracle_rate * sicx_supply * bnusd_supply) // 10 ** 9) - bnusd_supply
-            # value = (self._sqrt((sicx_supply * bnusd_supply) // oracle_rate) * 10 ** 9) - bnusd_supply
+            # value = (self._sqrt(oracle_rate * sicx_supply * bnusd_supply) // 10 ** 9) - bnusd_supply
+            value = (self._sqrt((sicx_supply * bnusd_supply) // oracle_rate) * 10 ** 9) - bnusd_supply
         return value
 
     @external

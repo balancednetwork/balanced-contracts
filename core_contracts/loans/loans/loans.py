@@ -729,18 +729,16 @@ class Loans(IconScoreBase):
         if not _redeemed > 0:
             revert(f'{TAG}: Amount retired must be greater than zero.')
         asset = self._assets[_symbol]
-        if not (asset and asset.is_active()) or asset.is_collateral():
+        if not (asset and asset.is_active()):
             revert(f'{TAG}: {_symbol} is not an active, borrowable asset on Balanced.')
-        if asset.balanceOf(_from) < _redeemed:
-            revert(f'{TAG}: Insufficient balance.')
+        # if asset.balanceOf(_from) < _redeemed:
+        #     revert(f'{TAG}: Insufficient balance.')
         price = asset.priceInLoop()
         batch_size = self._redeem_batch.get()
-        borrowers = self._assets[_symbol].get_borrowers()
+        borrowers = self._assets['bnUSD'].get_borrowers()
         node_id = borrowers.get_head_id()
         total_batch_debt: int = 0
         positions_dict = {}
-        # asset.burnFrom(_from, _redeemed)
-        asset.mint(_from, _bnusd_from_lenders)
         for _ in range(min(batch_size, len(borrowers))):
             user_debt = borrowers.node_value(node_id)
             positions_dict[node_id] = user_debt
@@ -753,18 +751,25 @@ class Loans(IconScoreBase):
         returned_sicx_remaining = _bnusd_from_lenders
 
         redeemed_dict = {}
+
         for pos_id, user_debt in positions_dict.items():
+            x = redeemed_dict[pos_id]
+            y = user_debt
+            z = self._positions[pos_id]["sICX"]
+            a = self._positions[pos_id]["bnUSD"]
             redeemed_dict[pos_id] = remaining_value * user_debt // remaining_supply
             remaining_value -= redeemed_dict[pos_id]
-            self._positions[pos_id][_symbol] = user_debt + redeemed_dict[pos_id]
+            self._positions[pos_id]['bnUSD'] = user_debt + redeemed_dict[pos_id]
 
             sicx_share = returned_sicx_remaining * user_debt // remaining_supply
             returned_sicx_remaining -= sicx_share
             self._positions[pos_id]['sICX'] += sicx_share
+            revert(f'{x} and {y} and {self._positions[pos_id]["sICX"]} aand {z} and {self._positions[pos_id]["bnUSD"]} and {a}')
 
             remaining_supply -= user_debt
 
-        self._send_token("bnUSD", _from, _bnusd_from_lenders, "Collateral redeemed.")
+        self._assets["bnUSD"].mint(_from, _bnusd_from_lenders)
+        # self._send_token("bnUSD", _from, _bnusd_from_lenders, "Collateral redeemed.")
         self.AssetRetired(_from, _symbol, _redeemed, price, _redeemed,
                           total_batch_debt, str(redeemed_dict))
 
