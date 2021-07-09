@@ -15,7 +15,6 @@
 from .utils.checks import *
 from .utils.consts import *
 from .utils.arraydb_helpers import *
-from .utils.linked_list import *
 
 TAG = 'Balanced Dividends'
 
@@ -66,6 +65,22 @@ class DexInterface(InterfaceScore):
     def getDataBatch(self, _name: str, _snapshot_id: int, _limit: int, _offset: int = 0) -> dict:
         pass
 
+    @interface
+    def balanceOfAt(self, _account: Address, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
+        pass
+
+    @interface
+    def totalSupplyAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
+        pass
+
+    @interface
+    def totalBalnAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
+        pass
+
+    @interface
+    def getTimeOffset(self) -> int:
+        pass
+
 
 class BalnTokenInterface(InterfaceScore):
 
@@ -83,6 +98,14 @@ class BalnTokenInterface(InterfaceScore):
 
     @interface
     def balanceOf(self, _owner: Address) -> int:
+        pass
+
+    @interface
+    def stakedBalanceOfAt(self, _account: Address, _day: int) -> int:
+        pass
+
+    @interface
+    def totalStakedBalanceOfAt(self, _day: int) -> int:
         pass
 
 
@@ -118,8 +141,6 @@ class Dividends(IconScoreBase):
     _AMOUNT_TO_DISTRIBUTE = "amount_to_distribute"
     _AMOUNT_BEING_DISTRIBUTED = "amount_being_distributed"
 
-    _ELIGIBLE_BALN_HOLDERS = "eligible_baln_holders"
-    _TOTAL_ELIGIBILE_BALN_TOKENS = "total_eligible_baln_tokens"
     _BALN_DIST_INDEX = "baln_dist_index"
 
     _STAKED_BALN_HOLDERS = "staked_baln_holders"
@@ -146,6 +167,11 @@ class Dividends(IconScoreBase):
 
     _DISTRIBUTION_ACTIVATE = "distribution_activate"
 
+    _DIVIDENDS_BATCH_SIZE = "dividends_batch_size"
+
+    _CLAIMED_BIT_MAP = "claimed_bit_map_"
+    _TIME_OFFSET = "time_offset"
+
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
 
@@ -164,13 +190,8 @@ class Dividends(IconScoreBase):
         # Amount that is being distributed is recorded here
         self._amount_being_distributed = DictDB(self._AMOUNT_BEING_DISTRIBUTED, db, value_type=int)
 
-        # Eligible baln token holders retrieved from staked baln token and from baln pool
-        self._eligible_baln_holders = LinkedListDB(self._ELIGIBLE_BALN_HOLDERS, db, value_type=int)
-        self._total_eligible_baln_tokens = VarDB(self._TOTAL_ELIGIBILE_BALN_TOKENS, db, value_type=int)
         self._baln_dist_index = VarDB(self._BALN_DIST_INDEX, db, value_type=str)
 
-        # Staked baln token holders and their balance retrieved from baln token contract
-        self._staked_baln_holders = LinkedListDB(self._STAKED_BALN_HOLDERS, db, value_type=int)
         self._staked_dist_index = VarDB(self._STAKED_DIST_INDEX, db, value_type=str)
 
         self._baln_in_dex = VarDB(self._BALN_IN_DEX, db, value_type=int)
@@ -195,6 +216,10 @@ class Dividends(IconScoreBase):
 
         self._distribution_activate = VarDB(self._DISTRIBUTION_ACTIVATE, db, value_type=bool)
 
+        self._dividends_batch_size = VarDB(self._DIVIDENDS_BATCH_SIZE, db, value_type=int)
+
+        self._time_offset = VarDB(self._TIME_OFFSET, db, value_type=int)
+
     def on_install(self, _governance: Address) -> None:
         super().on_install()
         self._governance.set(_governance)
@@ -208,6 +233,13 @@ class Dividends(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        self._dividends_batch_size.set(50)
+        self._set_time_offset()
+
+    def _set_time_offset(self) -> None:
+        _dex = self.create_interface_score(self._dex_score.get(), DexInterface)
+        offset_time = _dex.getTimeOffset()
+        self._time_offset.set(offset_time)
 
     def _add_initial_categories(self):
         self._dividends_categories.put(DAOFUND)
@@ -224,7 +256,7 @@ class Dividends(IconScoreBase):
         return self._distribution_activate.get()
 
     @external
-    @only_owner
+    @only_governance
     def setDistributionActivationStatus(self, _status: bool) -> None:
         self._distribution_activate.set(_status)
 
@@ -286,28 +318,6 @@ class Dividends(IconScoreBase):
     def getDex(self) -> Address:
         return self._dex_score.get()
 
-    @external
-    @only_admin
-    def setMaxLoopCount(self, _loop: int) -> None:
-        if not 10 <= _loop <= 400:
-            revert(f"{TAG}: Please provide loop in the range of 10 and 400")
-        self._max_loop_count.set(_loop)
-
-    @external(readonly=True)
-    def getMaxLoopCount(self) -> int:
-        return self._max_loop_count.get()
-
-    @external
-    @only_admin
-    def setMinimumEligibleDebt(self, _debt: int) -> None:
-        if _debt < 0:
-            revert(f"{TAG}: Negative value for _debt can't be provided")
-        self._minimum_eligible_debt.set(_debt)
-
-    @external(readonly=True)
-    def getMinimumEligibleDebt(self) -> int:
-        return self._minimum_eligible_debt.get()
-
     @external(readonly=True)
     def getBalances(self) -> dict:
         loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
@@ -323,30 +333,26 @@ class Dividends(IconScoreBase):
         return balances
 
     @external(readonly=True)
+    def getDailyFees(self, _day: int) -> dict:
+        fees = {}
+        for token in self._accepted_tokens:
+            fees[str(token)] = self._daily_fees[_day][str(token)]
+        return fees
+
+    @external(readonly=True)
     def getAcceptedTokens(self) -> list:
         """
         Returns the list of accepted tokens for dividends, zero score address represents ICX
         """
         return [token for token in self._accepted_tokens]
 
-    @external(readonly=True)
-    def getUserDividends(self, _account: Address) -> dict:
-        return {str(token): self._users_balance[str(_account)][str(token)] for token in self._accepted_tokens}
-
-    @external(readonly=True)
-    def getAmountToDistribute(self) -> dict:
-        """
-        Returns the amount of tokens that will be distributed in the next div cycle. zero score address refers to ICX
-        """
-        return {str(token): self._amount_to_distribute[str(token)] for token in self._accepted_tokens}
-
-    @external(readonly=True)
-    def getAmountBeingDistributed(self) -> dict:
-        """
-        Returns the amount of tokens being distributed currently. In the middle of distribution it only shows the
-        remaining amount to distribute.
-        """
-        return {str(token): self._amount_being_distributed[str(token)] for token in self._accepted_tokens}
+    @only_governance
+    @external
+    def addAcceptedTokens(self, _token: Address) -> None:
+        if not _token.is_contract:
+            revert(f"{TAG}: {_token} is not a contract address")
+        if _token not in self._accepted_tokens:
+            self._accepted_tokens.put(_token)
 
     @external(readonly=True)
     def getDividendsCategories(self) -> list:
@@ -375,8 +381,6 @@ class Dividends(IconScoreBase):
     @external
     @only_admin
     def setDividendsCategoryPercentage(self, _dist_list: List[DistPercentDict]) -> None:
-        if self._dividends_distribution_status.get() != Status.DIVIDENDS_DISTRIBUTION_COMPLETE:
-            revert(f"{TAG}: Dividends percentage can't be set when the distribution is going on")
         total_percentage = 0
         if len(_dist_list) != len(self._dividends_categories):
             revert(f"{TAG}: Categories count mismatched!")
@@ -391,221 +395,100 @@ class Dividends(IconScoreBase):
         if total_percentage != 10**18:
             revert(f"{TAG}: Total percentage doesn't sum up to 100 i.e. 10**18")
 
+    @external(readonly=True)
+    def getDividendsBatchSize(self) -> int:
+        return self._dividends_batch_size.get()
+
     @external
-    def distribute(self, _activate: int = 0) -> bool:
+    @only_admin
+    def setDividendsBatchSize(self, _size: int) -> None:
+        if _size <= 0:
+            revert(f"{TAG}: Size can't be negative or zero")
+
+        self._dividends_batch_size.set(_size)
+
+    @external(readonly=True)
+    def getSnapshotId(self) -> int:
+        return self._snapshot_id.get()
+
+    @external(readonly=True)
+    def getDay(self) -> int:
+        return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
+
+    @external(readonly=True)
+    def getTimeOffset(self) -> int:
+        return self._time_offset.get()
+
+    @external
+    def distribute(self) -> bool:
         """
         Main method to handle the distribution of tokens to eligible BALN token holders
         :return: True if distribution has completed
         """
-        loans_score = self.create_interface_score(self._loans_score.get(), LoansInterface)
-        current_snapshot_id = loans_score.getDay()
+        self._check_for_new_day()
+        return True
+
+    def _check_for_new_day(self):
+        if self._time_offset.get() == 0:
+            self._set_time_offset()
+        current_snapshot_id = self.getDay()
         if self._snapshot_id.get() < current_snapshot_id:
             self._snapshot_id.set(current_snapshot_id)
 
-        # If distribution is not activated just return true
-        if not (self._distribution_activate.get() or _activate):
-            return True
+    @external
+    def transferDaofundDividends(self, _start: int = 0, _end: int = 0) -> None:
+        if not self._distribution_activate.get():
+            revert("Balanced Dividends: Distribution is not activated. Can't transfer")
 
-        baln_score = self.create_interface_score(self._baln_score.get(), BalnTokenInterface)
+        start, end = self._check_start_end(_start, _end)
 
-        if self._dividends_distribution_status.get() == Status.DIVIDENDS_DISTRIBUTION_COMPLETE:
-            loans_score = self.create_interface_score(self._loans_score.get(), LoansInterface)
-            current_snapshot_id = loans_score.getDay()
+        total_dividends = {}
+        for day in range(start, end):
+            dividends = self._get_dividends_for_daofund(day)
+            if dividends:
+                self._set_claimed(self._daofund.get(), day)
+            total_dividends = self._add_dividends(total_dividends, dividends)
 
-            increased_snapshot = self._snapshot_id.get() + DAYS_IN_A_WEEK
-            if increased_snapshot <= current_snapshot_id:
-                # week has passed
-                self._snapshot_id.set(increased_snapshot)
-                # week has also advanced as well as there is amount to distribute
-                if self._amount_received_status.get():
-                    self._dividends_distribution_status.set(Status.COMPLETE_STAKED_BALN_UPDATES)
-                    self._sweep_amount_for_distribution()
-                    baln_score.switchStakeUpdateDB()
-            else:
-                self._update_stake_balances()
-                baln_score.clearYesterdaysStakeChanges()
-                return True
-
-        elif self._dividends_distribution_status.get() == Status.COMPLETE_STAKED_BALN_UPDATES:
-            # If the week has changed but the dividends distribution contract has not pulled all the staking data from
-            # baln token contract, it continues to pull the data
-            if self._update_stake_balances():
-                self._dividends_distribution_status.set(Status.FILTER_ELIGIBLE_STAKED_BALN_HOLDERS)
-
-        elif self._dividends_distribution_status.get() == Status.FILTER_ELIGIBLE_STAKED_BALN_HOLDERS:
-            self._check_eligibility_against_debt_value()
-
-        elif self._dividends_distribution_status.get() == Status.TOTAL_DATA_FROM_BALN_LP_POOL:
-            self._update_total_lp_tokens()
-
-        elif self._dividends_distribution_status.get() == Status.COMPUTE_BALN_FOR_LP_HOLDER:
-            self._update_lp_holders_balance()
-
-        elif self._dividends_distribution_status.get() == Status.DAOFUND_DISTRIBUTION:
-            self._distribute_to_daofund_address()
-
-        elif self._dividends_distribution_status.get() == Status.DISTRIBUTE_FUND_TO_HOLDERS:
-            self._distribute_to_baln_holders()
-        else:
-            pass
-        return False
-
-    def _sweep_amount_for_distribution(self) -> None:
-        for token in self._accepted_tokens:
-            token_key = str(token)
-            self._amount_being_distributed[token_key] += self._amount_to_distribute[token_key]
-            self._amount_to_distribute[token_key] = 0
-
-    def _update_stake_balances(self) -> bool:
-        """
-        Updates the staked balances of BALN token
-        """
-        baln_score = self.create_interface_score(self._baln_score.get(), BalnTokenInterface)
-        staked_baln_balances = baln_score.getStakeUpdates()
-        if len(staked_baln_balances) == 0:
-            return True
-        for address, balance in staked_baln_balances.items():
-            self._staked_baln_holders[address] = balance
-        return False
-
-    def _check_eligibility_against_debt_value(self) -> None:
-        # Checks if the staked BALN token holders still maintain the debt criteria
-        # get debt data in batch and process only those addresses
-
-        cursor = self._staked_dist_index.get()
-        if cursor == "":
-            cursor = self._staked_baln_holders.head
-
-        baln_stake_holders = []
-        for idx in range(self._max_loop_count.get()):
-            address = cursor
-            baln_stake_holders.append(address)
-            if cursor == self._staked_baln_holders.tail:
-                cursor = ""
-                self._dividends_distribution_status.set(Status.TOTAL_DATA_FROM_BALN_LP_POOL)
-                break
-            else:
-                cursor = self._staked_baln_holders.get_node(address).next_
-
-        self._staked_dist_index.set(cursor)
-
-        loan_score = self.create_interface_score(self._loans_score.get(), LoansInterface)
-        baln_stake_holders_debts = loan_score.getDebts(baln_stake_holders, self._snapshot_id.get() - 1)
-        for address, debt in baln_stake_holders_debts.items():
-            if debt >= self._minimum_eligible_debt.get():
-                baln_token = self._staked_baln_holders[address]
-                self._eligible_baln_holders[address] = baln_token
-                self._total_eligible_baln_tokens.set(self._total_eligible_baln_tokens.get() + baln_token)
-
-    def _update_total_lp_tokens(self) -> None:
-        # update the total lp tokens and baln tokens in the pool
-        dex_score = self.create_interface_score(self._dex_score.get(), DexInterface)
-        baln_in_dex = dex_score.getBalnSnapshot(BALNBNUSD, self._snapshot_id.get() - 1)
-        total_lp_tokens = dex_score.getTotalValue(BALNBNUSD, self._snapshot_id.get() - 1)
-        self._baln_in_dex.set(baln_in_dex)
-        self._total_lp_tokens.set(total_lp_tokens)
-        self._dividends_distribution_status.set(Status.COMPUTE_BALN_FOR_LP_HOLDER)
-
-    def _update_lp_holders_balance(self) -> None:
-        dex_score = self.create_interface_score(self._dex_score.get(), DexInterface)
-        lp_holders = dex_score.getDataBatch(BALNBNUSD, self._snapshot_id.get() - 1, self._max_loop_count.get(),
-                                            self._lp_holders_index.get())
-        lp_holders_count = len(lp_holders)
-        baln_in_dex = self._baln_in_dex.get()
-        total_lp_tokens = self._total_lp_tokens.get()
-        if lp_holders_count == 0 or baln_in_dex == 0 or total_lp_tokens == 0:
-            self._dividends_distribution_status.set(Status.DAOFUND_DISTRIBUTION)
-            return
-
-        for address, lp_token in lp_holders.items():
-            equivalent_baln = (lp_token * baln_in_dex) // total_lp_tokens
-            self._eligible_baln_holders[address] = self._eligible_baln_holders[address] + equivalent_baln
-            baln_in_dex -= equivalent_baln
-            total_lp_tokens -= lp_token
-
-        self._baln_in_dex.set(baln_in_dex)
-        self._total_lp_tokens.set(total_lp_tokens)
-        self._lp_holders_index.set(self._lp_holders_index.get() + self._max_loop_count.get())
-
-    def _distribute_to_daofund_address(self) -> None:
-        daofund_percentage = self._dividends_percentage[DAOFUND]
-        daofund_address = self._daofund.get()
-        if daofund_percentage == 0:
-            self._dividends_distribution_status.set(Status.DISTRIBUTE_FUND_TO_HOLDERS)
-            return
-        total_percentage = 10 ** 18
-        self._dividends_distribution_status.set(Status.DISTRIBUTE_FUND_TO_HOLDERS)
-        for token in self._accepted_tokens:
-            amount = (daofund_percentage * self._amount_being_distributed[str(token)]) // total_percentage
-            self._amount_being_distributed[str(token)] -= amount
-            if amount <= 0:
-                continue
-            if token == ZERO_SCORE_ADDRESS:
-                self._send_ICX(daofund_address, amount, "Dividends distribution to DAOfund address")
-            else:
-                self._send_token(daofund_address, amount, token, "Dividends distribution to DAOfund address")
-
-    def _distribute_to_baln_holders(self):
-        if self._dividends_percentage[BALN_HOLDERS] == 0:
-            self._dividends_distribution_status.set(Status.DIVIDENDS_DISTRIBUTION_COMPLETE)
-            return
-
-        batch_size = self._max_loop_count.get() // len(self._accepted_tokens)
-        cursor = self._baln_dist_index.get()
-
-        # Read once for all token addresses
-        amount_being_distributed = {str(token): self._amount_being_distributed[str(token)]
-                                    for token in self._accepted_tokens}
-        total_baln_token = self._total_eligible_baln_tokens.get()
-
-        if cursor == "":
-            cursor = self._eligible_baln_holders.head
-
-        if cursor == "":
-            self._dividends_distribution_status.set(Status.DIVIDENDS_DISTRIBUTION_COMPLETE)
-            return
-
-        for idx in range(batch_size):
-            address = cursor
-            baln_token = self._eligible_baln_holders[cursor]
-            # Maintain account balance of each user for different tokens to distribute
+        try:
             for token in self._accepted_tokens:
-                token_key = str(token)
-                if amount_being_distributed[token_key] > 0 and total_baln_token > 0 and baln_token > 0:
-                    share_amount = (baln_token * amount_being_distributed[token_key]) // total_baln_token
-                    amount_being_distributed[token_key] -= share_amount
-                    self._users_balance[token_key][address] += share_amount
-
-            total_baln_token -= baln_token
-            if cursor == self._eligible_baln_holders.tail:
-                self._dividends_distribution_status.set(Status.DIVIDENDS_DISTRIBUTION_COMPLETE)
-                cursor = ""
-                break
-            else:
-                cursor = self._eligible_baln_holders.get_node(address).next_
-
-            # Reset the balance so that the amount is being re-calculated in next distribution cycle
-            self._eligible_baln_holders.remove(address)
-
-        # Write once after distribution to all addresses
-        for token, amount in amount_being_distributed.items():
-            self._amount_being_distributed[token] = amount
-        self._total_eligible_baln_tokens.set(total_baln_token)
-
-        self._baln_dist_index.set(cursor)
+                if total_dividends.get(str(token), 0) > 0:
+                    if str(token) == str(ZERO_SCORE_ADDRESS):
+                        self._send_ICX(self._daofund.get(), total_dividends[str(token)], "Daofund dividends")
+                    else:
+                        self._send_token(self._daofund.get(), total_dividends[str(token)], token, "Daofund dividends")
+            self.Claimed(self._daofund.get(), start, end, str(total_dividends))
+        except BaseException as e:
+            revert(f"Balanced Dividends: Error in transferring daofund dividends: Error {e}")
 
     @external
-    def claim(self) -> None:
+    def claim(self, _start: int = 0, _end: int = 0) -> None:
         """
-        Used only to receive all fees generated by the Balanced system.
-        :param _from: Token origination address.
-        :type _from: :class:`iconservice.base.address.Address`
-        :param _value: Number of tokens sent.
-        :type _value: int
-        :param _data: Unused, ignored.
-        :type _data: bytes
+        Used to claim all fees generated by the Balanced system. _start and _end is used to take the range of dividends
+        user wants to claim.
         """
-        pass
+        if not self._distribution_activate.get():
+            revert(f"Balanced Dividends: Claim has not been activated")
+
+        _start, _end = self._check_start_end(_start, _end)
+        _account = self.msg.sender
+
+        total_dividends = {}
+        for day in range(_start, _end):
+            dividends = self._get_dividends_for_day(_account, day)
+            if dividends:
+                self._set_claimed(_account, day)
+            total_dividends = self._add_dividends(total_dividends, dividends)
+
+        try:
+            for token in self._accepted_tokens:
+                if total_dividends.get(str(token), 0) > 0:
+                    if str(token) == str(ZERO_SCORE_ADDRESS):
+                        self._send_ICX(_account, total_dividends[str(token)], "User dividends")
+                    else:
+                        self._send_token(_account, total_dividends[str(token)], token, "User dividends")
+            self.Claimed(_account, _start, _end, str(total_dividends))
+        except BaseException as e:
+            revert(f"Balanced Dividends: Error in claiming dividends. Error: {e}")
 
     def _send_ICX(self, _to: Address, amount: int, msg: str) -> None:
         """
@@ -644,7 +527,7 @@ class Dividends(IconScoreBase):
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
         Used only to receive all fees generated by the Balanced system.
-        :param _from: Token orgination address.
+        :param _from: Token origination address.
         :type _from: :class:`iconservice.base.address.Address`
         :param _value: Number of tokens sent.
         :type _value: int
@@ -654,26 +537,152 @@ class Dividends(IconScoreBase):
         if self.msg.sender not in self._accepted_tokens:
             loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
             available_tokens = loans.getAssetTokens()
-            if str(self.msg.sender) not in available_tokens.values():
-                revert(f"{TAG}: {self.msg.sender} token is not an accepted token for the dividends")
-            else:
+            if str(self.msg.sender) in available_tokens.values():
                 self._accepted_tokens.put(self.msg.sender)
+        self._check_for_new_day()
         day = self._snapshot_id.get()
         self._daily_fees[day][str(self.msg.sender)] += _value
-        self.DividendsReceived(_value, f"{_value} tokens received as dividends token: {self.msg.sender}")
+        self.DividendsReceivedV2(_value, self._snapshot_id.get(),
+                                 f"{_value} tokens received as dividends token: {self.msg.sender} ")
         self._amount_received_status.set(True)
 
     @payable
     def fallback(self):
+        self._check_for_new_day()
         day = self._snapshot_id.get()
         self._daily_fees[day][str(ZERO_SCORE_ADDRESS)] += self.msg.value
-        self.DividendsReceived(self.msg.value, f"{self.msg.value} ICX received as dividends")
+        self.DividendsReceivedV2(self.msg.value, self._snapshot_id.get(),
+                                 f"{self.msg.value} ICX received as dividends.")
         self._amount_received_status.set(True)
+
+    @external(readonly=True)
+    def getUserDividends(self, _account: Address, _start: int = 0, _end: int = 0) -> dict:
+        """
+        Returns the dividends accrued by the user. Provides option to select the dividends for arbitrary days. Both
+        _start and _end are inclusive. If _start or _end is only provided dividends batch size items are returned.
+        [_start, _end)
+        :param _account: Address of the user
+        :param _start: Starting day of the dividends(inclusive)
+        :param _end: Ending day of the dividends(exclusive)
+        """
+        _start, _end = self._check_start_end(_start, _end)
+
+        total_dividends = {}
+        for day in range(_start, _end):
+            dividends = self._get_dividends_for_day(_account, day)
+            total_dividends = self._add_dividends(total_dividends, dividends)
+        return total_dividends
+
+    @external(readonly=True)
+    def getDaofundDividends(self, _start: int = 0, _end: int = 0) -> dict:
+        _start, _end = self._check_start_end(_start, _end)
+
+        total_dividends = {}
+        for day in range(_start, _end):
+            dividends = self._get_dividends_for_daofund(day)
+            total_dividends = self._add_dividends(total_dividends, dividends)
+        return total_dividends
+
+    def _check_start_end(self, _start: int, _end: int) -> (int, int):
+        if _start == 0 and _end == 0:
+            _end = self._snapshot_id.get()
+            _start = max(1, _end - self._dividends_batch_size.get())
+        elif _end == 0:
+            _end = min(self._snapshot_id.get(), _start + self._dividends_batch_size.get())
+        elif _start == 0:
+            _start = max(1, _end - self._dividends_batch_size.get())
+
+        if not (1 <= _start < self._snapshot_id.get()):
+            revert("Invalid value of start provided")
+        if not (1 < _end <= self._snapshot_id.get()):
+            revert("Invalid value of end provided")
+        if _start >= _end:
+            revert("Start must not be greater than or equal to end.")
+        if _end - _start > self._dividends_batch_size.get():
+            revert(f"Maximum allowed range is {self._dividends_batch_size.get()}")
+        return _start, _end
+
+    def _get_dividends_for_day(self, _account: Address, _day: int) -> dict:
+
+        if self._is_claimed(_account, _day):
+            return {}
+
+        baln_token_score = self.create_interface_score(self._baln_score.get(), BalnTokenInterface)
+        dex_score = self.create_interface_score(self._dex_score.get(), DexInterface)
+
+        staked_baln = baln_token_score.stakedBalanceOfAt(_account, _day)
+        total_staked_baln = baln_token_score.totalStakedBalanceOfAt(_day)
+
+        my_baln_from_pools = 0
+        total_baln_from_pools = 0
+        for pool_id in (BALNBNUSD_ID, BALNSICX_ID):
+            my_lp = dex_score.balanceOfAt(_account, pool_id, _day)
+            total_lp = dex_score.totalSupplyAt(pool_id, _day)
+            total_baln = dex_score.totalBalnAt(pool_id, _day)
+
+            equivalent_baln = 0
+            if my_lp > 0 and total_lp > 0 and total_baln > 0:
+                equivalent_baln = (my_lp * total_baln) // total_lp
+
+            my_baln_from_pools += equivalent_baln
+            total_baln_from_pools += total_baln
+
+        my_total_baln_token = staked_baln + my_baln_from_pools
+        total_baln_token = total_staked_baln + total_baln_from_pools
+
+        my_dividends = {}
+        if my_total_baln_token > 0 and total_baln_token > 0:
+            for token in self._accepted_tokens:
+                my_dividends[str(token)] = (my_total_baln_token * self._dividends_percentage[BALN_HOLDERS]
+                                            * self._daily_fees[_day][str(token)]) // (total_baln_token * 10**18)
+
+        return my_dividends
+
+    def _get_dividends_for_daofund(self, _day: int) -> dict:
+        if self._is_claimed(self._daofund.get(), _day):
+            return {}
+
+        daofund_dividends = {}
+        for token in self._accepted_tokens:
+            daofund_dividends[str(token)] = (self._dividends_percentage[DAOFUND] * self._daily_fees[_day][str(token)]) \
+                                            // 10**18
+        return daofund_dividends
+
+    def _add_dividends(self, a: dict, b: dict) -> dict:
+        if a and b:
+            response = {}
+            for token in self._accepted_tokens:
+                response[str(token)] = a.get(str(token), 0) + b.get(str(token), 0)
+            return response
+        elif a:
+            return a
+        elif b:
+            return b
+        else:
+            return {}
+
+    def _set_claimed(self, _account: Address, _day: int):
+        claimed_bit_map = DictDB(self._CLAIMED_BIT_MAP + str(_account), self.db, value_type=int)
+        claimed_word_index = _day // 256
+        claimed_bit_index = _day % 256
+        claimed_bit_map[claimed_word_index] = claimed_bit_map[claimed_word_index] | (1 << claimed_bit_index)
+
+    def _is_claimed(self, _account: Address, _day: int) -> bool:
+        claimed_bit_map = DictDB(self._CLAIMED_BIT_MAP + str(_account), self.db, value_type=int)
+        claimed_word_index = _day // 256
+        claimed_bit_index = _day % 256
+        claimed_word = claimed_bit_map[claimed_word_index]
+        mask = (1 << claimed_bit_index)
+        return claimed_word & mask == mask
 
     # -------------------------------------------------------------------------------
     #   EVENT LOGS
     # -------------------------------------------------------------------------------
 
+    @eventlog(indexed=2)
+    def DividendsReceivedV2(self, _amount: int, _day: int, _data: str) -> None:
+        pass
+
     @eventlog(indexed=1)
-    def DividendsReceived(self, _amount: int, _data: str) -> None:
+    def Claimed(self, _address: Address, _start: int, _end: int, _dividends: str):
         pass
