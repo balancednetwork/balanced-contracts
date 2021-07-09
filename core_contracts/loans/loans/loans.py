@@ -513,14 +513,14 @@ class Loans(IconScoreBase):
             d = json_loads(_data.decode("utf-8"))
         except BaseException as e:
             revert(f'{TAG}: Invalid data: {_data}, returning tokens. Exception: {e}')
-        if set(d.keys()) == {"_asset", "_amount"} or ('method' in set(d.keys()) and d["method"] == "retireSicx"):
-            if 'method' in set(d.keys()) and d["method"] == "retireSicx":
-                self._retireSicx("sICX", _value, d["_bnusd_from_lenders"], Address.from_string(d['rebalancing_address']))
+        if set(d.keys()) == {"_asset", "_amount"} or ('method' in set(d.keys()) and d["method"] == "_generate_bnUSD"):
+            if 'method' in set(d.keys()) and d["method"] == "_generate_bnUSD":
+                self._generate_bnUSD("sICX", _value, d["_bnusd_from_lenders"],
+                                     Address.from_string(d['rebalancing_address']))
             if set(d.keys()) == {"_asset", "_amount"}:
                 self.depositAndBorrow(d['_asset'], d['_amount'], _from, _value)
         else:
             revert(f'{TAG}: Invalid parameters.')
-
 
     @loans_on
     @payable
@@ -711,12 +711,12 @@ class Loans(IconScoreBase):
         self.AssetRetired(_from, _symbol, _redeemed, price, _redeemed,
                           total_batch_debt, str(redeemed_dict))
 
-    def _retireSicx(self, _symbol: str, _redeemed: int, _bnusd_from_lenders: int, _from: Address) -> None:
+    def _generate_bnUSD(self, _symbol: str, amount: int, _bnusd_from_lenders: int, _from: Address) -> None:
         """
         This function will  add off debt to a batch of
-        borrowers proportionately.
+        borrowers proportionately along with their collateral.
 
-        :param _symbol: retired token symbol.
+        :param _symbol: collateral symbol to add.
         :type _symbol: str
         :param _redeemed: Number of tokens sent.
         :type _redeemed: int
@@ -726,13 +726,11 @@ class Loans(IconScoreBase):
         :type _from: Address
         """
         # _from = self.msg.sender
-        if not _redeemed > 0:
+        if not amount > 0:
             revert(f'{TAG}: Amount retired must be greater than zero.')
         asset = self._assets[_symbol]
-        if not (asset and asset.is_active()) :
-            revert(f'{TAG}: {_symbol} is not an active, borrowable asset on Balanced.')
-        # if asset.balanceOf(_from) < _redeemed:
-        #     revert(f'{TAG}: Insufficient balance.')
+        if not (asset and asset.is_active()):
+            revert(f'{TAG}: {_symbol} is not an active asset.')
         price = asset.priceInLoop()
         batch_size = self._redeem_batch.get()
         borrowers = self._assets['bnUSD'].get_borrowers()
@@ -748,29 +746,23 @@ class Loans(IconScoreBase):
         borrowers.serialize()
         remaining_value = _bnusd_from_lenders
         remaining_supply = total_batch_debt
-        returned_sicx_remaining = _redeemed
-
+        returned_sicx_remaining = amount
         redeemed_dict = {}
 
         for pos_id, user_debt in positions_dict.items():
-            x = redeemed_dict[pos_id]
-            y = user_debt
-            z = self._positions[pos_id]["sICX"]
-            a = self._positions[pos_id]["bnUSD"]
             redeemed_dict[pos_id] = remaining_value * user_debt // remaining_supply
             remaining_value -= redeemed_dict[pos_id]
-            self._positions[pos_id]['bnUSD'] = user_debt + redeemed_dict[pos_id]
+            self._positions[pos_id]["bnUSD"] = user_debt + redeemed_dict[pos_id]
 
             sicx_share = returned_sicx_remaining * user_debt // remaining_supply
             returned_sicx_remaining -= sicx_share
-            self._positions[pos_id]['sICX'] += sicx_share
-            revert(f'{x} and {y} and {self._positions[pos_id]["sICX"]} aand {z} and {self._positions[pos_id]["bnUSD"]} and {a}')
+            self._positions[pos_id][_symbol] += sicx_share
 
             remaining_supply -= user_debt
 
-        self._assets["bnUSD"].mint(self.address, _bnusd_from_lenders)
-        self.AssetRetired(_from, _symbol, _redeemed, price, _redeemed,
-                          total_batch_debt, str(redeemed_dict))
+        self._assets["bnUSD"].mint(_from, _bnusd_from_lenders)
+
+        self.AssetGenerated(_from, 'bnUSD', _bnusd_from_lenders, price, total_batch_debt, str(redeemed_dict))
 
     def bd_redeem(self, _from: Address,
                   _asset: Asset,
@@ -1149,9 +1141,13 @@ class Loans(IconScoreBase):
         pass
 
     @eventlog(indexed=3)
-    def BaddebtRetired(self, account: Address, symbol: str, amount: int, price: int):
+    def AssetGenerated(self, account: Address, symbol: str, amount: int, price: int, total_batch_debt: int,
+                       batch_dict: str):
         pass
 
+    @eventlog(indexed=3)
+    def BaddebtRetired(self, account: Address, symbol: str, amount: int, price: int):
+        pass
 
     @eventlog(indexed=2)
     def Liquidate(self, account: Address, amount: int, note: str):

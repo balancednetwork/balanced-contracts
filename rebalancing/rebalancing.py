@@ -298,8 +298,9 @@ class Rebalancing(IconScoreBase):
                 if bnusd_to_retire > bnusd_in_contract:
                     self.bnUSD_score.transfer(self._dex.get(), bnusd_in_contract, data_bytes_sicx)
                     sicx_in_contract = self.sICX_score.balanceOf(self.address) - self._sicx_receivable.get()
-                    data_to_send = {"method": "retireSicx",
-                                    "_bnusd_from_lenders": self._bnusd_receivable.get(), "rebalancing_address": str(self.address)}
+                    data_to_send = {"method": "_generate_bnUSD",
+                                    "_bnusd_from_lenders": self._bnusd_receivable.get(),
+                                    "rebalancing_address": str(self.address)}
                     data_in_string = json_dumps(data_to_send)
                     data_in_bytes = str.encode(data_in_string)
                     self.sICX_score.transfer(self._loans.get(), sicx_in_contract, data_in_bytes)
