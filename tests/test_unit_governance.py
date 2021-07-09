@@ -26,13 +26,14 @@ class TestGovernanceUnit(ScoreTestCase):
         self.set_msg(self.test_account1)
         day = self.governance.getDay()
         print(day)
-        self.governance.defineVote(name="Just a demo", quorum=40, vote_start=day + 2, duration=2, snapshot=30,
+        self.governance.defineVote(name="Just a demo", description='Testing description field', quorum=40, vote_start=day + 2, duration=2, snapshot=30,
                                    actions="{\"enable_dividends\": {}}")
         self.patch_internal_method(self.baln, "totalStakedBalanceOfAt", lambda x: 500)
-        expected = {'id': 1, 'name': 'Just a demo', 'majority': 666666666666666667, 'vote snapshot': 30,
+        expected = {'id': 1, 'name': 'Just a demo', 'description': 'Testing description field', 'majority': 666666666666666667, 'vote snapshot': 30,
                     'start day': day + 2, 'end day': day + 4, 'actions': "{\"enable_dividends\": {}}",
                     'quorum': 400000000000000000, 'for': 0, 'against': 0, 'status': 'Pending'}
         self.assertEqual(expected, self.governance.checkVote(_vote_index=1))
+        print(self.governance.checkVote(1))
 
     def test_execute_vote_actions(self):
 
