@@ -230,7 +230,7 @@ class Rebalancing(IconScoreBase):
     @only_governance
     def setBnusdReceivable(self, _value: int) -> None:
         """
-        :param _value: sICX amount to set.
+        :param _value: bnUSD amount to set.
         Sets the bnUSD amount to receive by rebalancing contract.
         """
         self._bnusd_receivable.set(_value)
