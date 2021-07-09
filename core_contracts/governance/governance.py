@@ -85,7 +85,7 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def defineVote(self, name: str, quorum: int, vote_start: int, duration: int, snapshot: int, actions: str,
+    def defineVote(self, name: str, description: str, quorum: int, vote_start: int, duration: int, snapshot: int, actions: str,
                    majority: int = MAJORITY) -> None:
         """
         Names a new vote, defines quorum, and actions.
@@ -107,7 +107,7 @@ class Governance(IconScoreBase):
         if len(actions_dict) > self.maxActions():
             revert(f"Balanced Governance: Only {self.maxActions()} actions are allowed")
 
-        ProposalDB.create_proposal(name=name, proposer=self.msg.sender, quorum=quorum*EXA//100, majority=majority,
+        ProposalDB.create_proposal(name=name, description=description, proposer=self.msg.sender, quorum=quorum*EXA//100, majority=majority,
                                    snapshot=snapshot, start=vote_start, end=vote_start + duration, actions=actions,
                                    db=self.db)
 
@@ -232,6 +232,7 @@ class Governance(IconScoreBase):
 
         vote_status = {'id': _vote_index,
                        'name': vote_data.name.get(),
+                       'description': vote_data.description.get(),
                        'majority': vote_data.majority.get(),
                        'vote snapshot': vote_data.vote_snapshot.get(),
                        'start day': vote_data.start_snapshot.get(),

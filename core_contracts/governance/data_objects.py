@@ -150,6 +150,7 @@ class ProposalDB:
         self.end_snapshot = VarDB(self._key + "_end_snapshot", db, value_type=int)
         self.actions = VarDB(self._key + "_actions", db, value_type=str)
         self.name = VarDB(self._key + "_name", db, value_type=str)
+        self.description = VarDB(self._key + "_description", db, value_type=str)
         self.active = VarDB(self._key + "_active", db, value_type=bool)
         self.for_votes_of_user = DictDB(self._key + "_for_votes_of_user", db, value_type=int)
         self.against_votes_of_user = DictDB(self._key + "_against_votes_of_user", db, value_type=int)
@@ -168,7 +169,7 @@ class ProposalDB:
         return proposal.proposals_count.get()
 
     @classmethod
-    def create_proposal(cls, name: str, proposer: Address, quorum: int, majority: int, snapshot: int, start: int,
+    def create_proposal(cls, name: str, description: str, proposer: Address, quorum: int, majority: int, snapshot: int, start: int,
                         end: int, actions: str, db: IconScoreDatabase) -> 'ProposalDB':
 
         vote_index = cls(0, db).proposals_count.get() + 1
@@ -184,6 +185,7 @@ class ProposalDB:
         new_proposal.end_snapshot.set(end)
         new_proposal.actions.set(actions)
         new_proposal.name.set(name)
+        new_proposal.description.set(description)
         new_proposal.status.set(ProposalStatus.STATUS[ProposalStatus.PENDING])
         return new_proposal
 
