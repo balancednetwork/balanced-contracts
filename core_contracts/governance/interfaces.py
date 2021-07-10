@@ -25,6 +25,20 @@ class StakingInterface(InterfaceScore):
         pass
 
 
+class RebalancingInterface(InterfaceScore):
+    @interface
+    def setSicxReceivable(self, _value: int) -> None:
+        pass
+
+    @interface
+    def setBnusdReceivable(self, _value: int) -> None:
+        pass
+
+    @interface
+    def setPriceChangeThreshold(self, _value: int) -> None:
+        pass
+
+
 # An interface to the Loans SCORE
 class LoansInterface(InterfaceScore):
     @interface
@@ -79,7 +93,19 @@ class LoansInterface(InterfaceScore):
         pass
 
     @interface
-    def delegate(self, _user_delegations: List[PrepDelegations]):
+    def delegate(self, _user_delegations: List[PrepDelegations]) -> None:
+        pass
+
+    @interface
+    def setRedemptionFee(self, _fee: int) -> None:
+        pass
+
+    @interface
+    def setMaxRetirePercent(self, _value: int) -> None:
+        pass
+
+    @interface
+    def setRedeemBatchSize(self, _value: int) -> None:
         pass
 
 
@@ -185,6 +211,15 @@ class RewardsInterface(InterfaceScore):
     def bonusDist(self, _addresses: List[Address], _amounts: List[int]) -> None:
         pass
 
+
+# An interface to the Dividends SCORE.
+class DividendsInterface(InterfaceScore):
+
+    @interface
+    def setDistributionActivationStatus(self, _status: bool) -> None:
+        pass
+
+
 # An interface to call the setAddress methods on each SCORE.
 class SetAddressesInterface(InterfaceScore):
 
@@ -244,7 +279,23 @@ class SetAddressesInterface(InterfaceScore):
 class BalancedInterface(InterfaceScore):
 
     @interface
+    def totalStakedBalance(self) -> int:
+        pass
+
+    @interface
     def balanceOf(self, _owner: Address) -> int:
+        pass
+
+    @interface
+    def stakedBalanceOf(self, _owner: Address) -> int:
+        pass
+
+    @interface
+    def stakedBalanceOfAt(self, _account: Address, _day: int) -> int:
+        pass
+
+    @interface
+    def totalStakedBalanceOfAt(self, _day: int) -> int:
         pass
 
     @interface

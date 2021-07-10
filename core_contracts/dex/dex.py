@@ -1106,10 +1106,19 @@ class DEX(IconScoreBase):
         self._icx_queue_total.set(self._icx_queue_total.get() - order_icx_value)
         self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
 
+        # Compute effective fill price after fees for eventlog
+        effective_fill_price = (EXA * order_icx_value) // _value
+
+        # Publish an eventlog with the swap results
+        self.Swap(self._SICXICX_POOL_ID, self._sicx.get(), self._sicx.get(), None, _sender,
+                  _sender, _value, order_icx_value, self.now(), conversion_fees,
+                  baln_fees, self._icx_queue_total.get(), 
+                  0, self._get_sicx_rate(), effective_fill_price)
+
         # Settle fees to dividends and ICX converted to the sender
         sicx_score.transfer(self._dividends.get(), baln_fees)
         self.icx.transfer(_sender, order_icx_value)
-    
+
     def _get_unit_value(self, _token_address: Address):
         if _token_address is None:
             return 10 ** 18
@@ -1376,7 +1385,7 @@ class DEX(IconScoreBase):
             return self._total_supply_snapshot[_id]['values'][matched_index]
 
     @external(readonly=True)
-    def totalBalnAt(self, _id: int, _snapshot_id: int) -> int:
+    def totalBalnAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
         matched_index = 0
         if _snapshot_id < 0:
             revert(f'Snapshot id is equal to or greater then Zero')
@@ -1397,7 +1406,7 @@ class DEX(IconScoreBase):
         else:
             matched_index = low - 1
 
-        if self._baln_snapshot[_id]['ids'][matched_index] == _snapshot_id:
+        if self._baln_snapshot[_id]['ids'][matched_index] == _snapshot_id and _twa:
             return self._baln_snapshot[_id]['avgs'][matched_index]
         else:
             return self._baln_snapshot[_id]['values'][matched_index]
