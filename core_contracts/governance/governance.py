@@ -84,7 +84,7 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def defineVote(self, name: str, quorum: int, vote_start: int, duration: int, snapshot: int, actions: str,
+    def defineVote(self, name: str, description: str, quorum: int, vote_start: int, duration: int, snapshot: int, actions: str,
                    majority: int = MAJORITY) -> None:
         """
         Names a new vote, defines quorum, and actions.
@@ -106,7 +106,7 @@ class Governance(IconScoreBase):
         if len(actions_dict) > self.maxActions():
             revert(f"Balanced Governance: Only {self.maxActions()} actions are allowed")
 
-        ProposalDB.create_proposal(name=name, proposer=self.msg.sender, quorum=quorum*EXA//100, majority=majority,
+        ProposalDB.create_proposal(name=name, description=description, proposer=self.msg.sender, quorum=quorum*EXA//100, majority=majority,
                                    snapshot=snapshot, start=vote_start, end=vote_start + duration, actions=actions,
                                    db=self.db)
 
@@ -133,22 +133,60 @@ class Governance(IconScoreBase):
         snapshot = proposal.vote_snapshot.get()
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         stake = baln.stakedBalanceOfAt(sender, snapshot)
+        dex_pool = self._get_pool_baln(sender, snapshot)
+        total_vote = stake + dex_pool
         prior_vote = (proposal.for_votes_of_user[sender], proposal.against_votes_of_user[sender])
         total_for_votes = proposal.total_for_votes.get()
         total_against_votes = proposal.total_against_votes.get()
         if vote:
-            proposal.for_votes_of_user[sender] = stake
+            proposal.for_votes_of_user[sender] = total_vote
             proposal.against_votes_of_user[sender] = 0
-            total_for = total_for_votes + stake - prior_vote[0]
+            total_for = total_for_votes + total_vote - prior_vote[0]
             total_against = total_against_votes - prior_vote[1]
         else:
             proposal.for_votes_of_user[sender] = 0
-            proposal.against_votes_of_user[sender] = stake
+            proposal.against_votes_of_user[sender] = total_vote
             total_for = total_for_votes - prior_vote[0]
-            total_against = total_against_votes + stake - prior_vote[1]
+            total_against = total_against_votes + total_vote - prior_vote[1]
         proposal.total_for_votes.set(total_for)
         proposal.total_against_votes.set(total_against)
-        self.VoteCast(name, vote, sender, stake, total_for, total_against)
+        self.VoteCast(name, vote, sender, total_vote, total_for, total_against)
+
+    def _get_pool_baln(self, _account: Address, _day: int) -> int:
+
+        dex_score = self.create_interface_score(self.addresses['dex'], DexInterface)
+
+        my_baln_from_pools = 0
+        total_baln_from_pools = 0
+        for pool_id in (BALNBNUSD_ID, BALNSICX_ID):
+            my_lp = dex_score.balanceOfAt(_account, pool_id, _day)
+            total_lp = dex_score.totalSupplyAt(pool_id, _day)
+            total_baln = dex_score.totalBalnAt(pool_id, _day)
+
+            equivalent_baln = 0
+            if my_lp > 0 and total_lp > 0 and total_baln > 0:
+                equivalent_baln = (my_lp * total_baln) // total_lp
+
+            my_baln_from_pools += equivalent_baln
+            total_baln_from_pools += total_baln
+
+        my_total_baln_token = my_baln_from_pools
+        return my_total_baln_token
+
+    @external(readonly=True)
+    def totalBaln(self, _day: int) -> int:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        total_staked = baln.totalStakedBalanceOfAt(_day)
+        dex_score = self.create_interface_score(self.addresses['dex'], DexInterface)
+
+        total_baln_from_pools = 0
+        for pool_id in (BALNBNUSD_ID, BALNSICX_ID):
+            total_baln = dex_score.totalBalnAt(pool_id, _day)
+
+            total_baln_from_pools += total_baln
+
+        total_baln_token = total_baln_from_pools+total_staked
+        return total_baln_token
 
     @external
     def executeVoteAction(self, vote_index: int) -> None:
@@ -207,6 +245,7 @@ class Governance(IconScoreBase):
 
         vote_status = {'id': _vote_index,
                        'name': vote_data.name.get(),
+                       'description': vote_data.description.get(),
                        'majority': vote_data.majority.get(),
                        'vote snapshot': vote_data.vote_snapshot.get(),
                        'start day': vote_data.start_snapshot.get(),

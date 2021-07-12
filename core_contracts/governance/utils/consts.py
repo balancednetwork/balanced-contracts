@@ -7,7 +7,8 @@ U_SECONDS_DAY = 86400 * 10**6  # Microseconds in a day.
 DAY_ZERO = 18647
 DAY_START = 61200 * 10**6  # 17:00 UTC
 MAJORITY = 666666666666666667
-
+BALNBNUSD_ID = 3
+BALNSICX_ID = 4
 
 CONTRACTS = ['loans', 'dex', 'staking', 'rewards', 'dividends', 'daofund',
              'reserve', 'sicx', 'bnUSD', 'baln', 'bwt']
