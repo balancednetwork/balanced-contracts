@@ -33,7 +33,6 @@ class TestGovernanceUnit(ScoreTestCase):
                     'start day': day + 2, 'end day': day + 4, 'actions': "{\"enable_dividends\": {}}",
                     'quorum': 400000000000000000, 'for': 0, 'against': 0, 'status': 'Pending'}
         self.assertEqual(expected, self.governance.checkVote(_vote_index=1))
-        print(self.governance.checkVote(1))
 
     def test_execute_vote_actions(self):
 
@@ -59,44 +58,44 @@ class TestGovernanceUnit(ScoreTestCase):
         print(day)
 
         with self.assertRaises(IconScoreException) as quorum:
-            self.governance.defineVote(name="Enable the dividends", quorum=0, vote_start=day + 2, duration=2,
+            self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=0, vote_start=day + 2, duration=2,
                                        snapshot=30, actions="{\"enable_dividends\": {}}")
         self.assertEqual("Quorum must be greater than 0 and less than 100.", quorum.exception.message)
 
         with self.assertRaises(IconScoreException) as quorum2:
-            self.governance.defineVote(name="Enable the dividends", quorum=100, vote_start=day + 2, duration=2,
+            self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=100, vote_start=day + 2, duration=2,
                                        snapshot=30, actions="{\"enable_dividends\": {}}")
         self.assertEqual("Quorum must be greater than 0 and less than 100.", quorum2.exception.message)
 
         with self.assertRaises(IconScoreException) as start_day:
-            self.governance.defineVote(name="Enable the dividends", quorum=40, vote_start=day, duration=2,
+            self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40, vote_start=day, duration=2,
                                        snapshot=30, actions="{\"enable_dividends\": {}}")
         self.assertEqual("Vote cannot start before the current time.", start_day.exception.message)
 
         with self.assertRaises(IconScoreException) as start_day2:
-            self.governance.defineVote(name="Enable the dividends", quorum=40, vote_start=day - 1, duration=2,
+            self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40, vote_start=day - 1, duration=2,
                                        snapshot=30, actions="{\"enable_dividends\": {}}")
         self.assertEqual("Vote cannot start before the current time.", start_day2.exception.message)
 
         with self.assertRaises(IconScoreException) as snapshot:
-            self.governance.defineVote(name="Enable the dividends", quorum=40, vote_start=day + 1, duration=2,
+            self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40, vote_start=day + 1, duration=2,
                                        snapshot=0, actions="{\"enable_dividends\": {}}")
         self.assertEqual("The reference snapshot index must be greater than zero.", snapshot.exception.message)
 
         with self.assertRaises(IconScoreException) as duration:
-            self.governance.defineVote(name="Enable the dividends", quorum=40, vote_start=day + 1, duration=0,
+            self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40, vote_start=day + 1, duration=0,
                                        snapshot=15, actions="{\"enable_dividends\": {}}")
         self.assertEqual("Votes must have a minimum duration of 1 days.", duration.exception.message)
 
         with self.assertRaises(IconScoreException) as duplicate:
-            self.governance.defineVote(name="Enable the dividends", quorum=40, vote_start=day + 1, duration=2,
+            self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40, vote_start=day + 1, duration=2,
                                        snapshot=15, actions="{\"enable_dividends\": {}}")
-            self.governance.defineVote(name="Enable the dividends", quorum=40, vote_start=day + 1, duration=2,
+            self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40, vote_start=day + 1, duration=2,
                                        snapshot=15, actions="{\"enable_dividends\": {}}")
         self.assertEqual("Poll name Enable the dividends has already been used.", duplicate.exception.message)
 
         with self.assertRaises(IconScoreException) as max_actions:
-            self.governance.defineVote(name="Enable the dividends max action", quorum=40, vote_start=day + 1, duration=2,
+            self.governance.defineVote(name="Enable the dividends max action", description='Testing description field', quorum=40, vote_start=day + 1, duration=2,
                                        snapshot=15,
                                        actions="{\"enable_dividends\": {}, \"enable_dividends1\": {}, "
                                                "\"enable_dividends2\": {}, \"enable_dividends3\": {}, "
@@ -109,7 +108,7 @@ class TestGovernanceUnit(ScoreTestCase):
         self.patch_internal_method(self.baln, "stakedBalanceOfAt", lambda x, y: 1000 * 10 ** 18)
         self.patch_internal_method(self.baln, "totalStakedBalanceOfAt", lambda x: 10 * 1000 * 10 ** 18)
 
-        self.governance.defineVote(name="Enable the dividends", quorum=40, vote_start=day + 1, duration=2,
+        self.governance.defineVote(name="Enable the dividends", description="Count pool BALN", quorum=40, vote_start=day + 1, duration=2,
                                    snapshot=15, actions="{\"enable_dividends\": {}}")
         self.assertEqual("Pending", self.governance.checkVote(1).get("status"))
 
@@ -117,13 +116,17 @@ class TestGovernanceUnit(ScoreTestCase):
             self.governance.castVote("Enable the dividends", True)
         self.assertEqual("That is not an active poll.", inactive_poll.exception.message)
 
+        # self.governance.activateVote('Enable the dividends')
+        # self.set_block(55, 1626195600000000)
+        # self.governance.castVote("Enable the dividends", True)
+
         try:
             self.governance.activateVote("Enable the dividends")
         except IconScoreException:
             self.fail("Failed to execute activate poll method")
         self.assertEqual("Active", self.governance.checkVote(1).get("status"))
 
-        self.governance.defineVote(name="Enable the dividends cancel this", quorum=40, vote_start=day + 1, duration=2,
+        self.governance.defineVote(name="Enable the dividends cancel this", description="Count pool BALN", quorum=40, vote_start=day + 1, duration=2,
                                    snapshot=15, actions="{\"enable_dividends\": {}}")
         try:
             self.governance.cancelVote("Enable the dividends cancel this")
@@ -134,11 +137,11 @@ class TestGovernanceUnit(ScoreTestCase):
     def test_proposal_count(self):
         self.set_msg(self.test_account1)
         day = self.governance.getDay()
-        self.governance.defineVote(name="Enable the dividends", quorum=40, vote_start=day + 1, duration=2,
+        self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40, vote_start=day + 1, duration=2,
                                    snapshot=15, actions="{\"enable_dividends\": {}}")
-        self.governance.defineVote(name="Enable the dividends2", quorum=40, vote_start=day + 1, duration=2,
+        self.governance.defineVote(name="Enable the dividends2", description='Testing description field', quorum=40, vote_start=day + 1, duration=2,
                                    snapshot=15, actions="{\"enable_dividends\": {}}")
-        self.governance.defineVote(name="Enable the dividends3", quorum=40, vote_start=day + 1, duration=2,
+        self.governance.defineVote(name="Enable the dividends3", description='Testing description field', quorum=40, vote_start=day + 1, duration=2,
                                    snapshot=15, actions="{\"enable_dividends\": {}}")
 
         self.assertEqual(3, self.governance.getProposalCount(), "Failed to create three proposals")
