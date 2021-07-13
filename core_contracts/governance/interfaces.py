@@ -31,10 +31,6 @@ class RebalancingInterface(InterfaceScore):
         pass
 
     @interface
-    def setBnusdReceivable(self, _value: int) -> None:
-        pass
-
-    @interface
     def setPriceChangeThreshold(self, _value: int) -> None:
         pass
 

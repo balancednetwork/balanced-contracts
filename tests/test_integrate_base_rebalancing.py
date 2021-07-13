@@ -258,7 +258,7 @@ class BalancedTestBaseRebalancing(BalancedTestUtils):
             from_=self.btest_wallet,
             to=self.contracts.get(rebalancing, SCORE_INSTALL_ADDRESS),
             content=os.path.abspath(os.path.join(self.BALANCER_CONTRACTS_PATH, rebalancing)),
-            params={}
+            params={'_governance': self.contracts[governance]}
         )
         self.contracts[rebalancing] = rebalancer_deploy_tx[SCORE_ADDRESS]
 
