@@ -177,7 +177,7 @@ class Governance(IconScoreBase):
     @external(readonly=True)
     def totalBaln(self, _day: int) -> int:
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
-        total_staked = baln.totalStakedBalanceOfAt(_day)
+        total_stake = baln.totalStakedBalanceOfAt(_day)
         dex_score = self.create_interface_score(self.addresses['dex'], DexInterface)
 
         total_baln_from_pools = 0
@@ -186,7 +186,7 @@ class Governance(IconScoreBase):
 
             total_baln_from_pools += total_baln
 
-        total_baln_token = total_baln_from_pools+total_staked
+        total_baln_token = total_baln_from_pools + total_stake
         return total_baln_token
 
     @external
@@ -254,19 +254,18 @@ class Governance(IconScoreBase):
     def checkVote(self, _vote_index: int) -> dict:
         if _vote_index < 1 or _vote_index > ProposalDB.proposal_count(self.db):
             return {}
-        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         vote_data = ProposalDB(_vote_index, self.db)
         try:
-            total_stake = baln.totalStakedBalanceOfAt(vote_data.vote_snapshot.get())
+            total_baln = self.totalBaln(vote_data.vote_snapshot.get())
         except BaseException:
-            total_stake = 0
-        if total_stake == 0:
+            total_baln = 0
+        if total_baln == 0:
             _for = 0
             _against = 0
         else:
             total_voted = (vote_data.total_for_votes.get(), vote_data.total_against_votes.get())
-            _for = EXA * total_voted[0] // total_stake
-            _against = EXA * total_voted[1] // total_stake
+            _for = EXA * total_voted[0] // total_baln
+            _against = EXA * total_voted[1] // total_baln
 
         vote_status = {'id': _vote_index,
                        'name': vote_data.name.get(),
