@@ -215,12 +215,9 @@ class Rebalancing(IconScoreBase):
         direction = price < dex_price
         diff = (dex_price - price) * EXA // price
         max_diff = self._price_threshold.get()
-        if not -max_diff < diff < max_diff:
+        if not -max_diff < diff*100 < max_diff:
             return True, self._calculate_tokens_to_retire(price, pool_stats['base'], pool_stats['quote']), TOKENS[direction]
         return False, 0,
-
-    def _change_in_percent(self, price: int, difference: int) -> int:
-        return (difference * 10 ** 18 // price) * 100
 
     @external
     def rebalance(self) -> None:
