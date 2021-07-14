@@ -746,6 +746,8 @@ class Loans(IconScoreBase):
         reserve = self.create_interface_score(reserve_address, ReserveFund)
         self._sICX_expected.set(True)
         reserve.redeem(_from, bd_sicx - in_pool, _sicx_rate)
+        if self._sICX_received.get() != (bd_sicx - in_pool):
+            revert(f'Got unexpected sICX from reserve.')
         received = self._sICX_received.get()
         self._sICX_received.set(0)
         self._sICX_expected.set(False)
