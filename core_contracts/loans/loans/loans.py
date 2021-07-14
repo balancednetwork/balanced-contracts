@@ -684,6 +684,9 @@ class Loans(IconScoreBase):
             borrowers.move_head_to_tail()
             node_id = borrowers.get_head_id()
         borrowers.serialize()
+        returned_sicx_remaining = _sicx_from_lenders
+        remaining_supply = total_batch_debt
+        remaining_value = _redeemed
         # if POINTS * _redeemed > self._max_retire_percent.get() * total_batch_debt:
         #     node_id = borrowers.get_head_id()
         #     total_batch_debt: int = 0
@@ -697,15 +700,15 @@ class Loans(IconScoreBase):
         #     borrowers.serialize()
         redeemed_dict = {}
         for pos_id, user_debt in positions_dict.items():
-            redeemed_dict[pos_id] = _redeemed * user_debt // total_batch_debt
-            _redeemed -= redeemed_dict[pos_id]
+            redeemed_dict[pos_id] = remaining_value * user_debt // remaining_supply
+            remaining_value -= redeemed_dict[pos_id]
             self._positions[pos_id][_symbol] = user_debt - redeemed_dict[pos_id]
 
-            sicx_share = _sicx_from_lenders * user_debt // total_batch_debt
-            _sicx_from_lenders -= sicx_share
+            sicx_share = returned_sicx_remaining * user_debt // remaining_supply
+            returned_sicx_remaining -= sicx_share
             self._positions[pos_id]['sICX'] -= sicx_share
 
-            total_batch_debt -= user_debt
+            remaining_supply -= user_debt
         self._send_token("sICX", _from, _sicx_from_lenders, "Collateral redeemed.")
         self.AssetRetired(_from, _symbol, _redeemed, price, _redeemed,
                           total_batch_debt, str(redeemed_dict))
