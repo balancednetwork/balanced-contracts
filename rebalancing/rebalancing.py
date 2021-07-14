@@ -5,7 +5,10 @@ TAG = 'Rebalancing'
 
 EXA = 10 ** 18
 # bnUSD token address in toToken
-data_bytes = b'{"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
+# data_bytes = b'{"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
+data = {"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}
+data_string = json_dumps(data)
+data_bytes = str.encode(data_string)
 TOKENS = ["sICX", "bnUSD"]
 
 
@@ -51,12 +54,6 @@ class LoansTokenInterface(InterfaceScore):
         pass
 
 
-class OracleTokenInterface(InterfaceScore):
-    @interface
-    def get_reference_data(self, _base: str, _quote: str) -> dict:
-        pass
-
-
 class DexTokenInterface(InterfaceScore):
     @interface
     def getPriceByName(self, _name: str) -> int:
@@ -72,7 +69,6 @@ class Rebalancing(IconScoreBase):
     _SICX_ADDRESS = 'sicx_address'
     _DEX_ADDRESS = 'dex_address'
     _LOANS_ADDRESS = 'loans_address'
-    _ORACLE_ADDRESS = 'oracle_address'
     _GOVERNANCE_ADDRESS = 'governance_address'
     _SICX_RECEIVABLE = 'sicx_receivable'
     _ADMIN = 'admin'
@@ -84,7 +80,6 @@ class Rebalancing(IconScoreBase):
         self._sicx = VarDB(self._SICX_ADDRESS, db, value_type=Address)
         self._dex = VarDB(self._DEX_ADDRESS, db, value_type=Address)
         self._loans = VarDB(self._LOANS_ADDRESS, db, value_type=Address)
-        self._oracle = VarDB(self._ORACLE_ADDRESS, db, value_type=Address)
         self._governance = VarDB(self._GOVERNANCE_ADDRESS, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._sicx_receivable = VarDB(self._SICX_RECEIVABLE, db, value_type=int)
@@ -99,7 +94,7 @@ class Rebalancing(IconScoreBase):
 
     @external
     @only_admin
-    def setbnUSD(self, _address: Address) -> None:
+    def setBnusd(self, _address: Address) -> None:
         """
         :param _address: New contract address to set.
         Sets new bnUSD contract address.
@@ -140,17 +135,6 @@ class Rebalancing(IconScoreBase):
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._governance.set(_address)
-
-    @external
-    @only_admin
-    def setOracle(self, _address: Address) -> None:
-        """
-        :param _address: New contract address to set.
-        Sets new Oracle address.
-        """
-        if not _address.is_contract:
-            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._oracle.set(_address)
 
     @external
     @only_admin
@@ -234,7 +218,7 @@ class Rebalancing(IconScoreBase):
         direction = price < dex_price
         diff = (dex_price - price) * EXA // price
         max_diff = self._price_threshold.get()
-        if not -max_diff < diff < max_diff:
+        if not -max_diff < diff * 100 < max_diff:
             return True, self._calculate_tokens_to_retire(price, pool_stats['base'], pool_stats['quote']), TOKENS[direction]
         return False, 0,
 

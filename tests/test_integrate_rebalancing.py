@@ -14,10 +14,13 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
         super().setUp()
         bnUSD = self.get_bnusd_address()
         sicx = self.get_sicx_address()
-        old = 'data_bytes = b'+'{"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
+        # old = 'data_bytes = b'+"'"+'{"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'+"'"
+        old = 'data = {"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
         # old = ['data = {"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}',
         #        'data_sicx = {"method": "_swap", "params": {"toToken": "cx2609b924e33ef00b648a409245c7ea394c467824"}}']
-        new = 'data_bytes = b'+'{"method": "_swap", "params": {"toToken": "'+bnUSD+'"}}'
+        # new = 'data_bytes = b'+"'"+'{"method": "_swap", "params": {"toToken": "'+bnUSD+'"}}'+"'"
+        new = 'data = {"method": "_swap", "params": {"toToken": "'+bnUSD+'"}}'
+        print(old,new)
         # new = ['data = {"method": "_swap", "params": {"toToken": "' + bnUSD + '"}}',
         #        'data_sicx = {"method": "_swap", "params": {"toToken": "' + sicx + '"}}']
 
@@ -27,33 +30,33 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
     def tearDown(self):
         bnUSD = self.get_bnusd_address()
         sicx = self.get_sicx_address()
-        old = 'data_bytes = b'+'{"method": "_swap", "params": {"toToken": "'+ bnUSD+'"}}'
+        old = 'data = {"method": "_swap", "params": {"toToken": "'+bnUSD+'"}}'
         # old = ['data = {"method": "_swap", "params": {"toToken": "' + bnUSD + '"}}',
         #        'data_sicx = {"method": "_swap", "params": {"toToken": "' + sicx + '"}}']
         #
         # new = ['data = {"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}',
         #        'data_sicx = {"method": "_swap", "params": {"toToken": "cx2609b924e33ef00b648a409245c7ea394c467824"}}']
-        new = 'data_bytes = b'+'{"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
+        new = 'data = {"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
         # for i in range(0, 2):
         self.patch_constants("rebalancing/rebalancing.py", old, new)
 
     def setAddresses(self):
-        self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'setSicx',
-                     {"_address": self.contracts['sicx']})
-        self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'setbnUSD',
-                     {"_address": self.contracts['bnUSD']})
-        self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'setLoans',
-                     {"_address": self.contracts['loans']})
-        self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'setDex',
-                     {"_address": self.contracts['dex']})
-        self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'setOracle',
-                     {"_address": self.contracts['oracle']})
-        self.send_tx(self.btest_wallet, self.contracts['loans'], 0, 'setRebalance',
-                     {"_address": self.contracts['rebalancing']})
-        self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'setGovernance',
-                     {"_address": self.contracts['governance']})
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancing',
                      {"_address": self.contracts['rebalancing']})
+        self.send_tx(self.btest_wallet, self.contracts['loans'], 0, 'setRebalance',
+                     {"_address": self.contracts['rebalancing']})
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'rebalancingSetSicx',
+                     {"_address": self.contracts['sicx']})
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'rebalancingSetBnusd',
+                     {"_address": self.contracts['bnUSD']})
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'rebalancingSetLoans',
+                     {"_address": self.contracts['loans']})
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'rebalancingSetDex',
+                     {"_address": self.contracts['dex']})
+
+        self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'setGovernance',
+                     {"_address": self.contracts['governance']})
+
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingSicx',
                      {"_value": 1000 * 10**18})
         # self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingBnusd',
@@ -85,8 +88,8 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             print("############################################################################################")
             print(case['description'])
 
-            res = self.call_tx(self.contracts['bnUSD'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
-            self.assertEqual(int(res, 0), case['actions']['initial_bnUSD_in_rebalancer'])
+            # res = self.call_tx(self.contracts['bnUSD'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
+            # self.assertEqual(int(res, 0), case['actions']['initial_bnUSD_in_rebalancer'])
 
             res = self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
             self.assertEqual(int(res, 0), case['actions']['initial_sicx_in_rebalancer'])
@@ -101,7 +104,7 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             self.call_tx(self.contracts['dex'], 'getPoolStats', {"_id": 2})
 
             status = self.call_tx(self.contracts['rebalancing'], 'getRebalancingStatus', {})
-            self.assertEqual(int(status[0], 0), case['actions']['rebalancing_status'])
+            self.assertEqual(str(status[0]), case['actions']['rebalancing_status'])
 
             # account positions after rebalancing
             self.call_tx(self.contracts['loans'], 'getAccountPositions', {"_owner": self.user1.get_address()})
@@ -115,8 +118,8 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             self.call_tx(self.contracts['loans'], 'getAccountPositions', {"_owner": self.user2.get_address()})
             self.call_tx(self.contracts['loans'], 'getAccountPositions', {"_owner": self._test1.get_address()})
 
-            res = self.call_tx(self.contracts['bnUSD'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
-            self.assertEqual(int(res, 0), case['actions']['final_bnUSD_in_rebalancer'])
+            # res = self.call_tx(self.contracts['bnUSD'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
+            # self.assertEqual(int(res, 0), case['actions']['final_bnUSD_in_rebalancer'])
 
             res = self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
             self.assertEqual(int(res, 0), case['actions']['final_sicx_in_rebalancer'])

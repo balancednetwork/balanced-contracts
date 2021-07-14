@@ -6,25 +6,21 @@ REBALANCING_STORIES = {
                            "oracle price.",
             "actions": {
                 "initial_sicx_in_rebalancer": 1000 * ICX,
-                "initial_bnUSD_in_rebalancer": 1000 * ICX,
                 "method": "transfer",
                 "amount": 200 * ICX,
-                "rebalancing_status": 0,
+                "rebalancing_status": "False",
                 "final_sicx_in_rebalancer": 1000 * ICX,
-                "final_bnUSD_in_rebalancer": 1000 * ICX
             }
         },
         {
-            "description": "In this condition rebalancing doens't happen as price of dedx is not less than 0.5% "
+            "description": "In this condition rebalancing doens't happen as price of dex is not less than 0.5% "
                            "of oracle price although sicx to retire is more than 1000 sicx.",
             "actions": {
                 "initial_sicx_in_rebalancer": 1000 * ICX,
-                "initial_bnUSD_in_rebalancer": 1000 * ICX,
                 "method": "transfer",
                 "amount": 1600 * ICX,
-                "rebalancing_status": 0,
+                "rebalancing_status": "False",
                 "final_sicx_in_rebalancer": 1000 * ICX,
-                "final_bnUSD_in_rebalancer": 1000 * ICX
             }
         },
         {
@@ -32,12 +28,10 @@ REBALANCING_STORIES = {
                            "oracle price.",
             "actions": {
                 "initial_sicx_in_rebalancer": 1000 * ICX,
-                "initial_bnUSD_in_rebalancer": 1000 * ICX,
                 "method": "transfer",
                 "amount": 1000 * ICX,
-                "rebalancing_status": 1,
+                "rebalancing_status": "True",
                 "final_sicx_in_rebalancer": 1000 * ICX,
-                "final_bnUSD_in_rebalancer": 1000 * ICX
             }
         }
     ]

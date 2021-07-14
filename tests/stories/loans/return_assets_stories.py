@@ -112,7 +112,7 @@ RETURN_ASSETS = {
                     "_value": 10 * ICX
                 },
                 "expected": "0",
-                "revertMessage": "BalancedLoans: The address doesn't have any position in the Balanced.",
+                "revertMessage": "BalancedLoans: No debt repaid because,hxa7d00f90b669de7f4e3407c6d4468ef6fe86b8ce does not have a position in Balanced",
                 "expected_sicx_baln_loan": 0 * ICX,
                 "expected_bnUSD_debt_baln_loan": 10 * ICX,
                 "expected_bnUSD_bal_wallet": 10 * ICX

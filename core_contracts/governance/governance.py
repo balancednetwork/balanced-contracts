@@ -188,6 +188,26 @@ class Governance(IconScoreBase):
     def getVoteIndex(self, _name: str) -> int:
         return ProposalDB.proposal_id(_name, self.db)
 
+    @external
+    def rebalancingSetBnusd(self,_address: Address) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setBnusd(_address)
+
+    @external
+    def rebalancingSetSicx(self, _address: Address) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setSicx(_address)
+
+    @external
+    def rebalancingSetDex(self, _address: Address) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setDex(_address)
+
+    @external
+    def rebalancingSetLoans(self, _address: Address) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setLoans(_address)
+
     @external(readonly=True)
     def checkVote(self, _vote_index: int) -> dict:
         if _vote_index < 1 or _vote_index > ProposalDB.proposal_count(self.db):

@@ -60,8 +60,8 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
         self.icx_factor = 10 ** 18
         self.btest_wallet: 'KeyWallet' = self._wallet_array[5]
         self.staking_wallet: 'KeyWallet' = self._wallet_array[6]
-        self.user1: 'KeyWallet' = KeyWallet.create()
-        self.user2: 'KeyWallet' = KeyWallet.create()
+        self.user1: 'KeyWallet' = self._wallet_array[7]
+        self.user2: 'KeyWallet' = self._wallet_array[8]
         self.genesis_accounts = [
             Account("test1", Address.from_string(self._test1.get_address()), 800_000_0000 * self.icx_factor),
             Account("btest_wallet", Address.from_string(self.btest_wallet.get_address()), 1_000_000 * self.icx_factor),
