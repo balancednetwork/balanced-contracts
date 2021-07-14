@@ -6,6 +6,7 @@ TAG = 'Rebalancing'
 EXA = 10 ** 18
 # bnUSD token address in toToken
 data_bytes = b'{"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
+data_bytes_sicx = b'{"method": "_swap", "params": {"toToken": "cx2609b924e33ef00b648a409245c7ea394c467824"}}'
 TOKENS = ["sICX", "bnUSD"]
 
 
@@ -68,6 +69,7 @@ class Rebalancing(IconScoreBase):
     _LOANS_ADDRESS = 'loans_address'
     _GOVERNANCE_ADDRESS = 'governance_address'
     _SICX_RECEIVABLE = 'sicx_receivable'
+    _BNUSD_RECEIVABLE = 'bnusd_receivable'
     _ADMIN = 'admin'
     _PRICE_THRESHOLD = '_price_threshold'
 
@@ -80,6 +82,8 @@ class Rebalancing(IconScoreBase):
         self._governance = VarDB(self._GOVERNANCE_ADDRESS, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._sicx_receivable = VarDB(self._SICX_RECEIVABLE, db, value_type=int)
+        self._bnUSD = VarDB(self._bnUSD_ADDRESS, db, value_type=Address)
+        self._bnusd_receivable = VarDB(self._BNUSD_RECEIVABLE, db, value_type=int)
         self._price_threshold = VarDB(self._PRICE_THRESHOLD, db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
@@ -157,12 +161,14 @@ class Rebalancing(IconScoreBase):
 
         return y
 
-    def _calculate_tokens_to_retire(self, price: int, base_supply: int, quote_supply: int) -> int:
+    def _calculate_tokens_to_retire(self, price: int, base_supply: int, quote_supply: int, direction: bool) -> int:
         """
         :param dex_score: Interface of dex score.
         Returns the amount of sICX required for rebalancing the price.
         """
         value = (self._sqrt(price * base_supply * quote_supply) // 10 ** 9) - base_supply
+        if direction:
+            value = (self._sqrt((base_supply * quote_supply) // price) * 10 ** 9) - quote_supply
         return value
 
     @external
@@ -197,6 +203,22 @@ class Rebalancing(IconScoreBase):
         """
         return self._sicx_receivable.get()
 
+    @external
+    @only_governance
+    def setBnusdReceivable(self, _value: int) -> None:
+        """
+        :param _value: bnUSD amount to set.
+        Sets the bnUSD amount to receive by rebalancing contract.
+        """
+        self._bnusd_receivable.set(_value)
+
+    @external(readonly=True)
+    def getBnusdReceivable(self) -> int:
+        """
+        Returns the bnUSD amount to receive by rebalancing contract.
+        """
+        return self._bnusd_receivable.get()
+
     @external(readonly=True)
     def getRebalancingStatus(self) -> (bool, int, str):
         """
@@ -216,7 +238,8 @@ class Rebalancing(IconScoreBase):
         diff = (dex_price - price) * EXA // price
         max_diff = self._price_threshold.get()
         if not -max_diff < diff*100 < max_diff:
-            return True, self._calculate_tokens_to_retire(price, pool_stats['base'], pool_stats['quote']), TOKENS[direction]
+            return True, self._calculate_tokens_to_retire(price, pool_stats['base'], pool_stats['quote'], direction), \
+                   TOKENS[direction]
         return False, 0,
 
     @external
@@ -235,8 +258,21 @@ class Rebalancing(IconScoreBase):
                 sicx_to_retire = rebalancing_status[1]
                 if sicx_to_retire > sicx_to_receive:
                     self.sICX_score.transfer(self._dex.get(), sicx_to_receive, data_bytes)
-                    bnusd_in_contract = self.bnUSD_score.balanceOf(self.address)
+                    bnusd_in_contract = self.bnUSD_score.balanceOf(self.address) - self._bnusd_receivable.get()
                     self.loans_score.retireRedeem("bnUSD", bnusd_in_contract, sicx_to_receive)
+            else:
+                bnusd_to_retire = rebalancing_status[1]
+                bnusd_in_contract = self.bnUSD_score.balanceOf(self.address)
+                if bnusd_to_retire > bnusd_in_contract:
+                    self.bnUSD_score.transfer(self._dex.get(), bnusd_in_contract, data_bytes_sicx)
+                    sicx_in_contract = self.sICX_score.balanceOf(self.address) - self._sicx_receivable.get()
+                    data_to_send = {"method": "_generate_bnUSD",
+                                    "_bnusd_from_lenders": self._bnusd_receivable.get(),
+                                    "rebalancing_address": str(self.address)}
+                    data_in_string = json_dumps(data_to_send)
+                    data_in_bytes = str.encode(data_in_string)
+                    self.sICX_score.transfer(self._loans.get(), sicx_in_contract, data_in_bytes)
+
 
     @external
     def tokenFallback(self, _from: Address, value: int, _data: bytes) -> None:
