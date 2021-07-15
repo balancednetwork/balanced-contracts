@@ -298,6 +298,22 @@ class Governance(IconScoreBase):
         return {"for": vote_data.for_votes_of_user[user], "against": vote_data.against_votes_of_user[user]}
 
     @external
+    def rewardStakedBalToken(self, name: str, dist_percent: int) -> None:
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
+        baln_address = self.addresses['baln']
+        rewards.addNewDataSource(name, baln_address)
+        recipients = [{'recipient_name': 'Loans', 'dist_percent': 25 * 10 ** 16},
+                      {'recipient_name': 'sICX/ICX', 'dist_percent': 10 * 10 ** 16},
+                      {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10 ** 16},
+                      {'recipient_name': 'Reserve Fund', 'dist_percent': 5 * 10 ** 16},
+                      {'recipient_name': 'DAOfund', 'dist_percent': 5 * 10 ** 16},
+                      {'recipient_name': 'sICX/bnUSD', 'dist_percent': 175 * 10 ** 15},
+                      {'recipient_name': 'BALN/bnUSD', 'dist_percent': 175 * 10 ** 15},
+                      {'recipient_name': name, 'dist_percent': dist_percent}]
+        rewards.updateBalTokenDistPercentage(recipients)
+
+
+    @external
     @only_owner
     def configureBalanced(self) -> None:
         """
