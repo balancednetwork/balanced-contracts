@@ -5,10 +5,20 @@ BAD_DEBT_STORIES = {
         "actions": {
             "method": "retireBadDebt",
             "args": {
+                "_symbol": "bnUSD",
+                "_value": 10 * ICX
+            }
+        }
+    },
+        {
+            "description": "User 1 retires 130 bnUSD bad debts",
+            "actions": {
+                "method": "retireBadDebt",
+                "args": {
                     "_symbol": "bnUSD",
-                    "_value": 10 * ICX
+                    "_value": 130 * ICX
                 }
             }
-    }
+        }
     ]
 }

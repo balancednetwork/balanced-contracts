@@ -20,7 +20,7 @@ class BalancedTestLiquidation(BalancedTestBaseLiquidation):
             icx = case['actions']['deposited_icx']
             oracle_data = case['actions']['oracle']
             self.send_tx(self.btest_wallet, self.contracts['loans'], icx, 'depositAndBorrow',
-                         {'_asset': 'bnUSD', '_amount': 300 * 10 ** 18})
+                         {'_asset': 'bnUSD', '_amount': 140 * 10 ** 18})
             account_position = self.call_tx(self.contracts['loans'], 'getAccountPositions',
                                             {'_owner': self.btest_wallet.get_address()})
 
@@ -28,7 +28,7 @@ class BalancedTestLiquidation(BalancedTestBaseLiquidation):
                              "Error in Account standing of the loan borrower")
             self.assertEqual(account_position['assets']['sICX'], hex(icx),
                              "Test Case failed for liquidation")
-
+            self.call_tx(self.contracts['loans'], "getAvailableAssets", {})
             self.send_tx(self._test1, self.contracts['oracle'], 0, 'set_reference_data',
                          {'_base': 'USD', '_quote': 'ICX', 'rate': oracle_data['rate'],
                           'last_update_base': oracle_data['last_update_base'],
@@ -43,14 +43,15 @@ class BalancedTestLiquidation(BalancedTestBaseLiquidation):
             result = self.call_tx(self.contracts['loans'], "getAccountPositions",
                                   {'_owner': self.btest_wallet.get_address()})
             self.assertEqual(result['standing'], case['actions']['expected_result'])
-
+            self.call_tx(self.contracts['loans'], "getAvailableAssets", {})
         self._retireBadDebt()
 
     def _retireBadDebt(self):
-        self.send_icx(self.btest_wallet, self.user1.get_address(), 2500 * 10 ** 18)
-        self.send_tx(self.user1, self.contracts['loans'], 600 * 10 ** 18, 'depositAndBorrow',
-                     {'_asset': 'bnUSD', '_amount': 20 * 10 ** 18})
-
+        self.send_icx(self.btest_wallet, self.user1.get_address(), 6000 * 10 ** 18)
+        self.send_tx(self.user1, self.contracts['loans'], 5000 * 10 ** 18, 'depositAndBorrow',
+                     {'_asset': 'bnUSD', '_amount': 200 * 10 ** 18})
+        self.send_tx(self.btest_wallet, self.contracts['staking'], 1000 * 10 ** 18, 'stakeICX',
+                     {"_to": self.contracts['reserve']})
         test_cases = BAD_DEBT_STORIES
 
         for case in test_cases['stories']:
@@ -67,8 +68,8 @@ class BalancedTestLiquidation(BalancedTestBaseLiquidation):
                          {'_symbol': params['_symbol'], '_value': params['_value']})
             _bad_debt = self.call_tx(self.contracts['loans'], "getAvailableAssets", {})
             new_bad_debt = int(_bad_debt['bnUSD']['bad_debt'], 0)
-            self.assertEqual(new_bad_debt, (previous_bad_debt-10*10**18))
+            self.assertEqual(new_bad_debt, (previous_bad_debt-params['_value']))
             _bnusd = self.call_tx(self.contracts['bnUSD'], "balanceOf", {'_owner': self.user1.get_address()})
             new_bnusd = int(_bnusd, 0)
-            self.assertEqual(new_bnusd, (previous_bnusd-10 * 10**18))
+            self.assertEqual(new_bnusd, (previous_bnusd-params['_value']))
 

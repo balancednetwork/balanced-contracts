@@ -4,7 +4,7 @@ LIQUIDATION_STORIES = {
                 "description": "liquidating btest_wallet account by depositing 782 icx collateral and minting 2000 "
                                "bnusd loan",
                 "actions": {
-                    "deposited_icx": 782769 * ICX // 1000,
+                    "deposited_icx": 400 * ICX,
                     "expected_initial_position": "Not Mining",
                     "oracle": {
                         "rate": 5 * ICX,
