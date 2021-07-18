@@ -227,7 +227,6 @@ class Rebalancing(IconScoreBase):
            Rebalances only if the rate of change in dex pool price and oracle price is greater than the threshold set.
         """
         self.sICX_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
-        self.bnUSD_score = self.create_interface_score(self._bnUSD.get(), BnusdTokenInterface)
         rebalancing_status = self.getRebalancingStatus()
         sicx_to_receive = self._sicx_receivable.get()
         if rebalancing_status[0]:
