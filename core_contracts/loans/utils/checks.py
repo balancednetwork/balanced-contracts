@@ -39,20 +39,6 @@ def only_governance(func):
     return __wrapper
 
 
-def only_rebalance(func):
-    if not isfunction(func):
-        raise NotAFunctionError
-
-    @wraps(func)
-    def __wrapper(self: object, *args, **kwargs):
-        if self.msg.sender != self._rebalance.get():
-            raise SenderNotRebalance(self.msg.sender)
-
-        return func(self, *args, **kwargs)
-
-    return __wrapper
-
-
 def only_admin(func):
     if not isfunction(func):
         raise NotAFunctionError

@@ -4,8 +4,9 @@ from .utils.checks import *
 TAG = 'Rebalancing'
 
 EXA = 10 ** 18
+data_for_loans = b'{"_asset": "bnUSD", "_amount": ''}'
+
 # bnUSD token address in toToken
-data_bytes = b'{"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
 TOKENS = ["sICX", "bnUSD"]
 
 
@@ -227,16 +228,13 @@ class Rebalancing(IconScoreBase):
         """
         self.sICX_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
         self.bnUSD_score = self.create_interface_score(self._bnUSD.get(), BnusdTokenInterface)
-        self.loans_score = self.create_interface_score(self._loans.get(), LoansTokenInterface)
         rebalancing_status = self.getRebalancingStatus()
         sicx_to_receive = self._sicx_receivable.get()
         if rebalancing_status[0]:
             if rebalancing_status[2] == "sICX":
                 sicx_to_retire = rebalancing_status[1]
                 if sicx_to_retire > sicx_to_receive:
-                    self.sICX_score.transfer(self._dex.get(), sicx_to_receive, data_bytes)
-                    bnusd_in_contract = self.bnUSD_score.balanceOf(self.address)
-                    self.loans_score.retireRedeem("bnUSD", bnusd_in_contract, sicx_to_receive)
+                    self.sICX_score.transfer(self._loans.get(), sicx_to_receive, data_for_loans)
 
     @external
     def tokenFallback(self, _from: Address, value: int, _data: bytes) -> None:
