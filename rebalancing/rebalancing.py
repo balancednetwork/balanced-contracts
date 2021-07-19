@@ -4,7 +4,7 @@ from .utils.checks import *
 TAG = 'Rebalancing'
 
 EXA = 10 ** 18
-data_for_loans = b'{"_asset": "bnUSD", "_amount": ''}'
+data_for_loans = b'{"_asset": "bnUSD", "_amount": ""}'
 
 # bnUSD token address in toToken
 TOKENS = ["sICX", "bnUSD"]
