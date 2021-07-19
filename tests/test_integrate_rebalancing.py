@@ -25,7 +25,7 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
         #        'data_sicx = {"method": "_swap", "params": {"toToken": "' + sicx + '"}}']
 
         # for i in range(0, 2):
-        self.patch_constants("rebalancing/rebalancing.py", old, new)
+        self.patch_constants("core_contracts/loans/utils/consts.py", old, new)
 
     def tearDown(self):
         bnUSD = self.get_bnusd_address()
@@ -38,11 +38,16 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
         #        'data_sicx = {"method": "_swap", "params": {"toToken": "cx2609b924e33ef00b648a409245c7ea394c467824"}}']
         new = 'data = {"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
         # for i in range(0, 2):
-        self.patch_constants("rebalancing/rebalancing.py", old, new)
+        self.patch_constants("core_contracts/loans/utils/consts.py", old, new)
 
     def setAddresses(self):
+        self.send_tx(self.btest_wallet, self.contracts['loans'], 0, 'setRebalance',
+                     {"_address": self.contracts['rebalancing']})
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancing',
                      {"_address": self.contracts['rebalancing']})
+        self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'setGovernance',
+                     {"_address": self.contracts['governance']})
+
         self.send_tx(self.btest_wallet, self.contracts['loans'], 0, 'setRebalance',
                      {"_address": self.contracts['rebalancing']})
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'rebalancingSetSicx',
@@ -54,8 +59,8 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'rebalancingSetDex',
                      {"_address": self.contracts['dex']})
 
-        self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'setGovernance',
-                     {"_address": self.contracts['governance']})
+        self.send_tx(self.btest_wallet, self.contracts['loans'], 0, 'setDex',
+                     {"_address": self.contracts['dex']})
 
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingSicx',
                      {"_value": 1000 * 10**18})

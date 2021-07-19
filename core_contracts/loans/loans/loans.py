@@ -67,10 +67,17 @@ class TokenInterface(InterfaceScore):
         pass
 
 
+class DexTokenInterface(InterfaceScore):
+    @interface
+    def getSicxBnusdPrice(self) -> int:
+        pass
+
+
 class Loans(IconScoreBase):
     _LOANS_ON = 'loans_on'
     _GOVERNANCE = 'governance'
     _REBALANCE = 'rebalance'
+    _DEX = 'dex'
     _DIVIDENDS = 'dividends'
     _RESERVE = 'reserve'
     _REWARDS = 'rewards'
@@ -106,6 +113,7 @@ class Loans(IconScoreBase):
         self._loans_on = VarDB(self._LOANS_ON, db, value_type=bool)
         self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
         self._rebalance = VarDB(self._REBALANCE, db, value_type=Address)
+        self._dex = VarDB(self._DEX, db, value_type=Address)
         self._dividends = VarDB(self._DIVIDENDS, db, value_type=Address)
         self._reserve = VarDB(self._RESERVE, db, value_type=Address)
         self._rewards = VarDB(self._REWARDS, db, value_type=Address)
@@ -504,8 +512,10 @@ class Loans(IconScoreBase):
         """
         if _value <= 0:
             revert(f'{TAG}: Amount sent must be greater than zero.')
-        if self.msg.sender != self._assets['sICX'].get_address():
+        if self.msg.sender not in [self._assets['sICX'].get_address(), self._assets['bnUSD'].get_address()]:
             revert(f'{TAG}: The Balanced Loans contract does not accept that token type.')
+        if self.msg.sender == self._assets['bnUSD'].get_address():
+            return
         if self._sICX_expected.get():
             self._sICX_received.set(_value)
             return
@@ -513,9 +523,13 @@ class Loans(IconScoreBase):
             d = json_loads(_data.decode("utf-8"))
         except BaseException as e:
             revert(f'{TAG}: Invalid data: {_data}, returning tokens. Exception: {e}')
-        if set(d.keys()) != {"_asset", "_amount"}:
+        if set(d.keys()) == {"_asset", "_amount"}:
+            if d["_amount"] == '':
+                self.retireRedeem(d["_asset"], _value)
+                return
+            self.depositAndBorrow(d['_asset'], d['_amount'], _from, _value)
+        else:
             revert(f'{TAG}: Invalid parameters.')
-        self.depositAndBorrow(d['_asset'], d['_amount'], _from, _value)
 
     @loans_on
     @payable
@@ -647,9 +661,8 @@ class Loans(IconScoreBase):
             revert(f'{TAG}: No debt repaid because,'
                    f'{_from} does not have a position in Balanced' if _repay else f'{_repay == False}')
 
-    @only_rebalance
     @external
-    def retireRedeem(self, _symbol: str, _redeemed: int, _sicx_from_lenders: int) -> None:
+    def retireRedeem(self, _symbol: str, _sicx_from_lenders: int) -> None:
         """
         This function will  pay off debt from a batch of
         borrowers proportionately, returning a share of collateral from each
@@ -657,26 +670,22 @@ class Loans(IconScoreBase):
 
         :param _symbol: retired token symbol.
         :type _symbol: str
-        :param _redeemed: Number of tokens sent.
-        :type _redeemed: int
         :param _sicx_from_lenders: Total sICX token as a share of collateral.
         :type _sicx_from_lenders: int
         """
-        _from = self.msg.sender
-        if not _redeemed > 0:
-            revert(f'{TAG}: Amount retired must be greater than zero.')
         asset = self._assets[_symbol]
+        _from = self._rebalance.get()
         if not (asset and asset.is_active()) or asset.is_collateral():
             revert(f'{TAG}: {_symbol} is not an active, borrowable asset on Balanced.')
-        if asset.balanceOf(_from) < _redeemed:
-            revert(f'{TAG}: Insufficient balance.')
+        self._dex_score = self.create_interface_score(self._dex.get(), DexTokenInterface)
+        rate = self._dex_score.getSicxBnusdPrice()
+        _to_redeemed = rate * _sicx_from_lenders
         price = asset.priceInLoop()
         batch_size = self._redeem_batch.get()
-        borrowers = self._assets[_symbol].get_borrowers()
+        borrowers = asset.get_borrowers()
         node_id = borrowers.get_head_id()
         total_batch_debt: int = 0
         positions_dict = {}
-        asset.burnFrom(_from, _redeemed)
         for _ in range(min(batch_size, len(borrowers))):
             user_debt = borrowers.node_value(node_id)
             positions_dict[node_id] = user_debt
@@ -684,20 +693,17 @@ class Loans(IconScoreBase):
             borrowers.move_head_to_tail()
             node_id = borrowers.get_head_id()
         borrowers.serialize()
+        if (POINTS * _to_redeemed) // 10**18 > self._max_retire_percent.get() * total_batch_debt:
+            self._send_token("sICX", _from, _sicx_from_lenders, "sICX refunded.")
+            return
+        address = self._assets["sICX"].get_address()
+        token_score = self.create_interface_score(address, TokenInterface)
+        token_score.transfer(self._dex.get(), _sicx_from_lenders, data_for_dex)
+        _redeemed = asset.balanceOf(self.address)
+        asset.burnFrom(self.address, _redeemed)
         returned_sicx_remaining = _sicx_from_lenders
         remaining_supply = total_batch_debt
         remaining_value = _redeemed
-        # if POINTS * _redeemed > self._max_retire_percent.get() * total_batch_debt:
-        #     node_id = borrowers.get_head_id()
-        #     total_batch_debt: int = 0
-        #     positions_dict = {}
-        #     for _ in range(min(batch_size, len(borrowers))):
-        #         user_debt = borrowers.node_value(node_id)
-        #         positions_dict[node_id] = user_debt
-        #         total_batch_debt += user_debt
-        #         borrowers.move_head_to_tail()
-        #         node_id = borrowers.get_head_id()
-        #     borrowers.serialize()
         redeemed_dict = {}
         for pos_id, user_debt in positions_dict.items():
             redeemed_dict[pos_id] = remaining_value * user_debt // remaining_supply
@@ -929,11 +935,18 @@ class Loans(IconScoreBase):
         self._governance.set(_address)
 
     @external
-    @only_owner
+    @only_admin
     def setRebalance(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._rebalance.set(_address)
+
+    @external
+    # @only_admin
+    def setDex(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
+        self._dex.set(_address)
 
     @external
     @only_governance

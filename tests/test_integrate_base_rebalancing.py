@@ -329,11 +329,11 @@ class BalancedTestBaseRebalancing(BalancedTestUtils):
         return self.contracts['sicx']
 
     def test_update(self):
-        rebalancing = "rebalancing"
-        rebalancer_deploy_tx = self.deploy_tx(
+        loans = "loans"
+        loans_deploy_tx = self.deploy_tx(
             from_=self.btest_wallet,
-            to=self.contracts.get(rebalancing, self.contracts['rebalancing']),
-            content=os.path.abspath(os.path.join(self.BALANCER_CONTRACTS_PATH, rebalancing)),
+            to=self.contracts.get(loans, self.contracts['loans']),
+            content=os.path.abspath(os.path.join(self.CORE_CONTRACTS_PATH, loans)),
             params={}
         )
-        self.contracts[rebalancing] = rebalancer_deploy_tx[SCORE_ADDRESS]
+        self.contracts[loans] = loans_deploy_tx[SCORE_ADDRESS]
