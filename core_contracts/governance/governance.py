@@ -278,6 +278,23 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def setLoansRebalance(self, _address: Address) -> None:
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setRebalance(_address)
+
+    @external
+    @only_owner
+    def setLoansDex(self, _address: Address) -> None:
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setDex(_address)
+
+    @external
+    @only_owner
+    def setRebalancing(self, _address: Address) -> None:
+        self._rebalancing.set(_address)
+
+    @external
+    @only_owner
     def setRebalancingSicx(self, _value: int) -> None:
         rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
         rebalancing.setSicxReceivable(_value)
