@@ -189,21 +189,25 @@ class Governance(IconScoreBase):
         return ProposalDB.proposal_id(_name, self.db)
 
     @external
+    @only_owner
     def rebalancingSetBnusd(self,_address: Address) -> None:
         rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
         rebalancing.setBnusd(_address)
 
     @external
+    @only_owner
     def rebalancingSetSicx(self, _address: Address) -> None:
         rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
         rebalancing.setSicx(_address)
 
     @external
+    @only_owner
     def rebalancingSetDex(self, _address: Address) -> None:
         rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
         rebalancing.setDex(_address)
 
     @external
+    @only_owner
     def rebalancingSetLoans(self, _address: Address) -> None:
         rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
         rebalancing.setLoans(_address)
