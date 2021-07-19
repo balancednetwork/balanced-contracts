@@ -26,7 +26,7 @@ SNAP_BATCH_SIZE = 50
 REDEEM_BATCH_SIZE = 50
 
 # data_for_dex = b'{"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
-data = {"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}
+data = {"method": "_swap", "params": {"toToken": "cx065bcd7bef1f936ac6a4b85632b7f0deff73ca00"}}
 data_string = json_dumps(data)
 data_for_dex = str.encode(data_string)
 

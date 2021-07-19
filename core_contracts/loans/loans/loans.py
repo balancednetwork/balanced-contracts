@@ -942,7 +942,7 @@ class Loans(IconScoreBase):
         self._rebalance.set(_address)
 
     @external
-    # @only_admin
+    @only_admin
     def setDex(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
@@ -952,13 +952,6 @@ class Loans(IconScoreBase):
     @only_governance
     def setAdmin(self, _admin: Address) -> None:
         self._admin.set(_admin)
-
-    @external
-    @only_owner
-    def setRebalance(self, _address: Address) -> None:
-        if not _address.is_contract:
-            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._rebalance.set(_address)
 
     @external
     @only_admin
