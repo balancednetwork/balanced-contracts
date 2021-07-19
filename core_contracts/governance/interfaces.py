@@ -59,6 +59,14 @@ class LoansInterface(InterfaceScore):
         pass
 
     @interface
+    def setRebalance(self, _address: Address):
+        pass
+
+    @interface
+    def setDex(self, _address: Address):
+        pass
+
+    @interface
     def setTimeOffset(self, _time_delta: int) -> None:
         pass
 

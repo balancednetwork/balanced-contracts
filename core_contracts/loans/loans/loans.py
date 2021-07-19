@@ -515,6 +515,7 @@ class Loans(IconScoreBase):
         if self.msg.sender not in [self._assets['sICX'].get_address(), self._assets['bnUSD'].get_address()]:
             revert(f'{TAG}: The Balanced Loans contract does not accept that token type.')
         if self.msg.sender == self._assets['bnUSD'].get_address():
+            # This block is executed after sICX is swapped for bnUSD
             return
         if self._sICX_expected.get():
             self._sICX_received.set(_value)

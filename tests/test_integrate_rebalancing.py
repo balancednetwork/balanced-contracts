@@ -41,15 +41,12 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
         self.patch_constants("core_contracts/loans/utils/consts.py", old, new)
 
     def setAddresses(self):
-        self.send_tx(self.btest_wallet, self.contracts['loans'], 0, 'setRebalance',
-                     {"_address": self.contracts['rebalancing']})
+
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancing',
                      {"_address": self.contracts['rebalancing']})
         self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'setGovernance',
                      {"_address": self.contracts['governance']})
 
-        self.send_tx(self.btest_wallet, self.contracts['loans'], 0, 'setRebalance',
-                     {"_address": self.contracts['rebalancing']})
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'rebalancingSetSicx',
                      {"_address": self.contracts['sicx']})
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'rebalancingSetBnusd',
@@ -59,7 +56,9 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'rebalancingSetDex',
                      {"_address": self.contracts['dex']})
 
-        self.send_tx(self.btest_wallet, self.contracts['loans'], 0, 'setDex',
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setLoansRebalance',
+                     {"_address": self.contracts['rebalancing']})
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setLoansDex',
                      {"_address": self.contracts['dex']})
 
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingSicx',
