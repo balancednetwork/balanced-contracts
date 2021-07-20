@@ -10,7 +10,8 @@ from core_contracts.governance.utils.consts import DAY_ZERO
 
 
 class MockClass:
-    def __init__(self, balanceOfAt, totalSupplyAt, totalBalnAt, totalStakedBalanceOfAt=12, stakedBalanceOfAt=None):
+    def __init__(self, balanceOfAt=None, totalSupplyAt=None, totalBalnAt=None, totalStakedBalanceOfAt=None,
+                 stakedBalanceOfAt=None):
         self._balanceOfAt, self._totalSupplyAt, self._totalBalnAt, self._totalStakedBalanceOfAt = \
             balanceOfAt, totalSupplyAt, totalBalnAt, totalStakedBalanceOfAt
         self._stakedBalanceOfAt = stakedBalanceOfAt
@@ -36,8 +37,9 @@ class MockClass:
     def addNewDataSource(self, a, b):
         pass
 
-    def updateBalTokenDistPercentage(self,a):
+    def updateBalTokenDistPercentage(self, a):
         pass
+
 
 class TestGovernanceUnit(ScoreTestCase):
     def setUp(self):
@@ -60,7 +62,8 @@ class TestGovernanceUnit(ScoreTestCase):
     def test_create_vote(self):
         self.set_msg(self.test_account1)
         day = self.governance.getDay()
-        with mock.patch.object(self.governance, "create_interface_score", MockClass(1, 1, 1, 1).patch_internal):
+        mock_class = MockClass(balanceOfAt=1, totalSupplyAt=1, totalBalnAt=1, totalStakedBalanceOfAt=1)
+        with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             self.governance.defineVote(name="Just a demo", description='Testing description field', quorum=40,
                                        vote_start=day + 2, duration=2, snapshot=30,
                                        actions="{\"enable_dividends\": {}}")
@@ -151,8 +154,9 @@ class TestGovernanceUnit(ScoreTestCase):
 
         self.set_block(0, 0)
         day = self.governance.getDay()
-        with mock.patch.object(self.governance, "create_interface_score", MockClass(1, 2, 3, 4, 5).patch_internal):
-
+        mock_class = MockClass(balanceOfAt=1, totalSupplyAt=2, totalBalnAt=3, totalStakedBalanceOfAt=4,
+                               stakedBalanceOfAt=5)
+        with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             self.governance.defineVote(name="Enable the dividends", description="Count pool BALN", quorum=40,
                                        vote_start=day + 1, duration=2,
                                        snapshot=15, actions="{\"enable_dividends\": {}}")
@@ -204,16 +208,19 @@ class TestGovernanceUnit(ScoreTestCase):
         dex_score = Address.from_string(f"cx{'2578' * 10}")
 
         self.governance.addresses._dex.set(dex_score)
-        with mock.patch.object(self.governance, "create_interface_score", wraps=MockClass(10, 20, 30).patch_internal):
+        mock_class = MockClass(balanceOfAt=10, totalSupplyAt=20, totalBalnAt=30)
+        with mock.patch.object(self.governance, "create_interface_score", wraps=mock_class.patch_internal):
             result = self.governance._get_pool_baln(_account=self.test_account3, _day=1)
         self.assertEqual(2 * (10 * 30 / 20), result)
 
-        with mock.patch.object(self.governance, "create_interface_score", wraps=MockClass(0, 0, 0).patch_internal):
+        mock_class = MockClass(balanceOfAt=0, totalSupplyAt=0, totalBalnAt=0)
+        with mock.patch.object(self.governance, "create_interface_score", wraps=mock_class.patch_internal):
             result = self.governance._get_pool_baln(_account=self.test_account3, _day=1)
         self.assertEqual(0, result)
 
     def test_totalBaln(self):
-        with mock.patch.object(self.governance, "create_interface_score", wraps=MockClass(10, 20, 30).patch_internal):
+        mock_class = MockClass(balanceOfAt=10, totalSupplyAt=20, totalBalnAt=30, totalStakedBalanceOfAt=12)
+        with mock.patch.object(self.governance, "create_interface_score", wraps=mock_class.patch_internal):
             result = self.governance.totalBaln(1)
         self.assertEqual(2 * 30 + 12, result)
 
@@ -221,22 +228,23 @@ class TestGovernanceUnit(ScoreTestCase):
         self.set_msg(self.test_account1, 0)
         self.set_block(0, 0)
         day = self.governance.getDay()
-        with mock.patch.object(self.governance, "create_interface_score", MockClass(1, 2, 3, 4, 5).patch_internal):
+        mock_class = MockClass(balanceOfAt=1, totalSupplyAt=2, totalBalnAt=3, totalStakedBalanceOfAt=4,
+                               stakedBalanceOfAt=5)
+        with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             actions = {"addNewDataSource": {"_data_source_name": "", "_contract_address": ""},
                        "updateDistPercent": {"_recipient_list": [{"recipient_name": "", "dist_percent": 12}]}}
-            self.governance.defineVote(name="Enable the dividends", description="Count pool BALN", quorum=1,
+            self.governance.defineVote(name="Test add data source", description="Count pool BALN", quorum=1,
                                        vote_start=day + 1, duration=1,
                                        snapshot=15, actions=json.dumps(actions))
 
-            self.governance.activateVote("Enable the dividends")
+            self.governance.activateVote("Test add data source")
 
             launch_time = self.governance._launch_time.get()
             new_day = launch_time + (DAY_ZERO + day + 1) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
-            self.governance.castVote("Enable the dividends", True)
+            self.governance.castVote("Test add data source", True)
 
             launch_time = self.governance._launch_time.get()
             new_day = launch_time + (DAY_ZERO + day + 4) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.executeVoteAction(1)
-
