@@ -1,9 +1,12 @@
 import json
-from json import JSONDecodeError
 from unittest import mock
+from json import JSONDecodeError
+
 from iconservice import Address, IconScoreException
 from tbears.libs.scoretest.score_test_case import ScoreTestCase
+
 from core_contracts.governance.governance import Governance
+from core_contracts.governance.utils.consts import DAY_ZERO
 
 
 class MockClass:
@@ -30,6 +33,11 @@ class MockClass:
     def stakedBalanceOfAt(self, address, day):
         return self._stakedBalanceOfAt
 
+    def addNewDataSource(self, a, b):
+        pass
+
+    def updateBalTokenDistPercentage(self,a):
+        pass
 
 class TestGovernanceUnit(ScoreTestCase):
     def setUp(self):
@@ -143,7 +151,7 @@ class TestGovernanceUnit(ScoreTestCase):
 
         self.set_block(0, 0)
         day = self.governance.getDay()
-        with mock.patch.object(self.governance, "create_interface_score", MockClass(1,2,3,4,5).patch_internal):
+        with mock.patch.object(self.governance, "create_interface_score", MockClass(1, 2, 3, 4, 5).patch_internal):
 
             self.governance.defineVote(name="Enable the dividends", description="Count pool BALN", quorum=40,
                                        vote_start=day + 1, duration=2,
@@ -159,9 +167,9 @@ class TestGovernanceUnit(ScoreTestCase):
             except IconScoreException:
                 self.fail("Failed to execute activate poll method")
             self.assertEqual("Active", self.governance.checkVote(1).get("status"))
-            laaunch_time = self.governance._launch_time.get()
+            launch_time = self.governance._launch_time.get()
             from core_contracts.governance.utils.consts import DAY_ZERO
-            new_day = laaunch_time + (DAY_ZERO + day + 2) * 10 ** 6 * 60 * 60 * 24
+            new_day = launch_time + (DAY_ZERO + day + 2) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.castVote("Enable the dividends", True)
 
@@ -208,3 +216,27 @@ class TestGovernanceUnit(ScoreTestCase):
         with mock.patch.object(self.governance, "create_interface_score", wraps=MockClass(10, 20, 30).patch_internal):
             result = self.governance.totalBaln(1)
         self.assertEqual(2 * 30 + 12, result)
+
+    def test_add_new_data_source(self):
+        self.set_msg(self.test_account1, 0)
+        self.set_block(0, 0)
+        day = self.governance.getDay()
+        with mock.patch.object(self.governance, "create_interface_score", MockClass(1, 2, 3, 4, 5).patch_internal):
+            actions = {"addNewDataSource": {"_data_source_name": "", "_contract_address": ""},
+                       "updateDistPercent": {"_recipient_list": [{"recipient_name": "", "dist_percent": 12}]}}
+            self.governance.defineVote(name="Enable the dividends", description="Count pool BALN", quorum=1,
+                                       vote_start=day + 1, duration=1,
+                                       snapshot=15, actions=json.dumps(actions))
+
+            self.governance.activateVote("Enable the dividends")
+
+            launch_time = self.governance._launch_time.get()
+            new_day = launch_time + (DAY_ZERO + day + 1) * 10 ** 6 * 60 * 60 * 24
+            self.set_block(55, new_day)
+            self.governance.castVote("Enable the dividends", True)
+
+            launch_time = self.governance._launch_time.get()
+            new_day = launch_time + (DAY_ZERO + day + 4) * 10 ** 6 * 60 * 60 * 24
+            self.set_block(55, new_day)
+            self.governance.executeVoteAction(1)
+

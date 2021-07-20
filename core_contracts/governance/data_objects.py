@@ -32,7 +32,7 @@ class VoteActions(object):
         self._actions = {
             'enable_dividends': self._gov.enableDividends,
             'addNewDataSource': self._gov.addNewDataSource,
-            'updateDistPrececnt': self._gov.updateBalTokenDistPercentage
+            'updateDistPercent': self._gov.updateBalTokenDistPercentage
         }
 
     def __getitem__(self, key: str):
