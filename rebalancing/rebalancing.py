@@ -34,20 +34,6 @@ class BnusdTokenInterface(InterfaceScore):
         pass
 
 
-class LoansTokenInterface(InterfaceScore):
-    @interface
-    def getMaxRetireAmount(self, _symbol: str) -> int:
-        pass
-
-    @interface
-    def retireRedeem(self, _symbol: str, _redeemed: int, _sicx_from_lenders: int) -> None:
-        pass
-
-    @interface
-    def getParameters(self) -> dict:
-        pass
-
-
 class DexTokenInterface(InterfaceScore):
     @interface
     def getPriceByName(self, _name: str) -> int:
