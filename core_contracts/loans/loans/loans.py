@@ -680,7 +680,7 @@ class Loans(IconScoreBase):
             revert(f'{TAG}: {_symbol} is not an active, borrowable asset on Balanced.')
         self._dex_score = self.create_interface_score(self._dex.get(), DexTokenInterface)
         rate = self._dex_score.getSicxBnusdPrice()
-        _to_redeemed = rate * _sicx_from_lenders
+        _to_redeemed = (rate * _sicx_from_lenders)//10**18
         price = asset.priceInLoop()
         batch_size = self._redeem_batch.get()
         borrowers = asset.get_borrowers()
