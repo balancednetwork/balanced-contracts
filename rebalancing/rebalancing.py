@@ -196,9 +196,9 @@ class Rebalancing(IconScoreBase):
         price = self.bnUSD_score.lastPriceInLoop() * EXA // self.sICX_score.lastPriceInLoop()
         pool_stats = self.dex_score.getPoolStats(2)
         dex_price = pool_stats['base'] * EXA // pool_stats['quote']
-        diff = (dex_price - price) * EXA // price
+        diff = (price - dex_price) * EXA * 100 // price
         max_diff = self._price_threshold.get()
-        if not -max_diff < diff * 100:
+        if diff > max_diff:
             return [True, self._calculate_tokens_to_retire(price, pool_stats['base'], pool_stats['quote']),
                     "sICX"]
         return [False, 0]
