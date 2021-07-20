@@ -5,9 +5,6 @@ TAG = 'Rebalancing'
 
 EXA = 10 ** 18
 data_for_loans = b'{"_asset": "bnUSD", "_amount": ""}'
-# bnUSD token address in toToken
-TOKENS = ["sICX", "bnUSD"]
-
 
 class sICXTokenInterface(InterfaceScore):
     @interface
@@ -211,12 +208,11 @@ class Rebalancing(IconScoreBase):
         price = self.bnUSD_score.lastPriceInLoop() * EXA // self.sICX_score.lastPriceInLoop()
         pool_stats = self.dex_score.getPoolStats(2)
         dex_price = pool_stats['base'] * EXA // pool_stats['quote']
-        direction = price < dex_price
         diff = (dex_price - price) * EXA // price
         max_diff = self._price_threshold.get()
         if not -max_diff < diff * 100:
             return [True, self._calculate_tokens_to_retire(price, pool_stats['base'], pool_stats['quote']),
-                    TOKENS[direction]]
+                    "sICX"]
         return [False, 0]
 
     @external
@@ -229,10 +225,9 @@ class Rebalancing(IconScoreBase):
         rebalancing_status = self.getRebalancingStatus()
         sicx_to_receive = self._sicx_receivable.get()
         if rebalancing_status[0]:
-            if rebalancing_status[2] == "sICX":
-                sicx_to_retire = rebalancing_status[1]
-                if sicx_to_retire > sicx_to_receive:
-                    self.sICX_score.transfer(self._loans.get(), sicx_to_receive, data_for_loans)
+            sicx_to_retire = rebalancing_status[1]
+            if sicx_to_retire > sicx_to_receive:
+                self.sICX_score.transfer(self._loans.get(), sicx_to_receive, data_for_loans)
 
     @external
     def tokenFallback(self, _from: Address, value: int, _data: bytes) -> None:
