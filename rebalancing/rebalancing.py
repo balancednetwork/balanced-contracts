@@ -171,7 +171,7 @@ class Rebalancing(IconScoreBase):
     def setSicxReceivable(self, _value: int) -> None:
         """
         :param _value: sICX amount to set.
-        Sets the sICX amount to receive by rebalancing contract.
+        Sets the sICX amount to receive by rebalancing contract sent from the loans contract.
         """
         self._sicx_receivable.set(_value)
 
