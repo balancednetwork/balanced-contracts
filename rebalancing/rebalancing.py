@@ -5,7 +5,6 @@ TAG = 'Rebalancing'
 
 EXA = 10 ** 18
 data_for_loans = b'{"_asset": "bnUSD", "_amount": ""}'
-
 # bnUSD token address in toToken
 TOKENS = ["sICX", "bnUSD"]
 
@@ -199,14 +198,13 @@ class Rebalancing(IconScoreBase):
         return self._sicx_receivable.get()
 
     @external(readonly=True)
-    def getRebalancingStatus(self) -> (bool, int, str):
+    def getRebalancingStatus(self) -> list:
         """
         Checks the Rebalancing status of the pool i.e. whether the difference between
         oracle price and dex pool price are more than threshold or not and if it is more
         than the threshold then the function returns total sICX value that needs to be converted
         to bnUSD and retires to reduce the price difference.
         """
-
         self.bnUSD_score = self.create_interface_score(self._bnUSD.get(), BnusdTokenInterface)
         self.dex_score = self.create_interface_score(self._dex.get(), DexTokenInterface)
         self.sICX_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
@@ -216,9 +214,10 @@ class Rebalancing(IconScoreBase):
         direction = price < dex_price
         diff = (dex_price - price) * EXA // price
         max_diff = self._price_threshold.get()
-        if not -max_diff < diff*100 < max_diff:
-            return True, self._calculate_tokens_to_retire(price, pool_stats['base'], pool_stats['quote']), TOKENS[direction]
-        return False, 0,
+        if not -max_diff < diff * 100:
+            return [True, self._calculate_tokens_to_retire(price, pool_stats['base'], pool_stats['quote']),
+                    TOKENS[direction]]
+        return [False, 0]
 
     @external
     def rebalance(self) -> None:
