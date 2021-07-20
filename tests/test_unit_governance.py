@@ -8,7 +8,6 @@ from core_contracts.governance.governance import Governance
 
 class MockClass:
     def __init__(self, balanceOfAt, totalSupplyAt, totalBalnAt, totalStakedBalanceOfAt=12, stakedBalanceOfAt=None):
-        print(locals())
         self._balanceOfAt, self._totalSupplyAt, self._totalBalnAt, self._totalStakedBalanceOfAt = \
             balanceOfAt, totalSupplyAt, totalBalnAt, totalStakedBalanceOfAt
         self._stakedBalanceOfAt = stakedBalanceOfAt
