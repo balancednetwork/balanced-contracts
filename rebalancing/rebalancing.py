@@ -156,7 +156,9 @@ class Rebalancing(IconScoreBase):
 
     def _calculate_tokens_to_retire(self, price: int, base_supply: int, quote_supply: int) -> int:
         """
-        :param dex_score: Interface of dex score.
+        :param price: Oracle price.
+        :param base_supply: base token supply.
+        :param quote_supply: quote token supply.
         Returns the amount of sICX required for rebalancing the price.
         """
         value = (self._sqrt(price * base_supply * quote_supply) // 10 ** 9) - base_supply
