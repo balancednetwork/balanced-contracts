@@ -20,7 +20,6 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
         #        'data_sicx = {"method": "_swap", "params": {"toToken": "cx2609b924e33ef00b648a409245c7ea394c467824"}}']
         # new = 'data_bytes = b'+"'"+'{"method": "_swap", "params": {"toToken": "'+bnUSD+'"}}'+"'"
         new = 'data = {"method": "_swap", "params": {"toToken": "'+bnUSD+'"}}'
-        print(old,new)
         # new = ['data = {"method": "_swap", "params": {"toToken": "' + bnUSD + '"}}',
         #        'data_sicx = {"method": "_swap", "params": {"toToken": "' + sicx + '"}}']
 
@@ -71,8 +70,8 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
     def test_rebalance(self):
         self.test_update()
         test_cases = REBALANCING_STORIES
-        self.send_tx(self._test1, self.contracts['loans'], 750000 * 10 ** 18, 'depositAndBorrow',
-                     {'_asset': 'bnUSD', '_amount': 300000 * 10 ** 18})
+        self.send_tx(self._test1, self.contracts['loans'], 1200000 * 10 ** 18, 'depositAndBorrow',
+                     {'_asset': 'bnUSD', '_amount': 450000 * 10 ** 18})
         self.send_tx(self.btest_wallet, self.contracts['staking'], 1000 * 10 ** 18, 'stakeICX',
                      {"_to": self.contracts['rebalancing']})
         # self.send_tx(self._test1, self.contracts['bnUSD'], 0, 'transfer',
@@ -108,7 +107,7 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             self.call_tx(self.contracts['dex'], 'getPoolStats', {"_id": 2})
 
             status = self.call_tx(self.contracts['rebalancing'], 'getRebalancingStatus', {})
-            self.assertEqual(str(status[0]), case['actions']['rebalancing_status'])
+            self.assertEqual(int(status[0], 0), case['actions']['rebalancing_status'])
 
             # account positions after rebalancing
             self.call_tx(self.contracts['loans'], 'getAccountPositions', {"_owner": self.user1.get_address()})

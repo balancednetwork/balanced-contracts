@@ -8,7 +8,7 @@ REBALANCING_STORIES = {
                 "initial_sicx_in_rebalancer": 1000 * ICX,
                 "method": "transfer",
                 "amount": 200 * ICX,
-                "rebalancing_status": "False",
+                "rebalancing_status": 0,
                 "final_sicx_in_rebalancer": 1000 * ICX,
             }
         },
@@ -19,7 +19,7 @@ REBALANCING_STORIES = {
                 "initial_sicx_in_rebalancer": 1000 * ICX,
                 "method": "transfer",
                 "amount": 1600 * ICX,
-                "rebalancing_status": "False",
+                "rebalancing_status": 0,
                 "final_sicx_in_rebalancer": 1000 * ICX,
             }
         },
@@ -29,8 +29,19 @@ REBALANCING_STORIES = {
             "actions": {
                 "initial_sicx_in_rebalancer": 1000 * ICX,
                 "method": "transfer",
-                "amount": 1000 * ICX,
-                "rebalancing_status": "True",
+                "amount": 400000 * ICX,
+                "rebalancing_status": 1,
+                "final_sicx_in_rebalancer": 1000 * ICX,
+            }
+        },
+{
+            "description": "In this condition too rebalancing happens as dex price changes with more than 0.5% of "
+                           "oracle price.",
+            "actions": {
+                "initial_sicx_in_rebalancer": 1000 * ICX,
+                "method": "transfer",
+                "amount": 100 * ICX,
+                "rebalancing_status": 1,
                 "final_sicx_in_rebalancer": 1000 * ICX,
             }
         }

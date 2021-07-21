@@ -680,7 +680,7 @@ class Loans(IconScoreBase):
             revert(f'{TAG}: {_symbol} is not an active, borrowable asset on Balanced.')
         self._dex_score = self.create_interface_score(self._dex.get(), DexTokenInterface)
         rate = self._dex_score.getSicxBnusdPrice()
-        _to_redeemed = rate * _sicx_from_lenders
+        _to_redeemed = (rate * _sicx_from_lenders)//10**18
         price = asset.priceInLoop()
         batch_size = self._redeem_batch.get()
         borrowers = asset.get_borrowers()
@@ -694,7 +694,7 @@ class Loans(IconScoreBase):
             borrowers.move_head_to_tail()
             node_id = borrowers.get_head_id()
         borrowers.serialize()
-        if (POINTS * _to_redeemed) // 10**18 > self._max_retire_percent.get() * total_batch_debt:
+        if (POINTS * _to_redeemed) > self._max_retire_percent.get() * total_batch_debt:
             self._send_token("sICX", _from, _sicx_from_lenders, "sICX refunded.")
             return
         address = self._assets["sICX"].get_address()
