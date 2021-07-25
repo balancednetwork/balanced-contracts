@@ -204,7 +204,7 @@ class Rebalancing(IconScoreBase):
         if diff > max_diff:
             return [True, self._calculate_tokens_to_retire(price, pool_stats['base'], pool_stats['quote']),
                     "sICX"]
-        return [False, 0]
+        return [False, self._calculate_tokens_to_retire(price, pool_stats['base'], pool_stats['quote'])]
 
     @external
     def rebalance(self) -> None:
