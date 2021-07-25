@@ -606,11 +606,10 @@ class Loans(IconScoreBase):
             self.checkDistributions(day, new_day)
             bd_value = min(bad_debt, _value)
             asset.burnFrom(_from, bd_value)
-            _value -= bd_value
             sicx = self.bd_redeem(_from, asset, bd_value)
             self._send_token("sICX", _from, sicx, "Bad Debt redeemed.")
             asset.is_dead()
-            self.BadDebtRetired(_from, _symbol, _value, bd_value)
+            self.BadDebtRetired(_from, _symbol, bd_value, sicx)
         else:
             revert(f'{TAG}: No bad debt for {_symbol}.')
 
@@ -1100,7 +1099,7 @@ class Loans(IconScoreBase):
         pass
 
     @eventlog(indexed=3)
-    def BadDebtRetired(self, account: Address, symbol: str, amount: int, price: int):
+    def BadDebtRetired(self, account: Address, symbol: str, amount: int, sicx_received: int):
         pass
 
     @eventlog(indexed=2)
