@@ -153,7 +153,7 @@ class BalancedTestUtils(IconIntegrateTestBase):
 class BalancedTestBaseRebalancing(BalancedTestUtils):
     CORE_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../core_contracts"))
     TOKEN_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../token_contracts"))
-    BALANCER_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../"))
+    BALANCER_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../core_contracts"))
 
 
     CORE_CONTRACTS = ["loans", "staking", "dividends", "reserve", "daofund", "rewards", "dex", "governance", "oracle"]

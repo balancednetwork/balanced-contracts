@@ -106,7 +106,22 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             user3_bnusd_before = self.get_account_position(self._test1.get_address())
 
             rebabalce = self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'rebalance', {})
-
+            event = (rebabalce['eventLogs'])
+            redeemed_bnusd = ""
+            sum = 0
+            for i in event:
+                res = (i["indexed"])
+                for j in res:
+                    if "AssetRetired" in j:
+                        redeemed_bnusd = (i["data"][-1])
+                        redeemed_bnusd = redeemed_bnusd.split(',')
+                        for x in redeemed_bnusd:
+                            x = x.replace(' ', '')
+                            x = x.replace('}', '')
+                            x = x.replace('{', '')
+                            y = x.split(':')
+                            sum += int(y[-1])
+                        self.assertEqual((int(res[-1], 16)), sum, "The reduced value is not equal to the bnUSD burnt")
             # account positions after rebalancing
             user1_bnusd_after = self.get_account_position(self.user1.get_address())
             user2_bnusd_after = self.get_account_position(self.user2.get_address())
