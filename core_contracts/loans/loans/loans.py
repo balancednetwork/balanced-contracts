@@ -693,7 +693,7 @@ class Loans(IconScoreBase):
             borrowers.move_head_to_tail()
             node_id = borrowers.get_head_id()
         borrowers.serialize()
-        if (POINTS * _to_redeemed) // 10**18 > self._max_retire_percent.get() * total_batch_debt:
+        if (POINTS * _to_redeemed) > self._max_retire_percent.get() * total_batch_debt:
             self._send_token("sICX", _from, _sicx_from_lenders, "sICX refunded.")
             return
         address = self._assets["sICX"].get_address()
