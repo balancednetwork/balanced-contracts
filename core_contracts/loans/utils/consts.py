@@ -25,10 +25,7 @@ MAX_DEBTS_LIST_LENGTH = 400
 SNAP_BATCH_SIZE = 50
 REDEEM_BATCH_SIZE = 50
 
-# data_for_dex = b'{"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
-data = {"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}
-data_string = json_dumps(data)
-data_for_dex = str.encode(data_string)
+data_for_dex = b'{"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
 
 class Standing:
     INDETERMINATE = 0
