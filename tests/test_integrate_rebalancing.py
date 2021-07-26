@@ -3,7 +3,7 @@ import subprocess
 from .test_integrate_base_rebalancing import BalancedTestBaseRebalancing
 from .stories.rebalancing_stories import REBALANCING_STORIES, REBALANCING_DOWN_STORIES
 from iconservice import *
-
+from iconsdk.wallet.wallet import KeyWallet
 
 class BalancedTestLiquidation(BalancedTestBaseRebalancing):
 
@@ -72,6 +72,17 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
                      {"_to": self.contracts['rebalancing']})
 
         self.setAddresses()
+        wallets = []
+
+        for i in range(5):
+            wallets.append(KeyWallet.create())
+
+        for i in range(5):
+            self.send_icx(self.btest_wallet, wallets[i].get_address(), 2500 * 10 ** 18)
+
+        for i in range(5):
+            self.send_tx(wallets[i], self.contracts['loans'], 1000 * 10 ** 18, 'depositAndBorrow',
+                         {'_asset': 'bnUSD', '_amount': 100 * 10 ** 18})
 
         self.send_icx(self.btest_wallet, self.user1.get_address(), 2500 * 10 ** 18)
         self.send_icx(self.btest_wallet, self.user2.get_address(), 2500 * 10 ** 18)
@@ -101,11 +112,18 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             self.assertEqual(int(status[0], 0), case['actions']['rebalancing_status'])
 
             # account positions after rebalancing
-            user1_bnusd_before = self.get_account_position(self.user1.get_address())
-            user2_bnusd_before = self.get_account_position(self.user2.get_address())
-            user3_bnusd_before = self.get_account_position(self._test1.get_address())
+            before = {}
+            wallet_dict = {}
+            for i in range(len(wallets)):
+                wallet_dict = {"user1": self.user1.get_address(), "user2": self.user2.get_address(),
+                               "user3": self._test1.get_address(), "user4": wallets[i].get_address(),
+                               "user5": wallets[i].get_address(), "user6": wallets[i].get_address(),
+                               "user7": wallets[i].get_address(), "user8": wallets[i].get_address()}
+            for key, value in wallet_dict.items():
+                before[key] = self.get_account_position(value)
 
             rebabalce = self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'rebalance', {})
+
             event = (rebabalce['eventLogs'])
             redeemed_bnusd = ""
             sum = 0
@@ -122,16 +140,21 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
                             y = x.split(':')
                             sum += int(y[-1])
                         self.assertEqual((int(res[-1], 16)), sum, "The reduced value is not equal to the bnUSD burnt")
+
             # account positions after rebalancing
-            user1_bnusd_after = self.get_account_position(self.user1.get_address())
-            user2_bnusd_after = self.get_account_position(self.user2.get_address())
-            user3_bnusd_after = self.get_account_position(self._test1.get_address())
+            after = {}
+            for key, value in wallet_dict.items():
+                after[key] = self.get_account_position(value)
 
-            user1_percent_change1 = (user1_bnusd_before-user1_bnusd_after) / user1_bnusd_before * 100
-            user2_percent_change2 = (user2_bnusd_before - user2_bnusd_after) / user2_bnusd_before * 100
-            user3_percent_change3 = (user3_bnusd_before - user3_bnusd_after) / user3_bnusd_before * 100
+            # users bnUSD retired percent
+            before_list = list(before.keys())
+            after_list = list(after.keys())
+            change = []
+            for i in range(len(wallet_dict)):
+                change.append((before[before_list[i]] - after[after_list[i]])/before[before_list[i]] * 100)
 
-            self.assertEqual(user1_percent_change1, user2_percent_change2, user3_percent_change3)
+            for i in range(len(change)-1):
+                self.assertEqual(change[i], change[i+1], "Error in user retired bnUSD percent ")
 
             res = self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['rebalancing']})
             self.assertEqual(int(res, 0), case['actions']['final_sicx_in_rebalancer'])
