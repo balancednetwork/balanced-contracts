@@ -114,8 +114,14 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             self.call_tx(self.contracts['loans'], 'getAccountPositions', {"_owner": self.user2.get_address()})
             self.call_tx(self.contracts['loans'], 'getAccountPositions', {"_owner": self._test1.get_address()})
 
-            self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'rebalance', {})
-
+            rebabalce = self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'rebalance', {})
+            print(rebabalce)
+            event = (rebabalce['eventLogs'])
+            for i in event:
+                res = (i["indexed"])
+                for j in res:
+                    if "AssetRetired" in j:
+                        print(i)
             # account positions after rebalancing
             self.call_tx(self.contracts['loans'], 'getAccountPositions', {"_owner": self.user1.get_address()})
             self.call_tx(self.contracts['loans'], 'getAccountPositions', {"_owner": self.user2.get_address()})
