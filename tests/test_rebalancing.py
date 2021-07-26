@@ -5,8 +5,8 @@ from iconservice import Address
 from tbears.libs.scoretest.score_test_case import ScoreTestCase
 from iconservice.base.exception import IconScoreException
 
-from rebalancing.rebalancing import Rebalancing
-from rebalancing.utils.checks import SenderNotGovernance, SenderNotAuthorized, SenderNotScoreOwnerError
+from core_contracts.rebalancing.rebalancing import Rebalancing
+from core_contracts.rebalancing.utils.checks import SenderNotGovernance, SenderNotAuthorized, SenderNotScoreOwnerError
 
 
 class MockClass:
