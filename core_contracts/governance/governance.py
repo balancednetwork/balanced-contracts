@@ -53,6 +53,12 @@ class Governance(IconScoreBase):
     def getDay(self) -> int:
         return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
 
+    @external(readonly=True)
+    def getVotersCount(self, name: str) -> dict:
+        vote_index = ProposalDB.proposal_id(name, self.db)
+        proposal = ProposalDB(var_key=vote_index, db=self.db)
+        return {'for_voters': proposal.for_voters_count.get(), 'against_voters': proposal.against_voters_count.get()}
+
     @external
     @only_owner
     def activateVote(self, name: str) -> None:
@@ -138,15 +144,19 @@ class Governance(IconScoreBase):
         total_for_votes = proposal.total_for_votes.get()
         total_against_votes = proposal.total_against_votes.get()
         if vote:
+            total_for_voters_count = proposal.for_voters_count.get()
             proposal.for_votes_of_user[sender] = stake
             proposal.against_votes_of_user[sender] = 0
             total_for = total_for_votes + stake - prior_vote[0]
             total_against = total_against_votes - prior_vote[1]
+            proposal.for_voters_count.set(total_for_voters_count + 1)
         else:
+            total_against_voters_count = proposal.against_voters_count.get()
             proposal.for_votes_of_user[sender] = 0
             proposal.against_votes_of_user[sender] = stake
             total_for = total_for_votes - prior_vote[0]
             total_against = total_against_votes + stake - prior_vote[1]
+            proposal.against_voters_count.set(total_against_voters_count + 1)
         proposal.total_for_votes.set(total_for)
         proposal.total_against_votes.set(total_against)
         self.VoteCast(name, vote, sender, stake, total_for, total_against)

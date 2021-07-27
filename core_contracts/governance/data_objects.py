@@ -154,6 +154,8 @@ class ProposalDB:
         self.for_votes_of_user = DictDB(self._key + "_for_votes_of_user", db, value_type=int)
         self.against_votes_of_user = DictDB(self._key + "_against_votes_of_user", db, value_type=int)
         self.total_for_votes = VarDB(self._key + "_total_for_votes", db, value_type=int)
+        self.for_voters_count = VarDB(self._key + "_for_voters_count", db, value_type=int)
+        self.against_voters_count = VarDB(self._key + "_against_voters_count", db, value_type=int)
         self.total_against_votes = VarDB(self._key + "_total_against_votes", db, value_type=int)
         self.status = VarDB(self._key + "_status", db, value_type=str)
 
