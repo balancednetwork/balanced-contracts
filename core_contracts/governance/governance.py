@@ -527,6 +527,11 @@ class Governance(IconScoreBase):
         dex_address = self.addresses['dex']
         dex = self.create_interface_score(dex_address, DexInterface)
         dex.setMarketName(_id, _name)
+
+    @external
+    @only_owner
+    def addDataSource(self, _name: str) -> None:
+        dex_address = self.addresses['dex']
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.addNewDataSource(_name, dex_address)
 
