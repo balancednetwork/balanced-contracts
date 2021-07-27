@@ -25,11 +25,45 @@ class StakingInterface(InterfaceScore):
         pass
 
 
+class RebalancingInterface(InterfaceScore):
+    @interface
+    def setSicxReceivable(self, _value: int) -> None:
+        pass
+
+    @interface
+    def setPriceChangeThreshold(self, _value: int) -> None:
+        pass
+
+    @interface
+    def setDex(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setLoans(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setSicx(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setBnusd(self, _address: Address) -> None:
+        pass
+
+
 # An interface to the Loans SCORE
 class LoansInterface(InterfaceScore):
     @interface
     def depositAndBorrow(self, _asset: str = '', _amount: int = 0,
                          _from: Address = None, _value: int = 0) -> None:
+        pass
+
+    @interface
+    def setRebalance(self, _address: Address):
+        pass
+
+    @interface
+    def setDex(self, _address: Address):
         pass
 
     @interface

@@ -1,5 +1,4 @@
 from iconservice import *
-from .consts import *
 
 
 # ================================================
@@ -39,20 +38,6 @@ def only_governance(func):
     return __wrapper
 
 
-def only_admin(func):
-    if not isfunction(func):
-        raise NotAFunctionError
-
-    @wraps(func)
-    def __wrapper(self: object, *args, **kwargs):
-        if self.msg.sender != self._admin.get():
-            raise SenderNotAuthorized(self.msg.sender)
-
-        return func(self, *args, **kwargs)
-
-    return __wrapper
-
-
 def only_owner(func):
     if not isfunction(func):
         raise NotAFunctionError
@@ -67,14 +52,14 @@ def only_owner(func):
     return __wrapper
 
 
-def loans_on(func):
+def only_admin(func):
     if not isfunction(func):
-        revert(f"NotAFunctionError")
+        raise NotAFunctionError
 
     @wraps(func)
     def __wrapper(self: object, *args, **kwargs):
-        if not self._loans_on.get():
-            revert(f'{TAG}: Balanced Loans SCORE is not active.')
+        if self.msg.sender != self._admin.get():
+            raise SenderNotAuthorized(self.msg.sender)
 
         return func(self, *args, **kwargs)
 

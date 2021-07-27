@@ -637,6 +637,60 @@ class DEX(IconScoreBase):
         else:
             revert(f"{TAG}: Fallback directly not allowed.")
 
+
+    @dex_on
+    @external
+    def transfer(self, _to: Address, _value: int, _id: int, _data: bytes = None):
+        """
+        Used to transfer LP tokens from sender to another address.
+        Calls the internal method `_transfer()` with a default
+        `_data` if none is submitted.
+        :param _to: Address to transfer to
+        :param _value: Amount of units to transfer
+        :param _id: Pool ID of token to transfer
+        :param _data: data to include with transfer
+        """
+
+        if _data is None:
+            _data = b'None'
+        self._transfer(self.msg.sender, _to, _value, _id, _data)
+
+    def _transfer(self, _from: Address, _to: Address, _value: int, _id: int, _data: bytes):
+        """
+        Used to transfer LP IRC-31 tokens from one address to another.
+        Invoked by `transfer(...)`.
+        """
+        if _value < 0:
+            revert(f"{TAG}: Transferring value cannot be less than 0.")
+        
+        if self._balance[_id][_from] < _value:
+            revert(f"{TAG}: Out of balance.")
+        
+        if _id < 5:
+            revert(f"{TAG}: untransferrable token id")
+
+        self._balance[_id][_from] = self._balance[_id][_from] - _value
+        self._balance[_id][_to] = self._balance[_id][_to] + _value
+
+        self._active_addresses[_id].add(_to)
+        if self._balance[_id][_from] == 0:
+            self._active_addresses[_id].discard(_from)
+
+        self.TransferSingle(self.msg.sender, _from, _to, _id, _value)
+
+        self._update_account_snapshot(_from, _id)
+        self._update_account_snapshot(_to, _id)
+
+        if _to.is_contract:
+            # call `onIRC31Received` if the recipient is a contract
+            recipient_score = self.create_interface_score(_to, IRC31ReceiverInterface)
+            recipient_score.onIRC31Received(self.msg.sender, _from, _id, _value,
+                                            b'' if _data is None else _data)
+
+    @external
+    def onIRC31Received(self, _operator: Address, _from: Address, _id: int, _value: int, _data: bytes):
+        revert(f"{TAG}: IRC31 Tokens not accepted")
+
     @external
     def precompute(self, snap: int, batch_size: int) -> bool:
         """
