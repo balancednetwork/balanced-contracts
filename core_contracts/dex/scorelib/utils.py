@@ -29,11 +29,12 @@ class TokenInterface(InterfaceScore):
 
 
 # An interface of token score
-class ICONPoolCoreInterface(InterfaceScore):
+class IRC31ReceiverInterface(InterfaceScore):
+
     @interface
-    def balanceOf(self, _pid: int, _user: Address) -> int:
+    def onIRC31Received(self, _operator: Address, _from: Address, _id: int, _value: int, _data: bytes):
         pass
 
     @interface
-    def totalSupply(self, _pid: int) -> int:
+    def onIRC31BatchReceived(self, _operator: Address, _from: Address, _ids: List[int], _values: List[int], _data: bytes):
         pass
