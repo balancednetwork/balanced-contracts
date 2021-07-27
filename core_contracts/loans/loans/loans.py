@@ -661,7 +661,9 @@ class Loans(IconScoreBase):
             revert(f'{TAG}: No debt repaid because,'
                    f'{_from} does not have a position in Balanced' if _repay else f'{_repay == False}')
 
+    @loans_on
     @external
+    @only_rebalance
     def retireRedeem(self, _symbol: str, _sicx_from_lenders: int) -> None:
         """
         This function will  pay off debt from a batch of
