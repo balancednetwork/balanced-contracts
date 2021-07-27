@@ -153,12 +153,12 @@ class Rebalancing(IconScoreBase):
         :param quote_supply: quote token supply.
         Returns the amount of sICX required for rebalancing the price.
         """
-        value = (self._sqrt(price * base_supply * quote_supply) // 10 ** 9) - base_supply
-        return value
+        return self._sqrt(price * base_supply * quote_supply // EXA) - base_supply
+
 
     @external
     @only_governance
-    def setPriceChangeThreshold(self, _value: int) -> None:
+    def setPriceDiffThreshold(self, _value: int) -> None:
         """
         :param _value: It is the minimum price deviation between oracle and dex pool .
         Sets the threshold and if the deviation is more than threshold, then rebalancing is triggered.
@@ -189,7 +189,7 @@ class Rebalancing(IconScoreBase):
         return self._sicx_receivable.get()
 
     @external(readonly=True)
-    def getRebalancingStatus(self) -> (bool, int, str):
+    def getRebalancingStatus(self) -> (bool, int):
         """
         Checks the Rebalancing status of the pool i.e. whether the difference between
         oracle price and dex pool price are more than threshold or not. If it is more
@@ -208,7 +208,7 @@ class Rebalancing(IconScoreBase):
         min_diff = self._price_threshold.get()
         required_retire_amount = self._calculate_tokens_to_retire(price, pool_stats['base'], pool_stats['quote'])
 
-        return diff > min_diff, required_retire_amount, "sICX"
+        return diff > min_diff, required_retire_amount
 
     @external
     def rebalance(self) -> None:
@@ -217,10 +217,9 @@ class Rebalancing(IconScoreBase):
            Rebalances only if the difference between the DEX price and oracle price is greater than the threshold.
         """
         loans = self.create_interface_score(self._loans.get(), LoansInterface)
-        rebalancing_status = self.getRebalancingStatus()
+        rebalance_needed, required_retire_amount = self.getRebalancingStatus()
         sicx_sale_amount = self._sicx_receivable.get()
-        if rebalancing_status[0]:
-            required_retire_amount = rebalancing_status[1]
+        if rebalance_needed:
             if required_retire_amount > sicx_sale_amount:
                 loans.retireRedeem('bnUSD', sicx_sale_amount)
 

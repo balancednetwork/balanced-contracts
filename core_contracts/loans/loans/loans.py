@@ -684,7 +684,6 @@ class Loans(IconScoreBase):
         dex_score = self.create_interface_score(self._dex.get(), DexTokenInterface)
         rate = dex_score.getSicxBnusdPrice()
         _to_redeemed = rate * _sicx_from_lenders // EXA
-        price = asset.priceInLoop()
         batch_size = self._redeem_batch.get()
         borrowers = asset.get_borrowers()
         node_id = borrowers.get_head_id()
@@ -724,6 +723,7 @@ class Loans(IconScoreBase):
             self._positions[pos_id]['sICX'] -= sicx_share
 
             remaining_supply -= user_debt
+        price = asset.priceInLoop()
         self.AssetRetired(self.msg.sender, _symbol, _redeemed, price, _redeemed,
                           total_batch_debt, str(redeemed_dict))
 
