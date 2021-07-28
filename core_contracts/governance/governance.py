@@ -125,6 +125,20 @@ class Governance(IconScoreBase):
     def getProposalCount(self) -> int:
         return ProposalDB.proposal_count(self.db)
 
+    @external(readonly=True)
+    def getProposals(self, batch_size: int = 20, offset: int = 1) -> list:
+        proposal_list = []
+        start = max(1, offset)
+        end = min(start+batch_size, self.getProposalCount())
+        for proposal_id in range(start, end + 1):
+            proposal_dict = {}
+            proposal = self.checkVote(proposal_id)
+            name = proposal["name"]
+            del proposal["name"]
+            proposal_dict[name] = proposal
+            proposal_list.append(proposal_dict)
+        return proposal_list
+
     @external
     def castVote(self, name: str, vote: bool) -> None:
         """
