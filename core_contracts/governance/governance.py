@@ -530,13 +530,6 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def addDataSource(self, _name: str) -> None:
-        dex_address = self.addresses['dex']
-        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
-        rewards.addNewDataSource(_name, dex_address)
-
-    @external
-    @only_owner
     def delegate(self, _delegations: List[PrepDelegations]):
         """
         Sets the delegation preference for the sICX held on the Loans contract.
