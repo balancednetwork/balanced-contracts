@@ -44,6 +44,12 @@ class DexTokenInterface(InterfaceScore):
         pass
 
 
+class LoansInterface(InterfaceScore):
+    @interface
+    def retireRedeem(self, _symbol: str, _sicx_from_lenders: int) -> None:
+        pass
+
+
 class Rebalancing(IconScoreBase):
     _bnUSD_ADDRESS = 'bnUSD_address'
     _SICX_ADDRESS = 'sicx_address'
@@ -147,12 +153,12 @@ class Rebalancing(IconScoreBase):
         :param quote_supply: quote token supply.
         Returns the amount of sICX required for rebalancing the price.
         """
-        value = (self._sqrt(price * base_supply * quote_supply) // 10 ** 9) - base_supply
-        return value
+        return self._sqrt(price * base_supply * quote_supply // EXA) - base_supply
+
 
     @external
     @only_governance
-    def setPriceChangeThreshold(self, _value: int) -> None:
+    def setPriceDiffThreshold(self, _value: int) -> None:
         """
         :param _value: It is the minimum price deviation between oracle and dex pool .
         Sets the threshold and if the deviation is more than threshold, then rebalancing is triggered.
@@ -183,39 +189,39 @@ class Rebalancing(IconScoreBase):
         return self._sicx_receivable.get()
 
     @external(readonly=True)
-    def getRebalancingStatus(self) -> list:
+    def getRebalancingStatus(self) -> (bool, int):
         """
         Checks the Rebalancing status of the pool i.e. whether the difference between
-        oracle price and dex pool price are more than threshold or not and if it is more
-        than the threshold then the function returns total sICX value that needs to be converted
-        to bnUSD and retires to reduce the price difference.
+        oracle price and dex pool price are more than threshold or not. If it is more
+        than the threshold then the function returns total sICX value that needs to be
+        converted to bnUSD and retired to reduce the price difference.
         """
-        self.bnUSD_score = self.create_interface_score(self._bnUSD.get(), BnusdTokenInterface)
-        self.dex_score = self.create_interface_score(self._dex.get(), DexTokenInterface)
-        self.sICX_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
-        price = self.bnUSD_score.lastPriceInLoop() * EXA // self.sICX_score.lastPriceInLoop()
-        pool_stats = self.dex_score.getPoolStats(2)
+        bnusd_score = self.create_interface_score(self._bnUSD.get(), BnusdTokenInterface)
+        dex_score = self.create_interface_score(self._dex.get(), DexTokenInterface)
+        sicx_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
+
+        price = bnusd_score.lastPriceInLoop() * EXA // sicx_score.lastPriceInLoop()
+        pool_stats = dex_score.getPoolStats(2)
         dex_price = pool_stats['base'] * EXA // pool_stats['quote']
+
         diff = (price - dex_price) * EXA // price
-        max_diff = self._price_threshold.get()
-        if diff > max_diff:
-            return [True, self._calculate_tokens_to_retire(price, pool_stats['base'], pool_stats['quote']),
-                    "sICX"]
-        return [False, self._calculate_tokens_to_retire(price, pool_stats['base'], pool_stats['quote'])]
+        min_diff = self._price_threshold.get()
+        required_retire_amount = self._calculate_tokens_to_retire(price, pool_stats['base'], pool_stats['quote'])
+
+        return diff > min_diff, required_retire_amount
 
     @external
     def rebalance(self) -> None:
         """
-           Calls the retireRedeem function of loans and retire the value of bnUSD.
-           Rebalances only if the rate of change in dex pool price and oracle price is greater than the threshold set.
+           Calls the retireRedeem method on loans to balance the bnUSD price on the DEX.
+           Rebalances only if the difference between the DEX price and oracle price is greater than the threshold.
         """
-        self.sICX_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
-        rebalancing_status = self.getRebalancingStatus()
-        sicx_to_receive = self._sicx_receivable.get()
-        if rebalancing_status[0]:
-            sicx_to_retire = rebalancing_status[1]
-            if sicx_to_retire > sicx_to_receive:
-                self.sICX_score.transfer(self._loans.get(), sicx_to_receive, data_for_loans)
+        loans = self.create_interface_score(self._loans.get(), LoansInterface)
+        rebalance_needed, required_retire_amount = self.getRebalancingStatus()
+        sicx_sale_amount = self._sicx_receivable.get()
+        if rebalance_needed:
+            if required_retire_amount > sicx_sale_amount:
+                loans.retireRedeem('bnUSD', sicx_sale_amount)
 
     @external
     def tokenFallback(self, _from: Address, value: int, _data: bytes) -> None:
