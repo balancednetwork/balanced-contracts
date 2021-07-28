@@ -143,20 +143,30 @@ class Governance(IconScoreBase):
         prior_vote = (proposal.for_votes_of_user[sender], proposal.against_votes_of_user[sender])
         total_for_votes = proposal.total_for_votes.get()
         total_against_votes = proposal.total_against_votes.get()
+        total_for_voters_count = proposal.for_voters_count.get()
+        total_against_voters_count = proposal.against_voters_count.get()
         if vote:
-            total_for_voters_count = proposal.for_voters_count.get()
             proposal.for_votes_of_user[sender] = stake
             proposal.against_votes_of_user[sender] = 0
             total_for = total_for_votes + stake - prior_vote[0]
             total_against = total_against_votes - prior_vote[1]
-            proposal.for_voters_count.set(total_for_voters_count + 1)
+            if prior_vote[0] == 0 and prior_vote[1] == 0:
+                proposal.for_voters_count.set(total_for_voters_count + 1)
+            else:
+                if prior_vote[1] != 0:
+                    proposal.against_voters_count.set(total_against_voters_count - 1)
+                    proposal.for_voters_count.set(total_for_voters_count + 1)
         else:
-            total_against_voters_count = proposal.against_voters_count.get()
             proposal.for_votes_of_user[sender] = 0
             proposal.against_votes_of_user[sender] = stake
             total_for = total_for_votes - prior_vote[0]
             total_against = total_against_votes + stake - prior_vote[1]
-            proposal.against_voters_count.set(total_against_voters_count + 1)
+            if prior_vote[0] == 0 and prior_vote[1] == 0:
+                proposal.against_voters_count.set(total_against_voters_count + 1)
+            else:
+                if prior_vote[0] != 0:
+                    proposal.against_voters_count.set(total_against_voters_count + 1)
+                    proposal.for_voters_count.set(total_for_voters_count - 1)
         proposal.total_for_votes.set(total_for)
         proposal.total_against_votes.set(total_against)
         self.VoteCast(name, vote, sender, stake, total_for, total_against)
@@ -249,7 +259,10 @@ class Governance(IconScoreBase):
                        'actions': vote_data.actions.get(),
                        'quorum': vote_data.quorum.get(),
                        'for': _for,
-                       'against': _against}
+                       'against': _against,
+                       'for_voter_count': vote_data.for_voters_count.get(),
+                       'against_voter_count': vote_data.against_voters_count.get(),
+                       }
         status = vote_data.status.get()
         majority = vote_status['majority']
         if status == ProposalStatus.STATUS[ProposalStatus.ACTIVE] and self.getDay() >= vote_status["end day"]:
