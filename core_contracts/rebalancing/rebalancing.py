@@ -189,7 +189,7 @@ class Rebalancing(IconScoreBase):
         return self._sicx_receivable.get()
 
     @external(readonly=True)
-    def getRebalancingStatus(self) -> (bool, int):
+    def getRebalancingStatus(self) -> list:
         """
         Checks the Rebalancing status of the pool i.e. whether the difference between
         oracle price and dex pool price are more than threshold or not. If it is more
@@ -208,7 +208,7 @@ class Rebalancing(IconScoreBase):
         min_diff = self._price_threshold.get()
         required_retire_amount = self._calculate_tokens_to_retire(price, pool_stats['base'], pool_stats['quote'])
 
-        return diff > min_diff, required_retire_amount
+        return [diff > min_diff, required_retire_amount]
 
     @external
     def rebalance(self) -> None:
