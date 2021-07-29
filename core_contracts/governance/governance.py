@@ -163,7 +163,7 @@ class Governance(IconScoreBase):
             if prior_vote[0] == 0 and prior_vote[1] == 0:
                 proposal.for_voters_count.set(total_for_voters_count + 1)
             else:
-                if prior_vote[1] != 0:
+                if prior_vote[1]:
                     proposal.against_voters_count.set(total_against_voters_count - 1)
                     proposal.for_voters_count.set(total_for_voters_count + 1)
         else:
@@ -174,7 +174,7 @@ class Governance(IconScoreBase):
             if prior_vote[0] == 0 and prior_vote[1] == 0:
                 proposal.against_voters_count.set(total_against_voters_count + 1)
             else:
-                if prior_vote[0] != 0:
+                if prior_vote[0]:
                     proposal.against_voters_count.set(total_against_voters_count + 1)
                     proposal.for_voters_count.set(total_for_voters_count - 1)
         proposal.total_for_votes.set(total_for)
