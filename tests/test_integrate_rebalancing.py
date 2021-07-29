@@ -86,8 +86,9 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
         self.send_icx(self.btest_wallet, self.user1.get_address(), 2500 * 10 ** 18)
         self.send_icx(self.btest_wallet, self.user2.get_address(), 2500 * 10 ** 18)
 
+        # testing the condition where user1 only deposits collateral without taking any loan
         self.send_tx(self.user1, self.contracts['loans'], 1000 * 10 ** 18, 'depositAndBorrow',
-                     {'_asset': 'bnUSD', '_amount': 100 * 10 ** 18})
+                     {'_asset': 'bnUSD', '_amount': 0})
         self.send_tx(self.user2, self.contracts['loans'], 2000 * 10 ** 18, 'depositAndBorrow',
                      {'_asset': 'bnUSD', '_amount': 200 * 10 ** 18})
 
@@ -108,7 +109,7 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             self.call_tx(self.contracts['dex'], 'getPoolStats', {"_id": 2})
 
             status = self.call_tx(self.contracts['rebalancing'], 'getRebalancingStatus', {})
-            self.assertEqual(status[0], case['actions']['rebalancing_status'])
+            self.assertEqual(int(status[0], 0), case['actions']['rebalancing_status'])
 
             # account positions after rebalancing
             before = {}
@@ -150,14 +151,15 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             after_list = list(after.keys())
             change = []
             for i in range(len(wallet_dict)):
-                change.append((before[before_list[i]] - after[after_list[i]]) / before[before_list[i]] * 100)
+                if before[before_list[i]] != 0:
+                    change.append((before[before_list[i]] - after[after_list[i]]) / before[before_list[i]] * 100)
 
             for i in range(len(change) - 1):
                 self.assertEqual(change[i], change[i + 1], "Error in user retired bnUSD percent ")
 
             sicx_after = self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['loans']})
             loans_sicx_after_rebalancing = int(sicx_after, 0)
-            if status[0]:
+            if int(status[0], 0) == 1:
                 self.assertEqual((loans_sicx_before_rebalancing - 1000 * 10 ** 18), loans_sicx_after_rebalancing)
 
             self.call_tx(self.contracts['rebalancing'], 'getRebalancingStatus', {})
@@ -165,7 +167,10 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
     def get_account_position(self, user: str) -> int:
         user_position = self.call_tx(self.contracts['loans'], 'getAccountPositions',
                                      {"_owner": user})
-        return int(user_position['assets']['bnUSD'], 0)
+        if 'bnUSD' in user_position['assets']:
+            return int(user_position['assets']['bnUSD'], 0)
+        else:
+            return 0
 
     # def test_rebalance_down(self):
     #     self.test_update()
