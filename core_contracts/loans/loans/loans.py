@@ -371,7 +371,7 @@ class Loans(IconScoreBase):
         return len(self._assets)
 
     @external(readonly=True)
-    def borrowerCount(self) -> int:
+    def positionCount(self) -> int:
         """
         Returns the number of borrowers on Balanced.
         """
@@ -433,6 +433,9 @@ class Loans(IconScoreBase):
     def getTotalValue(self, _name: str, _snapshot_id: int) -> int:
         """
         Gets total outstanding debt for mining rewards calculation.
+
+        :param _name: Param added for standardization.
+        :param _snapshot_id: Id of snapshot
         """
         return self._positions._snapshot_db[_snapshot_id].total_mining_debt.get()
 
