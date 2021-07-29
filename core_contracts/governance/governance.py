@@ -35,6 +35,7 @@ class Governance(IconScoreBase):
         self._rebalancing = VarDB('rebalancing', db, Address)
         self._time_offset = VarDB('time_offset', db, value_type=int)
         self._minimum_vote_duration = VarDB('min_duration', db, int)
+        self._baln_vote_definition_citeria = VarDB('min_baln', db, str)
 
     def on_install(self) -> None:
         super().on_install()
@@ -58,6 +59,27 @@ class Governance(IconScoreBase):
         vote_index = ProposalDB.proposal_id(name, self.db)
         proposal = ProposalDB(var_key=vote_index, db=self.db)
         return {'for_voters': proposal.for_voters_count.get(), 'against_voters': proposal.against_voters_count.get()}
+        
+    def setBalnVoteDefinitionCriteria(self, percentage: str) -> None:
+        """
+        Set the minimum percentage of baln's total supply which a user must have staked
+        in order to define a vote.
+
+        Parameters:
+        percentage - Percentage of total baln needed to define a vote. E.g. "1.5" -> 1.5%.
+        """
+        decimal = float(percentage) * 100
+        if not 0 <= decimal <= 1:
+            revert("Percentage must be in the 0-100 range.")
+        self._baln_vote_definition_citeria.set(str(decimal))
+
+    @external(readonly=True)
+    def getBalnVoteDefinitionCriteria(self) -> str:
+        """
+        Returns the minimum percentage of baln's total supply which a user must have staked
+        in order to define a vote. Percentage is returned as a string of the decimal value.
+        """
+        return self._baln_vote_definition_citeria.get()
 
     @external
     @only_owner
