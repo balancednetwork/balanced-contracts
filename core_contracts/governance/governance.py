@@ -37,6 +37,7 @@ class Governance(IconScoreBase):
         self._minimum_vote_duration = VarDB('min_duration', db, int)
         self._baln_vote_definition_citeria = VarDB('min_baln', db, str)
         self._bnusd_vote_definition_fee = VarDB('definition_fee', db, int)
+        self._quorum = VarDB('quorum', db, int)
 
     def on_install(self) -> None:
         super().on_install()
@@ -54,6 +55,26 @@ class Governance(IconScoreBase):
     @external(readonly=True)
     def getDay(self) -> int:
         return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
+
+    def setQuorum(self, quorum: int) -> None:
+        """
+        Set percentage of total baln supply which must participate in a vote 
+        for the vote to be valid.
+
+        Parameters:
+        quorum - percentage of total baln supply required for a vote to be valid.
+        """
+        if not 0 < quorum < 100:
+            revert("Quorum must be between be larger then 0 and less then 100.")
+        self._quorum.set(quorum)
+
+    @external(readonly=True)
+    def getQuorum(self) -> int:
+        """
+        Returns the percentage of total baln supply which must participate in a vote
+        for the vote to be valid.
+        """
+        self._quorum.get()
 
     def setVoteDefinitionFee(self, fee: int) -> None:
         """
