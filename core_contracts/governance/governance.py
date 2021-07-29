@@ -340,7 +340,7 @@ class Governance(IconScoreBase):
     @only_owner
     def setRebalancingThreshold(self, _value: int) -> None:
         rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
-        rebalancing.setPriceChangeThreshold(_value)
+        rebalancing.setPriceDiffThreshold(_value)
 
     @external
     @only_owner
@@ -560,8 +560,6 @@ class Governance(IconScoreBase):
         dex_address = self.addresses['dex']
         dex = self.create_interface_score(dex_address, DexInterface)
         dex.setMarketName(_id, _name)
-        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
-        rewards.addNewDataSource(_name, dex_address)
 
     @external
     @only_owner

@@ -107,6 +107,8 @@ class Loans(IconScoreBase):
     _MAX_RETIRE_PERCENT = 'max_retire_percent'
     _SICX_EXPECTED = 'sicx_expected'
     _SICX_RECEIVED = 'sicx_received'
+    _BNUSD_EXPECTED = 'bnusd_expected'
+    _BNUSD_RECEIVED = 'bnusd_received'
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
@@ -147,6 +149,8 @@ class Loans(IconScoreBase):
         self._max_retire_percent = VarDB(self._MAX_RETIRE_PERCENT, db, value_type=int)
         self._sICX_expected = VarDB(self._SICX_EXPECTED, db, value_type=bool)
         self._sICX_received = VarDB(self._SICX_RECEIVED, db, value_type=int)
+        self._bnUSD_expected = VarDB(self._BNUSD_EXPECTED, db, value_type=bool)
+        self._bnUSD_received = VarDB(self._BNUSD_RECEIVED, db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
@@ -501,7 +505,7 @@ class Loans(IconScoreBase):
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
-        Directs incoming tokens to either deposit collateral or return an asset.
+        Directs incoming tokens to deposit collateral or return an asset.
 
         :param _from: Address of the token sender.
         :type _from: :class:`iconservice.base.address.Address`
@@ -515,7 +519,8 @@ class Loans(IconScoreBase):
         if self.msg.sender not in [self._assets['sICX'].get_address(), self._assets['bnUSD'].get_address()]:
             revert(f'{TAG}: The Balanced Loans contract does not accept that token type.')
         if self.msg.sender == self._assets['bnUSD'].get_address():
-            # This block is executed after sICX is swapped for bnUSD
+            if self._bnUSD_expected.get():
+                self._bnUSD_received.set(_value)
             return
         if self._sICX_expected.get():
             self._sICX_received.set(_value)
@@ -525,9 +530,6 @@ class Loans(IconScoreBase):
         except BaseException as e:
             revert(f'{TAG}: Invalid data: {_data}, returning tokens. Exception: {e}')
         if set(d.keys()) == {"_asset", "_amount"}:
-            if d["_amount"] == '':
-                self.retireRedeem(d["_asset"], _value)
-                return
             self.depositAndBorrow(d['_asset'], d['_amount'], _from, _value)
         else:
             revert(f'{TAG}: Invalid parameters.')
@@ -661,7 +663,9 @@ class Loans(IconScoreBase):
             revert(f'{TAG}: No debt repaid because,'
                    f'{_from} does not have a position in Balanced' if _repay else f'{_repay == False}')
 
+    @loans_on
     @external
+    @only_rebalance
     def retireRedeem(self, _symbol: str, _sicx_from_lenders: int) -> None:
         """
         This function will  pay off debt from a batch of
@@ -674,13 +678,12 @@ class Loans(IconScoreBase):
         :type _sicx_from_lenders: int
         """
         asset = self._assets[_symbol]
-        _from = self._rebalance.get()
         if not (asset and asset.is_active()) or asset.is_collateral():
             revert(f'{TAG}: {_symbol} is not an active, borrowable asset on Balanced.')
-        self._dex_score = self.create_interface_score(self._dex.get(), DexTokenInterface)
-        rate = self._dex_score.getSicxBnusdPrice()
-        _to_redeemed = (rate * _sicx_from_lenders)//10**18
-        price = asset.priceInLoop()
+
+        dex_score = self.create_interface_score(self._dex.get(), DexTokenInterface)
+        rate = dex_score.getSicxBnusdPrice()
+        _to_redeemed = rate * _sicx_from_lenders // EXA
         batch_size = self._redeem_batch.get()
         borrowers = asset.get_borrowers()
         node_id = borrowers.get_head_id()
@@ -693,15 +696,20 @@ class Loans(IconScoreBase):
             borrowers.move_head_to_tail()
             node_id = borrowers.get_head_id()
         borrowers.serialize()
+
         if POINTS * _to_redeemed > self._max_retire_percent.get() * total_batch_debt:
-            self._send_token("sICX", _from, _sicx_from_lenders, "sICX refunded.")
             return
-        address = self._assets["sICX"].get_address()
-        token_score = self.create_interface_score(address, TokenInterface)
-        token_score.transfer(self._dex.get(), _sicx_from_lenders, data_for_dex)
-        _redeemed = asset.balanceOf(self.address)
+        sicx_address = self._assets["sICX"].get_address()
+        sicx = self.create_interface_score(sicx_address, TokenInterface)
+
+        self._bnUSD_expected.set(True)
+        sicx.transfer(self._dex.get(), _sicx_from_lenders, data_for_dex)
+        _redeemed = self._bnUSD_received.get()
+        self._bnUSD_received.set(0)
+        self._bnUSD_expected.set(False)
+
         asset.burnFrom(self.address, _redeemed)
-        returned_sicx_remaining = _sicx_from_lenders
+        remaining_sicx = _sicx_from_lenders
         remaining_supply = total_batch_debt
         remaining_value = _redeemed
         redeemed_dict = {}
@@ -710,13 +718,13 @@ class Loans(IconScoreBase):
             remaining_value -= redeemed_dict[pos_id]
             self._positions[pos_id][_symbol] = user_debt - redeemed_dict[pos_id]
 
-            sicx_share = returned_sicx_remaining * user_debt // remaining_supply
-            returned_sicx_remaining -= sicx_share
+            sicx_share = remaining_sicx * user_debt // remaining_supply
+            remaining_sicx -= sicx_share
             self._positions[pos_id]['sICX'] -= sicx_share
 
             remaining_supply -= user_debt
-        self._send_token("sICX", _from, _sicx_from_lenders, "Collateral redeemed.")
-        self.AssetRetired(_from, _symbol, _redeemed, price, _redeemed,
+        price = asset.priceInLoop()
+        self.AssetRetired(self.msg.sender, _symbol, _redeemed, price, _redeemed,
                           total_batch_debt, str(redeemed_dict))
 
     def bd_redeem(self, _from: Address,
