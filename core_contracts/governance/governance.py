@@ -36,6 +36,7 @@ class Governance(IconScoreBase):
         self._time_offset = VarDB('time_offset', db, value_type=int)
         self._minimum_vote_duration = VarDB('min_duration', db, int)
         self._baln_vote_definition_citeria = VarDB('min_baln', db, str)
+        self._bnusd_vote_definition_fee = VarDB('definition_fee', db, int)
 
     def on_install(self) -> None:
         super().on_install()
@@ -53,6 +54,19 @@ class Governance(IconScoreBase):
     @external(readonly=True)
     def getDay(self) -> int:
         return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
+
+    def setVoteDefinitionFee(self, fee: int) -> None:
+        """
+        Set the fee for defining votes. Fee in bnUSD.
+        """
+        self._bnusd_vote_definition_fee.set(fee)
+
+    @external(readonly=True)
+    def getVoteDefinitionFee(self) -> int:
+        """
+        Returns the fee required for defining a vote. Fee is in bnUSD.
+        """
+        return self._bnusd_vote_definition_fee.get()
 
     def setBalnVoteDefinitionCriteria(self, percentage: str) -> None:
         """
