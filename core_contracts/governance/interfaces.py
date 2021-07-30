@@ -31,7 +31,7 @@ class RebalancingInterface(InterfaceScore):
         pass
 
     @interface
-    def setPriceChangeThreshold(self, _value: int) -> None:
+    def setPriceDiffThreshold(self, _value: int) -> None:
         pass
 
     @interface
@@ -192,6 +192,17 @@ class DexInterface(InterfaceScore):
     def addLpAddresses(self, _poolId: int, _addresses: List[Address]) -> None:
         pass
 
+    @interface
+    def balanceOfAt(self, _account: Address, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
+        pass
+
+    @interface
+    def totalSupplyAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
+        pass
+
+    @interface
+    def totalBalnAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
+        pass
 
 # An interface to the Rewards SCORE
 class RewardsInterface(InterfaceScore):
