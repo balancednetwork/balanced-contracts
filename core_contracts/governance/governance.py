@@ -192,7 +192,6 @@ class Governance(IconScoreBase):
         dex_score = self.create_interface_score(self.addresses['dex'], DexInterface)
 
         my_baln_from_pools = 0
-        total_baln_from_pools = 0
         for pool_id in (BALNBNUSD_ID, BALNSICX_ID):
             my_lp = dex_score.balanceOfAt(_account, pool_id, _day)
             total_lp = dex_score.totalSupplyAt(pool_id, _day)
