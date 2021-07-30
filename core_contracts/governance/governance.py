@@ -53,6 +53,12 @@ class Governance(IconScoreBase):
     def getDay(self) -> int:
         return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
 
+    @external(readonly=True)
+    def getVotersCount(self, name: str) -> dict:
+        vote_index = ProposalDB.proposal_id(name, self.db)
+        proposal = ProposalDB(var_key=vote_index, db=self.db)
+        return {'for_voters': proposal.for_voters_count.get(), 'against_voters': proposal.against_voters_count.get()}
+
     @external
     @only_owner
     def activateVote(self, name: str) -> None:
@@ -119,6 +125,16 @@ class Governance(IconScoreBase):
     def getProposalCount(self) -> int:
         return ProposalDB.proposal_count(self.db)
 
+    @external(readonly=True)
+    def getProposals(self, batch_size: int = 20, offset: int = 1) -> list:
+        proposal_list = []
+        start = max(1, offset)
+        end = min(start + batch_size, self.getProposalCount())
+        for proposal_id in range(start, end + 1):
+            proposal = self.checkVote(proposal_id)
+            proposal_list.append(proposal)
+        return proposal_list
+
     @external
     def castVote(self, name: str, vote: bool) -> None:
         """
@@ -134,21 +150,40 @@ class Governance(IconScoreBase):
         snapshot = proposal.vote_snapshot.get()
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         stake = baln.stakedBalanceOfAt(sender, snapshot)
+        if stake == 0:
+            revert(f'Balanced tokens needs to be staked to cast the vote.')
+
         dex_pool = self._get_pool_baln(sender, snapshot)
         total_vote = stake + dex_pool
         prior_vote = (proposal.for_votes_of_user[sender], proposal.against_votes_of_user[sender])
         total_for_votes = proposal.total_for_votes.get()
         total_against_votes = proposal.total_against_votes.get()
+        total_for_voters_count = proposal.for_voters_count.get()
+        total_against_voters_count = proposal.against_voters_count.get()
         if vote:
             proposal.for_votes_of_user[sender] = total_vote
             proposal.against_votes_of_user[sender] = 0
             total_for = total_for_votes + total_vote - prior_vote[0]
             total_against = total_against_votes - prior_vote[1]
+            if prior_vote[0] == 0 and prior_vote[1] == 0:
+                proposal.for_voters_count.set(total_for_voters_count + 1)
+            else:
+                if prior_vote[1]:
+                    proposal.against_voters_count.set(total_against_voters_count - 1)
+                    proposal.for_voters_count.set(total_for_voters_count + 1)
         else:
             proposal.for_votes_of_user[sender] = 0
             proposal.against_votes_of_user[sender] = total_vote
             total_for = total_for_votes - prior_vote[0]
+
             total_against = total_against_votes + total_vote - prior_vote[1]
+            if prior_vote[0] == 0 and prior_vote[1] == 0:
+                proposal.against_voters_count.set(total_against_voters_count + 1)
+            else:
+                if prior_vote[0]:
+                    proposal.against_voters_count.set(total_against_voters_count + 1)
+                    proposal.for_voters_count.set(total_for_voters_count - 1)
+
         proposal.total_for_votes.set(total_for)
         proposal.total_against_votes.set(total_against)
         self.VoteCast(name, vote, sender, total_vote, total_for, total_against)
@@ -276,7 +311,10 @@ class Governance(IconScoreBase):
                        'actions': vote_data.actions.get(),
                        'quorum': vote_data.quorum.get(),
                        'for': _for,
-                       'against': _against}
+                       'against': _against,
+                       'for_voter_count': vote_data.for_voters_count.get(),
+                       'against_voter_count': vote_data.against_voters_count.get(),
+                       }
         status = vote_data.status.get()
         majority = vote_status['majority']
         if status == ProposalStatus.STATUS[ProposalStatus.ACTIVE] and self.getDay() >= vote_status["end day"]:
