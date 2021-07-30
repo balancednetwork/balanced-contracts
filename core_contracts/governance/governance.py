@@ -169,7 +169,6 @@ class Governance(IconScoreBase):
                 equivalent_baln = (my_lp * total_baln) // total_lp
 
             my_baln_from_pools += equivalent_baln
-            total_baln_from_pools += total_baln
 
         my_total_baln_token = my_baln_from_pools
         return my_total_baln_token
