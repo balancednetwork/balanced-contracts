@@ -96,6 +96,8 @@ class Governance(IconScoreBase):
         """
         Names a new vote, defines quorum, and actions.
         """
+        if len(description) > 500:
+            revert(f'Description must be less than or equal to 500 characters.')
         if not 0 < quorum < 100:
             revert(f'Quorum must be greater than 0 and less than 100.')
         if vote_start <= self.getDay():
