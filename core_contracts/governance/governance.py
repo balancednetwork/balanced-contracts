@@ -80,7 +80,7 @@ class Governance(IconScoreBase):
         Returns the percentage of total baln supply which must participate in a vote
         for the vote to be valid.
         """
-        self._quorum.get()
+        return self._quorum.get()
 
     def setVoteDefinitionFee(self, fee: int) -> None:
         """
@@ -147,34 +147,51 @@ class Governance(IconScoreBase):
         proposal.status.set(ProposalStatus.STATUS[ProposalStatus.CANCELLED])
 
     @external
-    @only_owner
-    def defineVote(self, name: str, description: str, quorum: int, vote_start: int, duration: int, snapshot: int, actions: str,
-                   majority: int = MAJORITY) -> None:
+    def defineVote(self, name: str, description: str, vote_start: int, duration: int, snapshot: int, actions: str) -> None:
         """
-        Names a new vote, defines quorum, and actions.
+        Define a new vote and which actions are to be executed if it is successful.
+
+        Parameters:
+        name         -   Name of the vote.
+        description  -   Description of the proposal.
+        vote_start   -   Day to start the vote.
+        duration     -   Number of days the vote will be active.
+        snapshot     -   Which daily baln staking snapshot to use as reference.
+        actions      -   Json string. List of dictionaries. Each key is the name of a method to be executed.
+                         The values are a dictionaries of keyword arguments for that method.
         """
         if len(description) > 500:
             revert(f'Description must be less than or equal to 500 characters.')
-        if not 0 < quorum < 100:
-            revert(f'Quorum must be greater than 0 and less than 100.')
         if vote_start <= self.getDay():
             revert(f'Vote cannot start before the current time.')
-        if snapshot >= vote_start:
-            revert(f'Snapshot reference index must be less than vote start.')
+        if not self.getDay() <= snapshot <= vote_start:
+            revert(f'The reference snapshot must be in the range: [current_day, vote_start_day].')
         min_duration = self._minimum_vote_duration.get()
         if duration < min_duration:
             revert(f'Votes must have a minimum duration of {min_duration} days.')
         vote_index = ProposalDB.proposal_id(name, self.db)
         if vote_index > 0:
             revert(f'Poll name {name} has already been used.')
+        
+        # Test baln staking criteria.
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln_total = baln.totalSupply()
+        user_staked = baln.stakedBalanceOf(self.msg.sender)
+        baln_criteria = float(self._baln_vote_definition_citeria.get())
+        if (user_staked / baln_total) < baln_criteria:
+            revert(f'User needs atleast {baln_criteria * 100}% of total baln supply staked to define a vote.')
+
+        # Transfer bnUSD fee to daofund.
+        bnusd = self.create_interface_score(self.addresses['daofund'], AssetInterface)
+        bnusd.transfer(self.addresses['bnUSD'], self._bnusd_vote_definition_fee.get())
 
         actions_dict = json_loads(actions)
         if len(actions_dict) > self.maxActions():
             revert(f"Balanced Governance: Only {self.maxActions()} actions are allowed")
 
-        ProposalDB.create_proposal(name=name, description=description, proposer=self.msg.sender, quorum=quorum*EXA//100, majority=majority,
-                                   snapshot=snapshot, start=vote_start, end=vote_start + duration, actions=actions,
-                                   db=self.db)
+        ProposalDB.create_proposal(name=name, description=description, proposer=self.msg.sender, quorum=self._quorum.get()*EXA//100,
+                                   majority=MAJORITY, snapshot=snapshot, start=vote_start, end=vote_start + duration,
+                                   actions=actions, db=self.db)
 
     @external(readonly=True)
     def maxActions(self) -> int:
