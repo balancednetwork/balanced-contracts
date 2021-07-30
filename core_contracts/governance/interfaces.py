@@ -299,6 +299,10 @@ class SetAddressesInterface(InterfaceScore):
 class BalancedInterface(InterfaceScore):
 
     @interface
+    def totalSupply(self) -> int:
+        pass
+
+    @interface
     def totalStakedBalance(self) -> int:
         pass
 
