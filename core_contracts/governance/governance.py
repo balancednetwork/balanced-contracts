@@ -100,8 +100,8 @@ class Governance(IconScoreBase):
             revert(f'Quorum must be greater than 0 and less than 100.')
         if vote_start <= self.getDay():
             revert(f'Vote cannot start before the current time.')
-        if snapshot > vote_start:
-            revert(f'The vote start day must be greater than reference snapshot index.')
+        if snapshot < vote_start:
+            revert(f'Vote start must be less than snapshot reference index.')
         min_duration = self._minimum_vote_duration.get()
         if duration < min_duration:
             revert(f'Votes must have a minimum duration of {min_duration} days.')
@@ -153,7 +153,7 @@ class Governance(IconScoreBase):
         dex_pool = self._get_pool_baln(sender, snapshot)
         total_vote = stake + dex_pool
         if total_vote == 0:
-            revert(f'Balanced tokens needs to be staked to cast the vote.')
+            revert(f'Balanced tokens needs to be staked or a liquidity should be provided in the pool to cast the vote.')
         prior_vote = (proposal.for_votes_of_user[sender], proposal.against_votes_of_user[sender])
         total_for_votes = proposal.total_for_votes.get()
         total_against_votes = proposal.total_against_votes.get()
