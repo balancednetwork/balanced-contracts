@@ -46,7 +46,7 @@ class Governance(IconScoreBase):
     def on_update(self) -> None:
         super().on_update()
         self._time_offset.set(DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1))
-        self._minimum_vote_duration.set(1)
+        self._minimum_vote_duration.set(5)
 
     @external(readonly=True)
     def name(self) -> str:
@@ -55,6 +55,21 @@ class Governance(IconScoreBase):
     @external(readonly=True)
     def getDay(self) -> int:
         return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
+
+    def setMinimumVoteDuration(self, duration: int) -> None:
+        """
+        Set the minimum vote duration.
+
+        Parameters:
+        duration - minimum amount of days a vote has to be active.
+        """
+        self._minimum_vote_duration.set(duration)
+
+    def getMinimumVoteDuration(self) -> int:
+        """
+        Returns the minimum vote duration in days.
+        """
+        return self._minimum_vote_duration.get()
 
     def setQuorum(self, quorum: int) -> None:
         """
@@ -85,7 +100,7 @@ class Governance(IconScoreBase):
     @external(readonly=True)
     def getVoteDefinitionFee(self) -> int:
         """
-        Returns the fee required for defining a vote. Fee is in bnUSD.
+        Returns the bnusd fee required for defining a vote.
         """
         return self._bnusd_vote_definition_fee.get()
 
