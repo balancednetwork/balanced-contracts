@@ -102,8 +102,8 @@ class Governance(IconScoreBase):
             revert(f'Quorum must be greater than 0 and less than 100.')
         if vote_start <= self.getDay():
             revert(f'Vote cannot start before the current time.')
-        if snapshot < vote_start:
-            revert(f'Vote start must be less than snapshot reference index.')
+        if snapshot >= vote_start:
+            revert(f'Snapshot reference index must be less than vote start.')
         min_duration = self._minimum_vote_duration.get()
         if duration < min_duration:
             revert(f'Votes must have a minimum duration of {min_duration} days.')
