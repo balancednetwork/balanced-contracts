@@ -91,7 +91,7 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def defineVote(self, name: str, quorum: int, vote_start: int, duration: int, snapshot: int, actions: str,
+    def defineVote(self, name: str, description: str, quorum: int, vote_start: int, duration: int, snapshot: int, actions: str,
                    majority: int = MAJORITY) -> None:
         """
         Names a new vote, defines quorum, and actions.
@@ -113,7 +113,7 @@ class Governance(IconScoreBase):
         if len(actions_dict) > self.maxActions():
             revert(f"Balanced Governance: Only {self.maxActions()} actions are allowed")
 
-        ProposalDB.create_proposal(name=name, proposer=self.msg.sender, quorum=quorum*EXA//100, majority=majority,
+        ProposalDB.create_proposal(name=name, description=description, proposer=self.msg.sender, quorum=quorum*EXA//100, majority=majority,
                                    snapshot=snapshot, start=vote_start, end=vote_start + duration, actions=actions,
                                    db=self.db)
 
@@ -150,15 +150,20 @@ class Governance(IconScoreBase):
         snapshot = proposal.vote_snapshot.get()
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         stake = baln.stakedBalanceOfAt(sender, snapshot)
+        if stake == 0:
+            revert(f'Balanced tokens needs to be staked to cast the vote.')
+
+        dex_pool = self._get_pool_baln(sender, snapshot)
+        total_vote = stake + dex_pool
         prior_vote = (proposal.for_votes_of_user[sender], proposal.against_votes_of_user[sender])
         total_for_votes = proposal.total_for_votes.get()
         total_against_votes = proposal.total_against_votes.get()
         total_for_voters_count = proposal.for_voters_count.get()
         total_against_voters_count = proposal.against_voters_count.get()
         if vote:
-            proposal.for_votes_of_user[sender] = stake
+            proposal.for_votes_of_user[sender] = total_vote
             proposal.against_votes_of_user[sender] = 0
-            total_for = total_for_votes + stake - prior_vote[0]
+            total_for = total_for_votes + total_vote - prior_vote[0]
             total_against = total_against_votes - prior_vote[1]
             if prior_vote[0] == 0 and prior_vote[1] == 0:
                 proposal.for_voters_count.set(total_for_voters_count + 1)
@@ -168,18 +173,55 @@ class Governance(IconScoreBase):
                     proposal.for_voters_count.set(total_for_voters_count + 1)
         else:
             proposal.for_votes_of_user[sender] = 0
-            proposal.against_votes_of_user[sender] = stake
+            proposal.against_votes_of_user[sender] = total_vote
             total_for = total_for_votes - prior_vote[0]
-            total_against = total_against_votes + stake - prior_vote[1]
+
+            total_against = total_against_votes + total_vote - prior_vote[1]
             if prior_vote[0] == 0 and prior_vote[1] == 0:
                 proposal.against_voters_count.set(total_against_voters_count + 1)
             else:
                 if prior_vote[0]:
                     proposal.against_voters_count.set(total_against_voters_count + 1)
                     proposal.for_voters_count.set(total_for_voters_count - 1)
+
         proposal.total_for_votes.set(total_for)
         proposal.total_against_votes.set(total_against)
-        self.VoteCast(name, vote, sender, stake, total_for, total_against)
+        self.VoteCast(name, vote, sender, total_vote, total_for, total_against)
+
+    def _get_pool_baln(self, _account: Address, _day: int) -> int:
+
+        dex_score = self.create_interface_score(self.addresses['dex'], DexInterface)
+
+        my_baln_from_pools = 0
+        total_baln_from_pools = 0
+        for pool_id in (BALNBNUSD_ID, BALNSICX_ID):
+            my_lp = dex_score.balanceOfAt(_account, pool_id, _day)
+            total_lp = dex_score.totalSupplyAt(pool_id, _day)
+            total_baln = dex_score.totalBalnAt(pool_id, _day)
+
+            equivalent_baln = 0
+            if my_lp > 0 and total_lp > 0 and total_baln > 0:
+                equivalent_baln = (my_lp * total_baln) // total_lp
+
+            my_baln_from_pools += equivalent_baln
+
+        my_total_baln_token = my_baln_from_pools
+        return my_total_baln_token
+
+    @external(readonly=True)
+    def totalBaln(self, _day: int) -> int:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        total_stake = baln.totalStakedBalanceOfAt(_day)
+        dex_score = self.create_interface_score(self.addresses['dex'], DexInterface)
+
+        total_baln_from_pools = 0
+        for pool_id in (BALNBNUSD_ID, BALNSICX_ID):
+            total_baln = dex_score.totalBalnAt(pool_id, _day)
+
+            total_baln_from_pools += total_baln
+
+        total_baln_token = total_baln_from_pools + total_stake
+        return total_baln_token
 
     @external
     def executeVoteAction(self, vote_index: int) -> None:
@@ -246,22 +288,22 @@ class Governance(IconScoreBase):
     def checkVote(self, _vote_index: int) -> dict:
         if _vote_index < 1 or _vote_index > ProposalDB.proposal_count(self.db):
             return {}
-        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         vote_data = ProposalDB(_vote_index, self.db)
         try:
-            total_stake = baln.totalStakedBalanceOfAt(vote_data.vote_snapshot.get())
+            total_baln = self.totalBaln(vote_data.vote_snapshot.get())
         except BaseException:
-            total_stake = 0
-        if total_stake == 0:
+            total_baln = 0
+        if total_baln == 0:
             _for = 0
             _against = 0
         else:
             total_voted = (vote_data.total_for_votes.get(), vote_data.total_against_votes.get())
-            _for = EXA * total_voted[0] // total_stake
-            _against = EXA * total_voted[1] // total_stake
+            _for = EXA * total_voted[0] // total_baln
+            _against = EXA * total_voted[1] // total_baln
 
         vote_status = {'id': _vote_index,
                        'name': vote_data.name.get(),
+                       'description': vote_data.description.get(),
                        'majority': vote_data.majority.get(),
                        'vote snapshot': vote_data.vote_snapshot.get(),
                        'start day': vote_data.start_snapshot.get(),
