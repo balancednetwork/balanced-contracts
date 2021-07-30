@@ -113,7 +113,7 @@ class Governance(IconScoreBase):
         Parameters:
         percentage - Percentage of total baln needed to define a vote. E.g. "1.5" -> 1.5%.
         """
-        decimal = float(percentage) * 100
+        decimal = float(percentage) / 100
         if not 0 <= decimal <= 1:
             revert("Percentage must be in the 0-100 range.")
         self._baln_vote_definition_citeria.set(str(decimal))
