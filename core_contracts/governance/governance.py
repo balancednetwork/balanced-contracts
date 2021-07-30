@@ -155,7 +155,7 @@ class Governance(IconScoreBase):
         dex_pool = self._get_pool_baln(sender, snapshot)
         total_vote = stake + dex_pool
         if total_vote == 0:
-            revert(f'Balanced tokens needs to be staked or a liquidity should be provided in the pool to cast the vote.')
+            revert(f'Balanced tokens need to be staked or BALN liquidity provided to a DEX pool to cast the vote.')
         prior_vote = (proposal.for_votes_of_user[sender], proposal.against_votes_of_user[sender])
         total_for_votes = proposal.total_for_votes.get()
         total_against_votes = proposal.total_against_votes.get()
