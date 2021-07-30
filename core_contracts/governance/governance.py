@@ -73,6 +73,7 @@ class Governance(IconScoreBase):
         """
         self._minimum_vote_duration.set(duration)
 
+    @external(readonly=True)
     def getMinimumVoteDuration(self) -> int:
         """
         Returns the minimum vote duration in days.
