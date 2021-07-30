@@ -96,12 +96,14 @@ class Governance(IconScoreBase):
         """
         Names a new vote, defines quorum, and actions.
         """
+        if len(description) > 500:
+            revert(f'Description must be less than or equal to 500 characters.')
         if not 0 < quorum < 100:
             revert(f'Quorum must be greater than 0 and less than 100.')
         if vote_start <= self.getDay():
             revert(f'Vote cannot start before the current time.')
-        if snapshot < 1:
-            revert(f'The reference snapshot index must be greater than zero.')
+        if snapshot >= vote_start:
+            revert(f'Snapshot reference index must be less than vote start.')
         min_duration = self._minimum_vote_duration.get()
         if duration < min_duration:
             revert(f'Votes must have a minimum duration of {min_duration} days.')
@@ -150,11 +152,10 @@ class Governance(IconScoreBase):
         snapshot = proposal.vote_snapshot.get()
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         stake = baln.stakedBalanceOfAt(sender, snapshot)
-        if stake == 0:
-            revert(f'Balanced tokens needs to be staked to cast the vote.')
-
         dex_pool = self._get_pool_baln(sender, snapshot)
         total_vote = stake + dex_pool
+        if total_vote == 0:
+            revert(f'Balanced tokens need to be staked or BALN liquidity provided to a DEX pool to cast the vote.')
         prior_vote = (proposal.for_votes_of_user[sender], proposal.against_votes_of_user[sender])
         total_for_votes = proposal.total_for_votes.get()
         total_against_votes = proposal.total_against_votes.get()
@@ -193,7 +194,6 @@ class Governance(IconScoreBase):
         dex_score = self.create_interface_score(self.addresses['dex'], DexInterface)
 
         my_baln_from_pools = 0
-        total_baln_from_pools = 0
         for pool_id in (BALNBNUSD_ID, BALNSICX_ID):
             my_lp = dex_score.balanceOfAt(_account, pool_id, _day)
             total_lp = dex_score.totalSupplyAt(pool_id, _day)
@@ -303,6 +303,7 @@ class Governance(IconScoreBase):
 
         vote_status = {'id': _vote_index,
                        'name': vote_data.name.get(),
+                       'proposer': vote_data.proposer.get(),
                        'description': vote_data.description.get(),
                        'majority': vote_data.majority.get(),
                        'vote snapshot': vote_data.vote_snapshot.get(),
