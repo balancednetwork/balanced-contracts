@@ -46,7 +46,7 @@ class Governance(IconScoreBase):
     def on_update(self) -> None:
         super().on_update()
         self._time_offset.set(DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1))
-        self._minimum_vote_duration.set(1)
+        self._minimum_vote_duration.set(5)
 
     @external(readonly=True)
     def name(self) -> str:
@@ -56,12 +56,30 @@ class Governance(IconScoreBase):
     def getDay(self) -> int:
         return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
 
+<<<<<<< HEAD
     @external(readonly=True)
     def getVotersCount(self, name: str) -> dict:
         vote_index = ProposalDB.proposal_id(name, self.db)
         proposal = ProposalDB(var_key=vote_index, db=self.db)
         return {'for_voters': proposal.for_voters_count.get(), 'against_voters': proposal.against_voters_count.get()}
         
+=======
+    def setMinimumVoteDuration(self, duration: int) -> None:
+        """
+        Set the minimum vote duration.
+
+        Parameters:
+        duration - minimum amount of days a vote has to be active.
+        """
+        self._minimum_vote_duration.set(duration)
+
+    def getMinimumVoteDuration(self) -> int:
+        """
+        Returns the minimum vote duration in days.
+        """
+        return self._minimum_vote_duration.get()
+
+>>>>>>> bd11062 (Added getter and setter for the minimum vote duration db entry. Will set value to 5 when contract is updated.)
     def setQuorum(self, quorum: int) -> None:
         """
         Set percentage of total baln supply which must participate in a vote 
@@ -91,7 +109,7 @@ class Governance(IconScoreBase):
     @external(readonly=True)
     def getVoteDefinitionFee(self) -> int:
         """
-        Returns the fee required for defining a vote. Fee is in bnUSD.
+        Returns the bnusd fee required for defining a vote.
         """
         return self._bnusd_vote_definition_fee.get()
 
