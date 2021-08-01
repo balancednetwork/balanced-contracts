@@ -882,7 +882,7 @@ class DEX(IconScoreBase):
             return icx_total * self.getSicxBnusdPrice() // self._get_sicx_rate()
         elif self._pool_quote[_id] == self._sicx.get():
             sicx_total =  self._pool_total[_id][self._sicx.get()] * 2
-            return self.getSicxBnusdPrice() * sicx_total
+            return self.getSicxBnusdPrice() * sicx_total // EXA
         elif self._pool_quote[_id] == self._bnUSD.get():
             return self._pool_total[_id][self._bnUSD.get()] * 2
         else:
