@@ -189,7 +189,7 @@ class Rebalancing(IconScoreBase):
         return self._sicx_receivable.get()
 
     @external(readonly=True)
-    def getRebalancingStatus(self) -> (bool, int):
+    def getRebalancingStatus(self) -> list:
         """
         Checks the Rebalancing status of the pool i.e. whether the difference between
         oracle price and dex pool price are more than threshold or not. If it is more
