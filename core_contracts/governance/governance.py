@@ -233,7 +233,7 @@ class Governance(IconScoreBase):
             revert(f'Provided vote index, {vote_index}, out of range.')
         proposal = ProposalDB(vote_index, self.db)
         end_snap = proposal.end_snapshot.get()
-        
+
         if self.getDay() < end_snap:
             revert("Balanced Governance: Voting period has not ended")
 
@@ -259,30 +259,6 @@ class Governance(IconScoreBase):
     @external(readonly=True)
     def getVoteIndex(self, _name: str) -> int:
         return ProposalDB.proposal_id(_name, self.db)
-
-    @external
-    @only_owner
-    def rebalancingSetBnusd(self,_address: Address) -> None:
-        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
-        rebalancing.setBnusd(_address)
-
-    @external
-    @only_owner
-    def rebalancingSetSicx(self, _address: Address) -> None:
-        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
-        rebalancing.setSicx(_address)
-
-    @external
-    @only_owner
-    def rebalancingSetDex(self, _address: Address) -> None:
-        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
-        rebalancing.setDex(_address)
-
-    @external
-    @only_owner
-    def rebalancingSetLoans(self, _address: Address) -> None:
-        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
-        rebalancing.setLoans(_address)
 
     @external(readonly=True)
     def checkVote(self, _vote_index: int) -> dict:
@@ -349,40 +325,6 @@ class Governance(IconScoreBase):
             loans.addAsset(addresses[asset['address']],
                            asset['active'],
                            asset['collateral'])
-
-    @external
-    @only_owner
-    def setRebalancing(self, _address: Address) -> None:
-        self._rebalancing.set(_address)
-
-    @external
-    @only_owner
-    def setLoansRebalance(self, _address: Address) -> None:
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
-        loans.setRebalance(_address)
-
-    @external
-    @only_owner
-    def setLoansDex(self, _address: Address) -> None:
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
-        loans.setDex(_address)
-
-    @external
-    @only_owner
-    def setRebalancing(self, _address: Address) -> None:
-        self._rebalancing.set(_address)
-
-    @external
-    @only_owner
-    def setRebalancingSicx(self, _value: int) -> None:
-        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
-        rebalancing.setSicxReceivable(_value)
-
-    @external
-    @only_owner
-    def setRebalancingThreshold(self, _value: int) -> None:
-        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
-        rebalancing.setPriceDiffThreshold(_value)
 
     @external
     @only_owner
@@ -475,6 +417,59 @@ class Governance(IconScoreBase):
                       {'recipient_name': 'sICX/bnUSD', 'dist_percent': 175 * 10 ** 15},
                       {'recipient_name': 'BALN/bnUSD', 'dist_percent': 175 * 10 ** 15}]
         rewards.updateBalTokenDistPercentage(recipients)
+
+    @external
+    @only_owner
+    def rebalancingSetBnusd(self,_address: Address) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setBnusd(_address)
+
+    @external
+    @only_owner
+    def rebalancingSetSicx(self, _address: Address) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setSicx(_address)
+
+    @external
+    @only_owner
+    def rebalancingSetDex(self, _address: Address) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setDex(_address)
+
+    @external
+    @only_owner
+    def rebalancingSetLoans(self, _address: Address) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setLoans(_address)
+
+    @external
+    @only_owner
+    def setLoansRebalance(self, _address: Address) -> None:
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setRebalance(_address)
+
+    @external
+    @only_owner
+    def setLoansDex(self, _address: Address) -> None:
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setDex(_address)
+
+    @external
+    @only_owner
+    def setRebalancing(self, _address: Address) -> None:
+        self._rebalancing.set(_address)
+
+    @external
+    @only_owner
+    def setRebalancingSicx(self, _value: int) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setSicxReceivable(_value)
+
+    @external
+    @only_owner
+    def setRebalancingThreshold(self, _value: int) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setPriceDiffThreshold(_value)
 
     @external
     @only_owner
@@ -772,4 +767,3 @@ class Governance(IconScoreBase):
     @eventlog(indexed=2)
     def VoteCast(self, vote_name: str, vote: bool, voter: Address, stake: int, total_for: int, total_against: int):
         pass
-
