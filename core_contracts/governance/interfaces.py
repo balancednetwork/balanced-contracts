@@ -128,6 +128,18 @@ class LoansInterface(InterfaceScore):
     def setRedeemBatchSize(self, _value: int) -> None:
         pass
 
+    @interface
+    def setMiningRatio(self, _value) -> None:
+        pass
+
+    @interface
+    def setLockingRatio(self, _value) -> None:
+        pass
+
+    @interface
+    def setOriginationFee(self, _fee) -> None:
+        pass
+
 
 # An interface to the Loans SCORE
 class DexInterface(InterfaceScore):

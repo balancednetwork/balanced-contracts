@@ -990,12 +990,12 @@ class Loans(IconScoreBase):
         self._staking.set(_address)
 
     @external
-    @only_admin
+    @only_governance
     def setMiningRatio(self, _ratio: int) -> None:
         self._mining_ratio.set(_ratio)
 
     @external
-    @only_admin
+    @only_governance
     def setLockingRatio(self, _ratio: int) -> None:
         self._locking_ratio.set(_ratio)
 
@@ -1005,7 +1005,7 @@ class Loans(IconScoreBase):
         self._liquidation_ratio.set(_ratio)
 
     @external
-    @only_admin
+    @only_governance
     def setOriginationFee(self, _fee: int) -> None:
         self._origination_fee.set(_fee)
 
