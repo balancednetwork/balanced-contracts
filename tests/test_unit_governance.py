@@ -15,6 +15,16 @@ class MockClass:
         self._balanceOfAt, self._totalSupplyAt, self._totalBalnAt, self._totalStakedBalanceOfAt = \
             balanceOfAt, totalSupplyAt, totalBalnAt, totalStakedBalanceOfAt
         self._stakedBalanceOfAt = stakedBalanceOfAt
+        self.callStack = []
+
+    def setMiningRatio(self, _value: int):
+        self.callStack.append(f"setMiningRatio({_value})")
+
+    def setLockingRatio(self, _value: int):
+        self.callStack.append(f"setLockingRatio({_value})")
+
+    def setOriginationFee(self, _fee: int):
+        self.callStack.append(f"setOriginationFee({_fee})")
 
     def balanceOfAt(self, _account, pool_id, _day):
         return self._balanceOfAt
@@ -35,10 +45,10 @@ class MockClass:
         return self._stakedBalanceOfAt
 
     def addNewDataSource(self, a, b):
-        pass
+        self.callStack.append(f"addNewDataSource({a},{b})")
 
     def updateBalTokenDistPercentage(self, a):
-        pass
+        self.callStack.append(f"updateBalTokenDistPercentage({a})")
 
 
 class TestGovernanceUnit(ScoreTestCase):
@@ -67,10 +77,11 @@ class TestGovernanceUnit(ScoreTestCase):
             self.governance.defineVote(name="Just a demo", description='Testing description field', quorum=40,
                                        vote_start=day + 2, duration=2, snapshot=30,
                                        actions="{\"enable_dividends\": {}}")
-            expected = {'id': 1, 'name': 'Just a demo', 'description': 'Testing description field',
-                        'majority': 666666666666666667, 'vote snapshot': 30,
+            expected = {'id': 1, 'name': 'Just a demo', 'proposer': self.test_account1,
+                        'description': 'Testing description field', 'majority': 666666666666666667, 'vote snapshot': 30,
                         'start day': day + 2, 'end day': day + 4, 'actions': "{\"enable_dividends\": {}}",
-                        'quorum': 400000000000000000, 'for': 0, 'against': 0, 'status': 'Pending'}
+                        'quorum': 400000000000000000, 'for': 0, 'against': 0, 'for_voter_count': 0,
+                        'against_voter_count': 0, 'status': 'Pending'}
             self.assertEqual(expected, self.governance.checkVote(_vote_index=1))
 
     def test_execute_vote_actions(self):
@@ -122,8 +133,8 @@ class TestGovernanceUnit(ScoreTestCase):
         with self.assertRaises(IconScoreException) as snapshot:
             self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40,
                                        vote_start=day + 1, duration=2,
-                                       snapshot=0, actions="{\"enable_dividends\": {}}")
-        self.assertEqual("The reference snapshot index must be greater than zero.", snapshot.exception.message)
+                                       snapshot=day + 1, actions="{\"enable_dividends\": {}}")
+        self.assertEqual("Snapshot reference index must be less than vote start.", snapshot.exception.message)
 
         with self.assertRaises(IconScoreException) as duration:
             self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40,
@@ -224,15 +235,19 @@ class TestGovernanceUnit(ScoreTestCase):
             result = self.governance.totalBaln(1)
         self.assertEqual(2 * 30 + 12, result)
 
-    def test_add_new_data_source(self):
+    def test_vote_actions(self):
         self.set_msg(self.test_account1, 0)
         self.set_block(0, 0)
         day = self.governance.getDay()
         mock_class = MockClass(balanceOfAt=1, totalSupplyAt=2, totalBalnAt=3, totalStakedBalanceOfAt=4,
                                stakedBalanceOfAt=5)
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
-            actions = {"addNewDataSource": {"_data_source_name": "", "_contract_address": ""},
-                       "updateDistPercent": {"_recipient_list": [{"recipient_name": "", "dist_percent": 12}]}}
+            actions = {"addNewDataSource": {"_data_source_name": "test1", "_contract_address": "cx12333"},
+                       "updateDistPercent": {"_recipient_list": [{"recipient_name": "", "dist_percent": 12}]},
+                       "update_mining_ratio": {"_value": 20},
+                       "update_locking_ratio": {"_value": 10},
+                       "update_origination_fee": {"_fee": 1}
+                       }
             self.governance.defineVote(name="Test add data source", description="Count pool BALN", quorum=1,
                                        vote_start=day + 1, duration=1,
                                        snapshot=15, actions=json.dumps(actions))
@@ -248,3 +263,7 @@ class TestGovernanceUnit(ScoreTestCase):
             new_day = launch_time + (DAY_ZERO + day + 4) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.executeVoteAction(1)
+            expected = ['addNewDataSource(test1,cx12333)',
+                        "updateBalTokenDistPercentage([{'recipient_name': '', 'dist_percent': 12}])",
+                        'setMiningRatio(20)', 'setLockingRatio(10)', 'setOriginationFee(1)']
+            self.assertListEqual(expected, mock_class.callStack)

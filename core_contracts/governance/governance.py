@@ -515,6 +515,18 @@ class Governance(IconScoreBase):
         dividends = self.create_interface_score(self.addresses['dividends'], DividendsInterface)
         dividends.setDistributionActivationStatus(True)
 
+    def setMiningRatio(self, _value: int):
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setMiningRatio(_value)
+
+    def setLockingRatio(self, _value: int):
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setLockingRatio(_value)
+
+    def setOriginationFee(self, _fee: int):
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setOriginationFee(_fee)
+
     @external
     @only_owner
     def addAsset(self, _token_address: Address,
