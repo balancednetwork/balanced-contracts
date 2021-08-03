@@ -35,7 +35,7 @@ class Governance(IconScoreBase):
         self._rebalancing = VarDB('rebalancing', db, Address)
         self._time_offset = VarDB('time_offset', db, value_type=int)
         self._minimum_vote_duration = VarDB('min_duration', db, int)
-        self._baln_vote_definition_citeria = VarDB('min_baln', db, str)
+        self._baln_vote_definition_criteria = VarDB('min_baln', db, str)
         self._bnusd_vote_definition_fee = VarDB('definition_fee', db, int)
         self._quorum = VarDB('quorum', db, int)
 
@@ -81,7 +81,7 @@ class Governance(IconScoreBase):
         quorum - percentage of total baln supply required for a vote to be valid.
         """
         if not 0 < quorum < 100:
-            revert("Quorum must be between be larger then 0 and less then 100.")
+            revert("Quorum must be between 0 and 100.")
         self._quorum.set(quorum)
 
     @external(readonly=True)
@@ -105,6 +105,7 @@ class Governance(IconScoreBase):
         """
         return self._bnusd_vote_definition_fee.get()
 
+    @only_owner
     def setBalnVoteDefinitionCriteria(self, percentage: str) -> None:
         """
         Set the minimum percentage of baln's total supply which a user must have staked
@@ -114,9 +115,9 @@ class Governance(IconScoreBase):
         percentage - Percentage of total baln needed to define a vote. E.g. "1.5" -> 1.5%.
         """
         decimal = float(percentage) / 100
-        if not 0 <= decimal <= 1:
+        if not (0 <= decimal <= 1):
             revert("Percentage must be in the 0-100 range.")
-        self._baln_vote_definition_citeria.set(str(decimal))
+        self._baln_vote_definition_criteria.set(str(decimal))
 
     @external(readonly=True)
     def getBalnVoteDefinitionCriteria(self) -> str:
@@ -124,7 +125,7 @@ class Governance(IconScoreBase):
         Returns the minimum percentage of baln's total supply which a user must have staked
         in order to define a vote. Percentage is returned as a string of the decimal value.
         """
-        return self._baln_vote_definition_citeria.get()
+        return self._baln_vote_definition_criteria.get()
 
     @external
     @only_owner
@@ -169,10 +170,11 @@ class Governance(IconScoreBase):
         actions      -   Json string. List of dictionaries. Each key is the name of a method to be executed.
                          The values are a dictionaries of keyword arguments for that method.
         """
-        if vote_start <= self.getDay():
+        if vote_start < self.getDay():
             revert(f'Vote cannot start before the current time.')
         if not self.getDay() <= snapshot <= vote_start:
-            revert(f'The reference snapshot must be in the range: [current_day, vote_start_day].')
+            revert(f'The reference snapshot must be in the range: [current_day ({self.getDay()}), '
+                   f'start_day ({vote_start})].')
         min_duration = self._minimum_vote_duration.get()
         if duration < min_duration:
             revert(f'Votes must have a minimum duration of {min_duration} days.')
@@ -184,13 +186,13 @@ class Governance(IconScoreBase):
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         baln_total = baln.totalSupply()
         user_staked = baln.stakedBalanceOf(self.msg.sender)
-        baln_criteria = float(self._baln_vote_definition_citeria.get())
-        if (user_staked / baln_total) < baln_criteria:
+        baln_criteria = float(self._baln_vote_definition_criteria.get())
+        if user_staked / baln_total < baln_criteria:
             revert(f'User needs atleast {baln_criteria * 100}% of total baln supply staked to define a vote.')
 
         # Transfer bnUSD fee to daofund.
-        bnusd = self.create_interface_score(self.addresses['daofund'], AssetInterface)
-        bnusd.transfer(self.addresses['bnUSD'], self._bnusd_vote_definition_fee.get())
+        bnusd = self.create_interface_score(self.addresses['bnUSD'], AssetInterface)
+        bnusd.transfer(self.addresses['daofund'], self._bnusd_vote_definition_fee.get())
 
         actions_dict = json_loads(actions)
         if len(actions_dict) > self.maxActions():
