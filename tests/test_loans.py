@@ -23,6 +23,7 @@ DIVIDENDS_ADDR = Address.from_string(f"cx{'8127' * 10}")
 REWARDS_ADDR = Address.from_string(f"cx{'8471' * 10}")
 RESERVE_ADDR = Address.from_string(f"cx{'8624' * 10}")
 DEPLOY_TIME = None
+DAY = 24 * 60 * 60 * 10 ** 6
 
 
 class MockClass:
@@ -80,7 +81,7 @@ class MockClass:
 
             def mint(self, _from, _amount):
                 outer_cls.call_array.append(("mint", (_from, _amount)))
-                self.balance[self.token_id][_from] = self.balance[self.token_id].get(_from, 0) + _amount
+                outer_cls.balance[self.token_id][_from] = outer_cls.balance[self.token_id].get(_from, 0) + _amount
 
             def mintTo(self, _from, _amount, _data):
                 outer_cls.call_array.append(("mintTo", (_from, _amount, _data)))
@@ -112,6 +113,7 @@ class MockClass:
         class MockRewards:
 
             def distribute(self):
+                outer_cls.test_score.precompute(_day, 600)
                 return True
 
         class MockReserve:
@@ -248,8 +250,6 @@ class TestLoans(ScoreTestCase):
         self.assertEqual(12, self.score._current_day.get())
         self.assertEqual(1, len(self.score._positions._snapshot_db._indexes))
         self.assertEqual(12, self.score._positions._snapshot_db._indexes[0])
-        result = self.score._positions._snapshot_db._get_snapshot(12, 0).snap_day.get()
-        raise  # todo whats this
 
     def test_toggleLoansOn(self):
         with self.assertRaises(SenderNotGovernance):
@@ -328,8 +328,38 @@ class TestLoans(ScoreTestCase):
                            'total_debt': 0, 'collateral': 0, 'ratio': 0, 'standing': 'Zero'}
         self.assertDictEqual(expected_result, result)
 
+    def test_getPositionByIndex_no_index(self):
+        with self.assertRaises(IconScoreException) as err:
+            self.score.getPositionByIndex(0, 0)
+        self.assertEqual("BalancedLoansPositions: That is not a valid key.", err.exception.message)
+
     def test_getPositionByIndex(self):
-        result = self.score.getPositionByIndex()
+        self._configure_loans()
+        patched_cls = MockClass(self.score, 10, 10, 10, 10)
+        with mock.patch.object(self.score, "create_interface_score", wraps=patched_cls.create_interface_score):
+            self.set_msg(self.admin)
+            self.score.setTimeOffset(DEPLOY_TIME)
+
+            self.set_block(0, DEPLOY_TIME + DAY + 1)
+            self._deposit(self.test_account3, 12 * 10 ** 18)
+            deposit_1 = self.score.getPositionByIndex(1, 1)
+            expected = {'pos_id': 1, 'created': DEPLOY_TIME + DAY + 1,
+                        'address': str(self.test_account3), 'snap_id': 1, 'snaps_length': 1,
+                        'last_snap': 1, 'first day': 1, 'assets': {'sICX': 12000000000000000000}, 'total_debt': 0,
+                        'collateral': 120, 'ratio': 0, 'standing': 'No Debt'}
+            self.assertEqual(expected, deposit_1)
+
+            self.set_block(1, DEPLOY_TIME + 2 * DAY + 1)
+            self._deposit(self.test_account2, 6 * 10 ** 18)
+            result = self.score.getPositionByIndex(1, 2)
+            self.assertEqual(deposit_1, result)
+
+            result = self.score.getPositionByIndex(2, 2)
+            expected = {'pos_id': 2, 'created': DEPLOY_TIME + 2 * DAY + 1,
+                        'address': str(self.test_account2), 'snap_id': 2, 'snaps_length': 1,
+                        'last_snap': 2, 'first day': 2, 'assets': {'sICX': 6000000000000000000}, 'total_debt': 0,
+                        'collateral': 60, 'ratio': 0, 'standing': 'No Debt'}
+            self.assertDictEqual(expected, result)
 
     def test_getAvailableAssets(self):
         result = self.score.getAvailableAssets()
@@ -485,19 +515,35 @@ class TestLoans(ScoreTestCase):
         self.score.toggleAssetActive("TOKEN1")
         self.assertNotEqual(is_active, self.score._assets["TOKEN1"].is_active())
 
-    def test_precomute(self):
+    def test_precompute(self):
         rewards_addr = Address.from_string(f'cx{"2658" * 10}')
         raise  # todo
 
     def test_getTotalValue(self):
+        self.set_msg(self.admin)
+        self.score.setTimeOffset(DEPLOY_TIME)
+        self.set_block(1, DEPLOY_TIME)
         self._configure_loans()
-        patched_cls = MockClass(self.score)
+
+        patched_cls = MockClass(self.score, 10, 10, 10, 10)
         with mock.patch.object(self.score, "create_interface_score", wraps=patched_cls.create_interface_score):
-            self._deposit(self.test_account1, 12)
-            self.score.getTotalValue('', 1)
+            self.set_block(1, DEPLOY_TIME + DAY)
+            self._deposit(self.test_account3, 600 * 10 ** 18)
+            self._borrow(self.test_account3, 110 * 10 ** 18, "bnUSD")
+            print(self.score.getAccountPositions(self.test_account3))
+
+            self.set_block(2, DEPLOY_TIME + 2 * DAY)
+            self._deposit(self.test_account3, 1 * 10 ** 18)
+
+            self.set_block(2, DEPLOY_TIME + 30 * DAY)
+            self._deposit(self.test_account3, 1 * 10 ** 18)
+
+            result = self.score.getTotalValue('', 30)
+            print(result)
+        raise
 
     def test_getBnusdValue(self):
-        self.score.getBnusdValue()
+        self.score.getBnusdValue('')
 
     def test_getDataCount(self):
         self.score.getDataCount()
@@ -795,10 +841,12 @@ class TestLoans(ScoreTestCase):
             self.score.liquidate(self.test_account1)
             # LIQUIDATION END
 
+            # [TEST] RETIRE NEGATIVE
             with self.assertRaises(IconScoreException) as err:
                 self.score.retireBadDebt("bnUSD", -1)
             self.assertEqual("BalancedLoans: Amount retired must be greater than zero.", err.exception.message)
 
+            # [TEST] NOT ENOUGH BALANCE
             with self.assertRaises(IconScoreException) as err:
                 self.score.retireBadDebt("bnUSD", 10 * 10 ** 41)
             self.assertEqual("BalancedLoans: Insufficient balance.", err.exception.message)
@@ -806,36 +854,83 @@ class TestLoans(ScoreTestCase):
             self.set_msg(self.test_account2)
             bnuds_score = patched_cls_1.addresses[BNUSD_ADDR]
             bnusd_asset = self.score._assets["bnUSD"]
-            # pay amount <= liquidation
+
+            # [TEST] RETIRE DEBT < LIQUIDATION POOL
             bad_debt_before = bnusd_asset.bad_debt.get()
             liquidation_pool_before = bnusd_asset.liquidation_pool.get()
-
-            # liquid = bnUSD_pay * (sicx_price_loop / bnusd_price_loop)
-            retire_amount = 10 ** 12
-            user_balance = bnuds_score.balanceOf(self.test_account2)
+            retire_amount = int(min(bad_debt_before, liquidation_pool_before * sicx_price_loop / bnusd_price_loop) / 2)
+            user_balance_before = bnuds_score.balanceOf(self.test_account2)
             self.score.retireBadDebt("bnUSD", retire_amount)
             self.assertEqual(bad_debt_before - retire_amount, bnusd_asset.bad_debt.get())
-            self.assertEqual(liquidation_pool_before - retire_amount*(sicx_price_loop//bnusd_price_loop),
-                             bnusd_asset.liquidation_pool.get())
-            self.assertEqual(user_balance - retire_amount, bnuds_score.balanceOf(self.test_account2))
+            self.assertEqual(user_balance_before - retire_amount, bnuds_score.balanceOf(self.test_account2))
+            self.assertEqual(
+                liquidation_pool_before
+                - int(1.1 * retire_amount * bnusd_price_loop / sicx_price_loop),
+                bnusd_asset.liquidation_pool.get()
+            )
 
-            print("bad debt", self.score._assets["bnUSD"].bad_debt.get())
-            print("liquid", self.score._assets["bnUSD"].liquidation_pool.get())
-            # pay amount > liquidation
-            user_balance = bnuds_score.balanceOf(self.test_account2)
-            self.score.retireBadDebt("bnUSD", 10 ** 19)
-            self.assertEqual(user_balance - 10 ** 19, bnuds_score.balanceOf(self.test_account2))
+            # [TEST] RETIRE DEBT > LIQURDATION POOL
+            bad_debt_before = bnusd_asset.bad_debt.get()
+            # MOCK SICX POOL TO LOWER
+            self.score._assets["bnUSD"].liquidation_pool.set(self.score._assets["bnUSD"].liquidation_pool.get() // 250)
 
-            print("bad debt", self.score._assets["bnUSD"].bad_debt.get())
-            print("liquid", self.score._assets["bnUSD"].liquidation_pool.get())
-            # check if bnusd deducted from user
+            liquidation_pool_before = bnusd_asset.liquidation_pool.get()
 
-        raise
+            retire_amount = int(liquidation_pool_before * sicx_price_loop / bnusd_price_loop) + 12 * 10 ** 18
+            user_balance_before = bnuds_score.balanceOf(self.test_account2)
+            sicx_asset = patched_cls_1.addresses[SICX_ADDR]
+            user_balance_sicx_before = sicx_asset.balanceOf(self.test_account2)
+            self.score.retireBadDebt("bnUSD", retire_amount)
+            calculated_retire_amount = min(bad_debt_before, retire_amount)
+            self.assertEqual(bad_debt_before - calculated_retire_amount, bnusd_asset.bad_debt.get())
+            self.assertEqual(user_balance_before - calculated_retire_amount, bnuds_score.balanceOf(self.test_account2))
+            self.assertEqual(0, bnusd_asset.liquidation_pool.get())
+            expected_sicx_from_reserve = int((1.1 * calculated_retire_amount * bnusd_price_loop / sicx_price_loop)
+                                             - liquidation_pool_before)
+            self.assertEqual(user_balance_sicx_before + expected_sicx_from_reserve + liquidation_pool_before,
+                             sicx_asset.balanceOf(self.test_account2))
 
     def test_returnAsset(self):
-        raise
+        with self.assertRaises(IconScoreException) as err:
+            self.score.returnAsset()
+        self.assertEqual("BalancedLoans: Balanced Loans SCORE is not active.", err.exception.message)
+        self._configure_loans()
+
+        with self.assertRaises(IconScoreException) as err:
+            self.score.returnAsset("bnUSD", -1)
+        self.assertEqual("BalancedLoans: Amount retired must be greater than zero.", err.exception.message)
+
+        patched_cls = MockClass(self.score, 10, 10, 10, 10)
+        patched_cls.addresses[BNUSD_ADDR].mintTo(self.test_account3, 12, None)
+        with mock.patch.object(self.score, "create_interface_score", wraps=patched_cls.create_interface_score):
+            self._deposit(self.test_account3, 120 * 10 ** 18)
+
+            # RETURN MORE THAN BORROWED AMOUNT
+            with self.assertRaises(IconScoreException) as err:
+                self.score.returnAsset("bnUSD", 12)
+            self.assertEqual(
+                f"BalancedLoans: Repaid amount is greater than the amount in the position of {self.test_account3}",
+                err.exception.message)
+
+            # RETURN MORE THAN BALANCE
+            with self.assertRaises(IconScoreException) as err:
+                self.score.returnAsset("bnUSD", 66)
+            self.assertEqual(f"BalancedLoans: Insufficient balance.", err.exception.message)
+
+            self._borrow(self.test_account3, 10 * 10 ** 18, "bnUSD")
+            balance_old = self.score.getAccountPositions(self.test_account3)
+            return_amount = 10 ** 18
+            self.score.returnAsset("bnUSD", return_amount)
+            balance_new = self.score.getAccountPositions(self.test_account3)
+            self.assertEqual(balance_old["assets"]["bnUSD"] - return_amount, balance_new["assets"]["bnUSD"])
 
     def test_retireRedeem(self):
+        self._configure_loans()
+        patched_cls = MockClass(self.score, 10, 10, 10, 10)
+        with mock.patch.object(self.score, "create_interface_score", wraps=patched_cls.create_interface_score):
+            self._deposit(self.test_account3, 120 * 10 ** 18)
+            self._borrow(self.test_account3, 12 * 10 ** 18, "bnUSD")
+            self.score.retireRedeem("bnUSD")
         raise
 
     def test_bd_redeem(self):
@@ -846,7 +941,7 @@ class TestLoans(ScoreTestCase):
         raise
 
     def test_withdrawCollateral_loans_off(self):
-        with self.assertRaises(IconScoreException)as err:
+        with self.assertRaises(IconScoreException) as err:
             self.score.withdrawCollateral()
         self.assertEqual("BalancedLoans: Balanced Loans SCORE is not active.", err.exception.message)
 
@@ -867,7 +962,8 @@ class TestLoans(ScoreTestCase):
             self.set_msg(self.test_account1)
             with self.assertRaises(IconScoreException) as err:
                 self.score.withdrawCollateral(12)
-            self.assertEqual("BalancedLoans: This address does not have a position on Balanced.", err.exception.message)
+            self.assertEqual("BalancedLoans: This address does not have a position on Balanced.",
+                             err.exception.message)
 
     def test_withdrawCollateral_not_enough_collateral(self):
         self._configure_loans()
@@ -1189,5 +1285,16 @@ class TestLoans(ScoreTestCase):
         self.assertEqual(12, self.score._redeem_batch.get())
 
     def test_getParameters(self):
+        self._configure_loans()
         result = self.score.getParameters()
-        raise
+        expected = {'admin': self.owner,
+                    'governance': self.admin,
+                    'dividends': DIVIDENDS_ADDR,
+                    'reserve_fund': RESERVE_ADDR,
+                    'rewards': REWARDS_ADDR,
+                    'staking': STAKING_ADDR, 'mining ratio': 50000,
+                    'locking ratio': 40000, 'liquidation ratio': 15000, 'origination fee': 100, 'redemption fee': 50,
+                    'liquidation reward': 67, 'new loan minimum': 10000000000000000000,
+                    'min mining debt': 50000000000000000000, 'max div debt length': 400, 'time offset': 0,
+                    'redeem batch size': 50, 'retire percent max': 100}
+        self.assertDictEqual(expected, result)
