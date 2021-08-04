@@ -72,8 +72,7 @@ class TestGovernanceUnit(ScoreTestCase):
         self.bnusd = Address.from_string(f"cx{'13343'*8}")
         self.governance.addresses._baln.set(self.baln)
         self.governance.addresses._dex.set(self.dex)
-        self.governance.addresses._bnUSD.set(self.bnusd)
-       
+        self.governance.addresses._bnUSD.set(self.bnusd) 
         
     def test_set_minimum_vote_duration(self):
         self.set_msg(self.test_account1)
@@ -169,10 +168,10 @@ class TestGovernanceUnit(ScoreTestCase):
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             
             # Start before current day.
-            with self.assertRaises(IconScoreException) as start_day2:
+            with self.assertRaises(IconScoreException) as start_day_before:
                 self.governance.defineVote(name="Enable the dividends", description='Testing description field', vote_start=day - 1, 
                                            duration=min_duration, snapshot=day, actions="{\"enable_dividends\": {}}")
-            self.assertEqual("Vote cannot start before the current time.", start_day2.exception.message)
+            self.assertEqual("Vote cannot start before the current time.", start_day_before.exception.message)
 
             # Snapshot less then current day.
             with self.assertRaises(IconScoreException) as snapshot_1:
@@ -183,11 +182,11 @@ class TestGovernanceUnit(ScoreTestCase):
                              f'start_day ({day})].', snapshot_1.exception.message)
 
             # Snapshot larger than day of vote start.
-            with self.assertRaises(IconScoreException) as snapshot_1:
+            with self.assertRaises(IconScoreException) as snapshot_2:
                 self.governance.defineVote(name="Enable the dividends", description='Testing description field', vote_start=day, 
                                            duration=min_duration, snapshot= day + 1, actions="{\"enable_dividends\": {}}")
             self.assertEqual(f'The reference snapshot must be in the range: [current_day ({day}), '
-                             f'start_day ({day})].', snapshot_1.exception.message)
+                             f'start_day ({day})].', snapshot_2.exception.message)
 
             # Vote duration below minimum.
             with self.assertRaises(IconScoreException) as duration:
