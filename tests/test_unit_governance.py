@@ -73,6 +73,7 @@ class TestGovernanceUnit(ScoreTestCase):
         self.governance.addresses._baln.set(self.baln)
         self.governance.addresses._dex.set(self.dex)
         self.governance.addresses._bnUSD.set(self.bnusd)
+       
         
     def test_set_minimum_vote_duration(self):
         self.set_msg(self.test_account1)
@@ -126,12 +127,7 @@ class TestGovernanceUnit(ScoreTestCase):
     def test_create_vote(self):
         self.set_msg(self.test_account1)
         day = self.governance.getDay()
-
-        # Set governance parameters.
-        self.governance.setQuorum(40)
-        self.governance.setMinimumVoteDuration(5)
-        self.governance.setVoteDefinitionFee(1000 * 10**18)
-        self.governance.setBalnVoteDefinitionCriteria(1)
+        self._set_governance_params()
 
         # Test define vote method.
         mock_class = MockClass(totalSupply = 10000, stakedBalanceOf = 100, balanceOfAt=1,
@@ -166,12 +162,7 @@ class TestGovernanceUnit(ScoreTestCase):
     def test_conditions_to_define_vote(self):
         self.set_msg(self.test_account1)
         day = self.governance.getDay()
-
-        # Set governance parameters.
-        self.governance.setQuorum(40)
-        self.governance.setMinimumVoteDuration(5)
-        self.governance.setVoteDefinitionFee(1000 * 10**18)
-        self.governance.setBalnVoteDefinitionCriteria(1)
+        self._set_governance_params()
 
         mock_class = MockClass(totalSupply = 10000, stakedBalanceOf = 100)
         min_duration = duration=self.governance.getMinimumVoteDuration()
@@ -234,14 +225,7 @@ class TestGovernanceUnit(ScoreTestCase):
 
     def test_vote_cycle_complete(self):
         self.set_msg(self.test_account1, 0)
-
-        # Set governance parameters.
-        self.governance.setQuorum(40)
-        self.governance.setMinimumVoteDuration(5)
-        self.governance.setVoteDefinitionFee(1000 * 10**18)
-        self.governance.setBalnVoteDefinitionCriteria(1)
-        
-
+        self._set_governance_params()
         self.set_block(0, 0)
         day = self.governance.getDay()
         min_duration = self.governance._minimum_vote_duration.get()
@@ -280,12 +264,7 @@ class TestGovernanceUnit(ScoreTestCase):
 
     def test_proposal_count(self):
         self.set_msg(self.test_account1)
-
-        # Set governance parameters.
-        self.governance.setQuorum(40)
-        self.governance.setMinimumVoteDuration(5)
-        self.governance.setVoteDefinitionFee(1000 * 10**18)
-        self.governance.setBalnVoteDefinitionCriteria(1)
+        self._set_governance_params()
 
         min_duration = self.governance._minimum_vote_duration.get()
         day = self.governance.getDay()
@@ -313,7 +292,6 @@ class TestGovernanceUnit(ScoreTestCase):
         with mock.patch.object(self.governance, "create_interface_score", wraps=mock_class.patch_internal):
             result = self.governance._get_pool_baln(_account=self.test_account3, _day=1)
         self.assertEqual(2 * (10 * 30 / 20), result)
-
         mock_class = MockClass(balanceOfAt=0, totalSupplyAt=0, totalBalnAt=0)
         with mock.patch.object(self.governance, "create_interface_score", wraps=mock_class.patch_internal):
             result = self.governance._get_pool_baln(_account=self.test_account3, _day=1)
@@ -328,12 +306,7 @@ class TestGovernanceUnit(ScoreTestCase):
     def test_add_new_data_source(self):
         self.set_msg(self.test_account1, 0)
         self.set_block(0, 0)
-
-        # Set governance parameters.
-        self.governance.setQuorum(40)
-        self.governance.setMinimumVoteDuration(5)
-        self.governance.setVoteDefinitionFee(1000 * 10**18)
-        self.governance.setBalnVoteDefinitionCriteria(1)
+        self._set_governance_params()
 
         min_duration = self.governance._minimum_vote_duration.get()
         day = self.governance.getDay()
@@ -354,3 +327,9 @@ class TestGovernanceUnit(ScoreTestCase):
             new_day = (day + 1 + min_duration) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.executeVoteAction(1)
+
+    def _set_governance_params(self, quorum = 40, min_vote_dur = 5, vote_def_fee = 1000 * 10**18, baln_vote_def_criteria = 1):
+        self.governance.setQuorum(quorum)
+        self.governance.setMinimumVoteDuration(min_vote_dur)
+        self.governance.setVoteDefinitionFee(vote_def_fee)
+        self.governance.setBalnVoteDefinitionCriteria(baln_vote_def_criteria)
