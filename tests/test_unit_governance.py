@@ -328,24 +328,29 @@ class TestGovernanceUnit(ScoreTestCase):
     def test_add_new_data_source(self):
         self.set_msg(self.test_account1, 0)
         self.set_block(0, 0)
+
+        # Set governance parameters.
+        self.governance.setQuorum(40)
+        self.governance.setMinimumVoteDuration(5)
+        self.governance.setVoteDefinitionFee(1000 * 10**18)
+        self.governance.setBalnVoteDefinitionCriteria(1)
+
+        min_duration = self.governance._minimum_vote_duration.get()
         day = self.governance.getDay()
-        mock_class = MockClass(balanceOfAt=1, totalSupplyAt=2, totalBalnAt=3, totalStakedBalanceOfAt=4,
+        mock_class = MockClass(totalSupply = 1000, stakedBalanceOf=10, balanceOfAt=1, totalSupplyAt=2, totalBalnAt=3, totalStakedBalanceOfAt=4,
                                stakedBalanceOfAt=5)
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             actions = {"addNewDataSource": {"_data_source_name": "", "_contract_address": ""},
                        "updateDistPercent": {"_recipient_list": [{"recipient_name": "", "dist_percent": 12}]}}
-            self.governance.defineVote(name="Test add data source", description="Count pool BALN", quorum=1,
-                                       vote_start=day + 1, duration=1,
-                                       snapshot=15, actions=json.dumps(actions))
-
+            self.governance.defineVote(name="Test add data source", description="Count pool BALN",
+                                       vote_start=day + 1, duration=min_duration,
+                                       snapshot=day, actions=json.dumps(actions))
             self.governance.activateVote("Test add data source")
-
             launch_time = self.governance._launch_time.get()
-            new_day = launch_time + (DAY_ZERO + day + 1) * 10 ** 6 * 60 * 60 * 24
+            new_day = (day + 2) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.castVote("Test add data source", True)
-
             launch_time = self.governance._launch_time.get()
-            new_day = launch_time + (DAY_ZERO + day + 4) * 10 ** 6 * 60 * 60 * 24
+            new_day = (day + 1 + min_duration) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.executeVoteAction(1)
