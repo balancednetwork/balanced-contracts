@@ -65,6 +65,7 @@ class Governance(IconScoreBase):
         proposal = ProposalDB(var_key=vote_index, db=self.db)
         return {'for_voters': proposal.for_voters_count.get(), 'against_voters': proposal.against_voters_count.get()}
     
+    @external
     @only_owner
     def setMinimumVoteDuration(self, duration: int) -> None:
         """
@@ -82,6 +83,7 @@ class Governance(IconScoreBase):
         """
         return self._minimum_vote_duration.get()
 
+    @external
     @only_owner
     def setQuorum(self, quorum: int) -> None:
         """
@@ -102,7 +104,8 @@ class Governance(IconScoreBase):
         for the vote to be valid.
         """
         return self._quorum.get()
-
+    
+    @external
     @only_owner
     def setVoteDefinitionFee(self, fee: int) -> None:
         """
@@ -116,7 +119,8 @@ class Governance(IconScoreBase):
         Returns the bnusd fee required for defining a vote.
         """
         return self._bnusd_vote_definition_fee.get()
-
+    
+    @external
     @only_owner
     def setBalnVoteDefinitionCriteria(self, percentage: str) -> None:
         """
