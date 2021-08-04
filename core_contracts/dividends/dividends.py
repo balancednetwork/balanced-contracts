@@ -213,7 +213,7 @@ class Dividends(IconScoreBase):
 
         self._dividends_categories = ArrayDB(self._DIVIDENDS_CATEGORIES, db, value_type=str)
         self._dividends_percentage = DictDB(self._DIVIDENDS_PERCENTAGE, db, value_type=int)
-
+        self._snapshot_dividends = DictDB('snapshot_dividends', db, value_type=int, depth=2)
         self._distribution_activate = VarDB(self._DISTRIBUTION_ACTIVATE, db, value_type=bool)
 
         self._dividends_batch_size = VarDB(self._DIVIDENDS_BATCH_SIZE, db, value_type=int)
@@ -368,15 +368,19 @@ class Dividends(IconScoreBase):
     @external
     @only_admin
     def removeDividendsCategory(self, _category: str) -> None:
+        currentDay = self.getDay()
         if _category not in self._dividends_categories:
             revert(f"{TAG}: {_category} not found in the list of dividends categories")
-        if self._dividends_percentage[_category] != 0:
+        # if self._dividends_percentage[_category] != 0:
+        if self.dividendsAt(_category, currentDay) != 0:
             revert(f"{TAG}: Please make the category percentage to 0 before removing")
         remove_from_arraydb(_category, self._dividends_categories)
 
     @external(readonly=True)
     def getDividendsPercentage(self) -> dict:
-        return {item: self._dividends_percentage[item] for item in self._dividends_categories}
+        currentDay = self.getDay()
+        # return {item: self._dividends_percentage[item] for item in self._dividends_categories}
+        return {item: self.dividendsAt(item, currentDay) for item in self._dividends_categories}
 
     @external
     @only_admin
@@ -390,6 +394,7 @@ class Dividends(IconScoreBase):
             if category not in self._dividends_categories:
                 revert(f"{TAG}: {category} is not a valid dividends category")
             self._dividends_percentage[category] = percent
+            self._update_dividends_snapshot(category, percent)
             total_percentage += percent
 
         if total_percentage != 10**18:
@@ -603,7 +608,7 @@ class Dividends(IconScoreBase):
         return _start, _end
 
     def _get_dividends_for_day(self, _account: Address, _day: int) -> dict:
-
+        currentDay = self.getDay()
         if self._is_claimed(_account, _day):
             return {}
 
@@ -633,18 +638,19 @@ class Dividends(IconScoreBase):
         my_dividends = {}
         if my_total_baln_token > 0 and total_baln_token > 0:
             for token in self._accepted_tokens:
-                my_dividends[str(token)] = (my_total_baln_token * self._dividends_percentage[BALN_HOLDERS]
+                my_dividends[str(token)] = (my_total_baln_token * self.dividendsAt(BALN_HOLDERS, currentDay)
                                             * self._daily_fees[_day][str(token)]) // (total_baln_token * 10**18)
 
         return my_dividends
 
     def _get_dividends_for_daofund(self, _day: int) -> dict:
+        currentDay = self.getDay()
         if self._is_claimed(self._daofund.get(), _day):
             return {}
 
         daofund_dividends = {}
         for token in self._accepted_tokens:
-            daofund_dividends[str(token)] = (self._dividends_percentage[DAOFUND] * self._daily_fees[_day][str(token)]) \
+            daofund_dividends[str(token)] = (self.dividendsAt(DAOFUND, currentDay) * self._daily_fees[_day][str(token)]) \
                                             // 10**18
         return daofund_dividends
 
@@ -674,6 +680,47 @@ class Dividends(IconScoreBase):
         claimed_word = claimed_bit_map[claimed_word_index]
         mask = (1 << claimed_bit_index)
         return claimed_word & mask == mask
+
+    def _update_dividends_snapshot(self, _category: str, _percent: int) -> None:
+        currentDay = self.getDay()
+        length = self._snapshot_dividends["length"][0]
+        if length == 0:
+            self._snapshot_dividends[_category][length] = _percent
+            self._snapshot_dividends["ids"][length] = currentDay
+            self._snapshot_dividends["length"][0] += 1
+            return
+        else:
+            lastDay = self._snapshot_dividends["ids"][length - 1]
+
+        if lastDay < currentDay:
+            self._snapshot_dividends["ids"][length] = currentDay
+            self._snapshot_dividends[_category][length] = _percent
+            self._snapshot_dividends["length"][0] += 1
+        else:
+            self._snapshot_dividends[_category][length - 1] = _percent
+
+    @external(readonly=True)
+    def dividendsAt(self, _category: str, _day: int) -> int:
+        if _day < 0:
+            revert(f"{TAG}: "f"IRC2Snapshot: day:{_day} must be equal to or greater then Zero")
+        low = 0
+        high = self._snapshot_dividends["length"][0]
+
+        while low < high:
+            mid = (low + high) // 2
+            if self._snapshot_dividends["ids"][mid] > _day:
+                high = mid
+            else:
+                low = mid + 1
+
+        if self._snapshot_dividends["ids"][0] == _day:
+            response = self._snapshot_dividends[_category][0]
+        elif low == 0:
+            response = 0
+        else:
+            response = self._snapshot_dividends[_category][low - 1]
+
+        return response
 
     # -------------------------------------------------------------------------------
     #   EVENT LOGS
