@@ -56,12 +56,15 @@ class Governance(IconScoreBase):
     def getDay(self) -> int:
         return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
 
+<<<<<<< HEAD
     @external(readonly=True)
     def getVotersCount(self, name: str) -> dict:
         vote_index = ProposalDB.proposal_id(name, self.db)
         proposal = ProposalDB(var_key=vote_index, db=self.db)
         return {'for_voters': proposal.for_voters_count.get(), 'against_voters': proposal.against_voters_count.get()}
         
+=======
+>>>>>>> 245d912e1f7660aabbdc6e3adc556edf6a1ffb7e
     def setMinimumVoteDuration(self, duration: int) -> None:
         """
         Set the minimum vote duration.
@@ -164,21 +167,31 @@ class Governance(IconScoreBase):
         proposal.status.set(ProposalStatus.STATUS[ProposalStatus.CANCELLED])
 
     @external
+<<<<<<< HEAD
     def defineVote(self, name: str, description: str, vote_start: int, duration: int, snapshot: int, actions: str) -> None:
+=======
+    def defineVote(self, name: str, vote_start: int, duration: int, snapshot: int, actions: str) -> None:
+>>>>>>> 245d912e1f7660aabbdc6e3adc556edf6a1ffb7e
         """
         Define a new vote and which actions are to be executed if it is successful.
 
         Parameters:
         name         -   Name of the vote.
+<<<<<<< HEAD
         description  -   Description of the proposal.
+=======
+>>>>>>> 245d912e1f7660aabbdc6e3adc556edf6a1ffb7e
         vote_start   -   Day to start the vote.
         duration     -   Number of days the vote will be active.
         snapshot     -   Which daily baln staking snapshot to use as reference.
         actions      -   Json string. List of dictionaries. Each key is the name of a method to be executed.
                          The values are a dictionaries of keyword arguments for that method.
         """
+<<<<<<< HEAD
         if len(description) > 500:
             revert(f'Description must be less than or equal to 500 characters.')
+=======
+>>>>>>> 245d912e1f7660aabbdc6e3adc556edf6a1ffb7e
         if vote_start < self.getDay():
             revert(f'Vote cannot start before the current time.')
         if not self.getDay() <= snapshot <= vote_start:
@@ -207,7 +220,11 @@ class Governance(IconScoreBase):
         if len(actions_dict) > self.maxActions():
             revert(f"Balanced Governance: Only {self.maxActions()} actions are allowed")
 
+<<<<<<< HEAD
         ProposalDB.create_proposal(name=name, description=description, proposer=self.msg.sender, quorum=self._quorum.get()*EXA//100,
+=======
+        ProposalDB.create_proposal(name=name, proposer=self.msg.sender, quorum=self._quorum.get()*EXA//100,
+>>>>>>> 245d912e1f7660aabbdc6e3adc556edf6a1ffb7e
                                    majority=MAJORITY, snapshot=snapshot, start=vote_start, end=vote_start + duration,
                                    actions=actions, db=self.db)
 
