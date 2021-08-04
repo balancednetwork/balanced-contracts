@@ -142,10 +142,12 @@ class TestGovernanceUnit(ScoreTestCase):
 
         self.patch_internal_method(self.baln, "totalStakedBalanceOfAt", lambda x: 500)
 
-        expected = {'id': 1, 'name': 'Just a demo', 'description': 'Testing description field', 
+        expected = {'id': 1, 'name': 'Just a demo', 'proposer': self.governance.msg.sender, 
+                    'description': 'Testing description field', 
                     'majority': 666666666666666667, 'vote snapshot': day,
                     'start day': day + 2, 'end day': day + 7, 'actions': "{\"enable_dividends\": {}}",
-                    'quorum': 400000000000000000, 'for': 0, 'against': 0, 'status': 'Pending'}
+                    'quorum': 400000000000000000, 'for': 0, 'against': 0, 'for_voter_count': 0,
+                    'against_voter_count': 0, 'status': 'Pending'}
         self.assertEqual(expected, self.governance.checkVote(_vote_index=1))
 
     def test_execute_vote_actions(self):
