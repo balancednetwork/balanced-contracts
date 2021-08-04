@@ -47,6 +47,9 @@ class Governance(IconScoreBase):
         super().on_update()
         self._time_offset.set(DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1))
         self._minimum_vote_duration.set(5)
+        self._baln_vote_definition_criteria.set("0.1")
+        self._baln_vote_definition_criteria.set(100 * 10**18)
+        self._quorum.set(20)
 
     @external(readonly=True)
     def name(self) -> str:
@@ -61,7 +64,8 @@ class Governance(IconScoreBase):
         vote_index = ProposalDB.proposal_id(name, self.db)
         proposal = ProposalDB(var_key=vote_index, db=self.db)
         return {'for_voters': proposal.for_voters_count.get(), 'against_voters': proposal.against_voters_count.get()}
-        
+    
+    @only_owner
     def setMinimumVoteDuration(self, duration: int) -> None:
         """
         Set the minimum vote duration.
@@ -78,6 +82,7 @@ class Governance(IconScoreBase):
         """
         return self._minimum_vote_duration.get()
 
+    @only_owner
     def setQuorum(self, quorum: int) -> None:
         """
         Set percentage of total baln supply which must participate in a vote 
@@ -98,6 +103,7 @@ class Governance(IconScoreBase):
         """
         return self._quorum.get()
 
+    @only_owner
     def setVoteDefinitionFee(self, fee: int) -> None:
         """
         Set the fee for defining votes. Fee in bnUSD.
@@ -164,18 +170,19 @@ class Governance(IconScoreBase):
         proposal.status.set(ProposalStatus.STATUS[ProposalStatus.CANCELLED])
 
     @external
-    def defineVote(self, name: str, description: str, vote_start: int, duration: int, snapshot: int, actions: str) -> None:
+    def defineVote(self, name: str, description: str, vote_start: int, duration: int, 
+                   snapshot: int, actions: str) -> None:
         """
         Define a new vote and which actions are to be executed if it is successful.
 
         Parameters:
         name         -   Name of the vote.
-        description  -   Description of the proposal.
+        description  -   Description of the vote.
         vote_start   -   Day to start the vote.
         duration     -   Number of days the vote will be active.
-        snapshot     -   Which daily baln staking snapshot to use as reference.
-        actions      -   Json string. List of dictionaries. Each key is the name of a method to be executed.
-                         The values are a dictionaries of keyword arguments for that method.
+        snapshot     -   Which day to use for the baln stake snapshot.
+        actions      -   Json string on the form:  {'<action_1>': {<kwargs for action_1>},
+                         {'<action_2>': {kwargs_for_action_2}}, ...}
         """
         if len(description) > 500:
             revert(f'Description must be less than or equal to 500 characters.')
