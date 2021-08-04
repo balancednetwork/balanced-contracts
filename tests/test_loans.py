@@ -503,9 +503,6 @@ class TestLoans(ScoreTestCase):
             self.score.tokenFallback(self.test_account1, 12, b'{"_asset":"","_amount":12}')
         mck.assert_called_once_with("", 12, self.test_account1, 12)
 
-        with mock.patch.object(self.score, "retireRedeem", return_value=None) as mck:
-            self.score.tokenFallback(self.test_account1, 13, b'{"_asset":"","_amount":""}')
-        mck.assert_called_once_with("", 13)
 
     def test_depositAndBorrow_loans_off(self):
         self.set_msg(self.test_account1, 12)
