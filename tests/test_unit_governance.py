@@ -236,14 +236,22 @@ class TestGovernanceUnit(ScoreTestCase):
     def test_vote_cycle_complete(self):
         self.set_msg(self.test_account1, 0)
 
+        # Set governance parameters.
+        self.governance.setQuorum(40)
+        self.governance.setMinimumVoteDuration(5)
+        self.governance.setVoteDefinitionFee(1000 * 10**18)
+        self.governance.setBalnVoteDefinitionCriteria(1)
+        
+
         self.set_block(0, 0)
         day = self.governance.getDay()
+        min_duration = self.governance._minimum_vote_duration.get()
         mock_class = MockClass(balanceOfAt=1, totalSupplyAt=2, totalBalnAt=3, totalStakedBalanceOfAt=4,
-                               stakedBalanceOfAt=5)
+                               stakedBalanceOfAt=5, totalSupply=1000, stakedBalanceOf=100)
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
-            self.governance.defineVote(name="Enable the dividends", description="Count pool BALN", quorum=40,
-                                       vote_start=day + 1, duration=2,
-                                       snapshot=15, actions="{\"enable_dividends\": {}}")
+            self.governance.defineVote(name="Enable the dividends", description="Count pool BALN",
+                                       vote_start=day + 1, duration=min_duration,
+                                       snapshot=day, actions="{\"enable_dividends\": {}}")
             self.assertEqual("Pending", self.governance.checkVote(1).get("status"))
 
             with self.assertRaises(IconScoreException) as inactive_poll:
@@ -257,15 +265,14 @@ class TestGovernanceUnit(ScoreTestCase):
             self.assertEqual("Active", self.governance.checkVote(1).get("status"))
             launch_time = self.governance._launch_time.get()
             from core_contracts.governance.utils.consts import DAY_ZERO
-            new_day = launch_time + (DAY_ZERO + day + 2) * 10 ** 6 * 60 * 60 * 24
+            new_day = launch_time + (day + 2) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.castVote("Enable the dividends", True)
 
             self.set_block(55, 0)
             self.governance.defineVote(name="Enable the dividends cancel this", description="Count pool BALN",
-                                       quorum=40,
-                                       vote_start=day + 1, duration=2,
-                                       snapshot=15, actions="{\"enable_dividends\": {}}")
+                                       vote_start=day + 1, duration=min_duration,
+                                       snapshot=day, actions="{\"enable_dividends\": {}}")
             try:
                 self.governance.cancelVote("Enable the dividends cancel this")
             except IconScoreException:
