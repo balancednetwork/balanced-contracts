@@ -140,15 +140,14 @@ class TestGovernanceUnit(ScoreTestCase):
             self.governance.defineVote(name="Just a demo", description='Testing description field', vote_start=day + 2, duration=5, snapshot=day,
                                        actions="{\"enable_dividends\": {}}")
 
-        self.patch_internal_method(self.baln, "totalStakedBalanceOfAt", lambda x: 500)
+            expected = {'id': 1, 'name': 'Just a demo', 'proposer': self.governance.msg.sender, 
+                        'description': 'Testing description field', 
+                        'majority': 666666666666666667, 'vote snapshot': day,
+                        'start day': day + 2, 'end day': day + 7, 'actions': "{\"enable_dividends\": {}}",
+                        'quorum': 400000000000000000, 'for': 0, 'against': 0, 'for_voter_count': 0,
+                        'against_voter_count': 0, 'status': 'Pending'}
 
-        expected = {'id': 1, 'name': 'Just a demo', 'proposer': self.governance.msg.sender, 
-                    'description': 'Testing description field', 
-                    'majority': 666666666666666667, 'vote snapshot': day,
-                    'start day': day + 2, 'end day': day + 7, 'actions': "{\"enable_dividends\": {}}",
-                    'quorum': 400000000000000000, 'for': 0, 'against': 0, 'for_voter_count': 0,
-                    'against_voter_count': 0, 'status': 'Pending'}
-        self.assertEqual(expected, self.governance.checkVote(_vote_index=1))
+            self.assertEqual(expected, self.governance.checkVote(_vote_index=1))
 
     def test_execute_vote_actions(self):
         dividends = Address.from_string(f"cx{'12345' * 8}")
@@ -281,18 +280,29 @@ class TestGovernanceUnit(ScoreTestCase):
 
     def test_proposal_count(self):
         self.set_msg(self.test_account1)
-        day = self.governance.getDay()
-        self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40,
-                                   vote_start=day + 1, duration=2,
-                                   snapshot=15, actions="{\"enable_dividends\": {}}")
-        self.governance.defineVote(name="Enable the dividends2", description='Testing description field', quorum=40,
-                                   vote_start=day + 1, duration=2,
-                                   snapshot=15, actions="{\"enable_dividends\": {}}")
-        self.governance.defineVote(name="Enable the dividends3", description='Testing description field', quorum=40,
-                                   vote_start=day + 1, duration=2,
-                                   snapshot=15, actions="{\"enable_dividends\": {}}")
 
-        self.assertEqual(3, self.governance.getProposalCount(), "Failed to create three proposals")
+        # Set governance parameters.
+        self.governance.setQuorum(40)
+        self.governance.setMinimumVoteDuration(5)
+        self.governance.setVoteDefinitionFee(1000 * 10**18)
+        self.governance.setBalnVoteDefinitionCriteria(1)
+
+        min_duration = self.governance._minimum_vote_duration.get()
+        day = self.governance.getDay()
+        mock_class = MockClass(totalSupply = 10000, stakedBalanceOf = 100)
+
+        with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
+            self.governance.defineVote(name="Enable the dividends", description='Testing description field',
+                                       vote_start=day + 1, duration=min_duration,
+                                       snapshot=day, actions="{\"enable_dividends\": {}}")
+            self.governance.defineVote(name="Enable the dividends2", description='Testing description field',
+                                       vote_start=day + 1, duration=min_duration,
+                                       snapshot=day, actions="{\"enable_dividends\": {}}")
+            self.governance.defineVote(name="Enable the dividends3", description='Testing description field',
+                                       vote_start=day + 1, duration=min_duration,
+                                       snapshot=day, actions="{\"enable_dividends\": {}}")
+
+            self.assertEqual(3, self.governance.getProposalCount(), "Failed to create three proposals")
 
     def test_get_pool_baln(self):
 
