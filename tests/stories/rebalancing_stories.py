@@ -7,7 +7,7 @@ REBALANCING_STORIES = {
             "actions": {
                 "method": "transfer",
                 "amount": 200 * ICX,
-                "rebalancing_status": False,
+                "rebalancing_status": 0,
             }
         },
         {
@@ -16,7 +16,7 @@ REBALANCING_STORIES = {
             "actions": {
                 "method": "transfer",
                 "amount": 1600 * ICX,
-                "rebalancing_status": False,
+                "rebalancing_status": 0,
             }
         },
         {
@@ -25,7 +25,7 @@ REBALANCING_STORIES = {
             "actions": {
                 "method": "transfer",
                 "amount": 400000 * ICX,
-                "rebalancing_status": True,
+                "rebalancing_status": 1,
             }
         },
 {
