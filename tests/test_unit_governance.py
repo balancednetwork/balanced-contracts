@@ -12,10 +12,22 @@ from core_contracts.governance.utils.consts import DAY_ZERO
 
 class MockClass:
     def __init__(self, balanceOfAt=None, totalSupplyAt=None, totalBalnAt=None, totalStakedBalanceOfAt=None,
-                 stakedBalanceOfAt=None):
+                 stakedBalanceOfAt=None, totalSupply = None, stakedBalanceOf = None, transfer = None):
         self._balanceOfAt, self._totalSupplyAt, self._totalBalnAt, self._totalStakedBalanceOfAt = \
             balanceOfAt, totalSupplyAt, totalBalnAt, totalStakedBalanceOfAt
         self._stakedBalanceOfAt = stakedBalanceOfAt
+        self._totalSupply = totalSupply
+        self._stakedBalanceOf = stakedBalanceOf
+        self._transfer = transfer
+
+    def totalSupply(self):
+        return self._totalSupply
+
+    def stakedBalanceOf(self, address):
+        return self._stakedBalanceOf
+
+    def transfer(self, to, amount):
+        return self.transfer
 
     def balanceOfAt(self, _account, pool_id, _day):
         return self._balanceOfAt
@@ -40,25 +52,6 @@ class MockClass:
 
     def updateBalTokenDistPercentage(self, a):
         pass
-
-class MockClass:
-    def __init__(self, totalSupply = None, stakedBalanceOf = None, transfer = None):
-
-        self._totalSupply = totalSupply
-        self._stakedBalanceOf = stakedBalanceOf
-        self._transfer = transfer
-
-    def totalSupply(self):
-        return self._totalSupply
-
-    def stakedBalanceOf(self, address):
-        return self._stakedBalanceOf
-
-    def transfer(self, to, amount):
-        return self.transfer
-    
-    def patch_internal(self, address, score):
-        return self
 
 class TestGovernanceUnit(ScoreTestCase):
     def setUp(self):
