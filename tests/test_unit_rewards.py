@@ -34,12 +34,12 @@ class TestRewards(ScoreTestCase):
             self.test_account4: 10 ** 21}
         self.initialize_accounts(account_info)
 
-    def test_distribute(self):
+    def test_overall_snapshot(self):
         mock_class = MockClass()
-        test_list = [{'recipient_name': 'Reserve Fund', 'dist_percent': 70 * 10 ** 16},
-                     {'recipient_name': 'DAOfund', 'dist_percent': 10 * 10 ** 16},
-                     {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10 ** 16}]
         self.set_block(1, 1 * 24 * 60 * 60 * 10 ** 6)
+
+        # test the initial snapshot
+
         self.assertEqual(self.rewards.getRecipientsSplit(), {'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0})
         recipients_list = self.rewards.getRecipients()
         recipient_split = {}
@@ -49,6 +49,12 @@ class TestRewards(ScoreTestCase):
             recipient_split_at_60[recipient] = self.rewards.recipientAt(recipient, 60)
         self.assertEqual(recipient_split, {'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0})
         self.assertEqual(recipient_split_at_60, {'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0})
+
+        # update the recipent_split percentage
+
+        test_list = [{'recipient_name': 'Reserve Fund', 'dist_percent': 70 * 10 ** 16},
+                     {'recipient_name': 'DAOfund', 'dist_percent': 10 * 10 ** 16},
+                     {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10 ** 16}]
         self.set_msg(self.mock_score)
         self.rewards.updateBalTokenDistPercentage(test_list)
         check_split = {}
@@ -71,6 +77,9 @@ class TestRewards(ScoreTestCase):
         # print(self.rewards.recipientAt("Worker Tokens", 9))
         with mock.patch.object(self.rewards, "create_interface_score", wraps=mock_class.create_interface_score):
             self.set_block(1, 9 * 24 * 60 * 60 * 10 ** 6)
+
+            # day is set to 9 and new recipents are added
+
             recipient_list = [{'recipient_name': 'Loans', 'dist_percent': 25 * 10 ** 16},
                               {'recipient_name': 'sICX/ICX', 'dist_percent': 10 * 10 ** 16},
                               {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10 ** 16},
@@ -98,6 +107,7 @@ class TestRewards(ScoreTestCase):
                 recipient_split[recipient] = self.rewards.recipientAt(recipient, 0)
                 recipient_split_at_60[recipient] = self.rewards.recipientAt(recipient, 60)
                 recipient_split_at_1[recipient] = self.rewards.recipientAt(recipient, 1)
+
             self.assertEqual(recipient_split,
                              {'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0, 'Loans': 0, 'sICX/ICX': 0,
                               'sICX/bnUSD': 0})
@@ -151,3 +161,26 @@ class TestRewards(ScoreTestCase):
         self.assertEqual(self.rewards._data_source_db["DAOfund"].get_data()['day'], day)
         self.assertEqual(self.rewards._data_source_db["Reserve Fund"].get_data()['day'], day)
         self.assertEqual(self.rewards._data_source_db["Worker Tokens"].get_data()['day'], day)
+
+    def test_addNewDataSource(self):
+        self.set_msg(self.mock_score)
+        day = self.rewards._get_day()
+        # test if the data source address is a contract or not
+
+        try:
+            self.rewards.addNewDataSource("sICX", Address.from_string(f"hx{'02345' * 8}"))
+        except IconScoreException as e:
+            self.assertEqual(e.message, "BalancedRewards: Data source must be a contract.")
+
+        self.rewards.addNewDataSource("Loans", Address.from_string(f"cx{'02345' * 8}"))
+        recipient_list = self.rewards.getRecipients()
+        self.assertEqual(recipient_list[3], "Loans")
+        self.assertEqual(self.rewards._recipient_split["Loans"], 0)
+        self.assertEqual(self.rewards._data_source_db["Loans"].name.get(), "Loans")
+        self.assertEqual(self.rewards._data_source_db["Loans"].day.get(), day)
+        self.assertEqual(self.rewards._data_source_db["Loans"].contract_address.get(), Address.from_string(f"cx{'02345' * 8}"))
+
+        # the recipents name is already present before adding data sources. Thus the execution
+        # returns although the address is wallet address
+        self.rewards.addNewDataSource("Loans", Address.from_string(f"hx{'02345' * 8}"))
+
