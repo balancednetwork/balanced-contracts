@@ -1,13 +1,12 @@
 import json
 from unittest import mock
 from json import JSONDecodeError
-from unittest import mock
 
 from iconservice import Address, IconScoreException
 from tbears.libs.scoretest.score_test_case import ScoreTestCase
 
 from core_contracts.governance.governance import Governance
-from core_contracts.governance.utils.consts import DAY_ZERO
+from core_contracts.governance.utils.consts import DAY_ZERO, DAY_START, U_SECONDS_DAY
 
 
 class MockClass:
@@ -66,6 +65,7 @@ class TestGovernanceUnit(ScoreTestCase):
         self.initialize_accounts(account_info)
 
         #self.governance = self.update_score(self.governance.address, Governance)
+        self.governance._time_offset.set(DAY_START + U_SECONDS_DAY * (DAY_ZERO + self.governance._launch_day.get() - 1))
         
         self.baln = Address.from_string(f"cx{'12345' * 8}")
         self.dex = Address.from_string(f"cx{'15785' * 8}")
@@ -125,14 +125,15 @@ class TestGovernanceUnit(ScoreTestCase):
 
     def test_create_vote(self):
         self.set_msg(self.test_account1)
-        day = self.governance.getDay()
         self._set_governance_params()
+        day = self.governance.getDay()
 
         # Test define vote method.
         mock_class = MockClass(totalSupply = 10000, stakedBalanceOf = 100, balanceOfAt=1,
                                totalSupplyAt=1, totalBalnAt=1, totalStakedBalanceOfAt=1)
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
-            self.governance.defineVote(name="Just a demo", description='Testing description field', vote_start=day + 2, duration=5, snapshot=day,
+            self.governance.defineVote(name="Just a demo", description='Testing description field', 
+                                       vote_start=day + 2, duration=5, snapshot=day,
                                        actions="{\"enable_dividends\": {}}")
 
             expected = {'id': 1, 'name': 'Just a demo', 'proposer': self.governance.msg.sender, 
@@ -160,8 +161,8 @@ class TestGovernanceUnit(ScoreTestCase):
 
     def test_conditions_to_define_vote(self):
         self.set_msg(self.test_account1)
-        day = self.governance.getDay()
         self._set_governance_params()
+        day = self.governance.getDay()
 
         mock_class = MockClass(totalSupply = 10000, stakedBalanceOf = 100)
         min_duration = duration=self.governance.getMinimumVoteDuration()
@@ -246,8 +247,7 @@ class TestGovernanceUnit(ScoreTestCase):
                 self.fail("Failed to execute activate poll method")
             self.assertEqual("Active", self.governance.checkVote(1).get("status"))
             launch_time = self.governance._launch_time.get()
-            from core_contracts.governance.utils.consts import DAY_ZERO
-            new_day = launch_time + (day + 2) * 10 ** 6 * 60 * 60 * 24
+            new_day = launch_time + (DAY_ZERO + day + 2) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.castVote("Enable the dividends", True)
 
@@ -319,11 +319,11 @@ class TestGovernanceUnit(ScoreTestCase):
                                        snapshot=day, actions=json.dumps(actions))
             self.governance.activateVote("Test add data source")
             launch_time = self.governance._launch_time.get()
-            new_day = (day + 2) * 10 ** 6 * 60 * 60 * 24
+            new_day = launch_time + (DAY_ZERO + day + 2) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.castVote("Test add data source", True)
             launch_time = self.governance._launch_time.get()
-            new_day = (day + 1 + min_duration) * 10 ** 6 * 60 * 60 * 24
+            new_day = launch_time + (DAY_ZERO + day + min_duration + 1) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.executeVoteAction(1)
 
