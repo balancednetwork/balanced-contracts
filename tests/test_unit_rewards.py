@@ -195,3 +195,28 @@ class TestRewards(ScoreTestCase):
         with mock.patch.object(self.rewards, "create_interface_score", wraps=mock_class.create_interface_score):
             self.rewards.claimRewards()
             self.assertEqual(self.rewards._baln_holdings[str(self.test_account3)], 0)
+
+    def test_distribute(self):
+        mock_class = MockClass()
+        self.set_block(1, 1 * 24 * 60 * 60 * 10 ** 6)
+        with mock.patch.object(self.rewards, "create_interface_score", wraps=mock_class.create_interface_score):
+            # distributing with certain percentages
+            self.assertEqual(self.rewards._total_dist.get(), 0)
+            recipient_list = [{'recipient_name': 'Reserve Fund', 'dist_percent': 70 * 10 ** 16},
+                              {'recipient_name': 'DAOfund', 'dist_percent': 10 * 10 ** 16},
+                              {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10 ** 16}]
+            self.set_msg(self.mock_score)
+            self.rewards.updateBalTokenDistPercentage(recipient_list)
+            self.rewards.distribute()
+            self.assertEqual(self.rewards._platform_day.get(), 1)
+            self.assertEqual(self.rewards._total_dist.get(), 0)
+
+            #Loans is added in recipient
+            self.set_block(1, 20 * 24 * 60 * 60 * 10 ** 6)
+            self.rewards.addNewDataSource("Loans2", Address.from_string(f"cx{'02345' * 8}"))
+            recipient_list.pop()
+            recipient_list.append({'recipient_name': 'Worker Tokens', 'dist_percent': 10 * 10 ** 16})
+            recipient_list.append({'recipient_name': 'Loans2', 'dist_percent': 10 * 10 ** 16})
+            self.rewards.updateBalTokenDistPercentage(recipient_list)
+            self.rewards.distribute()
+            self.assertEqual(self.rewards._data_source_db['Loans2'].total_dist[1], 10000000000000000000000)
