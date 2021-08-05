@@ -189,7 +189,7 @@ class Position(object):
 
         ratio = collateral * EXA // debt
 
-        if ratio > MINING_RATIO * EXA // POINTS:
+        if ratio > self._loans._mining_ratio.get() * EXA // POINTS:
             if _day == -1 or _day == self._loans.getDay():
                 if _readonly:
                     price = self.asset_db["bnUSD"].lastPriceInLoop()
@@ -203,9 +203,9 @@ class Position(object):
                 standing = Standing.NOT_MINING
             else:
                 standing = Standing.MINING
-        elif ratio > LOCKING_RATIO * EXA // POINTS:
+        elif ratio > self._loans._locking_ratio.get() * EXA // POINTS:
             standing = Standing.NOT_MINING
-        elif ratio > LIQUIDATION_RATIO * EXA // POINTS:
+        elif ratio > self._loans._liquidation_ratio.get() * EXA // POINTS:
             standing = Standing.LOCKED
         else:
             standing = Standing.LIQUIDATE
