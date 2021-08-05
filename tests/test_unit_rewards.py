@@ -184,3 +184,14 @@ class TestRewards(ScoreTestCase):
         # returns although the address is wallet address
         self.rewards.addNewDataSource("Loans", Address.from_string(f"hx{'02345' * 8}"))
 
+    def test_claimRewards(self):
+        # with no holdings
+        self.rewards.claimRewards()
+
+        # with some holdings
+        self.rewards._baln_holdings[str(self.test_account3)] = 50 * 10**18
+        self.set_msg(self.test_account3)
+        mock_class = MockClass()
+        with mock.patch.object(self.rewards, "create_interface_score", wraps=mock_class.create_interface_score):
+            self.rewards.claimRewards()
+            self.assertEqual(self.rewards._baln_holdings[str(self.test_account3)], 0)
