@@ -44,6 +44,7 @@ class Governance(IconScoreBase):
         super().on_update()
         self._time_offset.set(DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1))
         self._minimum_vote_duration.set(1)
+        self.scoreUpdate_11(1, "BIP1: Activate network fee distribution")
 
     @external(readonly=True)
     def name(self) -> str:
@@ -138,11 +139,10 @@ class Governance(IconScoreBase):
         return proposal_list
 
     @external
-    def castVote(self, name: str, vote: bool) -> None:
+    def castVote(self, vote_index: int, vote: bool) -> None:
         """
         Casts a vote in the named poll.
         """
-        vote_index = ProposalDB.proposal_id(name, self.db)
         proposal = ProposalDB(var_key=vote_index, db=self.db)
         start_snap = proposal.start_snapshot.get()
         end_snap = proposal.end_snapshot.get()
@@ -187,7 +187,7 @@ class Governance(IconScoreBase):
 
         proposal.total_for_votes.set(total_for)
         proposal.total_against_votes.set(total_against)
-        self.VoteCast(name, vote, sender, total_vote, total_for, total_against)
+        self.VoteCast(vote_index, vote, sender, total_vote, total_for, total_against)
 
     def _get_pool_baln(self, _account: Address, _day: int) -> int:
 
@@ -778,5 +778,9 @@ class Governance(IconScoreBase):
         pass
 
     @eventlog(indexed=2)
-    def VoteCast(self, vote_name: str, vote: bool, voter: Address, stake: int, total_for: int, total_against: int):
+    def VoteCast(self, vote_index: int, vote: bool, voter: Address, stake: int, total_for: int, total_against: int):
         pass
+
+    def scoreUpdate_11(self, vote_index: int, name: str):
+        proposal = ProposalDB(var_key=vote_index, db=self.db)
+        proposal.name.set(name)
