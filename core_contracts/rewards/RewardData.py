@@ -13,13 +13,12 @@
 # limitations under the License.
 
 from iconservice import *
-from .utils.checks import *
 from .utils.consts import *
 
 
 class DataSourceInterface(InterfaceScore):
     @interface
-    def precompute(self, _snapshot_id: int, batch_size: int) -> str:
+    def precompute(self, _snapshot_id: int, batch_size: int) -> bool:
         pass
 
     @interface
@@ -57,15 +56,17 @@ class DataSource(object):
         The calculation and distribution of rewards proceeds in two stages
         """
         day = self.day.get()
+        name = self.name.get()
         data_source = self._rewards.create_interface_score(self.contract_address.get(), DataSourceInterface)
         precomp_done = data_source.precompute(day, batch_size)
         if not self.precomp.get() and precomp_done:
             self.precomp.set(True)
-            self.total_value[day] = data_source.getTotalValue(self.name.get(), day)
+            self.total_value[day] = data_source.getTotalValue(name, day)
 
         if self.precomp.get():
-            data_batch = data_source.getDataBatch(self.name.get(), day, batch_size, self.offset.get())
-            self.offset.set(self.offset.get() + batch_size)
+            offset = self.offset.get()
+            data_batch = data_source.getDataBatch(name, day, batch_size, offset)
+            self.offset.set(offset + batch_size)
             if not data_batch:
                 self.day.set(day + 1)
                 self.offset.set(0)
@@ -76,20 +77,22 @@ class DataSource(object):
             original_shares = shares
             batch_sum = sum(data_batch.values())
             for address in data_batch:
+                token_share = remaining * data_batch[address] // shares
                 if shares <= 0:
                     revert(
-                        f'{TAG}: zero or negative divisor for {self.name.get()}, '
+                        f'{TAG}: zero or negative divisor for {name}, '
                         f'sum: {batch_sum}, '
                         f'total: {shares}, '
+                        f'remaining: {remaining}, '
+                        f'token_share: {token_share}, '
                         f'starting: {original_shares}'
                     )
-                token_share = remaining * data_batch[address] // shares
                 remaining -= token_share
                 shares -= data_batch[address]
                 self._rewards._baln_holdings[address] += token_share
             self.total_dist[day] = remaining
             self.total_value[day] = shares
-            self._rewards.Report(day, remaining, shares)
+            self._rewards.Report(day, name, remaining, shares)
 
     def set_day(self, _day: int) -> None:
         self.day.set(_day)
@@ -102,10 +105,15 @@ class DataSource(object):
         return data_source.getBnusdValue(self.name.get())
 
     def get_data(self) -> dict:
+        day = self.day.get()
         return {
-            'day': self.day.get(),
+            'day': day,
             'contract_address': self.contract_address.get(),
-            'dist_percent': self.dist_percent.get()
+            'dist_percent': self.dist_percent.get(),
+            'precomp': self.precomp.get(),
+            'offset': self.offset.get(),
+            'total_value': self.total_value[day],
+            'total_dist': self.total_dist[day]
         }
 
 

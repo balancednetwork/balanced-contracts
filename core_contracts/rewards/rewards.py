@@ -69,10 +69,17 @@ class Rewards(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        total_dist = self._data_source_db['sICX/bnUSD'].total_dist[1]
-        total_value = self._data_source_db['sICX/bnUSD'].total_value[1]
-        self.Report(1, total_dist, total_value)
-        self._data_source_db['sICX/bnUSD'].day.set(2)
+        self._data_source_db['sICX/bnUSD'].precomp.set(0)
+        self._data_source_db['sICX/bnUSD'].offset.set(0)
+
+    @external
+    @only_governance
+    def setDay(self, _day: int) -> None:
+        for name in self._data_source_db:
+            total_dist = self._data_source_db[name].total_dist[_day - 1]
+            total_value = self._data_source_db[name].total_value[_day - 1]
+            self.Report(_day - 1, name, total_dist, total_value)
+            self._data_source_db[name].set_day(_day)
 
     @external(readonly=True)
     def name(self) -> str:
@@ -192,6 +199,14 @@ class Rewards(IconScoreBase):
         self._data_source_db.new_source(_name, _address)
 
     @external(readonly=True)
+    def getDataSources(self) -> dict:
+        result = {}
+        for name in self._data_source_db:
+            source = self._data_source_db[name]
+            result[name] = source.get_data()
+        return result
+
+    @external(readonly=True)
     def getSourceData(self, _name: str) -> dict:
         source = self._data_source_db[_name]
         return source.get_data()
@@ -224,9 +239,8 @@ class Rewards(IconScoreBase):
                 return False
         batch_size = self._batch_size.get()
         for name in self._data_source_db:
-            source_data = self.getSourceData(name)
-            if source_data['day'] < day:
-                source = self._data_source_db[name]
+            source = self._data_source_db[name]
+            if source.day.get() < day:
                 source._distribute(batch_size)
                 return False
         return True
@@ -287,6 +301,29 @@ class Rewards(IconScoreBase):
             revert(f'{TAG}: The Rewards SCORE can only accept BALN tokens. '
                    f'Deposit not accepted from {self.msg.sender} '
                    f'Only accepted from BALN = {self._baln_address.get()}')
+
+    @external
+    @only_governance
+    def bonusDist(self, _addresses: List[Address], _amounts: List[int]) -> None:
+        """
+        Method to enable distribution of bonus BALN.
+
+        :param _addresses: List of recipient addresses.
+        :type _addresses: List[:class:`iconservice.base.address.Address`]
+        :param _amounts: List of BALN amounts to send.
+        :type _amounts: List[int]
+        """
+        addresses_length = len(_addresses)
+        if addresses_length > 500:
+            revert(f'List length longer than allowed maximum of 500.')
+        amounts_length = len(_amounts)
+        if amounts_length > 500:
+            revert(f'List length longer than allowed maximum of 500.')
+        if amounts_length != addresses_length:
+            revert(f'List lengths of addresses [{addresses_length}] and '
+                   f'amounts [{amounts_length}] do not match.')
+        for i, address in enumerate(_addresses):
+            self._baln_holdings[str(address)] += _amounts[i]
 
     # -------------------------------------------------------------------------------
     #   SETTERS AND GETTERS
@@ -382,6 +419,6 @@ class Rewards(IconScoreBase):
     def RewardsClaimed(self, _address: Address, _amount: int):
         pass
 
-    @eventlog(indexed=1)
-    def Report(self, _day: int, _dist: int, _value: int):
+    @eventlog(indexed=2)
+    def Report(self, _day: int, _name: str, _dist: int, _value: int):
         pass

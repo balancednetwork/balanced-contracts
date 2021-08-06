@@ -25,11 +25,45 @@ class StakingInterface(InterfaceScore):
         pass
 
 
+class RebalancingInterface(InterfaceScore):
+    @interface
+    def setSicxReceivable(self, _value: int) -> None:
+        pass
+
+    @interface
+    def setPriceDiffThreshold(self, _value: int) -> None:
+        pass
+
+    @interface
+    def setDex(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setLoans(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setSicx(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setBnusd(self, _address: Address) -> None:
+        pass
+
+
 # An interface to the Loans SCORE
 class LoansInterface(InterfaceScore):
     @interface
     def depositAndBorrow(self, _asset: str = '', _amount: int = 0,
                          _from: Address = None, _value: int = 0) -> None:
+        pass
+
+    @interface
+    def setRebalance(self, _address: Address):
+        pass
+
+    @interface
+    def setDex(self, _address: Address):
         pass
 
     @interface
@@ -46,8 +80,8 @@ class LoansInterface(InterfaceScore):
 
     @interface
     def addAsset(self, _token_address: Address,
-                       _active: bool = True,
-                       _collateral: bool = False) -> None:
+                 _active: bool = True,
+                 _collateral: bool = False) -> None:
         pass
 
     @interface
@@ -79,14 +113,27 @@ class LoansInterface(InterfaceScore):
         pass
 
     @interface
-    def delegate(self, _user_delegations: List[PrepDelegations]):
+    def delegate(self, _user_delegations: List[PrepDelegations]) -> None:
+        pass
+
+    @interface
+    def setRedemptionFee(self, _fee: int) -> None:
+        pass
+
+    @interface
+    def setMaxRetirePercent(self, _value: int) -> None:
+        pass
+
+    @interface
+    def setRedeemBatchSize(self, _value: int) -> None:
         pass
 
 
 # An interface to the Loans SCORE
 class DexInterface(InterfaceScore):
     @interface
-    def add(self, _baseToken: Address, _quoteToken: Address, _baseValue: int, _quoteValue: int, _withdraw_unused: bool = True):
+    def add(self, _baseToken: Address, _quoteToken: Address, _baseValue: int, _quoteValue: int,
+            _withdraw_unused: bool = True):
         pass
 
     @interface
@@ -141,11 +188,30 @@ class DexInterface(InterfaceScore):
     def addQuoteCoin(self, _address: Address) -> None:
         pass
 
+    @interface
+    def addLpAddresses(self, _poolId: int, _addresses: List[Address]) -> None:
+        pass
+
+    @interface
+    def balanceOfAt(self, _account: Address, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
+        pass
+
+    @interface
+    def totalSupplyAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
+        pass
+
+    @interface
+    def totalBalnAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
+        pass
 
 # An interface to the Rewards SCORE
 class RewardsInterface(InterfaceScore):
     @interface
     def claimRewards(self) -> None:
+        pass
+
+    @interface
+    def setDay(self, _day: int) -> None:
         pass
 
     @interface
@@ -170,6 +236,18 @@ class RewardsInterface(InterfaceScore):
 
     @interface
     def updateBalTokenDistPercentage(self, _recipient_list: List[DistPercentDict]) -> None:
+        pass
+
+    @interface
+    def bonusDist(self, _addresses: List[Address], _amounts: List[int]) -> None:
+        pass
+
+
+# An interface to the Dividends SCORE.
+class DividendsInterface(InterfaceScore):
+
+    @interface
+    def setDistributionActivationStatus(self, _status: bool) -> None:
         pass
 
 
@@ -232,7 +310,23 @@ class SetAddressesInterface(InterfaceScore):
 class BalancedInterface(InterfaceScore):
 
     @interface
+    def totalStakedBalance(self) -> int:
+        pass
+
+    @interface
     def balanceOf(self, _owner: Address) -> int:
+        pass
+
+    @interface
+    def stakedBalanceOf(self, _owner: Address) -> int:
+        pass
+
+    @interface
+    def stakedBalanceOfAt(self, _account: Address, _day: int) -> int:
+        pass
+
+    @interface
+    def totalStakedBalanceOfAt(self, _day: int) -> int:
         pass
 
     @interface

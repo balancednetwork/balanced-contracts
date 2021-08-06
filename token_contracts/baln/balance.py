@@ -12,16 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from iconservice import *
 from .tokens.IRC2 import IRC2
 from .utils.checks import *
 from .utils.consts import *
-
-TAG = 'BALN'
-
-TOKEN_NAME = 'Balance Token'
-SYMBOL_NAME = 'BALN'
-DEFAULT_ORACLE_NAME = 'Balanced DEX'
 
 
 # An interface to the Band Price Oracle
@@ -41,9 +34,27 @@ class DexInterface(InterfaceScore):
     def getPoolId(self, _token1Address: Address, _token2Address: Address) -> int:
         pass
 
+    @interface
+    def getBalnPrice(self) -> int:
+        pass
+
+    @interface
+    def getTimeOffset(self) -> int:
+        pass
+
+
+class StakedBalnTokenSnapshots(TypedDict):
+    address: Address
+    amount: int
+    day: int
+
+
+class TotalStakedBalnTokenSnapshots(TypedDict):
+    amount: int
+    day: int
+
 
 class BalancedToken(IRC2):
-
     _PRICE_UPDATE_TIME = "price_update_time"
     _LAST_PRICE = "last_price"
     _MIN_INTERVAL = "min_interval"
@@ -52,7 +63,7 @@ class BalancedToken(IRC2):
     _ODD_DAY_STAKE_CHANGES = "odd_day_stake_changes"
 
     _INDEX_STAKE_ADDRESS_CHANGES = "index_stake_address_changes"
-    _INDEX_UDPATE_STAKE = "index_update_stake"
+    _INDEX_UPDATE_STAKE = "index_update_stake"
     _STAKE_UPDATE_DB = "stake_update_db"
     _STAKE_ADDRESS_UPDATE_DB = "stake_address_update_db"
 
@@ -71,6 +82,14 @@ class BalancedToken(IRC2):
     _ORACLE = "oracle"
     _ORACLE_NAME = "oracle_name"
 
+    _TIME_OFFSET = "time_offset"
+    _STAKE_SNAPSHOTS = "stake_snapshots"
+    _TOTAL_SNAPSHOTS = "total_snapshots"
+    _TOTAL_STAKED_SNAPSHOT = "total_staked_snapshot"
+    _TOTAL_STAKED_SNAPSHOT_COUNT = "total_staked_snapshot_count"
+
+    _ENABLE_SNAPSHOTS = "enable_snapshots"
+
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self._dex_score = VarDB(self._DEX_SCORE, db, value_type=Address)
@@ -86,7 +105,7 @@ class BalancedToken(IRC2):
         self._odd_day_stake_changes = ArrayDB(self._ODD_DAY_STAKE_CHANGES, db, value_type=Address)
         self._stake_changes = [self._even_day_stake_changes, self._odd_day_stake_changes]
 
-        self._index_update_stake = VarDB(self._INDEX_UDPATE_STAKE, db, value_type=int)
+        self._index_update_stake = VarDB(self._INDEX_UPDATE_STAKE, db, value_type=int)
         self._index_stake_address_changes = VarDB(self._INDEX_STAKE_ADDRESS_CHANGES, db, value_type=int)
 
         self._stake_update_db = VarDB(self._STAKE_UPDATE_DB, db, value_type=int)
@@ -100,6 +119,19 @@ class BalancedToken(IRC2):
         self._total_staked_balance = VarDB(self._TOTAL_STAKED_BALANCE, db, value_type=int)
 
         self._dividends_score = VarDB(self._DIVIDENDS_SCORE, db, value_type=Address)
+
+        self._time_offset = VarDB(self._TIME_OFFSET, db, value_type=int)
+
+        # [address][snapshot_id]["ids" || "amount"]
+        self._stake_snapshots = DictDB(self._STAKE_SNAPSHOTS, db, value_type=int, depth=3)
+        # [address] = total_number_of_snapshots_taken
+        self._total_snapshots = DictDB(self._TOTAL_SNAPSHOTS, db, value_type=int)
+
+        # [snapshot_id]["ids" || "amount"]
+        self._total_staked_snapshot = DictDB(self._TOTAL_STAKED_SNAPSHOT, db, value_type=int, depth=2)
+        self._total_staked_snapshot_count = VarDB(self._TOTAL_STAKED_SNAPSHOT_COUNT, db, value_type=int)
+
+        self._enable_snapshots = VarDB(self._ENABLE_SNAPSHOTS, db, value_type=bool)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install(TOKEN_NAME, SYMBOL_NAME)
@@ -117,10 +149,12 @@ class BalancedToken(IRC2):
 
     def on_update(self) -> None:
         super().on_update()
+        self.setTimeOffset()
+        self._enable_snapshots.set(False)
 
     @external(readonly=True)
     def getPeg(self) -> str:
-        return "BALN"
+        return TAG
 
     @external
     @only_governance
@@ -303,6 +337,15 @@ class BalancedToken(IRC2):
             revert(f"{TAG}: Staking must first be enabled.")
 
     @external
+    @only_owner
+    def toggleEnableSnapshot(self) -> None:
+        self._enable_snapshots.set(not self._enable_snapshots.get())
+
+    @external(readonly=True)
+    def getSnapshotEnabled(self) -> bool:
+        return self._enable_snapshots.get()
+
+    @external
     @only_governance
     def toggleStakingEnabled(self) -> None:
         self._staking_enabled.set(not self._staking_enabled.get())
@@ -342,8 +385,9 @@ class BalancedToken(IRC2):
         self._staked_balances[_from][Status.UNSTAKING_PERIOD] = self.now() + self._unstaking_period.get()
         self._total_staked_balance.set(self._total_staked_balance.get() + stake_increment)
 
-        stake_address_changes = self._stake_changes[self._stake_address_update_db.get()]
-        stake_address_changes.put(_from)
+        if self._enable_snapshots.get():
+            self._update_snapshot_for_address(self.msg.sender, _value)
+            self._update_total_staked_snapshot(self._total_staked_balance.get())
 
     @external
     @only_governance
@@ -450,6 +494,7 @@ class BalancedToken(IRC2):
         See {IRC2-_mint}
 
         :param _amount: Number of tokens to be created at the account.
+        :param _data: data to mint
         """
         if _data is None:
             _data = b'None'
@@ -470,6 +515,7 @@ class BalancedToken(IRC2):
 
         :param _account: The account at which token is to be created.
         :param _amount: Number of tokens to be created at the account.
+        :param _data: data to mint
         """
         if _data is None:
             _data = b'None'
@@ -517,6 +563,150 @@ class BalancedToken(IRC2):
         self._staked_balances[_account][Status.AVAILABLE] = self._staked_balances[_account][Status.AVAILABLE] - _amount
 
         self._burn(_account, _amount)
+
+    @external
+    @only_owner
+    def setTimeOffset(self) -> None:
+        _dex = self.create_interface_score(self._dex_score.get(), DexInterface)
+        _delta_time = _dex.getTimeOffset()
+        self._time_offset.set(_delta_time)
+
+    @external(readonly=True)
+    def getTimeOffset(self) -> int:
+        return self._time_offset.get()
+
+    @external(readonly=True)
+    def getDay(self) -> int:
+        """
+        Returns the current day (floored). Used for snapshotting,
+        paying rewards, and paying dividends.
+        """
+        return (self.now() - self._time_offset.get()) // DAY_TO_MICROSECOND
+
+    # ----------------------------------------------------------
+    # Snapshots
+    # ----------------------------------------------------------
+
+    def _update_snapshot_for_address(self, _account: Address, _amount: int) -> None:
+        if self._time_offset.get() == 0:
+            self.setTimeOffset()
+        current_id = self.getDay()
+        total_snapshots_taken = self._total_snapshots[_account]
+
+        if total_snapshots_taken > 0 and self._stake_snapshots[_account][total_snapshots_taken - 1][IDS] == current_id:
+            self._stake_snapshots[_account][total_snapshots_taken - 1][AMOUNT] = _amount
+        else:
+            self._stake_snapshots[_account][total_snapshots_taken][IDS] = current_id
+            self._stake_snapshots[_account][total_snapshots_taken][AMOUNT] = _amount
+            self._total_snapshots[_account] = total_snapshots_taken + 1
+
+    def _update_total_staked_snapshot(self, _amount: int):
+
+        if self._time_offset.get() == 0:
+            self.setTimeOffset()
+        current_id = self.getDay()
+        total_snapshots_taken = self._total_staked_snapshot_count.get()
+
+        if total_snapshots_taken > 0 and self._total_staked_snapshot[total_snapshots_taken - 1][IDS] == current_id:
+            self._total_staked_snapshot[total_snapshots_taken - 1][AMOUNT] = _amount
+        else:
+            self._total_staked_snapshot[total_snapshots_taken][IDS] = current_id
+            self._total_staked_snapshot[total_snapshots_taken][AMOUNT] = _amount
+            self._total_staked_snapshot_count.set(total_snapshots_taken + 1)
+
+    @external(readonly=True)
+    def stakedBalanceOfAt(self, _account: Address, _day: int) -> int:
+        current_day = self.getDay()
+        if _day > current_day:
+            revert(f'{TAG}: Asked _day is greater than current day')
+
+        total_snapshots_taken = self._total_snapshots[_account]
+        if total_snapshots_taken == 0:
+            return 0
+
+        if self._stake_snapshots[_account][total_snapshots_taken - 1][IDS] <= _day:
+            return self._stake_snapshots[_account][total_snapshots_taken - 1][AMOUNT]
+
+        if self._stake_snapshots[_account][0][IDS] > _day:
+            return 0
+
+        low = 0
+        high = total_snapshots_taken - 1
+        while high > low:
+            mid = high - (high - low)//2
+            mid_value = self._stake_snapshots[_account][mid]
+            if mid_value[IDS] == _day:
+                return mid_value[AMOUNT]
+            elif mid_value[IDS] < _day:
+                low = mid
+            else:
+                high = mid - 1
+
+        return self._stake_snapshots[_account][low][AMOUNT]
+
+    @external(readonly=True)
+    def totalStakedBalanceOfAt(self, _day: int) -> int:
+        current_day = self.getDay()
+
+        if _day > current_day:
+            revert(f"{TAG}: Asked _day is greater than current day")
+
+        total_snapshots_taken = self._total_staked_snapshot_count.get()
+        if total_snapshots_taken == 0:
+            return 0
+
+        if self._total_staked_snapshot[total_snapshots_taken - 1][IDS] <= _day:
+            return self._total_staked_snapshot[total_snapshots_taken - 1][AMOUNT]
+
+        if self._total_staked_snapshot[0][IDS] > _day:
+            return 0
+
+        low = 0
+        high = total_snapshots_taken - 1
+        while high > low:
+            mid = high - (high-low)//2
+            mid_value = self._total_staked_snapshot[mid]
+            if mid_value[IDS] == _day:
+                return mid_value[AMOUNT]
+            elif mid_value[IDS] < _day:
+                low = mid
+            else:
+                high = mid - 1
+
+        return self._total_staked_snapshot[low][AMOUNT]
+
+    @external
+    @only_owner
+    def loadBalnStakeSnapshot(self, _data: List[StakedBalnTokenSnapshots]) -> None:
+        if self._time_offset.get() == 0:
+            self.setTimeOffset()
+        for _stake in _data:
+            current_id = int(_stake.get('day'))
+            if current_id <= self.getDay():
+                _account = _stake.get('address')
+                length = self._total_snapshots[_account]
+                self._stake_snapshots[_account][length][IDS] = current_id
+                self._stake_snapshots[_account][length][AMOUNT] = int(_stake.get('amount'))
+                self._total_snapshots[_account] += 1
+            else:
+                pass
+
+    @external
+    @only_owner
+    def loadTotalStakeSnapshot(self, _data: List[TotalStakedBalnTokenSnapshots]) -> None:
+        if self._time_offset.get() == 0:
+            self.setTimeOffset()
+        for _id in _data:
+            current_id = int(_id.get('day'))
+            if current_id <= self.getDay():
+                amount = int(_id.get('amount'))
+                length = self._total_staked_snapshot_count.get()
+                self._total_staked_snapshot[length][IDS] = current_id
+                self._total_staked_snapshot[length][AMOUNT] = amount
+                self._total_staked_snapshot_count.set(self._total_staked_snapshot_count.get() + 1)
+
+            else:
+                pass
 
     # --------------------------------------------------------------------------
     # EVENTS
