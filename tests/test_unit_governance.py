@@ -174,7 +174,7 @@ class TestGovernanceUnit(ScoreTestCase):
             self.assertEqual("Pending", self.governance.checkVote(1).get("status"))
 
             with self.assertRaises(IconScoreException) as inactive_poll:
-                self.governance.castVote("Enable the dividends", True)
+                self.governance.castVote(1, True)
             self.assertEqual("That is not an active poll.", inactive_poll.exception.message)
 
             try:
@@ -186,7 +186,7 @@ class TestGovernanceUnit(ScoreTestCase):
             from core_contracts.governance.utils.consts import DAY_ZERO
             new_day = launch_time + (DAY_ZERO + day + 2) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
-            self.governance.castVote("Enable the dividends", True)
+            self.governance.castVote(1, True)
 
             self.set_block(55, 0)
             self.governance.defineVote(name="Enable the dividends cancel this", description="Count pool BALN",
@@ -257,7 +257,7 @@ class TestGovernanceUnit(ScoreTestCase):
             launch_time = self.governance._launch_time.get()
             new_day = launch_time + (DAY_ZERO + day + 1) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
-            self.governance.castVote("Test add data source", True)
+            self.governance.castVote(1, True)
 
             launch_time = self.governance._launch_time.get()
             new_day = launch_time + (DAY_ZERO + day + 4) * 10 ** 6 * 60 * 60 * 24
@@ -267,3 +267,15 @@ class TestGovernanceUnit(ScoreTestCase):
                         "updateBalTokenDistPercentage([{'recipient_name': '', 'dist_percent': 12}])",
                         'setMiningRatio(20)', 'setLockingRatio(10)', 'setOriginationFee(1)']
             self.assertListEqual(expected, mock_class.callStack)
+
+    def test_score_update_11(self):
+        self.set_msg(self.test_account1)
+        day = self.governance.getDay()
+        mock_class = MockClass(balanceOfAt=1, totalSupplyAt=1, totalBalnAt=1, totalStakedBalanceOfAt=1)
+        with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
+            self.governance.defineVote(name="Just a demo", description='Testing description field', quorum=40,
+                                       vote_start=day + 2, duration=2, snapshot=30,
+                                       actions="{\"enable_dividends\": {}}")
+            self.governance.scoreUpdate_11(1, "BIP1: Activate network fee distribution")
+            name = self.governance.checkVote(1).get("name")
+            self.assertEqual(name, "BIP1: Activate network fee distribution")
