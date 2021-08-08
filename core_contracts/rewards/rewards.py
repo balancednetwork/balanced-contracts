@@ -47,7 +47,8 @@ class Rewards(IconScoreBase):
         self._batch_size = VarDB('batch_size', db, value_type=int)
         self._baln_holdings = DictDB('baln_holdings', db, value_type=int)
         self._recipient_split = DictDB('recipient_split', db, value_type=int)
-        self._snapshot_recipient = DictDB('snapshot_recipient', db, value_type=int, depth=2)
+        self._snapshot_recipient = DictDB('snapshot_recipient', db, value_type=int, depth=3)
+        self._total_snapshots = DictDB("total_snapshots", db, value_type=int)
         self._recipients = ArrayDB('recipients', db, value_type=str)
         self._platform_recipients = {'Worker Tokens': self._bwt_address,
                                      'Reserve Fund': self._reserve_fund,
@@ -198,7 +199,7 @@ class Rewards(IconScoreBase):
             revert(f'{TAG}: Data source must be a contract.')
         self._recipients.put(_name)
         self._recipient_split[_name] = 0
-        self._update_recipient_snapshot(_name, 0)
+        # self._update_recipient_snapshot(_name, 0)
         self._data_source_db.new_source(_name, _address)
 
     @external(readonly=True)
@@ -216,21 +217,15 @@ class Rewards(IconScoreBase):
 
     def _update_recipient_snapshot(self, _recipient: str, _percent: int) -> None:
         currentDay = self._get_day()
-        length = self._snapshot_recipient["length"][0]
-        if length == 0:
-            self._snapshot_recipient[_recipient][length] = _percent
-            self._snapshot_recipient["ids"][length] = currentDay
-            self._snapshot_recipient["length"][0] += 1
-            return
-        else:
-            lastDay = self._snapshot_recipient["ids"][length - 1]
+        total_snapshots_taken = self._total_snapshots[_recipient]
 
-        if lastDay < currentDay:
-            self._snapshot_recipient["ids"][length] = currentDay
-            self._snapshot_recipient[_recipient][length] = _percent
-            self._snapshot_recipient["length"][0] += 1
+        if total_snapshots_taken > 0 and self._snapshot_recipient[_recipient][total_snapshots_taken - 1]["ids"] == currentDay:
+            self._snapshot_recipient[_recipient][total_snapshots_taken - 1]["amount"] = _percent
+
         else:
-            self._snapshot_recipient[_recipient][length - 1] = _percent
+            self._snapshot_recipient[_recipient][total_snapshots_taken]["ids"] = currentDay
+            self._snapshot_recipient[_recipient][total_snapshots_taken]["amount"] = _percent
+            self._total_snapshots[_recipient] = total_snapshots_taken + 1
 
     @external
     def distribute(self) -> bool:
@@ -270,24 +265,33 @@ class Rewards(IconScoreBase):
     def recipientAt(self, _recipient: str, _day: int) -> int:
         if _day < 0:
             revert(f"{TAG}: "f"IRC2Snapshot: day:{_day} must be equal to or greater then Zero")
+        current_day = self._get_day()
+        # if _day > current_day:
+        #     revert(f'{TAG}: Asked _day is greater than current day')
+
+        total_snapshots_taken = self._total_snapshots[_recipient]
+        if total_snapshots_taken == 0:
+            return 0
+
+        if self._snapshot_recipient[_recipient][total_snapshots_taken - 1]["ids"] <= _day:
+            return self._snapshot_recipient[_recipient][total_snapshots_taken - 1]["amount"]
+
+        if self._snapshot_recipient[_recipient][0]["ids"] > _day:
+            return 0
+
         low = 0
-        high = self._snapshot_recipient["length"][0]
-
-        while low < high:
-            mid = (low + high) // 2
-            if self._snapshot_recipient["ids"][mid] > _day:
-                high = mid
+        high = total_snapshots_taken - 1
+        while high > low:
+            mid = high - (high - low) // 2
+            mid_value = self._snapshot_recipient[_recipient][mid]
+            if mid_value["ids"] == _day:
+                return mid_value["amount"]
+            elif mid_value["ids"] < _day:
+                low = mid
             else:
-                low = mid + 1
+                high = mid - 1
 
-        if self._snapshot_recipient["ids"][0] == _day:
-            response = self._snapshot_recipient[_recipient][0]
-        elif low == 0:
-            response = 0
-        else:
-            response = self._snapshot_recipient[_recipient][low - 1]
-
-        return response
+        return self._snapshot_recipient[_recipient][low]["amount"]
 
     @external
     def claimRewards(self) -> None:
