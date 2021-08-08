@@ -34,22 +34,21 @@ class TestRewards(ScoreTestCase):
             self.test_account4: 10 ** 21}
         self.initialize_accounts(account_info)
 
-    def test_overall_snapshot(self):
+    def test_updateBalTokenDistPercentage_verify_snapshot(self):
         mock_class = MockClass()
         self.set_block(1, 1 * 24 * 60 * 60 * 10 ** 6)
 
         # test the initial snapshot
 
-        self.assertEqual(self.rewards.getRecipientsSplit(), {'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0})
+        self.assertDictEqual({'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0}, self.rewards.getRecipientsSplit())
         recipients_list = self.rewards.getRecipients()
         recipient_split = {}
         recipient_split_at_60 = {}
         for recipient in recipients_list:
             recipient_split[recipient] = self.rewards.recipientAt(recipient, 0)
             recipient_split_at_60[recipient] = self.rewards.recipientAt(recipient, 60)
-        self.assertEqual(recipient_split, {'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0})
-        self.assertEqual(recipient_split_at_60, {'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0})
-
+        self.assertDictEqual({'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0}, recipient_split)
+        self.assertDictEqual({'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0}, recipient_split_at_60)
         # update the recipent_split percentage
 
         test_list = [{'recipient_name': 'Reserve Fund', 'dist_percent': 70 * 10 ** 16},
@@ -62,7 +61,7 @@ class TestRewards(ScoreTestCase):
             name = x['recipient_name']
             per = x['dist_percent']
             check_split[name] = per
-        self.assertEqual(self.rewards.getRecipientsSplit(), check_split)
+        self.assertDictEqual(check_split, self.rewards.getRecipientsSplit())
         recipients_list = self.rewards.getRecipients()
         recipient_split = {}
         recipient_split_at_60 = {}
@@ -71,10 +70,9 @@ class TestRewards(ScoreTestCase):
             recipient_split[recipient] = self.rewards.recipientAt(recipient, 0)
             recipient_split_at_60[recipient] = self.rewards.recipientAt(recipient, 60)
             recipient_split_at_1[recipient] = self.rewards.recipientAt(recipient, 1)
-        self.assertEqual(recipient_split, {'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0})
-        self.assertEqual(recipient_split_at_60, check_split)
-        self.assertEqual(recipient_split_at_1, check_split)
-        # print(self.rewards.recipientAt("Worker Tokens", 9))
+        self.assertDictEqual({'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0}, recipient_split)
+        self.assertDictEqual(check_split, recipient_split_at_60)
+        self.assertDictEqual(check_split, recipient_split_at_1)
         with mock.patch.object(self.rewards, "create_interface_score", wraps=mock_class.create_interface_score):
             self.set_block(1, 9 * 24 * 60 * 60 * 10 ** 6)
 
@@ -91,8 +89,6 @@ class TestRewards(ScoreTestCase):
                 if items_dict["recipient_name"] != "Worker Tokens" or items_dict["recipient_name"] != "Reserve Fund" or \
                         items_dict["recipient_name"] != "DAOfund":
                     self.rewards.addNewDataSource(items_dict["recipient_name"], Address.from_string(add))
-            # print(self.rewards.getRecipientsSplit())
-            # print(self.rewards.recipientAt("Worker Tokens", 9))
             self.rewards.updateBalTokenDistPercentage(recipient_list)
             recipients_list = self.rewards.getRecipients()
             check_split2 = {}
@@ -103,19 +99,24 @@ class TestRewards(ScoreTestCase):
             recipient_split = {}
             recipient_split_at_60 = {}
             recipient_split_at_1 = {}
+            recipient_split_at_9 = {}
+            recipient_split_at_8 = {}
             for recipient in recipients_list:
                 recipient_split[recipient] = self.rewards.recipientAt(recipient, 0)
                 recipient_split_at_60[recipient] = self.rewards.recipientAt(recipient, 60)
                 recipient_split_at_1[recipient] = self.rewards.recipientAt(recipient, 1)
+                recipient_split_at_9[recipient] = self.rewards.recipientAt(recipient, 9)
+                recipient_split_at_8[recipient] = self.rewards.recipientAt(recipient, 8)
 
-            self.assertEqual(recipient_split,
-                             {'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0, 'Loans': 0, 'sICX/ICX': 0,
-                              'sICX/bnUSD': 0})
-            self.assertEqual(recipient_split_at_60, check_split2)
+            self.assertDictEqual({'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0, 'Loans': 0, 'sICX/ICX': 0,
+                              'sICX/bnUSD': 0}, recipient_split)
+            self.assertDictEqual(check_split2, recipient_split_at_60)
+            self.assertDictEqual(check_split2, recipient_split_at_9)
             check_split["Loans"] = 0
             check_split["sICX/ICX"] = 0
             check_split["sICX/bnUSD"] = 0
-            self.assertEqual(recipient_split_at_1, check_split)
+            self.assertDictEqual(check_split, recipient_split_at_1)
+            self.assertDictEqual(check_split, recipient_split_at_8)
             self.rewards.distribute()
             self.set_block(1, 11 * 24 * 60 * 60 * 10 ** 6)
             self.rewards.distribute()
@@ -131,7 +132,7 @@ class TestRewards(ScoreTestCase):
             recipient_list.append({'recipient_name': 'Worker Tokens2', 'dist_percent': 20 * 10 ** 16})
             self.rewards.updateBalTokenDistPercentage(recipient_list)
         except IconScoreException as e:
-            self.assertEqual(e.message, "BalancedRewards: Recipient lists lengths mismatched!")
+            self.assertEqual("BalancedRewards: Recipient lists lengths mismatched!", e.message)
 
         # providing incorrect name as a recipients
         try:
@@ -140,7 +141,7 @@ class TestRewards(ScoreTestCase):
                               {'recipient_name': 'Worker Tokens2', 'dist_percent': 20 * 10 ** 16}]
             self.rewards.updateBalTokenDistPercentage(incorrect_recipient)
         except IconScoreException as e:
-            self.assertEqual(e.message, "BalancedRewards: Recipient Reserve Fund2 does not exist.")
+            self.assertEqual("BalancedRewards: Recipient Reserve Fund2 does not exist.", e.message)
 
         # providing distribution percentage more than 100
         try:
@@ -149,18 +150,18 @@ class TestRewards(ScoreTestCase):
                               {'recipient_name': 'Worker Tokens', 'dist_percent': 30 * 10 ** 16}]
             self.rewards.updateBalTokenDistPercentage(test_percentage)
         except IconScoreException as e:
-            self.assertEqual(e.message, "BalancedRewards: Total percentage does not sum up to 100.")
+            self.assertEqual("BalancedRewards: Total percentage does not sum up to 100.", e.message)
 
         # test the actual function with correct data
         recipient_list.pop()
         self.rewards.updateBalTokenDistPercentage(recipient_list)
         day = self.rewards._get_day()
-        self.assertEqual(self.rewards._recipient_split['DAOfund'], 10 * 10 ** 16)
-        self.assertEqual(self.rewards._recipient_split['Reserve Fund'], 70 * 10 ** 16)
-        self.assertEqual(self.rewards._recipient_split['Worker Tokens'], 20 * 10 ** 16)
-        self.assertEqual(self.rewards._data_source_db["DAOfund"].get_data()['day'], day)
-        self.assertEqual(self.rewards._data_source_db["Reserve Fund"].get_data()['day'], day)
-        self.assertEqual(self.rewards._data_source_db["Worker Tokens"].get_data()['day'], day)
+        self.assertEqual(10 * 10 ** 16, self.rewards._recipient_split['DAOfund'])
+        self.assertEqual(70 * 10 ** 16, self.rewards._recipient_split['Reserve Fund'])
+        self.assertEqual(20 * 10 ** 16, self.rewards._recipient_split['Worker Tokens'])
+        self.assertEqual(day, self.rewards._data_source_db["DAOfund"].get_data()['day'])
+        self.assertEqual(day, self.rewards._data_source_db["Reserve Fund"].get_data()['day'])
+        self.assertEqual(day, self.rewards._data_source_db["Worker Tokens"].get_data()['day'])
 
     def test_addNewDataSource(self):
         self.set_msg(self.mock_score)
@@ -170,15 +171,15 @@ class TestRewards(ScoreTestCase):
         try:
             self.rewards.addNewDataSource("sICX", Address.from_string(f"hx{'02345' * 8}"))
         except IconScoreException as e:
-            self.assertEqual(e.message, "BalancedRewards: Data source must be a contract.")
+            self.assertEqual("BalancedRewards: Data source must be a contract.", e.message)
 
         self.rewards.addNewDataSource("Loans", Address.from_string(f"cx{'02345' * 8}"))
         recipient_list = self.rewards.getRecipients()
-        self.assertEqual(recipient_list[3], "Loans")
-        self.assertEqual(self.rewards._recipient_split["Loans"], 0)
-        self.assertEqual(self.rewards._data_source_db["Loans"].name.get(), "Loans")
-        self.assertEqual(self.rewards._data_source_db["Loans"].day.get(), day)
-        self.assertEqual(self.rewards._data_source_db["Loans"].contract_address.get(), Address.from_string(f"cx{'02345' * 8}"))
+        self.assertEqual("Loans", recipient_list[3])
+        self.assertEqual(0, self.rewards._recipient_split["Loans"])
+        self.assertEqual("Loans", self.rewards._data_source_db["Loans"].name.get())
+        self.assertEqual(day, self.rewards._data_source_db["Loans"].day.get())
+        self.assertEqual( Address.from_string(f"cx{'02345' * 8}"), self.rewards._data_source_db["Loans"].contract_address.get())
 
         # the recipents name is already present before adding data sources. Thus the execution
         # returns although the address is wallet address
@@ -194,9 +195,10 @@ class TestRewards(ScoreTestCase):
         mock_class = MockClass()
         with mock.patch.object(self.rewards, "create_interface_score", wraps=mock_class.create_interface_score):
             self.rewards.claimRewards()
-            self.assertEqual(self.rewards._baln_holdings[str(self.test_account3)], 0)
+            self.assertEqual(0, self.rewards._baln_holdings[str(self.test_account3)])
 
     def test_distribute(self):
+        # this is the distribute function test done partially. Few cases need to be covered still.
         mock_class = MockClass()
         self.set_block(1, 1 * 24 * 60 * 60 * 10 ** 6)
         with mock.patch.object(self.rewards, "create_interface_score", wraps=mock_class.create_interface_score):
@@ -208,8 +210,8 @@ class TestRewards(ScoreTestCase):
             self.set_msg(self.mock_score)
             self.rewards.updateBalTokenDistPercentage(recipient_list)
             self.rewards.distribute()
-            self.assertEqual(self.rewards._platform_day.get(), 1)
-            self.assertEqual(self.rewards._total_dist.get(), 0)
+            self.assertEqual(1, self.rewards._platform_day.get())
+            self.assertEqual(0, self.rewards._total_dist.get())
 
             #Loans is added in recipient
             self.set_block(1, 20 * 24 * 60 * 60 * 10 ** 6)
@@ -219,4 +221,4 @@ class TestRewards(ScoreTestCase):
             recipient_list.append({'recipient_name': 'Loans2', 'dist_percent': 10 * 10 ** 16})
             self.rewards.updateBalTokenDistPercentage(recipient_list)
             self.rewards.distribute()
-            self.assertEqual(self.rewards._data_source_db['Loans2'].total_dist[1], 10000000000000000000000)
+            self.assertEqual(10000000000000000000000, self.rewards._data_source_db['Loans2'].total_dist[1])
