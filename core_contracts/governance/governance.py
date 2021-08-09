@@ -44,7 +44,7 @@ class Governance(IconScoreBase):
         super().on_update()
         self._time_offset.set(DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1))
         self._minimum_vote_duration.set(1)
-        self.scoreUpdate_11(1, "BIP1: Activate network fee distribution")
+        self.scoreUpdate_11()
 
     @external(readonly=True)
     def name(self) -> str:
@@ -781,6 +781,6 @@ class Governance(IconScoreBase):
     def VoteCast(self, vote_index: int, vote: bool, voter: Address, stake: int, total_for: int, total_against: int):
         pass
 
-    def scoreUpdate_11(self, vote_index: int, name: str):
-        proposal = ProposalDB(var_key=vote_index, db=self.db)
-        proposal.name.set(name)
+    def scoreUpdate_11(self):
+        proposal = ProposalDB(var_key=1, db=self.db)
+        proposal.name.set("BIP1: Activate network fee distribution")
