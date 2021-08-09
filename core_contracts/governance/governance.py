@@ -42,8 +42,6 @@ class Governance(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self._time_offset.set(DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1))
-        self._minimum_vote_duration.set(1)
         self.scoreUpdate_11()
 
     @external(readonly=True)
