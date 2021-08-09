@@ -394,7 +394,7 @@ class Dividends(IconScoreBase):
             percent = dist_percent["dist_percent"]
             if category not in self._dividends_categories:
                 revert(f"{TAG}: {category} is not a valid dividends category")
-            self._dividends_percentage[category] = percent
+            # self._dividends_percentage[category] = percent
             self._update_dividends_snapshot(category, percent)
             total_percentage += percent
 
@@ -697,18 +697,16 @@ class Dividends(IconScoreBase):
     def dividendsAt(self, _category: str, _day: int) -> int:
         if _day < 0:
             revert(f"{TAG}: "f"IRC2Snapshot: day:{_day} must be equal to or greater then Zero")
-        # if _day > current_day:
-        #     revert(f'{TAG}: Asked _day is greater than current day')
 
         total_snapshots_taken = self._total_snapshots[_category]
         if total_snapshots_taken == 0:
-            return 0
+            return self._dividends_percentage[_category]
 
         if self._snapshot_dividends[_category][total_snapshots_taken - 1]["ids"] <= _day:
             return self._snapshot_dividends[_category][total_snapshots_taken - 1]["amount"]
 
         if self._snapshot_dividends[_category][0]["ids"] > _day:
-            return 0
+            return self._dividends_percentage[_category]
 
         low = 0
         high = total_snapshots_taken - 1
