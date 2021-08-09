@@ -213,7 +213,8 @@ class Dividends(IconScoreBase):
 
         self._dividends_categories = ArrayDB(self._DIVIDENDS_CATEGORIES, db, value_type=str)
         self._dividends_percentage = DictDB(self._DIVIDENDS_PERCENTAGE, db, value_type=int)
-        self._snapshot_dividends = DictDB('snapshot_dividends', db, value_type=int, depth=2)
+        self._snapshot_dividends = DictDB('snapshot_dividends', db, value_type=int, depth=3)
+        self._total_snapshots = DictDB("total_snapshots", db, value_type=int)
         self._distribution_activate = VarDB(self._DISTRIBUTION_ACTIVATE, db, value_type=bool)
 
         self._dividends_batch_size = VarDB(self._DIVIDENDS_BATCH_SIZE, db, value_type=int)
@@ -608,7 +609,6 @@ class Dividends(IconScoreBase):
         return _start, _end
 
     def _get_dividends_for_day(self, _account: Address, _day: int) -> dict:
-        currentDay = self.getDay()
         if self._is_claimed(_account, _day):
             return {}
 
@@ -638,19 +638,18 @@ class Dividends(IconScoreBase):
         my_dividends = {}
         if my_total_baln_token > 0 and total_baln_token > 0:
             for token in self._accepted_tokens:
-                my_dividends[str(token)] = (my_total_baln_token * self.dividendsAt(BALN_HOLDERS, currentDay)
+                my_dividends[str(token)] = (my_total_baln_token * self.dividendsAt(BALN_HOLDERS, _day)
                                             * self._daily_fees[_day][str(token)]) // (total_baln_token * 10**18)
 
         return my_dividends
 
     def _get_dividends_for_daofund(self, _day: int) -> dict:
-        currentDay = self.getDay()
         if self._is_claimed(self._daofund.get(), _day):
             return {}
 
         daofund_dividends = {}
         for token in self._accepted_tokens:
-            daofund_dividends[str(token)] = (self.dividendsAt(DAOFUND, currentDay) * self._daily_fees[_day][str(token)]) \
+            daofund_dividends[str(token)] = (self.dividendsAt(DAOFUND, _day) * self._daily_fees[_day][str(token)]) \
                                             // 10**18
         return daofund_dividends
 
@@ -683,44 +682,47 @@ class Dividends(IconScoreBase):
 
     def _update_dividends_snapshot(self, _category: str, _percent: int) -> None:
         currentDay = self.getDay()
-        length = self._snapshot_dividends["length"][0]
-        if length == 0:
-            self._snapshot_dividends[_category][length] = _percent
-            self._snapshot_dividends["ids"][length] = currentDay
-            self._snapshot_dividends["length"][0] += 1
-            return
-        else:
-            lastDay = self._snapshot_dividends["ids"][length - 1]
+        total_snapshots_taken = self._total_snapshots[_category]
 
-        if lastDay < currentDay:
-            self._snapshot_dividends["ids"][length] = currentDay
-            self._snapshot_dividends[_category][length] = _percent
-            self._snapshot_dividends["length"][0] += 1
+        if total_snapshots_taken > 0 and self._snapshot_dividends[_category][total_snapshots_taken - 1][
+            "ids"] == currentDay:
+            self._snapshot_dividends[_category][total_snapshots_taken - 1]["amount"] = _percent
+
         else:
-            self._snapshot_dividends[_category][length - 1] = _percent
+            self._snapshot_dividends[_category][total_snapshots_taken]["ids"] = currentDay
+            self._snapshot_dividends[_category][total_snapshots_taken]["amount"] = _percent
+            self._total_snapshots[_category] = total_snapshots_taken + 1
 
     @external(readonly=True)
     def dividendsAt(self, _category: str, _day: int) -> int:
         if _day < 0:
             revert(f"{TAG}: "f"IRC2Snapshot: day:{_day} must be equal to or greater then Zero")
+        # if _day > current_day:
+        #     revert(f'{TAG}: Asked _day is greater than current day')
+
+        total_snapshots_taken = self._total_snapshots[_category]
+        if total_snapshots_taken == 0:
+            return 0
+
+        if self._snapshot_dividends[_category][total_snapshots_taken - 1]["ids"] <= _day:
+            return self._snapshot_dividends[_category][total_snapshots_taken - 1]["amount"]
+
+        if self._snapshot_dividends[_category][0]["ids"] > _day:
+            return 0
+
         low = 0
-        high = self._snapshot_dividends["length"][0]
-
-        while low < high:
-            mid = (low + high) // 2
-            if self._snapshot_dividends["ids"][mid] > _day:
-                high = mid
+        high = total_snapshots_taken - 1
+        while high > low:
+            mid = high - (high - low) // 2
+            mid_value = self._snapshot_dividends[_category][mid]
+            if mid_value["ids"] == _day:
+                return mid_value["amount"]
+            elif mid_value["ids"] < _day:
+                low = mid
             else:
-                low = mid + 1
+                high = mid - 1
 
-        if self._snapshot_dividends["ids"][0] == _day:
-            response = self._snapshot_dividends[_category][0]
-        elif low == 0:
-            response = 0
-        else:
-            response = self._snapshot_dividends[_category][low - 1]
-
-        return response
+        return self._snapshot_dividends[_category][low]["amount"]
 
     # -------------------------------------------------------------------------------
     #   EVENT LOGS
