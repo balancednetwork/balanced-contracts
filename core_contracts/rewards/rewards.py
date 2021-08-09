@@ -136,7 +136,7 @@ class Rewards(IconScoreBase):
                 revert(f'{TAG}: Recipient {name} does not exist.')
 
             percent = recipient['dist_percent']
-            self._recipient_split[name] = percent
+            # self._recipient_split[name] = percent
             self._update_recipient_snapshot(name, percent)
             source = self._data_source_db[name]
             if source.get_data()['dist_percent'] == 0:
@@ -198,7 +198,7 @@ class Rewards(IconScoreBase):
         if not _address.is_contract:
             revert(f'{TAG}: Data source must be a contract.')
         self._recipients.put(_name)
-        self._recipient_split[_name] = 0
+        # self._recipient_split[_name] = 0
         # self._update_recipient_snapshot(_name, 0)
         self._data_source_db.new_source(_name, _address)
 
@@ -264,20 +264,17 @@ class Rewards(IconScoreBase):
     @external(readonly=True)
     def recipientAt(self, _recipient: str, _day: int) -> int:
         if _day < 0:
-            revert(f"{TAG}: "f"IRC2Snapshot: day:{_day} must be equal to or greater then Zero")
-        current_day = self._get_day()
-        # if _day > current_day:
-        #     revert(f'{TAG}: Asked _day is greater than current day')
+            revert(f"{TAG}: day:{_day} must be equal to or greater then Zero")
 
         total_snapshots_taken = self._total_snapshots[_recipient]
         if total_snapshots_taken == 0:
-            return 0
+            return self._recipient_split[_recipient]
 
         if self._snapshot_recipient[_recipient][total_snapshots_taken - 1]["ids"] <= _day:
             return self._snapshot_recipient[_recipient][total_snapshots_taken - 1]["amount"]
 
         if self._snapshot_recipient[_recipient][0]["ids"] > _day:
-            return 0
+            return self._recipient_split[_recipient]
 
         low = 0
         high = total_snapshots_taken - 1
