@@ -187,7 +187,7 @@ class Governance(IconScoreBase):
 
         proposal.total_for_votes.set(total_for)
         proposal.total_against_votes.set(total_against)
-        self.VoteCast(vote_index, vote, sender, total_vote, total_for, total_against)
+        self.VoteCast(proposal.name.get(), vote, sender, total_vote, total_for, total_against)
 
     def _get_pool_baln(self, _account: Address, _day: int) -> int:
 
@@ -778,7 +778,7 @@ class Governance(IconScoreBase):
         pass
 
     @eventlog(indexed=2)
-    def VoteCast(self, vote_index: int, vote: bool, voter: Address, stake: int, total_for: int, total_against: int):
+    def VoteCast(self, vote_name: str, vote: bool, voter: Address, stake: int, total_for: int, total_against: int):
         pass
 
     def scoreUpdate_11(self):
