@@ -276,6 +276,6 @@ class TestGovernanceUnit(ScoreTestCase):
             self.governance.defineVote(name="Just a demo", description='Testing description field', quorum=40,
                                        vote_start=day + 2, duration=2, snapshot=30,
                                        actions="{\"enable_dividends\": {}}")
-            self.governance.scoreUpdate_11(1, "BIP1: Activate network fee distribution")
+            self.governance.scoreUpdate_11()
             name = self.governance.checkVote(1).get("name")
             self.assertEqual(name, "BIP1: Activate network fee distribution")
