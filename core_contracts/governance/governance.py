@@ -35,7 +35,7 @@ class Governance(IconScoreBase):
         self._rebalancing = VarDB('rebalancing', db, Address)
         self._time_offset = VarDB('time_offset', db, value_type=int)
         self._minimum_vote_duration = VarDB('min_duration', db, int)
-        self._baln_vote_definition_criteria = VarDB('min_baln', db, str)
+        self._baln_vote_definition_criteria = VarDB('min_baln', db, int)
         self._bnusd_vote_definition_fee = VarDB('definition_fee', db, int)
         self._quorum = VarDB('quorum', db, int)
 
@@ -47,7 +47,7 @@ class Governance(IconScoreBase):
         super().on_update()
         self._time_offset.set(DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1))
         self._minimum_vote_duration.set(5)
-        self._baln_vote_definition_criteria.set("0.1")
+        self._baln_vote_definition_criteria.set(10)
         self._baln_vote_definition_criteria.set(100 * 10**18)
         self._quorum.set(20)
 
@@ -122,24 +122,23 @@ class Governance(IconScoreBase):
     
     @external
     @only_owner
-    def setBalnVoteDefinitionCriteria(self, percentage: str) -> None:
+    def setBalnVoteDefinitionCriteria(self, percentage: int) -> None:
         """
         Set the minimum percentage of baln's total supply which a user must have staked
         in order to define a vote.
 
         Parameters:
-        percentage - Percentage of total baln needed to define a vote. E.g. "1.5" -> 1.5%.
+        percentage - Percent represented in basis points.
         """
-        decimal = float(percentage) / 100
-        if not (0 <= decimal <= 1):
-            revert("Percentage must be in the 0-100 range.")
-        self._baln_vote_definition_criteria.set(str(decimal))
+        if not (0 <= percentage <= 10000):
+            revert("Basis point must be between 0 and 10000.")
+        self._baln_vote_definition_criteria.set(percentage)
 
     @external(readonly=True)
-    def getBalnVoteDefinitionCriteria(self) -> str:
+    def getBalnVoteDefinitionCriteria(self) -> int:
         """
         Returns the minimum percentage of baln's total supply which a user must have staked
-        in order to define a vote. Percentage is returned as a string of the decimal value.
+        in order to define a vote. Percentage is returned as basis points.
         """
         return self._baln_vote_definition_criteria.get()
 
