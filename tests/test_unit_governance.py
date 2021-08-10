@@ -110,18 +110,18 @@ class TestGovernanceUnit(ScoreTestCase):
         self.set_msg(self.test_account1)
 
         self.assertFalse(self.governance._baln_vote_definition_criteria.get())
-        self.governance.setBalnVoteDefinitionCriteria("1.5")
-        self.assertEqual(self.governance.getBalnVoteDefinitionCriteria(), "0.015")
+        self.governance.setBalnVoteDefinitionCriteria(15)
+        self.assertEqual(self.governance.getBalnVoteDefinitionCriteria(), 15)
 
         # Set value below range.
         with self.assertRaises(IconScoreException) as e:
-            self.governance.setBalnVoteDefinitionCriteria("-1.5")
-        self.assertEqual("Percentage must be in the 0-100 range.", e.exception.message)
+            self.governance.setBalnVoteDefinitionCriteria(-1)
+        self.assertEqual("Basis point must be between 0 and 10000.", e.exception.message)
 
         # Set value above range.
         with self.assertRaises(IconScoreException) as e:
-            self.governance.setBalnVoteDefinitionCriteria("101")
-        self.assertEqual("Percentage must be in the 0-100 range.", e.exception.message)
+            self.governance.setBalnVoteDefinitionCriteria(10001)
+        self.assertEqual("Basis point must be between 0 and 10000.", e.exception.message)
 
     def test_create_vote(self):
         self.set_msg(self.test_account1)
@@ -213,15 +213,15 @@ class TestGovernanceUnit(ScoreTestCase):
             self.assertEqual("Balanced Governance: Only 5 actions are allowed", max_actions.exception.message)
 
         # New mock class that does not fulfill baln staking criteria for voteDefinition.
-        mock_class = MockClass(totalSupply = 100, stakedBalanceOf = 0.99)
-        baln_criteria = float(self.governance.getBalnVoteDefinitionCriteria())
+        mock_class = MockClass(totalSupply = 2001, stakedBalanceOf = 1)
+        baln_criteria = self.governance.getBalnVoteDefinitionCriteria()
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             
             # Not enough baln staked.
             with self.assertRaises(IconScoreException) as balnstaked:
                 self.governance.defineVote(name="Enable the dividends", description='Testing description field', vote_start=day, 
                                            duration=min_duration, snapshot=day, actions="{\"enable_dividends\": {}}")
-            self.assertEqual(f'User needs atleast {baln_criteria * 100}% of total baln supply staked to define a vote.', balnstaked.exception.message)
+            self.assertEqual(f'User needs atleast {baln_criteria / 100}% of total baln supply staked to define a vote.', balnstaked.exception.message)
 
     def test_vote_cycle_complete(self):
         self.set_msg(self.test_account1, 0)
@@ -327,7 +327,7 @@ class TestGovernanceUnit(ScoreTestCase):
             self.set_block(55, new_day)
             self.governance.executeVoteAction(1)
 
-    def _set_governance_params(self, quorum = 40, min_vote_dur = 5, vote_def_fee = 1000 * 10**18, baln_vote_def_criteria = 1):
+    def _set_governance_params(self, quorum = 40, min_vote_dur = 5, vote_def_fee = 1000 * 10**18, baln_vote_def_criteria = 5):
         self.governance.setQuorum(quorum)
         self.governance.setMinimumVoteDuration(min_vote_dur)
         self.governance.setVoteDefinitionFee(vote_def_fee)

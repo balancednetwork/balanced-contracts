@@ -48,7 +48,7 @@ class Governance(IconScoreBase):
         self._time_offset.set(DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1))
         self._minimum_vote_duration.set(5)
         self._baln_vote_definition_criteria.set(10)
-        self._baln_vote_definition_criteria.set(100 * 10**18)
+        self._bnusd_vote_definition_fee.set(100 * 10**18)
         self._quorum.set(20)
 
     @external(readonly=True)
@@ -205,9 +205,9 @@ class Governance(IconScoreBase):
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         baln_total = baln.totalSupply()
         user_staked = baln.stakedBalanceOf(self.msg.sender)
-        baln_criteria = float(self._baln_vote_definition_criteria.get())
-        if user_staked / baln_total < baln_criteria:
-            revert(f'User needs atleast {baln_criteria * 100}% of total baln supply staked to define a vote.')
+        baln_criteria = self._baln_vote_definition_criteria.get()
+        if (POINTS * user_staked) // baln_total < baln_criteria:
+            revert(f'User needs atleast {baln_criteria / 100}% of total baln supply staked to define a vote.')
 
         # Transfer bnUSD fee to daofund.
         bnusd = self.create_interface_score(self.addresses['bnUSD'], AssetInterface)
