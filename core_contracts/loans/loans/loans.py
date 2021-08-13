@@ -463,14 +463,16 @@ class Loans(IconScoreBase):
         Read position data batch.
         """
         batch = {}
-        snapshot = self._positions._snapshot_db[_snapshot_id]
-        total_mining = len(snapshot.mining)
-        start = max(0, min(_offset, total_mining))
-        end = min(_offset + _limit, total_mining)
+        position = self._positions
+        snapshot = position._snapshot_db[_snapshot_id]
+        nonzero = position.get_nonzero()
+        total_nonzero = len(nonzero)
+        start = max(0, min(_offset, total_nonzero))
+        end = min(_offset + _limit, total_nonzero)
         for i in range(start, end):
-            pos_id = snapshot.mining[i]
-            pos = self._positions[pos_id]
-            batch[str(pos.address.get())] = snapshot.pos_state[pos_id]['total_debt']
+            node_id = nonzero.next(i-1)
+            pos = position[node_id]
+            batch[str(pos.address.get())] = snapshot.pos_state[node_id]['total_debt']
         return batch
 
     @loans_on
