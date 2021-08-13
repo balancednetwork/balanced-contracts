@@ -22,6 +22,8 @@ REBALANCE_ADDR = Address.from_string(f"cx{'5148' * 10}")
 DIVIDENDS_ADDR = Address.from_string(f"cx{'8127' * 10}")
 REWARDS_ADDR = Address.from_string(f"cx{'8471' * 10}")
 RESERVE_ADDR = Address.from_string(f"cx{'8624' * 10}")
+GOVERNANCE_ADDR = Address.from_string(f"cx{'8625' * 10}")
+
 DEPLOY_TIME = None
 DAY = 24 * 60 * 60 * 10 ** 6
 
@@ -503,7 +505,6 @@ class TestLoans(ScoreTestCase):
             self.score.tokenFallback(self.test_account1, 12, b'{"_asset":"","_amount":12}')
         mck.assert_called_once_with("", 12, self.test_account1, 12)
 
-
     def test_depositAndBorrow_loans_off(self):
         self.set_msg(self.test_account1, 12)
         with self.assertRaises(IconScoreException) as err:
@@ -655,8 +656,6 @@ class TestLoans(ScoreTestCase):
         with self.assertRaises(IconScoreException) as err:
             self.score.retireBadDebt("TOKEN1", 1)
         self.assertEqual("BalancedLoans: Balanced Loans SCORE is not active.", err.exception.message)
-
-
 
     def test_returnAsset(self):
         with self.assertRaises(IconScoreException) as err:
@@ -1107,7 +1106,6 @@ class TestLoans(ScoreTestCase):
                           'bad_debt': 0, 'liquidation_pool': 0, 'dead_market': False}}
             self.assertDictEqual(expected_result, result)
 
-
     def test_getPositionAddress(self):
         self._configure_loans()
         patched_cls = MockClass(self.score)
@@ -1118,9 +1116,6 @@ class TestLoans(ScoreTestCase):
             self.assertEqual(self.test_account1, result)
             result = self.score.getPositionAddress(2)
             self.assertEqual(self.test_account2, result)
-
-
-
 
     # def test_getDebts(self):
     #     self._configure_loans()
@@ -1138,7 +1133,6 @@ class TestLoans(ScoreTestCase):
     #
     #         result = self.score.getDebts([str(self.test_account3)], 0)
     #         raise
-
 
     # def test_getTotalValue(self):
     #     self.set_msg(self.admin)
@@ -1255,3 +1249,88 @@ class TestLoans(ScoreTestCase):
     #         self._borrow(self.test_account3, 12 * 10 ** 18, "bnUSD")
     #         self.score.retireRedeem("bnUSD")
     #     raise
+
+    def test_getDataCount(self):
+        self.set_msg(self.admin)
+        self.set_block(1, 1)
+        self._turn_loans_on()
+        self.set_block(1, DAY)
+        self._configure_loans()
+
+        # [SETUP] PARAMETERS TO PATCH TO GET USER LOAN INFORMATION
+        token_total_supply = 1 * 10 ** 30
+        token_price_loop = 25
+        sicx_price_loop = 1 * 10 ** 2
+        bnusd_price_loop = 10 ** 2
+        patched_fnx = MockClass(self.score, token_total_supply, token_price_loop, sicx_price_loop,
+                                bnusd_price_loop).create_interface_score
+        with mock.patch.object(self.score, "create_interface_score", wraps=patched_fnx):
+            # [SETUP] INITIAL DEPOSIT AS COLLATERAL
+
+            self.set_block(3, 2 * DAY)
+            self._deposit(self.test_account1, 10 ** 21)
+            self._borrow(self.test_account1, borrow_amt=300 * 10 ** 18, _asset='TOKEN2')
+
+            self.set_msg(REWARDS_ADDR)
+            self.score.precompute(2, 50)
+            self.score.precompute(2, 50)
+
+            self.assertDictEqual({0: 0, 1: 0, 2: 1, 3: 1, 4: 1, 5: 1},
+                                 {i: self.score.getDataCount(i) for i in range(0, 6)})
+
+            self.set_block(3, 3 * DAY)
+            self._deposit(self.test_account2, 10 ** 21)
+            self._borrow(self.test_account2, borrow_amt=300 * 10 ** 18, _asset='TOKEN2')
+
+            self.set_msg(REWARDS_ADDR)
+            self.score.precompute(3, 50)
+            self.score.precompute(3, 50)
+            self.set_block(1, 3 * DAY)
+            print({i: self.score.getDataCount(i) for i in range(0, 6)})
+            raise
+
+    def test_getDataBatch(self):
+        self.set_msg(self.admin)
+        self.set_block(1, 1)
+        self._turn_loans_on()
+        self.set_block(1, DAY)
+        self._configure_loans()
+
+        # [SETUP] PARAMETERS TO PATCH TO GET USER LOAN INFORMATION
+        token_total_supply = 1 * 10 ** 30
+        token_price_loop = 25
+        sicx_price_loop = 1 * 10 ** 2
+        bnusd_price_loop = 10 ** 2
+        patched_fnx = MockClass(self.score, token_total_supply, token_price_loop, sicx_price_loop,
+                                bnusd_price_loop).create_interface_score
+        with mock.patch.object(self.score, "create_interface_score", wraps=patched_fnx):
+            # [SETUP] INITIAL DEPOSIT AS COLLATERAL
+
+            self.set_block(3, 2 * DAY)
+            self._deposit(self.test_account1, 10 ** 21)
+            self._borrow(self.test_account1, borrow_amt=300 * 10 ** 18, _asset='TOKEN2')
+
+            self.set_msg(REWARDS_ADDR)
+            self.score.precompute(2, 50)
+            self.score.precompute(2, 50)
+            positions = self.score.getAccountPositions(self.test_account1)
+
+            expected = {positions["address"]: positions["total_debt"]}
+            result = self.score.getDataBatch('', 2, 10, 0)
+            self.assertDictEqual(expected, result)
+
+            self.set_block(3, 3 * DAY)
+            self._deposit(self.test_account2, 10 ** 21)
+            self._borrow(self.test_account2, borrow_amt=300 * 10 ** 18, _asset='TOKEN2')
+
+            self.set_msg(REWARDS_ADDR)
+            self.score.precompute(3, 50)
+            self.score.precompute(3, 50)
+            positions1 = self.score.getAccountPositions(self.test_account1)
+            positions2 = self.score.getAccountPositions(self.test_account2)
+
+            expected = {positions1["address"]: positions1["total_debt"],
+                        positions2["address"]: positions2["total_debt"]}
+            result = self.score.getDataBatch('', 3, 10, 0)
+            print(positions, result)
+            self.assertDictEqual(expected, result)
