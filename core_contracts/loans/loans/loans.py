@@ -470,7 +470,11 @@ class Loans(IconScoreBase):
         start = max(0, min(_offset, total_nonzero))
         end = min(_offset + _limit, total_nonzero)
         for i in range(start, end):
-            node_id = nonzero.next(i-1)
+            if i == nonzero.get_head_id():
+                pos = position[i]
+                batch[str(pos.address.get())] = snapshot.pos_state[pos]['total_debt']
+                continue
+            node_id = nonzero.next(i - 1)
             pos = position[node_id]
             batch[str(pos.address.get())] = snapshot.pos_state[node_id]['total_debt']
         return batch
