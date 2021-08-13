@@ -427,12 +427,8 @@ class PositionsDB:
         for _ in range(min(remaining, batch_size)):  # Update standing for all nonzero positions.
             account_id = next_node
             pos = self.__getitem__(account_id)
-            # Only positions created before the day of this snapshot are used.
-            if _id >= pos.snaps[0]:
-                standing = pos.update_standing(_id)  # Calculates total_debt, ratio, and standing.
-                if standing == Standing.MINING:
-                    snapshot.mining.put(account_id)
-                    batch_mining_debt += snapshot.pos_state[account_id]['total_debt']
+            pos.update_standing(_id)  # Calculates total_debt, ratio, and standing.
+            batch_mining_debt += snapshot.pos_state[account_id]['total_debt']
             index += 1
             if next_node == nonzero.get_tail_id():
                 next_node = 0
