@@ -309,6 +309,14 @@ class Governance(IconScoreBase):
         vote_data = ProposalDB(vote_index, self.db)
         return {"for": vote_data.for_votes_of_user[user], "against": vote_data.against_votes_of_user[user]}
 
+    @external(readonly=True)
+    def myVotingWeight(self, _address: Address, _day: int) -> int:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        stake = baln.stakedBalanceOfAt(_address, _day)
+        dex_pool = self._get_pool_baln(_address, _day)
+        total_vote = stake + dex_pool
+        return total_vote
+
     @external
     @only_owner
     def configureBalanced(self) -> None:

@@ -279,3 +279,10 @@ class TestGovernanceUnit(ScoreTestCase):
             self.governance.scoreUpdate_11()
             name = self.governance.checkVote(1).get("name")
             self.assertEqual(name, "BIP1: Activate network fee distribution")
+
+    def test_my_voting_weight(self):
+        mock_class = MockClass(balanceOfAt=1, totalSupplyAt=2, totalBalnAt=3, totalStakedBalanceOfAt=4,
+                               stakedBalanceOfAt=5)
+        with mock.patch.object(self.governance, "create_interface_score", wraps=mock_class.patch_internal):
+            vote = self.governance.myVotingWeight(self.test_account1, 1)
+            self.assertEqual((2 * (1 * 3 // 2) + 5), vote)
