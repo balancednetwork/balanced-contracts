@@ -202,8 +202,8 @@ class Governance(IconScoreBase):
             revert(f'User needs atleast {baln_criterion / 100}% of total baln supply staked to define a vote.')
 
         # Transfer bnUSD fee to daofund.
-        bnusd = self.create_interface_score(self.addresses['bnUSD'], AssetInterface)
-        bnusd.transfer(self.addresses['daofund'], self._bnusd_vote_definition_fee.get())
+        bnusd = self.create_interface_score(self.addresses['bnUSD'], BnUSDInterface)
+        bnusd.govTransfer(self.msg.sender, self.addresses['daofund'], self._bnusd_vote_definition_fee.get())
 
         actions_dict = json_loads(actions)
         if len(actions_dict) > self.maxActions():
