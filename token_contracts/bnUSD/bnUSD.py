@@ -144,6 +144,13 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
         priceData = oracle.get_reference_data(base, quote)
         return priceData['rate']
 
+    @external
+    @only_governance
+    def govTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = None) -> None:
+        if _data is None:
+			_data = b'None'
+        self._transfer(_from, _to, _value, _data)
+
     def update_asset_value(self) -> None:
         """
         Calls the oracle method for the asset and updates the asset
