@@ -35,7 +35,7 @@ class Governance(IconScoreBase):
         self._rebalancing = VarDB('rebalancing', db, Address)
         self._time_offset = VarDB('time_offset', db, value_type=int)
         self._minimum_vote_duration = VarDB('min_duration', db, int)
-        self._baln_vote_definition_criteria = VarDB('min_baln', db, int)
+        self._baln_vote_definition_criterion = VarDB('min_baln', db, int)
         self._bnusd_vote_definition_fee = VarDB('definition_fee', db, int)
         self._quorum = VarDB('quorum', db, int)
 
@@ -47,7 +47,7 @@ class Governance(IconScoreBase):
         super().on_update()
         self._time_offset.set(DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1))
         self._minimum_vote_duration.set(5)
-        self._baln_vote_definition_criteria.set(10)
+        self._baln_vote_definition_criterion.set(10)
         self._bnusd_vote_definition_fee.set(100 * 10**18)
         self._quorum.set(20)
 
@@ -122,7 +122,7 @@ class Governance(IconScoreBase):
     
     @external
     @only_owner
-    def setBalnVoteDefinitionCriteria(self, percentage: int) -> None:
+    def setBalnVoteDefinitionCriterion(self, percentage: int) -> None:
         """
         Set the minimum percentage of baln's total supply which a user must have staked
         in order to define a vote.
@@ -132,15 +132,15 @@ class Governance(IconScoreBase):
         """
         if not (0 <= percentage <= 10000):
             revert("Basis point must be between 0 and 10000.")
-        self._baln_vote_definition_criteria.set(percentage)
+        self._baln_vote_definition_criterion.set(percentage)
 
     @external(readonly=True)
-    def getBalnVoteDefinitionCriteria(self) -> int:
+    def getBalnVoteDefinitionCriterion(self) -> int:
         """
         Returns the minimum percentage of baln's total supply which a user must have staked
         in order to define a vote. Percentage is returned as basis points.
         """
-        return self._baln_vote_definition_criteria.get()
+        return self._baln_vote_definition_criterion.get()
 
     @external
     @only_owner
@@ -201,13 +201,13 @@ class Governance(IconScoreBase):
         if vote_index > 0:
             revert(f'Poll name {name} has already been used.')
         
-        # Test baln staking criteria.
+        # Test baln staking criterion.
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         baln_total = baln.totalSupply()
         user_staked = baln.stakedBalanceOf(self.msg.sender)
-        baln_criteria = self._baln_vote_definition_criteria.get()
-        if (POINTS * user_staked) // baln_total < baln_criteria:
-            revert(f'User needs atleast {baln_criteria / 100}% of total baln supply staked to define a vote.')
+        baln_criterion = self._baln_vote_definition_criterion.get()
+        if (POINTS * user_staked) // baln_total < baln_criterion:
+            revert(f'User needs atleast {baln_criterion / 100}% of total baln supply staked to define a vote.')
 
         # Transfer bnUSD fee to daofund.
         bnusd = self.create_interface_score(self.addresses['bnUSD'], AssetInterface)
