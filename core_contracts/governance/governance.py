@@ -45,11 +45,7 @@ class Governance(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self._time_offset.set(DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1))
-        self._minimum_vote_duration.set(5)
-        self._baln_vote_definition_criterion.set(10)
-        self._bnusd_vote_definition_fee.set(100 * 10**18)
-        self._quorum.set(20)
+        self.scoreUpdate_12()
 
     @external(readonly=True)
     def name(self) -> str:
@@ -866,6 +862,12 @@ class Governance(IconScoreBase):
     @payable
     def fallback(self):
         pass
+
+    def scoreUpdate_12(self) -> None:
+        self._minimum_vote_duration.set(5)
+        self._baln_vote_definition_criterion.set(10)
+        self._bnusd_vote_definition_fee.set(100 * EXA)
+        self._quorum.set(20)
 
     @eventlog(indexed=2)
     def VoteCast(self, vote_name: str, vote: bool, voter: Address, stake: int, total_for: int, total_against: int):
