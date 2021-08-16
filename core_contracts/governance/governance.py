@@ -67,8 +67,7 @@ class Governance(IconScoreBase):
         """
         Set the minimum vote duration.
 
-        Parameters:
-        duration - minimum amount of days a vote has to be active.
+        :param duration: minimum amount of days a vote has to be active
         """
         self._minimum_vote_duration.set(duration)
 
@@ -86,8 +85,7 @@ class Governance(IconScoreBase):
         Set percentage of total baln supply which must participate in a vote 
         for the vote to be valid.
 
-        Parameters:
-        quorum - percentage of total baln supply required for a vote to be valid.
+        :param quorum: percentage of total baln supply required for a vote to be valid
         """
         if not 0 < quorum < 100:
             revert("Quorum must be between 0 and 100.")
@@ -123,8 +121,7 @@ class Governance(IconScoreBase):
         Set the minimum percentage of baln's total supply which a user must have staked
         in order to define a vote.
 
-        Parameters:
-        percentage - Percent represented in basis points.
+        :param percentage: percent represented in basis points
         """
         if not (0 <= percentage <= 10000):
             revert("Basis point must be between 0 and 10000.")
@@ -174,14 +171,13 @@ class Governance(IconScoreBase):
         """
         Define a new vote and which actions are to be executed if it is successful.
 
-        Parameters:
-        name         -   Name of the vote.
-        description  -   Description of the vote.
-        vote_start   -   Day to start the vote.
-        duration     -   Number of days the vote will be active.
-        snapshot     -   Which day to use for the baln stake snapshot.
-        actions      -   Json string on the form:  {'<action_1>': {<kwargs for action_1>},
-                         {'<action_2>': {kwargs_for_action_2}}, ...}
+        :param name: name of the vote
+        :param description: description of the vote
+        :param vote_start: day to start the vote
+        :param duration: number of days the vote will be active
+        :param snapshot: which day to use for the baln stake snapshot
+        :param actions: json string on the form: {'<action_1>': {<kwargs for action_1>},
+                                                  '<action_2>': {<kwargs_for_action_2>},..}
         """
         if len(description) > 500:
             revert(f'Description must be less than or equal to 500 characters.')
