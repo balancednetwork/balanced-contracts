@@ -11,7 +11,7 @@ from core_contracts.staking.utils.checks import SenderNotScoreOwnerError
 EXA = 10 ** 18
 
 
-class Mock_Staking():
+class Mock_Staking:
 
     def getIISSInfo(self):
         # print("next called")
@@ -31,33 +31,42 @@ class Mock_Staking():
                  "website": "https://binance.com", "details": "https://binance.com/json",
                  "p2pEndpoint": "170.106.8.247:7100"}]}
 
-
-class Mock_staking_int:
-    def __init__(self, _to, return_balanceOf, _amount, _data):
-        #     class Mock_sICXTokenInterface:
-        #         def balanceOf(self, _to):
-        #             return return_balanceOf
-        #         def mintTo(self, _to, _amount, _data):
-        #             pass
-        #
-        #     self.mock_sICX = Mock_sICXTokenInterface()
-        self._to = _to
-        self.return_balanceOf = return_balanceOf
-        self._amount = _amount
-        self._data = _data
-
-    def balanceOf(self, _to):
-        return self.return_balanceOf
-
-    def mintTo(self, _to, _amount, _data):
+    def setStake(self, _stake_value):
         pass
 
-    # def get_sICX_score(self):
+    def getStake(self, address):
+        return {'unstakes': {
+            -1: {'unstakeBlockHeight': 10000}
+        }}
+
+    def setDelegation(self, a):
+        pass
 
 
-    #
-    # def create_interface_score(self):
-    #     return self.mock_sICX
+class Mock_staking_int:
+
+    def __init__(self, sICXInterface_address, _to, return_balanceOf, _amount, _data):
+        self.sICX_address = sICXInterface_address
+        outer_class = self
+
+        class Mock_sICXTokenInterface:
+            def balanceOf(self, _to):
+                return return_balanceOf
+
+            def mintTo(self, _to, _amount, _data):
+                pass
+
+            def burn(self, _amount):
+                pass
+
+        self.mock_sICX = Mock_sICXTokenInterface()
+
+    def create_interface_score(self, address, score):
+        if address == self.sICX_address:
+            return self.mock_sICX
+
+        else:
+            raise NotImplemented()
 
 
 class Mock_Staking_Method:
@@ -68,7 +77,7 @@ class Mock_Staking_Method:
         pass
 
 
-class test_unit_Staking(ScoreTestCase):
+class Test_unit_Staking(ScoreTestCase):
 
     def __init__(self, methodName: str = ...):
         super().__init__(methodName)
@@ -114,31 +123,48 @@ class test_unit_Staking(ScoreTestCase):
         # NOT OWNER
         self.set_msg(self._to)
         with self.assertRaises(SenderNotScoreOwnerError) as err:  # executes when assertionError is raised
-            print(str(err), 'method called by other than owner raise Error')
+            # print(str(err), 'method called by other than owner raise Error')
             self.score.toggleStakingOn()
+
+    def test_setSicxAddress(self):
+        self.set_msg(self._owner)
+        self.score.setSicxAddress(self.mock_sICXTokenInterface)
+        self.set_msg(self._to)
+        # self.score.setSicxAddress(self.mock_sICXTokenInterface)
+
+        with self.assertRaises(SenderNotScoreOwnerError) as err:
+            self.score.setSicxAddress(self.mock_sICXTokenInterface)
+        self.set_msg(self._owner)
+        try:
+            self.score.setSicxAddress(self._to)  # EOA sent instead of contract
+        except IconScoreException as err:
+
+            self.assertEqual('StakedICXManager: Address provided is an EOA address. A contract address is required.',
+                             err.message)
 
     def test_getSicxAddress(self):
         self.set_msg(self._owner)
         self.score.setSicxAddress(self.mock_sICXTokenInterface)
         self.assertEqual(self.mock_sICXTokenInterface, self.score.getSicxAddress())
 
-    def test_setSicxAddress(self):
+    def test_setUnstakeBatchLimit(self):
         self.set_msg(self._owner)
-        self.score.setSicxAddress(self.mock_sICXTokenInterface)
-        self.set_msg(self._to)
-        with self.assertRaises(SenderNotScoreOwnerError) as err:
-            self.score.setSicxAddress(self.mock_sICXTokenInterface)
+        self.score.setUnstakeBatchLimit(2)
 
-        self.set_msg(self._owner)
-        with self.assertRaises(IconScoreException) as err:
-            print(str(err), "is not a contract. an EOA")
-            self.score.setSicxAddress(self._to)  # EOA address sent
+    def test_getUnstakeBatchLimit(self):
+        print(self.score.getUnstakeBatchLimit())
 
-    def test_getUnstakeInfo(self):
-        self.score.getUnstakeInfo()
+    def test_getPrepList(self):
+        print(self.score.getPrepList())
 
-    def test_getUserUnstakeInfo(self):
-        print(self.score.getUserUnstakeInfo(self._owner))
+    def test_getUnstakingAmount(self):
+        print(self.score.getUnstakingAmount())
+
+    def test_getTotalStake(self):
+        print(self.score.getTotalStake())
+
+    def test_getLifetimeReward(self):
+        print(self.score.getLifetimeReward())
 
     def test_getTopPreps(self):
         self.score.getTopPreps()
@@ -150,15 +176,15 @@ class test_unit_Staking(ScoreTestCase):
         self.score._rate.set(1 * EXA)
 
         self.score._address_delegations = {
-            str(self._owner): f'{self._prep1}:30.{self._prep2}:72.',
-            str(self._to): f'{self._prep1}:50.{self._prep2}:40.{self._prep3}:80.',
+            str(self._owner): f'{self._prep1}:50.{self._prep2}:50.',
+            str(self._to): f'{self._prep1}:50.{self._prep2}:40.{self._prep3}:10.',
             # has to end with '.' to get full value
 
         }
         expected_value = {
             str(self._prep1): 7,
             str(self._prep2): 6,
-            str(self._prep3): 12,
+            str(self._prep3): 1,
         }
 
         _address = self._to
@@ -169,21 +195,154 @@ class test_unit_Staking(ScoreTestCase):
 
         self.assertEqual(expected_value, return_value)
 
+
     def test_getPrepDelegations(self):
         self.score.getPrepDelegations()
 
+    def test_getUnstakeInfo(self):
+        self.score.getUnstakeInfo()
+
+    def test_getUserUnstakeInfo(self):
+        print(self.score.getUserUnstakeInfo(self._owner))
+
+    def test_claimUnstakedICX(self):
+        self.score.claimUnstakedICX(self._owner)
+
+    def test_claimableICX(self):
+        print(self.score.claimableICX(self._owner))
+
+    def test_stakeICX(self):
+        try:
+            self.score.transferUpdateDelegations()
+        except IconScoreException as err:
+            self.assertEqual('StakedICXManager: ICX Staking SCORE is not active.', err.message)
+
+        self.set_msg(self._owner, 20 * EXA)
+        self.score._sICX_address.set(self.mock_sICXTokenInterface)
+        self.score.toggleStakingOn()
+        self.score._total_stake.set(200 * EXA)
+
+        self.score._rate.set(3 * EXA)
+        _bln = 150 * 10 ** 18
+        amount = 50 * EXA
+        Data = b'StakingICX'
+        _to = self._to
+        expected_value = 6666666666666666666  #
+        patch_sicx_interface = Mock_staking_int(sICXInterface_address=self.mock_sICXTokenInterface,
+                                                _to=_to,
+                                                return_balanceOf=_bln,
+                                                _amount=amount,
+                                                _data=Data).create_interface_score
+        with patch.object(self.score, 'create_interface_score', wraps=patch_sicx_interface):
+            print("I'm IN")
+            val = self.score.stakeICX()
+            print(val)
+            print("I'm OUT")
+            self.assertEqual(expected_value, val)
+
+    def test_transferUpdateDelegations(self):
+        try:
+            self.score.transferUpdateDelegations()
+        except IconScoreException as err:
+            self.assertEqual('StakedICXManager: ICX Staking SCORE is not active.', err.message)
+
+        self.set_msg(self._owner)
+        self.score._sICX_address.set(self.mock_sICXTokenInterface)
+        self.score.toggleStakingOn()
+        # CALLING FUNCTION WITH OWNER ADDRESS
+        try:
+            self.score.transferUpdateDelegations(self._owner, self._to, 10 * 10 ** 18)
+        except IconScoreException as err:
+            self.assertEqual("StakedICXManager: Only sicx token contract can call this function.", err.message)
+
+        self.set_msg(self.mock_sICXTokenInterface)  # SETTING SICXINTERFACE ADDRESS AS IN CALLING FUNCTION
+        _bln = 150 * 10 ** 18
+        amount = 50 * EXA
+        Data = b'StakingICX'
+
+        patch_sicx_interface = Mock_staking_int(sICXInterface_address=self.mock_sICXTokenInterface,
+                                                _to=0,
+                                                return_balanceOf=_bln,
+                                                _amount=amount,
+                                                _data=Data).create_interface_score
+        with patch.object(self.score, 'create_interface_score', wraps=patch_sicx_interface):
+            print("I'm IN")
+            self.score.transferUpdateDelegations(self._owner, self._to, 10 * 10 ** 18)
+            print("I'm OUT")
+
     def test_delegate(self):
         self.set_msg(self._owner)
+        try:
+            self.score.delegate()
+        except IconScoreException as err:
+            self.assertEqual('StakedICXManager: ICX Staking SCORE is not active.', err.message)
+
         self.score.toggleStakingOn()
-        # print(self.score._staking_on.get())
+
         _bln = 100 * 10 ** 18
 
-        to = self._to
+        self.score._rate.set(1 * EXA)
+
+        self.score._address_delegations = {
+            str(self._owner): f'{self._prep1}:50.{self._prep2}:50.',
+            str(self._to): f'{self._prep1}:50.{self._prep2}:40.{self._prep3}:10.',
+
+        }
+
+        _user_delegations = [
+            {'_address': 'hxe0cde6567eb6529fe31b0dc2f2697af84847f321', '_votes_in_per': 100 * 10 ** 18}]
+        _to = self._owner
+
+        self.score._sICX_address.set(self.mock_sICXTokenInterface)
+        self.score._total_stake.set(1000 * 10 ** 18)
+
+        # self.patch_internal_method(self.mock_sICXTokenInterface, 'balanceOf', lambda _to: _bln)
+        # # ScorePatcher.register_interface_score(self.mock_sICXTokenInterface)
+        # # ScorePatcher.patch_internal_method(self.mock_sICXTokenInterface, 'balanceOf', lambda _to: 2* 10**18)
+        # self.score.delegate(_user_delegations)
+        # self.assert_internal_call(self.mock_sICXTokenInterface, 'balanceOf', _to)
+
+        # raise Exception("not completed")
         return_blnc = 20 * EXA
         amount = 50 * EXA
         Data = b'StakingICX'
-        patch_value = Mock_staking_int(_to=to, return_balanceOf=return_blnc, _amount=amount,
-                                       _data=Data)
-        # with patch.object(self.mock_sICXTokenInterface, 'balanceOf', wraps=patch_value.balanceOf):
-        #     print('===')
-        #     self.score.stakeICX(self._to, b'stakeICX')
+
+        patch_sicx_interface = Mock_staking_int(sICXInterface_address=self.mock_sICXTokenInterface,
+                                                _to=_to,
+                                                return_balanceOf=_bln,
+                                                _amount=amount,
+                                                _data=Data).create_interface_score
+        with patch.object(self.score, 'create_interface_score', wraps=patch_sicx_interface):
+            print("I'm here")
+            self.score.delegate(_user_delegations)
+            print("I'm here")
+
+    def test_tokenFallback(self):
+        # CHECKING FOR STAKING ON
+        self.set_msg(self._owner)
+        try:
+            self.score.tokenFallback()
+        except IconScoreException as err:
+            self.assertEqual('StakedICXManager: ICX Staking SCORE is not active.', err.message)
+        # CHECKING FOR METHOD CALLED BY EOA ADDRESS
+        self.score.toggleStakingOn()
+        _from = self._owner
+        _value = 100 * 10 ** 18
+        _data = b"{\"method\": \"unstake\",\"user\":\"hx436106433144e736a67710505fc87ea9becb141d\"}"
+        _to = self._to
+        try:
+            self.score.tokenFallback(_from, _value, _data)
+        except IconScoreException as err:
+            self.assertEqual("StakedICXManager: The Staking contract only accepts sICX tokens.", err.message)
+
+        self.set_msg(self.mock_sICXTokenInterface)
+        self.score._sICX_address.set(self.mock_sICXTokenInterface)
+        patch_sicx_interface = Mock_staking_int(sICXInterface_address=self.mock_sICXTokenInterface,
+                                                _to=_to,
+                                                return_balanceOf=_value,
+                                                _amount=_value,
+                                                _data=_data).create_interface_score
+        with patch.object(self.score, 'create_interface_score', wraps=patch_sicx_interface):
+            print("I'm here")
+            self.score.tokenFallback(_from, _value, _data)
+            print("I'm here")
