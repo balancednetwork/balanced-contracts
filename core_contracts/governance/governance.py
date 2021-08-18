@@ -181,8 +181,8 @@ class Governance(IconScoreBase):
         """
         if len(description) > 500:
             revert(f'Description must be less than or equal to 500 characters.')
-        if vote_start < self.getDay():
-            revert(f'Vote cannot start before the current time.')
+        if vote_start <= self.getDay():
+            revert(f'Vote cannot start at or before the current day.')
         if not self.getDay() <= snapshot <= vote_start:
             revert(f'The reference snapshot must be in the range: [current_day ({self.getDay()}), '
                    f'start_day ({vote_start})].')
