@@ -199,7 +199,7 @@ class Governance(IconScoreBase):
         user_staked = baln.stakedBalanceOf(self.msg.sender)
         baln_criterion = self._baln_vote_definition_criterion.get()
         if (POINTS * user_staked) // baln_total < baln_criterion:
-            revert(f'User needs atleast {baln_criterion / 100}% of total baln supply staked to define a vote.')
+            revert(f'User needs at least {baln_criterion / 100}% of total baln supply staked to define a vote.')
 
         # Transfer bnUSD fee to daofund.
         bnusd = self.create_interface_score(self.addresses['bnUSD'], BnUSDInterface)
