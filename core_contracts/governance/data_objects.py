@@ -205,5 +205,4 @@ class ProposalStatus:
     SUCCEEDED = 4
     NO_QUORUM = 5
     EXECUTED = 6
-    FAILED_EXECUTION = 7
-    STATUS = ["Pending", "Active", "Cancelled", "Defeated", "Succeeded", "No Quorum", "Executed", "Failed Execution"]
+    STATUS = ["Pending", "Active", "Cancelled", "Defeated", "Succeeded", "No Quorum", "Executed"]
