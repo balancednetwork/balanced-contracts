@@ -67,7 +67,6 @@ class TestGovernanceUnit(ScoreTestCase):
             self.test_account4: 10 ** 21}
         self.initialize_accounts(account_info)
 
-        #self.governance = self.update_score(self.governance.address, Governance)
         self.governance._time_offset.set(DAY_START + U_SECONDS_DAY * (DAY_ZERO + self.governance._launch_day.get() - 1))
         
         self.baln = Address.from_string(f"cx{'12345' * 8}")
@@ -130,19 +129,21 @@ class TestGovernanceUnit(ScoreTestCase):
         self.set_msg(self.test_account1)
         self._set_governance_params()
         day = self.governance.getDay()
+        duration = self.governance.getMinimumVoteDuration()
+        vote_start = day + 1
 
         # Test define vote method.
         mock_class = MockClass(totalSupply = 10000, stakedBalanceOf = 100, balanceOfAt=1,
                                totalSupplyAt=1, totalBalnAt=1, totalStakedBalanceOfAt=1)
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             self.governance.defineVote(name="Just a demo", description='Testing description field', 
-                                       vote_start=day + 2, duration=5, snapshot=day,
+                                       vote_start=vote_start, duration=duration, snapshot=day,
                                        actions="{\"enable_dividends\": {}}")
 
             expected = {'id': 1, 'name': 'Just a demo', 'proposer': self.governance.msg.sender, 
                         'description': 'Testing description field', 
                         'majority': 666666666666666667, 'vote snapshot': day,
-                        'start day': day + 2, 'end day': day + 7, 'actions': "{\"enable_dividends\": {}}",
+                        'start day': vote_start, 'end day': vote_start + duration, 'actions': "{\"enable_dividends\": {}}",
                         'quorum': 400000000000000000, 'for': 0, 'against': 0, 'for_voter_count': 0,
                         'against_voter_count': 0, 'status': 'Pending'}
 
