@@ -421,5 +421,5 @@ class BalancedWorkerTokenInterface(InterfaceScore):
 class BnUSDInterface(InterfaceScore):
 
     @interface
-    def govTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = None) -> None:
+    def govTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = b'None') -> None:
         pass
