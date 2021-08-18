@@ -146,9 +146,7 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
 
     @external
     @only_governance
-    def govTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = None) -> None:
-        if _data is None:
-			_data = b'None'
+    def govTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = b'None') -> None:
         self._transfer(_from, _to, _value, _data)
 
     def update_asset_value(self) -> None:
