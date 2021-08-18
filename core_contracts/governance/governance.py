@@ -42,7 +42,7 @@ class Governance(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self.scoreUpdate_11()
+        self.scoreUpdate_12()
 
     @external(readonly=True)
     def name(self) -> str:
@@ -788,5 +788,17 @@ class Governance(IconScoreBase):
         pass
 
     def scoreUpdate_11(self):
+        """
+        Rename the first vote to include the BIP numbering.
+        """
         proposal = ProposalDB(var_key=1, db=self.db)
         proposal.name.set("BIP1: Activate network fee distribution")
+
+    def scoreUpdate_12(self):
+        """
+        Correcting the vote actions defined for BIP3.
+        Actions as previously defined included method and params keys, but the
+        expected format is for the method name to be the key for each action.
+        """
+        proposal = ProposalDB(var_key=3, db=self.db)
+        proposal.actions.set('{"update_origination_fee": {"_fee": 115}}')
