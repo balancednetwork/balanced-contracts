@@ -859,12 +859,15 @@ class Governance(IconScoreBase):
     def fallback(self):
         pass
 
-    def scoreUpdate_12(self) -> None:
+    @eventlog(indexed=2)
+    def VoteCast(self, vote_name: str, vote: bool, voter: Address, stake: int, total_for: int, total_against: int):
+        pass
+
+    def scoreUpdate_13(self) -> None:
+        """
+        Initial setting of governance parameters defining conditions for voting and vote creation.
+        """
         self._minimum_vote_duration.set(5)
         self._baln_vote_definition_criterion.set(10)
         self._bnusd_vote_definition_fee.set(100 * EXA)
         self._quorum.set(20)
-
-    @eventlog(indexed=2)
-    def VoteCast(self, vote_name: str, vote: bool, voter: Address, stake: int, total_for: int, total_against: int):
-        pass
