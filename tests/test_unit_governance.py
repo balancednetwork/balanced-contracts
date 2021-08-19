@@ -6,7 +6,7 @@ from iconservice import Address, IconScoreException
 from tbears.libs.scoretest.score_test_case import ScoreTestCase
 
 from core_contracts.governance.governance import Governance
-from core_contracts.governance.utils.consts import DAY_ZERO, DAY_START, U_SECONDS_DAY
+from core_contracts.governance.utils.consts import DAY_ZERO, DAY_START, U_SECONDS_DAY, EXA
 
 
 class MockClass:
@@ -225,7 +225,7 @@ class TestGovernanceUnit(ScoreTestCase):
             with self.assertRaises(IconScoreException) as balnstaked:
                 self.governance.defineVote(name="Enable the dividends", description='Testing description field', vote_start=day + 1, 
                                            duration=min_duration, snapshot=day, actions="{\"enable_dividends\": {}}")
-            self.assertEqual(f'User needs atleast {baln_criterion / 100}% of total baln supply staked to define a vote.', balnstaked.exception.message)
+            self.assertEqual(f'User needs at least {baln_criterion / 100}% of total baln supply staked to define a vote.', balnstaked.exception.message)
 
     def test_vote_cycle_complete(self):
         self.set_msg(self.test_account1, 0)
@@ -330,6 +330,13 @@ class TestGovernanceUnit(ScoreTestCase):
             new_day = launch_time + (DAY_ZERO + day + min_duration + 1) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.executeVoteAction(1)
+
+    def test_scoreUpdate_13(self):
+        self.governance.scoreUpdate_13()
+        self.assertEqual(self.governance.getQuorum(), 20)
+        self.assertEqual(self.governance.getVoteDefinitionFee(), 100 * EXA)
+        self.assertEqual(self.governance.getMinimumVoteDuration(), 5)
+        self.assertEqual(self.governance.getBalnVoteDefinitionCriterion(), 10)
 
     def _set_governance_params(self, quorum = 40, min_vote_dur = 5, vote_def_fee = 1000 * 10**18, baln_vote_def_criterion = 5):
         self.governance.setQuorum(quorum)
