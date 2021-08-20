@@ -10,7 +10,7 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the License.
+# limitations under the Licenrase.
 
 from iconservice import *
 from ..utils.checks import *
@@ -753,12 +753,13 @@ class Loans(IconScoreBase):
             node_id = borrowers.get_head_id()
         borrowers.serialize()
 
+        remaining_sicx = _bnusd_to_receive
         remaining_supply = total_batch_debt
         debt_added = {}
 
         for pos_id, user_debt in positions_dict.items():
-            debt_added[pos_id] = _bnusd_to_receive * user_debt // remaining_supply
-            _bnusd_to_receive -= debt_added[pos_id]
+            debt_added[pos_id] = remaining_sicx * user_debt // remaining_supply
+            remaining_sicx -= debt_added[pos_id]
             self._positions[pos_id]["bnUSD"] = user_debt + debt_added[pos_id]
 
             sicx_share = received_sicx * user_debt // remaining_supply
