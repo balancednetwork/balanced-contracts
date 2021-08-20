@@ -34,7 +34,7 @@ class Governance(IconScoreBase):
         self._launched = VarDB('launched', db, bool)
         self._rebalancing = VarDB('rebalancing', db, Address)
         self._time_offset = VarDB('time_offset', db, value_type=int)
-        self._minimum_vote_duration = VarDB('min_duration', db, int)
+        self._vote_duration = VarDB('vote_duration', db, int)
         self._baln_vote_definition_criterion = VarDB('min_baln', db, int)
         self._bnusd_vote_definition_fee = VarDB('definition_fee', db, int)
         self._quorum = VarDB('quorum', db, int)
@@ -63,20 +63,20 @@ class Governance(IconScoreBase):
     
     @external
     @only_owner
-    def setMinimumVoteDuration(self, duration: int) -> None:
+    def setVoteDuration(self, duration: int) -> None:
         """
-        Set the minimum vote duration.
+        Set the vote duration.
 
-        :param duration: minimum amount of days a vote has to be active
+        :param duration: number of days a vote will be active once started
         """
-        self._minimum_vote_duration.set(duration)
+        self._vote_duration.set(duration)
 
     @external(readonly=True)
-    def getMinimumVoteDuration(self) -> int:
+    def getVoteDuration(self) -> int:
         """
-        Returns the minimum vote duration in days.
+        Returns the vote duration in days.
         """
-        return self._minimum_vote_duration.get()
+        return self._vote_duration.get()
 
     @external
     @only_owner
@@ -186,7 +186,7 @@ class Governance(IconScoreBase):
         if not self.getDay() <= snapshot <= vote_start:
             revert(f'The reference snapshot must be in the range: [current_day ({self.getDay()}), '
                    f'start_day ({vote_start})].')
-        min_duration = self._minimum_vote_duration.get()
+        min_duration = self._vote_duration.get()
         if duration < min_duration:
             revert(f'Votes must have a minimum duration of {min_duration} days.')
         vote_index = ProposalDB.proposal_id(name, self.db)
@@ -867,7 +867,7 @@ class Governance(IconScoreBase):
         """
         Initial setting of governance parameters defining conditions for voting and vote creation.
         """
-        self._minimum_vote_duration.set(5)
+        self._vote_duration.set(5)
         self._baln_vote_definition_criterion.set(10)
         self._bnusd_vote_definition_fee.set(100 * EXA)
         self._quorum.set(20)
