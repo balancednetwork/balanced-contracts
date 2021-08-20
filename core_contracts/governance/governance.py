@@ -45,7 +45,7 @@ class Governance(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self.scoreUpdate_12()
+        self.scoreUpdate_13()
 
     @external(readonly=True)
     def name(self) -> str:
