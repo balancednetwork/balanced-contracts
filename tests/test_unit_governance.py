@@ -11,13 +11,12 @@ from core_contracts.governance.utils.consts import DAY_ZERO, DAY_START, U_SECOND
 
 class MockClass:
     def __init__(self, balanceOfAt=None, totalSupplyAt=None, totalBalnAt=None, totalStakedBalanceOfAt=None,
-                 stakedBalanceOfAt=None, totalSupply = None, stakedBalanceOf = None, transfer = None):
+                 stakedBalanceOfAt=None, totalSupply = None, stakedBalanceOf = None):
         self._balanceOfAt, self._totalSupplyAt, self._totalBalnAt, self._totalStakedBalanceOfAt = \
             balanceOfAt, totalSupplyAt, totalBalnAt, totalStakedBalanceOfAt
         self._stakedBalanceOfAt = stakedBalanceOfAt
         self._totalSupply = totalSupply
         self._stakedBalanceOf = stakedBalanceOf
-        self._transfer = transfer
 
     def totalSupply(self):
         return self._totalSupply
@@ -26,7 +25,7 @@ class MockClass:
         return self._stakedBalanceOf
 
     def transfer(self, to, amount):
-        return self.transfer
+        pass
 
     def balanceOfAt(self, _account, pool_id, _day):
         return self._balanceOfAt
@@ -149,17 +148,21 @@ class TestGovernanceUnit(ScoreTestCase):
             self.assertEqual(expected, self.governance.checkVote(_vote_index=1))
 
     def test_execute_vote_actions(self):
+
         dividends = Address.from_string(f"cx{'12345' * 8}")
         self.governance.addresses._dividends.set(dividends)
         self.patch_internal_method(dividends, "setDistributionActivationStatus", lambda x: x)
+
         incorrect_actions = json.dumps({"enable_dividends": {"status": True}})
         correct_actions = json.dumps({"enable_dividends": {}})
         incorrect_json = "method: enable_dividends, params: {'status': True}"
+
         self.assertRaises(TypeError, self.governance._execute_vote_actions, incorrect_actions)
         try:
             self.governance._execute_vote_actions(correct_actions)
         except TypeError:
             self.fail("Raised type error unexpectedly")
+
         self.assertRaises(JSONDecodeError, self.governance._execute_vote_actions, incorrect_json)
 
     def test_conditions_to_define_vote(self):
@@ -280,6 +283,7 @@ class TestGovernanceUnit(ScoreTestCase):
         with mock.patch.object(self.governance, "create_interface_score", wraps=mock_class.patch_internal):
             result = self.governance._get_pool_baln(_account=self.test_account3, _day=1)
         self.assertEqual(2 * (10 * 30 / 20), result)
+        
         mock_class = MockClass(balanceOfAt=0, totalSupplyAt=0, totalBalnAt=0)
         with mock.patch.object(self.governance, "create_interface_score", wraps=mock_class.patch_internal):
             result = self.governance._get_pool_baln(_account=self.test_account3, _day=1)
@@ -306,10 +310,12 @@ class TestGovernanceUnit(ScoreTestCase):
             self.governance.defineVote(name="Test add data source", description="Count pool BALN",
                                        vote_start=day + 1, snapshot=day, actions=json.dumps(actions))
             self.governance.activateVote("Test add data source")
+            
             launch_time = self.governance._launch_time.get()
-            new_day = launch_time + (DAY_ZERO + day + 2) * 10 ** 6 * 60 * 60 * 24
+            new_day = launch_time + (DAY_ZERO + day + 1) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.castVote("Test add data source", True)
+
             launch_time = self.governance._launch_time.get()
             new_day = launch_time + (DAY_ZERO + day + duration + 1) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
