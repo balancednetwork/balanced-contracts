@@ -40,32 +40,28 @@ REBALANCING_STORIES = {
     ]
 }
 
-REBALANCING_DOWN_STORIES = {
+REVERSE_REBALANCING_STORIES = {
     "stories": [
         {
             "description": "In this condition rebalancing doesn't happen as price of dex is not more than 0.5% of "
                            "oracle price.",
             "actions": {
-                "initial_sicx_in_rebalancer": 1000 * ICX,
                 "initial_bnUSD_in_rebalancer": 1000 * ICX,
                 "method": "transfer",
                 "amount": 200 * ICX,
                 "rebalancing_status": 0,
-                "final_sicx_in_rebalancer": 1000 * ICX,
                 "final_bnUSD_in_rebalancer": 1000 * ICX
 
             }
         },
         {
-            "description": "In this condition rebalancing happen as price of dex is more than than 0.5% "
+            "description": "In this condition also rebalancing doesn't happen as price of dex is not more than 0.5% "
                            "of oracle price.",
             "actions": {
-                "initial_sicx_in_rebalancer": 1000 * ICX,
                 "initial_bnUSD_in_rebalancer": 1000 * ICX,
                 "method": "transfer",
                 "amount": 1600 * ICX,
-                "rebalancing_status": 1,
-                "final_sicx_in_rebalancer": 1000 * ICX,
+                "rebalancing_status": 0,
                 "final_bnUSD_in_rebalancer": 1000 * ICX
             }
         },
@@ -73,12 +69,10 @@ REBALANCING_DOWN_STORIES = {
             "description": "In this condition rebalancing happens as dex price increases with more than 0.5% of "
                            "oracle price.",
             "actions": {
-                "initial_sicx_in_rebalancer": 1000 * ICX,
                 "initial_bnUSD_in_rebalancer": 1000 * ICX,
                 "method": "transfer",
-                "amount": 1000 * ICX,
+                "amount": 200000 * ICX,
                 "rebalancing_status": 1,
-                "final_sicx_in_rebalancer": 1000 * ICX,
                 "final_bnUSD_in_rebalancer": 1000 * ICX
             }
         }
