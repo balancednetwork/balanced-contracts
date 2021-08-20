@@ -5,7 +5,7 @@ from json import JSONDecodeError
 from iconservice import Address, IconScoreException
 from tbears.libs.scoretest.score_test_case import ScoreTestCase
 
-from core_contracts.governance.governance import Governance
+from core_contracts.governance.governance import Governance, ProposalDB
 from core_contracts.governance.utils.consts import DAY_ZERO, DAY_START, U_SECONDS_DAY, EXA
 
 
@@ -76,12 +76,12 @@ class TestGovernanceUnit(ScoreTestCase):
         self.governance.addresses._dex.set(self.dex)
         self.governance.addresses._bnUSD.set(self.bnusd) 
         
-    def test_set_minimum_vote_duration(self):
+    def test_set_vote_duration(self):
         self.set_msg(self.test_account1)
 
-        self.assertFalse(self.governance._minimum_vote_duration.get())
-        self.governance.setMinimumVoteDuration(5)
-        self.assertEqual(self.governance.getMinimumVoteDuration(), 5)
+        self.assertFalse(self.governance._vote_duration.get())
+        self.governance.setVoteDuration(5)
+        self.assertEqual(self.governance.getVoteDuration(), 5)
 
     def test_set_quorum(self):
         self.set_msg(self.test_account1)
@@ -129,7 +129,7 @@ class TestGovernanceUnit(ScoreTestCase):
         self.set_msg(self.test_account1)
         self._set_governance_params()
         day = self.governance.getDay()
-        duration = self.governance.getMinimumVoteDuration()
+        duration = self.governance.getVoteDuration()
         vote_start = day + 1
 
         # Test define vote method.
@@ -137,7 +137,7 @@ class TestGovernanceUnit(ScoreTestCase):
                                totalSupplyAt=1, totalBalnAt=1, totalStakedBalanceOfAt=1)
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             self.governance.defineVote(name="Just a demo", description='Testing description field', 
-                                       vote_start=vote_start, duration=duration, snapshot=day,
+                                       vote_start=vote_start, snapshot=day,
                                        actions="{\"enable_dividends\": {}}")
 
             expected = {'id': 1, 'name': 'Just a demo', 'proposer': self.governance.msg.sender, 
@@ -169,48 +169,42 @@ class TestGovernanceUnit(ScoreTestCase):
         day = self.governance.getDay()
 
         mock_class = MockClass(totalSupply = 10000, stakedBalanceOf = 100)
-        min_duration = duration=self.governance.getMinimumVoteDuration()
+        duration = duration=self.governance.getVoteDuration()
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             
             # Start at or before current day.
             with self.assertRaises(IconScoreException) as start_day_before:
-                self.governance.defineVote(name="Enable the dividends", description='Testing description field', vote_start=day, 
-                                           duration=min_duration, snapshot=day, actions="{\"enable_dividends\": {}}")
+                self.governance.defineVote(name="Enable the dividends", description='Testing description field',
+                                           vote_start=day, snapshot=day, actions="{\"enable_dividends\": {}}")
             self.assertEqual("Vote cannot start at or before the current day.", start_day_before.exception.message)
 
             # Snapshot less then current day.
             with self.assertRaises(IconScoreException) as snapshot_1:
-                self.governance.defineVote(name="Enable the dividends", description='Testing description field', vote_start=day + 1, 
-                                           duration=min_duration, snapshot= day - 1, actions="{\"enable_dividends\": {}}")
+                self.governance.defineVote(name="Enable the dividends", description='Testing description field', 
+                                           vote_start=day + 1, snapshot= day - 1, actions="{\"enable_dividends\": {}}")
 
             self.assertEqual(f'The reference snapshot must be in the range: [current_day ({day}), ' 
                              f'start_day ({day + 1})].', snapshot_1.exception.message)
 
             # Snapshot larger than day of vote start.
             with self.assertRaises(IconScoreException) as snapshot_2:
-                self.governance.defineVote(name="Enable the dividends", description='Testing description field', vote_start=day + 1, 
-                                           duration=min_duration, snapshot= day + 2, actions="{\"enable_dividends\": {}}")
+                self.governance.defineVote(name="Enable the dividends", description='Testing description field', 
+                                           vote_start=day + 1, snapshot= day + 2, actions="{\"enable_dividends\": {}}")
             self.assertEqual(f'The reference snapshot must be in the range: [current_day ({day}), '
                              f'start_day ({day + 1})].', snapshot_2.exception.message)
 
-            # Vote duration below minimum.
-            with self.assertRaises(IconScoreException) as duration:
-                self.governance.defineVote(name="Enable the dividends", description='Testing description field', vote_start=day + 1, 
-                                           duration=min_duration - 1, snapshot=day, actions="{\"enable_dividends\": {}}")
-            self.assertEqual(f'Votes must have a minimum duration of {min_duration} days.', duration.exception.message)
-
             # Dublicate use of poll name.
             with self.assertRaises(IconScoreException) as duplicate:
-                self.governance.defineVote(name="Enable the dividendss", description='Testing description field', vote_start=day + 1, 
-                                           duration=min_duration, snapshot=day, actions="{\"enable_dividends\": {}}")
-                self.governance.defineVote(name="Enable the dividendss", description='Testing description field', vote_start=day + 1, 
-                                           duration=min_duration, snapshot=day, actions="{\"enable_dividends\": {}}")
+                self.governance.defineVote(name="Enable the dividendss", description='Testing description field', 
+                                           vote_start=day + 1, snapshot=day, actions="{\"enable_dividends\": {}}")
+                self.governance.defineVote(name="Enable the dividendss", description='Testing description field', 
+                                           vote_start=day + 1, snapshot=day, actions="{\"enable_dividends\": {}}")
             self.assertEqual("Poll name Enable the dividendss has already been used.", duplicate.exception.message)
 
             # More actions then allowed.
             with self.assertRaises(IconScoreException) as max_actions:
-                self.governance.defineVote(name="Enable the dividends max action", description='Testing description field', vote_start=day + 1, 
-                                           duration=min_duration, snapshot=day,
+                self.governance.defineVote(name="Enable the dividends max action", description='Testing description field', 
+                                           vote_start=day + 1, snapshot=day,
                                            actions="{\"enable_dividends\": {}, \"enable_dividends1\": {}, "
                                                    "\"enable_dividends2\": {}, \"enable_dividends3\": {}, "
                                                    "\"enable_dividends4\": {}, \"enable_dividends5\": {}}")                                     
@@ -223,8 +217,8 @@ class TestGovernanceUnit(ScoreTestCase):
             
             # Not enough baln staked.
             with self.assertRaises(IconScoreException) as balnstaked:
-                self.governance.defineVote(name="Enable the dividends", description='Testing description field', vote_start=day + 1, 
-                                           duration=min_duration, snapshot=day, actions="{\"enable_dividends\": {}}")
+                self.governance.defineVote(name="Enable the dividends", description='Testing description field', 
+                                           vote_start=day + 1, snapshot=day, actions="{\"enable_dividends\": {}}")
             self.assertEqual(f'User needs at least {baln_criterion / 100}% of total baln supply staked to define a vote.', balnstaked.exception.message)
 
     def test_vote_cycle_complete(self):
@@ -232,13 +226,12 @@ class TestGovernanceUnit(ScoreTestCase):
         self._set_governance_params()
         self.set_block(0, 0)
         day = self.governance.getDay()
-        min_duration = self.governance._minimum_vote_duration.get()
+        min_duration = self.governance._vote_duration.get()
         mock_class = MockClass(balanceOfAt=1, totalSupplyAt=2, totalBalnAt=3, totalStakedBalanceOfAt=4,
                                stakedBalanceOfAt=5, totalSupply=1000, stakedBalanceOf=100)
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             self.governance.defineVote(name="Enable the dividends", description="Count pool BALN",
-                                       vote_start=day + 1, duration=min_duration,
-                                       snapshot=day, actions="{\"enable_dividends\": {}}")
+                                       vote_start=day + 1, snapshot=day, actions="{\"enable_dividends\": {}}")
             self.assertEqual("Pending", self.governance.checkVote(1).get("status"))
 
             with self.assertRaises(IconScoreException) as inactive_poll:
@@ -257,8 +250,7 @@ class TestGovernanceUnit(ScoreTestCase):
 
             self.set_block(55, 0)
             self.governance.defineVote(name="Enable the dividends cancel this", description="Count pool BALN",
-                                       vote_start=day + 1, duration=min_duration,
-                                       snapshot=day, actions="{\"enable_dividends\": {}}")
+                                       vote_start=day + 1, snapshot=day, actions="{\"enable_dividends\": {}}")
             try:
                 self.governance.cancelVote("Enable the dividends cancel this")
             except IconScoreException:
@@ -269,20 +261,16 @@ class TestGovernanceUnit(ScoreTestCase):
         self.set_msg(self.test_account1)
         self._set_governance_params()
 
-        min_duration = self.governance._minimum_vote_duration.get()
         day = self.governance.getDay()
         mock_class = MockClass(totalSupply = 10000, stakedBalanceOf = 100)
 
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             self.governance.defineVote(name="Enable the dividends", description='Testing description field',
-                                       vote_start=day + 1, duration=min_duration,
-                                       snapshot=day, actions="{\"enable_dividends\": {}}")
+                                       vote_start=day + 1, snapshot=day, actions="{\"enable_dividends\": {}}")
             self.governance.defineVote(name="Enable the dividends2", description='Testing description field',
-                                       vote_start=day + 1, duration=min_duration,
-                                       snapshot=day, actions="{\"enable_dividends\": {}}")
+                                       vote_start=day + 1, snapshot=day, actions="{\"enable_dividends\": {}}")
             self.governance.defineVote(name="Enable the dividends3", description='Testing description field',
-                                       vote_start=day + 1, duration=min_duration,
-                                       snapshot=day, actions="{\"enable_dividends\": {}}")
+                                       vote_start=day + 1, snapshot=day, actions="{\"enable_dividends\": {}}")
 
             self.assertEqual(3, self.governance.getProposalCount(), "Failed to create three proposals")
 
@@ -311,7 +299,7 @@ class TestGovernanceUnit(ScoreTestCase):
         self.set_block(0, 0)
         self._set_governance_params()
 
-        min_duration = self.governance._minimum_vote_duration.get()
+        min_duration = self.governance._vote_duration.get()
         day = self.governance.getDay()
         mock_class = MockClass(totalSupply = 1000, stakedBalanceOf=10, balanceOfAt=1, totalSupplyAt=2, totalBalnAt=3, totalStakedBalanceOfAt=4,
                                stakedBalanceOfAt=5)
@@ -319,8 +307,7 @@ class TestGovernanceUnit(ScoreTestCase):
             actions = {"addNewDataSource": {"_data_source_name": "", "_contract_address": ""},
                        "updateDistPercent": {"_recipient_list": [{"recipient_name": "", "dist_percent": 12}]}}
             self.governance.defineVote(name="Test add data source", description="Count pool BALN",
-                                       vote_start=day + 1, duration=min_duration,
-                                       snapshot=day, actions=json.dumps(actions))
+                                       vote_start=day + 1, snapshot=day, actions=json.dumps(actions))
             self.governance.activateVote("Test add data source")
             launch_time = self.governance._launch_time.get()
             new_day = launch_time + (DAY_ZERO + day + 2) * 10 ** 6 * 60 * 60 * 24
@@ -331,15 +318,30 @@ class TestGovernanceUnit(ScoreTestCase):
             self.set_block(55, new_day)
             self.governance.executeVoteAction(1)
 
+    def test_refund_vote_definition_fee(self):
+        self.set_msg(self.test_account1)
+        self._set_governance_params()
+
+        day = self.governance.getDay()
+        mock_class = MockClass(totalSupply = 10000, stakedBalanceOf = 100)
+
+        with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
+            self.governance.defineVote(name="Enable the dividends", description='Testing description field',
+                                       vote_start=day + 1, snapshot=day, actions="{\"enable_dividends\": {}}")
+            proposal = ProposalDB(1, self.governance.db)
+            self.assertEqual(proposal.fee_refunded.get(), False)
+            self.governance._refund_vote_definition_fee(proposal)
+            self.assertEqual(proposal.fee_refunded.get(), True)
+
     def test_scoreUpdate_13(self):
         self.governance.scoreUpdate_13()
         self.assertEqual(self.governance.getQuorum(), 20)
         self.assertEqual(self.governance.getVoteDefinitionFee(), 100 * EXA)
-        self.assertEqual(self.governance.getMinimumVoteDuration(), 5)
+        self.assertEqual(self.governance.getVoteDuration(), 5)
         self.assertEqual(self.governance.getBalnVoteDefinitionCriterion(), 10)
 
-    def _set_governance_params(self, quorum = 40, min_vote_dur = 5, vote_def_fee = 1000 * 10**18, baln_vote_def_criterion = 5):
+    def _set_governance_params(self, quorum = 40, min_vote_dur = 5, vote_def_fee = 100 * 10**18, baln_vote_def_criterion = 5):
         self.governance.setQuorum(quorum)
-        self.governance.setMinimumVoteDuration(min_vote_dur)
+        self.governance.setVoteDuration(min_vote_dur)
         self.governance.setVoteDefinitionFee(vote_def_fee)
         self.governance.setBalnVoteDefinitionCriterion(baln_vote_def_criterion)
