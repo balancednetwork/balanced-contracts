@@ -207,7 +207,7 @@ class Governance(IconScoreBase):
 
         ProposalDB.create_proposal(name=name, description=description, proposer=self.msg.sender, quorum=self._quorum.get()*EXA//100,
                                    majority=MAJORITY, snapshot=snapshot, start=vote_start, end=vote_start + self._vote_duration.get(),
-                                   actions=actions, db=self.db)
+                                   actions=actions, fee=self._bnusd_vote_definition_fee.get(), db=self.db)
 
     @external(readonly=True)
     def maxActions(self) -> int:
@@ -335,6 +335,7 @@ class Governance(IconScoreBase):
                 except BaseException as e:
                     revert(f"Failed Execution of action. Reason: {e}")
                 proposal.status.set(ProposalStatus.STATUS[ProposalStatus.EXECUTED])
+                self._refund_vote_definition_fee(proposal)
             else:
                 proposal.status.set(ProposalStatus.STATUS[ProposalStatus.DEFEATED])
         else:
@@ -345,6 +346,12 @@ class Governance(IconScoreBase):
         actions = json_loads(_vote_actions)
         for action in actions:
             self.vote_execute[action](**actions[action])
+
+    def _refund_vote_definition_fee(self, proposal: ProposalDB) -> None:
+        if not proposal.fee_refunded.get():
+            bnusd = self.create_interface_score(self.addresses['bnUSD'], BnUSDInterface)
+            bnusd.govTransfer(self.addresses['daofund'], proposal.proposer.get(), proposal.fee.get())
+            proposal.fee_refunded.set(True)
 
     @external(readonly=True)
     def getVoteIndex(self, _name: str) -> int:
