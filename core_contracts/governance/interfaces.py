@@ -31,6 +31,10 @@ class RebalancingInterface(InterfaceScore):
         pass
 
     @interface
+    def setBnusdReceivable(self, _value: int) -> None:
+        pass
+
+    @interface
     def setPriceDiffThreshold(self, _value: int) -> None:
         pass
 
@@ -49,7 +53,6 @@ class RebalancingInterface(InterfaceScore):
     @interface
     def setBnusd(self, _address: Address) -> None:
         pass
-
 
 # An interface to the Loans SCORE
 class LoansInterface(InterfaceScore):
