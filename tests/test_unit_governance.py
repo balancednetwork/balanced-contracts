@@ -133,8 +133,7 @@ class TestGovernanceUnit(ScoreTestCase):
         vote_start = day + 1
 
         # Test define vote method.
-        mock_class = MockClass(totalSupply = 10000, stakedBalanceOf = 100, balanceOfAt=1,
-                               totalSupplyAt=1, totalBalnAt=1, totalStakedBalanceOfAt=1)
+        mock_class = MockClass(totalSupply = 10000, stakedBalanceOf = 100)
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             self.governance.defineVote(name="Just a demo", description='Testing description field', 
                                        vote_start=vote_start, snapshot=day,
@@ -169,7 +168,7 @@ class TestGovernanceUnit(ScoreTestCase):
         day = self.governance.getDay()
 
         mock_class = MockClass(totalSupply = 10000, stakedBalanceOf = 100)
-        duration = duration=self.governance.getVoteDuration()
+        duration = self.governance.getVoteDuration()
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             
             # Start at or before current day.
@@ -182,7 +181,6 @@ class TestGovernanceUnit(ScoreTestCase):
             with self.assertRaises(IconScoreException) as snapshot_1:
                 self.governance.defineVote(name="Enable the dividends", description='Testing description field', 
                                            vote_start=day + 1, snapshot= day - 1, actions="{\"enable_dividends\": {}}")
-
             self.assertEqual(f'The reference snapshot must be in the range: [current_day ({day}), ' 
                              f'start_day ({day + 1})].', snapshot_1.exception.message)
 
@@ -226,7 +224,6 @@ class TestGovernanceUnit(ScoreTestCase):
         self._set_governance_params()
         self.set_block(0, 0)
         day = self.governance.getDay()
-        min_duration = self.governance._vote_duration.get()
         mock_class = MockClass(balanceOfAt=1, totalSupplyAt=2, totalBalnAt=3, totalStakedBalanceOfAt=4,
                                stakedBalanceOfAt=5, totalSupply=1000, stakedBalanceOf=100)
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
@@ -299,7 +296,7 @@ class TestGovernanceUnit(ScoreTestCase):
         self.set_block(0, 0)
         self._set_governance_params()
 
-        min_duration = self.governance._vote_duration.get()
+        duration = self.governance._vote_duration.get()
         day = self.governance.getDay()
         mock_class = MockClass(totalSupply = 1000, stakedBalanceOf=10, balanceOfAt=1, totalSupplyAt=2, totalBalnAt=3, totalStakedBalanceOfAt=4,
                                stakedBalanceOfAt=5)
@@ -314,7 +311,7 @@ class TestGovernanceUnit(ScoreTestCase):
             self.set_block(55, new_day)
             self.governance.castVote("Test add data source", True)
             launch_time = self.governance._launch_time.get()
-            new_day = launch_time + (DAY_ZERO + day + min_duration + 1) * 10 ** 6 * 60 * 60 * 24
+            new_day = launch_time + (DAY_ZERO + day + duration + 1) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.executeVoteAction(1)
 
@@ -340,7 +337,7 @@ class TestGovernanceUnit(ScoreTestCase):
         self.assertEqual(self.governance.getVoteDuration(), 5)
         self.assertEqual(self.governance.getBalnVoteDefinitionCriterion(), 10)
 
-    def _set_governance_params(self, quorum = 40, min_vote_dur = 5, vote_def_fee = 100 * 10**18, baln_vote_def_criterion = 5):
+    def _set_governance_params(self, quorum = 40, min_vote_dur = 5, vote_def_fee = 100 * EXA, baln_vote_def_criterion = 5):
         self.governance.setQuorum(quorum)
         self.governance.setVoteDuration(min_vote_dur)
         self.governance.setVoteDefinitionFee(vote_def_fee)
