@@ -166,7 +166,7 @@ class Governance(IconScoreBase):
         proposal.status.set(ProposalStatus.STATUS[ProposalStatus.CANCELLED])
 
     @external
-    def defineVote(self, name: str, description: str, vote_start: int, duration: int, 
+    def defineVote(self, name: str, description: str, vote_start: int, 
                    snapshot: int, actions: str) -> None:
         """
         Define a new vote and which actions are to be executed if it is successful.
@@ -174,7 +174,6 @@ class Governance(IconScoreBase):
         :param name: name of the vote
         :param description: description of the vote
         :param vote_start: day to start the vote
-        :param duration: number of days the vote will be active
         :param snapshot: which day to use for the baln stake snapshot
         :param actions: json string on the form: {'<action_1>': {<kwargs for action_1>},
                                                   '<action_2>': {<kwargs_for_action_2>},..}
@@ -186,9 +185,6 @@ class Governance(IconScoreBase):
         if not self.getDay() <= snapshot <= vote_start:
             revert(f'The reference snapshot must be in the range: [current_day ({self.getDay()}), '
                    f'start_day ({vote_start})].')
-        min_duration = self._vote_duration.get()
-        if duration < min_duration:
-            revert(f'Votes must have a minimum duration of {min_duration} days.')
         vote_index = ProposalDB.proposal_id(name, self.db)
         if vote_index > 0:
             revert(f'Poll name {name} has already been used.')
@@ -210,7 +206,7 @@ class Governance(IconScoreBase):
             revert(f"Balanced Governance: Only {self.maxActions()} actions are allowed")
 
         ProposalDB.create_proposal(name=name, description=description, proposer=self.msg.sender, quorum=self._quorum.get()*EXA//100,
-                                   majority=MAJORITY, snapshot=snapshot, start=vote_start, end=vote_start + duration,
+                                   majority=MAJORITY, snapshot=snapshot, start=vote_start, end=vote_start + self._vote_duration.get(),
                                    actions=actions, db=self.db)
 
     @external(readonly=True)
