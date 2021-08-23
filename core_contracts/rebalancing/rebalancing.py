@@ -58,7 +58,7 @@ class Rebalancing(IconScoreBase):
     _LOANS_ADDRESS = 'loans_address'
     _GOVERNANCE_ADDRESS = 'governance_address'
     _SICX_RECEIVABLE = 'sicx_receivable'
-    _BNUSD_RECEIVABLE = 'bnusd_receivable'
+    _MAX_RETIRE = '_max_retire'
     _ADMIN = 'admin'
     _PRICE_THRESHOLD = '_price_threshold'
 
@@ -71,7 +71,7 @@ class Rebalancing(IconScoreBase):
         self._governance = VarDB(self._GOVERNANCE_ADDRESS, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._sicx_receivable = VarDB(self._SICX_RECEIVABLE, db, value_type=int)
-        self._bnusd_receivable = VarDB(self._BNUSD_RECEIVABLE, db, value_type=int)
+        self._max_retire = VarDB(self._MAX_RETIRE, db, value_type=int)
         self._price_threshold = VarDB(self._PRICE_THRESHOLD, db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
@@ -184,28 +184,28 @@ class Rebalancing(IconScoreBase):
         """
         self._sicx_receivable.set(_value)
 
+    @external
+    @only_governance
+    def setMaxRetireAmount(self, _value: int) -> None:
+        """
+        :param _value: Maximum sICX amount to retire.
+        Sets the Maximum sICX amount to retire.
+        """
+        self._max_retire.set(_value)
+
+    @external(readonly=True)
+    def getMaxRetireAmount(self) -> int:
+        """
+        Returns the Maximum sICX amount to retire.
+        """
+        return self._max_retire.get()
+
     @external(readonly=True)
     def getSicxReceivable(self) -> int:
         """
         Returns the sICX amount to receive by rebalancing contract.
         """
         return self._sicx_receivable.get()
-
-    @external
-    @only_governance
-    def setBnusdReceivable(self, _value: int) -> None:
-        """
-        :param _value: bnUSD amount to set.
-        Sets the bnUSD amount to receive by rebalancing contract.
-        """
-        self._bnusd_receivable.set(_value)
-
-    @external(readonly=True)
-    def getBnusdReceivable(self) -> int:
-        """
-        Returns the bnUSD amount to receive by rebalancing contract.
-        """
-        return self._bnusd_receivable.get()
 
     @external(readonly=True)
     def getRebalancingStatus(self) -> list:
@@ -244,11 +244,11 @@ class Rebalancing(IconScoreBase):
         sicx_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
 
         rebalance_needed, required_retire_amount, reverse_rebalance = self.getRebalancingStatus()
-        sicx_sale_amount = self._sicx_receivable.get()
+        sicx_threshold = self._sicx_receivable.get()
         if required_retire_amount > 0:
             if rebalance_needed:
-                if required_retire_amount > sicx_sale_amount:
-                    loans.retireRedeem("bnUSD", sicx_sale_amount)
+                if required_retire_amount > sicx_threshold:
+                    loans.retireRedeem('bnUSD', self._max_retire.get())
         else:
             bnusd_in_contract = bnusd_score.balanceOf(self.address)
             required_retire_amount = abs(required_retire_amount)
