@@ -42,8 +42,7 @@ class Governance(ContractAddresses):
 
     def on_update(self) -> None:
         super().on_update()
-        self._time_offset.set(DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1))
-        self._minimum_vote_duration.set(1)
+        self.scoreUpdate_12()
 
     @external(readonly=True)
     def name(self) -> str:
@@ -140,11 +139,10 @@ class Governance(ContractAddresses):
         return proposal_list
 
     @external
-    def castVote(self, name: str, vote: bool) -> None:
+    def castVote(self, vote_index: int, vote: bool) -> None:
         """
         Casts a vote in the named poll.
         """
-        vote_index = ProposalDB.proposal_id(name, self.db)
         proposal = ProposalDB(var_key=vote_index, db=self.db)
         start_snap = proposal.start_snapshot.get()
         end_snap = proposal.end_snapshot.get()
@@ -189,7 +187,7 @@ class Governance(ContractAddresses):
 
         proposal.total_for_votes.set(total_for)
         proposal.total_against_votes.set(total_against)
-        self.VoteCast(name, vote, sender, total_vote, total_for, total_against)
+        self.VoteCast(proposal.name.get(), vote, sender, total_vote, total_for, total_against)
 
     def _get_pool_baln(self, _account: Address, _day: int) -> int:
 
@@ -312,6 +310,14 @@ class Governance(ContractAddresses):
     def getVotesOfUser(self, vote_index: int, user: Address) -> dict:
         vote_data = ProposalDB(vote_index, self.db)
         return {"for": vote_data.for_votes_of_user[user], "against": vote_data.against_votes_of_user[user]}
+
+    @external(readonly=True)
+    def myVotingWeight(self, _address: Address, _day: int) -> int:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        stake = baln.stakedBalanceOfAt(_address, _day)
+        dex_pool = self._get_pool_baln(_address, _day)
+        total_vote = stake + dex_pool
+        return total_vote
 
     @external
     @only_owner
@@ -544,6 +550,18 @@ class Governance(ContractAddresses):
     def enableDividends(self) -> None:
         dividends = self.create_interface_score(self.get_contract_address('dividends'), DividendsInterface)
         dividends.setDistributionActivationStatus(True)
+
+    def setMiningRatio(self, _value: int):
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setMiningRatio(_value)
+
+    def setLockingRatio(self, _value: int):
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setLockingRatio(_value)
+
+    def setOriginationFee(self, _fee: int):
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setOriginationFee(_fee)
 
     @external
     @only_owner
@@ -798,3 +816,19 @@ class Governance(ContractAddresses):
     @eventlog(indexed=2)
     def VoteCast(self, vote_name: str, vote: bool, voter: Address, stake: int, total_for: int, total_against: int):
         pass
+
+    def scoreUpdate_11(self):
+        """
+        Rename the first vote to include the BIP numbering.
+        """
+        proposal = ProposalDB(var_key=1, db=self.db)
+        proposal.name.set("BIP1: Activate network fee distribution")
+
+    def scoreUpdate_12(self):
+        """
+        Correcting the vote actions defined for BIP3.
+        Actions as previously defined included method and params keys, but the
+        expected format is for the method name to be the key for each action.
+        """
+        proposal = ProposalDB(var_key=3, db=self.db)
+        proposal.actions.set('{"update_origination_fee": {"_fee": 115}}')
