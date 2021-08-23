@@ -674,7 +674,7 @@ class DEX(IconScoreBase):
 
         self._active_addresses[_id].add(_to)
         if self._balance[_id][_from] == 0:
-            self._active_addresses[_id].discard(_from)
+            self._active_addresses[_id].remove(_from)
 
         self.TransferSingle(self.msg.sender, _from, _to, _id, _value)
 
