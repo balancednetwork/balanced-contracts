@@ -476,7 +476,7 @@ class Governance(IconScoreBase):
     @only_owner
     def setRebalancingThreshold(self, _value: int) -> None:
         rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
-        rebalancing.setPriceDiffThreshold(_value)\
+        rebalancing.setPriceDiffThreshold(_value)
 
     @external
     @only_owner
