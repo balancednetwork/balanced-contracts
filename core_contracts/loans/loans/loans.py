@@ -683,7 +683,7 @@ class Loans(IconScoreBase):
 
         dex_score = self.create_interface_score(self._dex.get(), DexTokenInterface)
         rate = dex_score.getSicxBnusdPrice()
-        _to_redeemed = rate * _max_sicx_to_retire // EXA
+        # _to_redeemed = rate * _max_sicx_to_retire // EXA
 
         batch_size = self._redeem_batch.get()
         borrowers = asset.get_borrowers()
@@ -698,10 +698,10 @@ class Loans(IconScoreBase):
             node_id = borrowers.get_head_id()
         borrowers.serialize()
 
-        sicx_to_retire = _max_sicx_to_retire
+        sicx_to_retire = min(_max_sicx_to_retire, (self._max_retire_percent.get() * total_batch_debt * EXA) // rate)
 
-        if POINTS * _to_redeemed > self._max_retire_percent.get() * total_batch_debt:
-            sicx_to_retire = (self._max_retire_percent.get() * total_batch_debt) * EXA // rate
+        # if POINTS * _to_redeemed > self._max_retire_percent.get() * total_batch_debt:
+        #     sicx_to_retire = (self._max_retire_percent.get() * total_batch_debt) * EXA // rate
 
         sicx_address = self._assets["sICX"].get_address()
         sicx = self.create_interface_score(sicx_address, TokenInterface)
