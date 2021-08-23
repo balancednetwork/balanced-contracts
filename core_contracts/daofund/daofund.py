@@ -14,6 +14,7 @@
 
 from iconservice import *
 from .utils.checks import *
+from .utils.contract_addresses import ContractAddresses
 
 TAG = 'DAOfund'
 
@@ -47,7 +48,7 @@ class LoansInterface(InterfaceScore):
         pass
 
 
-class DAOfund(IconScoreBase):
+class DAOfund(ContractAddresses):
 
     @eventlog(indexed=3)
     def Transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
@@ -65,26 +66,26 @@ class DAOfund(IconScoreBase):
     def InsufficientFunds(self, recipient: Address, symbol: str, note: str):
         pass
 
-    _GOVERNANCE = 'governance'
-    _ADMIN = 'admin'
-    _LOANS_SCORE = 'loans_score'
     _FUND = 'fund'
     _AWARDS = 'awards'
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
-        self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
-        self._admin = VarDB(self._ADMIN, db, value_type=Address)
-        self._loans_score = VarDB(self._LOANS_SCORE, db, value_type=Address)
+        self._governance = self.contract_address_collection["governance"]
+        self._loans_score = self.contract_address_collection["loans"]
+        self._admin = self.contract_address_collection["admin"]
         self._fund = DictDB(self._FUND, db, value_type=int)
         self._awards = DictDB(self._AWARDS, db, value_type=int, depth=2)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
-        self._governance.set(_governance)
+        self._governance = _governance
 
     def on_update(self) -> None:
         super().on_update()
+        VarDB('governance', self.db, value_type=Address).remove()
+        VarDB('loans_score', self.db, value_type=Address).remove()
+        VarDB("admin", self.db, value_type=Address).remove()
 
     @external(readonly=True)
     def name(self) -> str:
@@ -95,11 +96,11 @@ class DAOfund(IconScoreBase):
     def setGovernance(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._governance.set(_address)
+        self._governance = _address
 
     @external(readonly=True)
     def getGovernance(self) -> Address:
-        return self._governance.get()
+        return self._governance
 
     @external
     @only_governance

@@ -16,6 +16,7 @@ from iconservice import *
 from .scorelib.linked_list import *
 from .utils.consts import *
 from .utils.checks import *
+from .utils.contract_addresses import ContractAddresses
 
 
 # An interface of token to distribute daily rewards
@@ -82,10 +83,9 @@ class PrepDelegations(TypedDict):
     _votes_in_per: int
 
 
-class Staking(IconScoreBase):
+class Staking(ContractAddresses):
     _SICX_SUPPLY = 'sICX_supply'
     _RATE = '_rate'
-    _SICX_ADDRESS = 'sICX_address'
     _BLOCK_HEIGHT_WEEK = '_block_height_week'
     _BLOCK_HEIGHT_DAY = '_block_height_day'
     _TOTAL_STAKE = '_total_stake'
@@ -130,7 +130,7 @@ class Staking(IconScoreBase):
         # to store the block height for checking the top 100 preps in a week
         self._block_height_week = VarDB(self._BLOCK_HEIGHT_WEEK, db, value_type=int)
         self._block_height_day = VarDB(self._BLOCK_HEIGHT_DAY, db, value_type=int)
-        self._sICX_address = VarDB(self._SICX_ADDRESS, db, value_type=Address)
+        self._sICX_address = self.contract_address_collection["sicx"]
         # total staked from staking contract
         self._total_stake = VarDB(self._TOTAL_STAKE, db, value_type=int)
         # vardb to store total rewards
@@ -174,6 +174,7 @@ class Staking(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        VarDB('sICX_address', self.db, value_type=Address).remove()
 
     @external(readonly=True)
     def name(self) -> str:
@@ -190,7 +191,7 @@ class Staking(IconScoreBase):
 
     def get_sICX_score(self) -> sICXTokenInterface:
         if self._sICX_score is None:
-            self._sICX_score = self.create_interface_score(self._sICX_address.get(), sICXTokenInterface)
+            self._sICX_score = self.create_interface_score(self._sICX_address, sICXTokenInterface)
         return self._sICX_score
 
     def getRate(self) -> int:
@@ -209,7 +210,7 @@ class Staking(IconScoreBase):
         """
         Get the address of sICX token contract.
         """
-        return self._sICX_address.get()
+        return self._sICX_address
 
     @external
     @only_owner
@@ -309,7 +310,7 @@ class Staking(IconScoreBase):
         """
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._sICX_address.set(_address)
+        self._sICX_address = _address
 
     @external(readonly=True)
     def getUnstakeInfo(self) -> list:
@@ -597,7 +598,7 @@ class Staking(IconScoreBase):
         :params _to : Address that receives the sICX token.
         :params _value : Amount of token to be transferred.
         """
-        if self.msg.sender != self._sICX_address.get():
+        if self.msg.sender != self._sICX_address:
             revert(f'{TAG}: Only sicx token contract can call this function.')
         sicx_to_icx_conversion = _value * self._rate.get() // DENOMINATOR
         receiver_delegation_in_per = self._get_address_delegations_in_per(_to)
@@ -678,7 +679,7 @@ class Staking(IconScoreBase):
         :param _data: Unused, ignored.
         :type _data: bytes
         """
-        if self.msg.sender != self._sICX_address.get():
+        if self.msg.sender != self._sICX_address:
             revert(f'{TAG}: The Staking contract only accepts sICX tokens.')
         Logger.debug(f'({_value}) tokens received from {_from}.', TAG)
         try:

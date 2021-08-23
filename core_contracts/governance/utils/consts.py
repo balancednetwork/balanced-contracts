@@ -13,16 +13,6 @@ BALNSICX_ID = 4
 CONTRACTS = ['loans', 'dex', 'staking', 'rewards', 'dividends', 'daofund',
              'reserve', 'sicx', 'bnUSD', 'baln', 'bwt']
 
-ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve'],
-             'dex': ['rewards', 'dividends', 'staking', 'sicx', 'bnUSD', 'baln'],
-             'rewards': ['reserve', 'baln', 'bwt', 'daofund'],
-             'dividends': ['loans', 'daofund', 'dex', 'baln'],
-             'daofund': ['loans'],
-             'reserve': ['loans', 'baln', 'sicx'],
-             'bnUSD': ['oracle'],
-             'baln': ['dividends', 'oracle', 'dex', 'bnUSD'],
-             'bwt': ['baln']}
-
 ADMIN_ADDRESSES = {'loans': 'governance',
                    'dex': 'governance',
                    'rewards': 'governance',

@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from iconservice import *
 from ..utils.checks import *
 from ..utils.consts import *
 from .positions import PositionsDB
 from .assets import AssetsDB, Asset
+from ..utils.contract_addresses import ContractAddresses
 
 
 class PrepDelegations(TypedDict):
@@ -73,16 +73,8 @@ class DexTokenInterface(InterfaceScore):
         pass
 
 
-class Loans(IconScoreBase):
+class Loans(ContractAddresses):
     _LOANS_ON = 'loans_on'
-    _GOVERNANCE = 'governance'
-    _REBALANCE = 'rebalance'
-    _DEX = 'dex'
-    _DIVIDENDS = 'dividends'
-    _RESERVE = 'reserve'
-    _REWARDS = 'rewards'
-    _STAKING = 'staking'
-    _ADMIN = 'admin'
     _SNAP_BATCH_SIZE = 'snap_batch_size'
     _GLOBAL_INDEX = 'global_index'
     _GLOBAL_BATCH_INDEX = 'global_batch_index'
@@ -113,14 +105,16 @@ class Loans(IconScoreBase):
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self._loans_on = VarDB(self._LOANS_ON, db, value_type=bool)
-        self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
-        self._rebalance = VarDB(self._REBALANCE, db, value_type=Address)
-        self._dex = VarDB(self._DEX, db, value_type=Address)
-        self._dividends = VarDB(self._DIVIDENDS, db, value_type=Address)
-        self._reserve = VarDB(self._RESERVE, db, value_type=Address)
-        self._rewards = VarDB(self._REWARDS, db, value_type=Address)
-        self._staking = VarDB(self._STAKING, db, value_type=Address)
-        self._admin = VarDB(self._ADMIN, db, value_type=Address)
+
+        self._governance = self.contract_address_collection["governance"]
+        self._rebalance = self.contract_address_collection["rebalance"]
+        self._dex = self.contract_address_collection["dex"]
+        self._dividends = self.contract_address_collection["dividends"]
+        self._reserve = self.contract_address_collection["reserve"]
+        self._rewards = self.contract_address_collection["rewards"]
+        self._staking = self.contract_address_collection["staking"]
+        self._admin = self.contract_address_collection["admin"]
+
         self._snap_batch_size = VarDB(self._SNAP_BATCH_SIZE, db, value_type=int)
         self._global_index = VarDB(self._GLOBAL_INDEX, db, value_type=int)
         self._global_batch_index = VarDB(self._GLOBAL_BATCH_INDEX, db, value_type=int)
@@ -154,9 +148,9 @@ class Loans(IconScoreBase):
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
-        self._governance.set(_governance)
+        self._governance = _governance
         self._loans_on.set(False)
-        self._admin.set(self.owner)
+        self._admin = self.owner
         self._snap_batch_size.set(SNAP_BATCH_SIZE)
         self._rewards_done.set(True)
         self._dividends_done.set(True)
@@ -175,6 +169,22 @@ class Loans(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        _GOVERNANCE = 'governance'
+        _REBALANCE = 'rebalance'
+        _DEX = 'dex'
+        _DIVIDENDS = 'dividends'
+        _RESERVE = 'reserve'
+        _REWARDS = 'rewards'
+        _STAKING = 'staking'
+        _ADMIN = 'admin'
+        VarDB(_GOVERNANCE, self.db, value_type=Address).remove()
+        VarDB(_REBALANCE, self.db, value_type=Address).remove()
+        VarDB(_DEX, self.db, value_type=Address).remove()
+        VarDB(_DIVIDENDS, self.db, value_type=Address).remove()
+        VarDB(_RESERVE, self.db, value_type=Address).remove()
+        VarDB(_REWARDS, self.db, value_type=Address).remove()
+        VarDB(_STAKING, self.db, value_type=Address).remove()
+        VarDB(_ADMIN, self.db, value_type=Address).remove()
 
     @external(readonly=True)
     def name(self) -> str:
@@ -212,7 +222,7 @@ class Loans(IconScoreBase):
         :param _delegations: List of dictionaries with two keys, Address and percent.
         :type _delegations: List[PrepDelegations]
         """
-        staking = self.create_interface_score(self._staking.get(), Staking)
+        staking = self.create_interface_score(self._staking, Staking)
         staking.delegate(_delegations)
 
     @external(readonly=True)
@@ -425,7 +435,7 @@ class Loans(IconScoreBase):
         """
         prepares the position data snapshot to send to the rewards SCORE.
         """
-        if self.msg.sender != self._rewards.get():
+        if self.msg.sender != self._rewards:
             revert(f'{TAG}: The precompute method may only be invoked by the rewards SCORE.')
         self.checkForNewDay()  # Only does something if it is internal on a DEX tx.
         # Iterate through all positions in the snapshot to bring them up to date.
@@ -495,10 +505,10 @@ class Loans(IconScoreBase):
             self._rewards_done.set(False)
             self._dividends_done.set(False)
         elif not dividends_done:
-            dividends = self.create_interface_score(self._dividends.get(), Dividends)
+            dividends = self.create_interface_score(self._dividends, Dividends)
             self._dividends_done.set(dividends.distribute())
         elif not rewards_done:
-            rewards = self.create_interface_score(self._rewards.get(), Rewards)
+            rewards = self.create_interface_score(self._rewards, Rewards)
             self._rewards_done.set(rewards.distribute())
 
     @loans_on
@@ -529,10 +539,11 @@ class Loans(IconScoreBase):
             d = json_loads(_data.decode("utf-8"))
         except BaseException as e:
             revert(f'{TAG}: Invalid data: {_data}, returning tokens. Exception: {e}')
-        if set(d.keys()) == {"_asset", "_amount"}:
-            self.depositAndBorrow(d['_asset'], d['_amount'], _from, _value)
         else:
-            revert(f'{TAG}: Invalid parameters.')
+            if set(d.keys()) == {"_asset", "_amount"}:
+                self.depositAndBorrow(d['_asset'], d['_amount'], _from, _value)
+            else:
+                revert(f'{TAG}: Invalid parameters.')
 
     @loans_on
     @payable
@@ -561,7 +572,7 @@ class Loans(IconScoreBase):
             _from = sender
             if deposit > 0:
                 self._sICX_expected.set(True)
-                staking = self.create_interface_score(self._staking.get(), Staking)
+                staking = self.create_interface_score(self._staking, Staking)
                 staking.icx(deposit).stakeICX(self.address)
                 received = self._sICX_received.get()
                 if received == 0:
@@ -681,7 +692,7 @@ class Loans(IconScoreBase):
         if not (asset and asset.is_active()) or asset.is_collateral():
             revert(f'{TAG}: {_symbol} is not an active, borrowable asset on Balanced.')
 
-        dex_score = self.create_interface_score(self._dex.get(), DexTokenInterface)
+        dex_score = self.create_interface_score(self._dex, DexTokenInterface)
         rate = dex_score.getSicxBnusdPrice()
         _to_redeemed = rate * _sicx_from_lenders // EXA
         batch_size = self._redeem_batch.get()
@@ -703,7 +714,7 @@ class Loans(IconScoreBase):
         sicx = self.create_interface_score(sicx_address, TokenInterface)
 
         self._bnUSD_expected.set(True)
-        sicx.transfer(self._dex.get(), _sicx_from_lenders, data_for_dex)
+        sicx.transfer(self._dex, _sicx_from_lenders, data_for_dex)
         _redeemed = self._bnUSD_received.get()
         self._bnUSD_received.set(0)
         self._bnUSD_expected.set(False)
@@ -746,7 +757,7 @@ class Loans(IconScoreBase):
         """
         _price = _asset.priceInLoop()
         _sicx_rate = self._assets['sICX'].priceInLoop()
-        reserve_address = self._reserve.get()
+        reserve_address = self._reserve
         in_pool = _asset.liquidation_pool.get()
         bad_debt = _asset.bad_debt.get() - _bd_value
         _asset.bad_debt.set(bad_debt)
@@ -824,7 +835,7 @@ class Loans(IconScoreBase):
         self._assets[_asset].mint(_from, _amount)
 
         # Pay fee
-        self._assets[_asset].mint(self._dividends.get(), fee)
+        self._assets[_asset].mint(self._dividends, fee)
         self.FeePaid(_asset, fee, "origination")
 
     @loans_on
@@ -940,54 +951,54 @@ class Loans(IconScoreBase):
     def setGovernance(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._governance.set(_address)
+        self._governance = _address
 
     @external
     @only_admin
     def setRebalance(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._rebalance.set(_address)
+        self._rebalance = _address
 
     @external
     @only_admin
     def setDex(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._dex.set(_address)
+        self._dex = _address
 
     @external
     @only_governance
     def setAdmin(self, _admin: Address) -> None:
-        self._admin.set(_admin)
+        self._admin = _admin
 
     @external
     @only_admin
     def setDividends(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._dividends.set(_address)
+        self._dividends = _address
 
     @external
     @only_admin
     def setReserve(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._reserve.set(_address)
+        self._reserve = _address
 
     @external
     @only_admin
     def setRewards(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._rewards.set(_address)
+        self._rewards = _address
 
     @external
     @only_admin
     def setStaking(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._staking.set(_address)
+        self._staking = _address
 
     @external
     @only_admin
@@ -1049,24 +1060,21 @@ class Loans(IconScoreBase):
     @external(readonly=True)
     def getParameters(self) -> dict:
         return {
-            "admin": self._admin.get(),
-            "governance": self._governance.get(),
-            "dividends": self._dividends.get(),
-            "reserve_fund": self._reserve.get(),
-            "rewards": self._rewards.get(),
-            "staking": self._staking.get(),
-            "mining ratio": self._mining_ratio.get(),
-            "locking ratio": self._locking_ratio.get(),
-            "liquidation ratio": self._liquidation_ratio.get(),
-            "origination fee": self._origination_fee.get(),
-            "redemption fee": self._redemption_fee.get(),
-            "liquidation reward": self._liquidation_reward.get(),
-            "new loan minimum": self._new_loan_minimum.get(),
-            "min mining debt": self._min_mining_debt.get(),
-            "max div debt length": self._max_debts_list_length.get(),
-            "time offset": self._time_offset.get(),
-            "redeem batch size": self._redeem_batch.get(),
-            "retire percent max": self._max_retire_percent.get()
+            **self.get_all_contract_addresses(),
+            **{
+                "mining ratio": self._mining_ratio.get(),
+                "locking ratio": self._locking_ratio.get(),
+                "liquidation ratio": self._liquidation_ratio.get(),
+                "origination fee": self._origination_fee.get(),
+                "redemption fee": self._redemption_fee.get(),
+                "liquidation reward": self._liquidation_reward.get(),
+                "new loan minimum": self._new_loan_minimum.get(),
+                "min mining debt": self._min_mining_debt.get(),
+                "max div debt length": self._max_debts_list_length.get(),
+                "time offset": self._time_offset.get(),
+                "redeem batch size": self._redeem_batch.get(),
+                "retire percent max": self._max_retire_percent.get()
+            }
         }
 
     # --------------------------------------------------------------------------

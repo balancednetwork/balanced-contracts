@@ -14,11 +14,12 @@
 
 from .data_objects import *
 from .utils.checks import *
+from utils.contract_addresses import ContractAddresses
 
 TAG = 'Governance'
 
 
-class Governance(IconScoreBase):
+class Governance(ContractAddresses):
     """
     The Governance SCORE will have control of all parameters in BalancedDAO.
     All other SCOREs and external queries will be able to get SCORE addresses
@@ -27,7 +28,6 @@ class Governance(IconScoreBase):
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
-        self.addresses = Addresses(db, self)
         self.vote_execute = VoteActions(db, self)
         self._launch_day = VarDB('launch_day', db, int)
         self._launch_time = VarDB('launch_time', db, int)
@@ -91,7 +91,8 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def defineVote(self, name: str, description: str, quorum: int, vote_start: int, duration: int, snapshot: int, actions: str,
+    def defineVote(self, name: str, description: str, quorum: int, vote_start: int, duration: int, snapshot: int,
+                   actions: str,
                    majority: int = MAJORITY) -> None:
         """
         Names a new vote, defines quorum, and actions.
@@ -115,7 +116,8 @@ class Governance(IconScoreBase):
         if len(actions_dict) > self.maxActions():
             revert(f"Balanced Governance: Only {self.maxActions()} actions are allowed")
 
-        ProposalDB.create_proposal(name=name, description=description, proposer=self.msg.sender, quorum=quorum*EXA//100, majority=majority,
+        ProposalDB.create_proposal(name=name, description=description, proposer=self.msg.sender,
+                                   quorum=quorum * EXA // 100, majority=majority,
                                    snapshot=snapshot, start=vote_start, end=vote_start + duration, actions=actions,
                                    db=self.db)
 
@@ -150,7 +152,7 @@ class Governance(IconScoreBase):
             revert(f'That is not an active poll.')
         sender = self.msg.sender
         snapshot = proposal.vote_snapshot.get()
-        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln = self.create_interface_score(self.get_contract_address('baln'), BalancedInterface)
         stake = baln.stakedBalanceOfAt(sender, snapshot)
         dex_pool = self._get_pool_baln(sender, snapshot)
         total_vote = stake + dex_pool
@@ -191,7 +193,7 @@ class Governance(IconScoreBase):
 
     def _get_pool_baln(self, _account: Address, _day: int) -> int:
 
-        dex_score = self.create_interface_score(self.addresses['dex'], DexInterface)
+        dex_score = self.create_interface_score(self.get_contract_address('dex'), DexInterface)
 
         my_baln_from_pools = 0
         for pool_id in (BALNBNUSD_ID, BALNSICX_ID):
@@ -210,9 +212,9 @@ class Governance(IconScoreBase):
 
     @external(readonly=True)
     def totalBaln(self, _day: int) -> int:
-        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln = self.create_interface_score(self.get_contract_address('baln'), BalancedInterface)
         total_stake = baln.totalStakedBalanceOfAt(_day)
-        dex_score = self.create_interface_score(self.addresses['dex'], DexInterface)
+        dex_score = self.create_interface_score(self.get_contract_address('dex'), DexInterface)
 
         total_baln_from_pools = 0
         for pool_id in (BALNBNUSD_ID, BALNSICX_ID):
@@ -318,14 +320,42 @@ class Governance(IconScoreBase):
         Set parameters after deployment and before launch.
         Add Assets to Loans.
         """
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
-        self.addresses.setAdmins()
-        self.addresses.setContractAddresses()
-        addresses: dict = self.addresses.getAddresses()
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
+        self.setAdmins()
+        self.setContractAddresses()
+        addresses: dict = self.get_all_contract_addresses()
         for asset in ASSETS:
             loans.addAsset(addresses[asset['address']],
                            asset['active'],
                            asset['collateral'])
+
+    def setAdmins(self) -> None:
+        """
+        Set the admin addresses for each SCORE.
+        """
+        for contract in ADMIN_ADDRESSES:
+            score = self.create_interface_score(self.get_contract_address(contract), SetAddressesInterface)
+            try:
+                score.set_contract_addresses(
+                    [{"name": "admin",
+                      "address":
+                          self.address if ADMIN_ADDRESSES[contract] == "governance"
+                          else self.get_contract_address[ADMIN_ADDRESSES[contract]]}])
+            except BaseException as e:
+                revert(f'Problem setting admin address to {ADMIN_ADDRESSES[contract]} '
+                       f'on {contract}. Exception: {e}')
+
+    def setContractAddresses(self) -> None:
+        """
+        Set the addresses in each SCORE for the other SCOREs. Which addresses
+        are set in which SCOREs is specified in the consts.py file.
+        """
+        for contract, contract_address in self.get_all_contract_addresses().items():
+            score = self.create_interface_score(contract_address, SetAddressesInterface)
+            score.set_contract_addresses(
+                [{"name": k, "address": v}
+                 for k, v in self.get_all_contract_addresses()]
+            )
 
     @external
     @only_owner
@@ -333,9 +363,9 @@ class Governance(IconScoreBase):
         if self._launched.get():
             return
         self._launched.set(True)
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
-        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
-        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
+        dex = self.create_interface_score(self.get_contract_address('dex'), DexInterface)
+        rewards = self.create_interface_score(self.get_contract_address('rewards'), RewardsInterface)
         offset = DAY_ZERO + self._launch_day.get()
         day = (self.now() - DAY_START) // U_SECONDS_DAY - offset
         self._set_launch_day(day)
@@ -345,7 +375,7 @@ class Governance(IconScoreBase):
         loans.setTimeOffset(time_delta)
         dex.setTimeOffset(time_delta)
         rewards.setTimeOffset(time_delta)
-        addresses: dict = self.addresses.getAddresses()
+        addresses: dict = self.get_all_contract_addresses()
         for source in DATA_SOURCES:
             rewards.addNewDataSource(source['name'], addresses[source['address']])
         rewards.updateBalTokenDistPercentage(RECIPIENTS)
@@ -360,12 +390,12 @@ class Governance(IconScoreBase):
         value = self.msg.value
         if value == 0:
             revert(f'ICX sent must be greater than zero.')
-        dex_address = self.addresses['dex']
-        sICX_address = self.addresses['sicx']
-        bnUSD_address = self.addresses['bnUSD']
-        staking = self.create_interface_score(self.addresses['staking'], StakingInterface)
-        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        dex_address = self.get_contract_address('dex')
+        sICX_address = self.get_contract_address('sicx')
+        bnUSD_address = self.get_contract_address('bnUSD')
+        staking = self.create_interface_score(self.get_contract_address('staking'), StakingInterface)
+        rewards = self.create_interface_score(self.get_contract_address('rewards'), RewardsInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
         bnUSD = self.create_interface_score(bnUSD_address, AssetInterface)
         sICX = self.create_interface_score(sICX_address, AssetInterface)
         dex = self.create_interface_score(dex_address, DexInterface)
@@ -393,11 +423,11 @@ class Governance(IconScoreBase):
     @external
     @only_owner
     def createBalnMarket(self, _bnUSD_amount: int, _baln_amount: int) -> None:
-        dex_address = self.addresses['dex']
-        bnUSD_address = self.addresses['bnUSD']
-        baln_address = self.addresses['baln']
-        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        dex_address = self.get_contract_address('dex')
+        bnUSD_address = self.get_contract_address('bnUSD')
+        baln_address = self.get_contract_address('baln')
+        rewards = self.create_interface_score(self.get_contract_address('rewards'), RewardsInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
         baln = self.create_interface_score(baln_address, BalancedInterface)
         bnUSD = self.create_interface_score(bnUSD_address, AssetInterface)
         dex = self.create_interface_score(dex_address, DexInterface)
@@ -421,7 +451,7 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def rebalancingSetBnusd(self,_address: Address) -> None:
+    def rebalancingSetBnusd(self, _address: Address) -> None:
         rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
         rebalancing.setBnusd(_address)
 
@@ -446,13 +476,13 @@ class Governance(IconScoreBase):
     @external
     @only_owner
     def setLoansRebalance(self, _address: Address) -> None:
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
         loans.setRebalance(_address)
 
     @external
     @only_owner
     def setLoansDex(self, _address: Address) -> None:
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
         loans.setDex(_address)
 
     @external
@@ -475,26 +505,26 @@ class Governance(IconScoreBase):
     @external
     @only_owner
     def setAddresses(self, _addresses: BalancedAddresses) -> None:
-        self.addresses.setAddresses(_addresses)
+        self.set_contract_addresses([{"name": k, "address": v} for k, v in _addresses.items()])
 
     @external(readonly=True)
     def getAddresses(self) -> dict:
-        return self.addresses.getAddresses()
+        return self.get_all_contract_addresses()
 
     @external
     @only_owner
     def setAdmins(self) -> None:
-        self.addresses.setAdmins()
+        self.setAdmins()
 
     @external
     @only_owner
     def setContractAddresses(self) -> None:
-        self.addresses.setContractAddresses()
+        self.setContractAddresses()
 
     @external
     @only_owner
     def toggleBalancedOn(self) -> None:
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
         loans.toggleLoansOn()
 
     def _set_launch_day(self, _day: int) -> None:
@@ -512,7 +542,7 @@ class Governance(IconScoreBase):
         return self._launch_time.get()
 
     def enableDividends(self) -> None:
-        dividends = self.create_interface_score(self.addresses['dividends'], DividendsInterface)
+        dividends = self.create_interface_score(self.get_contract_address('dividends'), DividendsInterface)
         dividends.setDistributionActivationStatus(True)
 
     @external
@@ -523,15 +553,15 @@ class Governance(IconScoreBase):
         """
         Adds a token to the assets dictionary on the Loans contract.
         """
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
         loans.addAsset(_token_address, _active, _collateral)
         asset = self.create_interface_score(_token_address, AssetInterface)
-        asset.setAdmin(self.addresses['loans'])
+        asset.setAdmin(self.get_contract_address('loans'))
 
     @external
     @only_owner
     def toggleAssetActive(self, _symbol: str) -> None:
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
         loans.toggleAssetActive(_symbol)
 
     @external
@@ -541,7 +571,7 @@ class Governance(IconScoreBase):
         Add a new data source to receive BALN tokens. Starts with a default of
         zero percentage of the distribution.
         """
-        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
+        rewards = self.create_interface_score(self.get_contract_address('rewards'), RewardsInterface)
         rewards.addNewDataSource(_data_source_name, _contract_address)
 
     @external
@@ -550,7 +580,7 @@ class Governance(IconScoreBase):
         """
         Assign percentages for distribution to the data sources. Must sum to 100%.
         """
-        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
+        rewards = self.create_interface_score(self.get_contract_address('rewards'), RewardsInterface)
         rewards.updateBalTokenDistPercentage(_recipient_list)
 
     @external
@@ -564,25 +594,25 @@ class Governance(IconScoreBase):
         :param _amounts: List of BALN amounts to send.
         :type _amounts: List[int]
         """
-        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
+        rewards = self.create_interface_score(self.get_contract_address('rewards'), RewardsInterface)
         rewards.bonusDist(_addresses, _amounts)
 
     @external
     @only_owner
     def setDay(self, _day: int) -> None:
-        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
+        rewards = self.create_interface_score(self.get_contract_address('rewards'), RewardsInterface)
         rewards.setDay(_day)
 
     @external
     @only_owner
     def dexPermit(self, _id: int, _permission: bool):
-        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        dex = self.create_interface_score(self.get_contract_address('dex'), DexInterface)
         dex.permit(_id, _permission)
 
     @external
     @only_owner
     def dexAddQuoteCoin(self, _address: Address) -> None:
-        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        dex = self.create_interface_score(self.get_contract_address('dex'), DexInterface)
         dex.addQuoteCoin(_address)
 
     @external
@@ -595,7 +625,7 @@ class Governance(IconScoreBase):
         Links a pool ID to a name, so users can look up platform-defined
         markets more easily.
         """
-        dex_address = self.addresses['dex']
+        dex_address = self.get_contract_address('dex')
         dex = self.create_interface_score(dex_address, DexInterface)
         dex.setMarketName(_id, _name)
 
@@ -608,7 +638,7 @@ class Governance(IconScoreBase):
         :param _delegations: List of dictionaries with two keys, Address and percent.
         :type _delegations: List[PrepDelegations]
         """
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
         loans.delegate(_delegations)
 
     @external
@@ -616,67 +646,67 @@ class Governance(IconScoreBase):
     def balwAdminTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = None):
         if _data is None:
             _data = b'None'
-        balw = self.create_interface_score(self.addresses['bwt'], BalancedWorkerTokenInterface)
+        balw = self.create_interface_score(self.get_contract_address('bwt'), BalancedWorkerTokenInterface)
         balw.adminTransfer(_from, _to, _value, _data)
 
     @external
     @only_owner
     def setbnUSD(self, _address: Address) -> None:
-        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln = self.create_interface_score(self.get_contract_address('baln'), BalancedInterface)
         baln.setbnUSD(_address)
 
     @external
     @only_owner
     def setDividends(self, _score: Address) -> None:
-        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln = self.create_interface_score(self.get_contract_address('baln'), BalancedInterface)
         baln.setDividends(_score)
 
     @external
     @only_owner
     def balanceSetDex(self, _address: Address) -> None:
-        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln = self.create_interface_score(self.get_contract_address('baln'), BalancedInterface)
         baln.setDex(_address)
 
     @external
     @only_owner
     def balanceSetOracleName(self, _name: str) -> None:
-        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln = self.create_interface_score(self.get_contract_address('baln'), BalancedInterface)
         baln.setOracleName(_name)
 
     @external
     @only_owner
     def balanceSetMinInterval(self, _interval: int) -> None:
-        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln = self.create_interface_score(self.get_contract_address('baln'), BalancedInterface)
         baln.setMinInterval(_interval)
 
     @external
     @only_owner
     def balanceToggleStakingEnabled(self) -> None:
-        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln = self.create_interface_score(self.get_contract_address('baln'), BalancedInterface)
         baln.toggleStakingEnabled()
 
     @external
     @only_owner
     def balanceSetMinimumStake(self, _amount: int) -> None:
-        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln = self.create_interface_score(self.get_contract_address('baln'), BalancedInterface)
         baln.setMinimumStake(_amount)
 
     @external
     @only_owner
     def balanceSetUnstakingPeriod(self, _time: int) -> None:
-        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln = self.create_interface_score(self.get_contract_address('baln'), BalancedInterface)
         baln.setUnstakingPeriod(_time)
 
     @external
     @only_owner
     def daoDisburse(self, _recipient: Address, _amounts: List[Disbursement]) -> None:
-        dao = self.create_interface_score(self.addresses['daofund'], DAOfundInterface)
+        dao = self.create_interface_score(self.get_contract_address('daofund'), DAOfundInterface)
         dao.disburse(_recipient, _amounts)
 
     @external
     @only_owner
     def setAssetOracle(self, _symbol: str, _address: Address) -> None:
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
         asset_addresses = loans.getAssetTokens()
         if _symbol not in asset_addresses:
             revert(f'{_symbol} is not a supported asset in Balanced.')
@@ -687,7 +717,7 @@ class Governance(IconScoreBase):
     @external
     @only_owner
     def setAssetOracleName(self, _symbol: str, _name: str) -> None:
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
         asset_addresses = loans.getAssetTokens()
         if _symbol not in asset_addresses:
             revert(f'{_symbol} is not a supported asset in Balanced.')
@@ -698,7 +728,7 @@ class Governance(IconScoreBase):
     @external
     @only_owner
     def setAssetMinInterval(self, _symbol: str, _interval: int) -> None:
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
         asset_addresses = loans.getAssetTokens()
         if _symbol not in asset_addresses:
             revert(f'{_symbol} is not a supported asset in Balanced.')
@@ -709,43 +739,43 @@ class Governance(IconScoreBase):
     @external
     @only_owner
     def bnUSDSetOracle(self, _address: Address) -> None:
-        bnUSD = self.create_interface_score(self.addresses['bnUSD'], AssetInterface)
+        bnUSD = self.create_interface_score(self.get_contract_address('bnUSD'), AssetInterface)
         bnUSD.setOracle(_address)
 
     @external
     @only_owner
     def bnUSDSetOracleName(self, _name: str) -> None:
-        bnUSD = self.create_interface_score(self.addresses['bnUSD'], AssetInterface)
+        bnUSD = self.create_interface_score(self.get_contract_address('bnUSD'), AssetInterface)
         bnUSD.setOracleName(_name)
 
     @external
     @only_owner
     def bnUSDSetMinInterval(self, _interval: int) -> None:
-        bnUSD = self.create_interface_score(self.addresses['bnUSD'], AssetInterface)
+        bnUSD = self.create_interface_score(self.get_contract_address('bnUSD'), AssetInterface)
         bnUSD.setMinInterval(_interval)
 
     @external
     @only_owner
     def addUsersToActiveAddresses(self, _poolId: int, _addressList: List[Address]):
-        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        dex = self.create_interface_score(self.get_contract_address('dex'), DexInterface)
         dex.addLpAddresses(_poolId, _addressList)
 
     @external
     @only_owner
     def setRedemptionFee(self, _fee: int) -> None:
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
         loans.setRedemptionFee(_fee)
 
     @external
     @only_owner
     def setMaxRetirePercent(self, _value: int) -> None:
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
         loans.setMaxRetirePercent(_value)
 
     @external
     @only_owner
     def setRedeemBatchSize(self, _value: int) -> None:
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
         loans.setRedeemBatchSize(_value)
 
     @external

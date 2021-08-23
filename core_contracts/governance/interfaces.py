@@ -204,6 +204,7 @@ class DexInterface(InterfaceScore):
     def totalBalnAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
         pass
 
+
 # An interface to the Rewards SCORE
 class RewardsInterface(InterfaceScore):
     @interface
@@ -255,55 +256,7 @@ class DividendsInterface(InterfaceScore):
 class SetAddressesInterface(InterfaceScore):
 
     @interface
-    def setAdmin(self, _address: Address) -> None:
-        pass
-
-    @interface
-    def setLoans(self, _address: Address) -> None:
-        pass
-
-    @interface
-    def setDex(self, _address: Address) -> None:
-        pass
-
-    @interface
-    def setRewards(self, _address: Address) -> None:
-        pass
-
-    @interface
-    def setStaking(self, _address: Address) -> None:
-        pass
-
-    @interface
-    def setDividends(self, _address: Address) -> None:
-        pass
-
-    @interface
-    def setDaofund(self, _address: Address) -> None:
-        pass
-
-    @interface
-    def setReserve(self, _address: Address) -> None:
-        pass
-
-    @interface
-    def setOracle(self, _address: Address) -> None:
-        pass
-
-    @interface
-    def setSicx(self, _address: Address) -> None:
-        pass
-
-    @interface
-    def setbnUSD(self, _address: Address) -> None:
-        pass
-
-    @interface
-    def setBaln(self, _address: Address) -> None:
-        pass
-
-    @interface
-    def setBwt(self, _address: Address) -> None:
+    def set_contract_addresses(self, addresses: List) -> None:
         pass
 
 

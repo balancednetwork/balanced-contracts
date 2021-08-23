@@ -1,10 +1,12 @@
 from iconservice import *
 from .utils.checks import *
+from .utils.contract_addresses import ContractAddresses
 
 TAG = 'Rebalancing'
 
 EXA = 10 ** 18
 data_for_loans = b'{"_asset": "bnUSD", "_amount": ""}'
+
 
 class sICXTokenInterface(InterfaceScore):
     @interface
@@ -50,33 +52,40 @@ class LoansInterface(InterfaceScore):
         pass
 
 
-class Rebalancing(IconScoreBase):
-    _bnUSD_ADDRESS = 'bnUSD_address'
-    _SICX_ADDRESS = 'sicx_address'
-    _DEX_ADDRESS = 'dex_address'
-    _LOANS_ADDRESS = 'loans_address'
-    _GOVERNANCE_ADDRESS = 'governance_address'
+class Rebalancing(ContractAddresses):
     _SICX_RECEIVABLE = 'sicx_receivable'
-    _ADMIN = 'admin'
     _PRICE_THRESHOLD = '_price_threshold'
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
-        self._bnUSD = VarDB(self._bnUSD_ADDRESS, db, value_type=Address)
-        self._sicx = VarDB(self._SICX_ADDRESS, db, value_type=Address)
-        self._dex = VarDB(self._DEX_ADDRESS, db, value_type=Address)
-        self._loans = VarDB(self._LOANS_ADDRESS, db, value_type=Address)
-        self._governance = VarDB(self._GOVERNANCE_ADDRESS, db, value_type=Address)
-        self._admin = VarDB(self._ADMIN, db, value_type=Address)
+        self._bnUSD = self.contract_address_collection["bnusd"]
+        self._sicx = self.contract_address_collection["sicx"]
+        self._dex = self.contract_address_collection["dex"]
+        self._loans = self.contract_address_collection["loans"]
+        self._governance = self.contract_address_collection["governance"]
+        self._admin = self.contract_address_collection["admin"]
         self._sicx_receivable = VarDB(self._SICX_RECEIVABLE, db, value_type=int)
         self._price_threshold = VarDB(self._PRICE_THRESHOLD, db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
-        self._admin.set(_governance)
+        self._admin = _governance
 
     def on_update(self) -> None:
         super().on_update()
+
+        _bnUSD_ADDRESS = 'bnUSD_address'
+        _SICX_ADDRESS = 'sicx_address'
+        _DEX_ADDRESS = 'dex_address'
+        _LOANS_ADDRESS = 'loans_address'
+        _ADMIN = 'admin'
+        _GOVERNANCE_ADDRESS = 'governance_address'
+        VarDB(_bnUSD_ADDRESS, self.db, value_type=Address).remove()
+        VarDB(_SICX_ADDRESS, self.db, value_type=Address).remove()
+        VarDB(_DEX_ADDRESS, self.db, value_type=Address).remove()
+        VarDB(_LOANS_ADDRESS, self.db, value_type=Address).remove()
+        VarDB(_GOVERNANCE_ADDRESS, self.db, value_type=Address).remove()
+        VarDB(_ADMIN, self.db, value_type=Address).remove()
 
     @external
     @only_admin
@@ -87,7 +96,7 @@ class Rebalancing(IconScoreBase):
         """
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._bnUSD.set(_address)
+        self._bnUS = _address
 
     @external
     @only_admin
@@ -98,7 +107,7 @@ class Rebalancing(IconScoreBase):
         """
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._loans.set(_address)
+        self._loans = _address
 
     @external
     @only_admin
@@ -109,7 +118,7 @@ class Rebalancing(IconScoreBase):
         """
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._sicx.set(_address)
+        self._sicx = _address
 
     @external
     @only_owner
@@ -120,7 +129,7 @@ class Rebalancing(IconScoreBase):
         """
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._governance.set(_address)
+        self._governance = _address
 
     @external
     @only_admin
@@ -131,7 +140,7 @@ class Rebalancing(IconScoreBase):
         """
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._dex.set(_address)
+        self._dex = _address
 
     def _sqrt(self, x: int) -> int:
         """
@@ -154,7 +163,6 @@ class Rebalancing(IconScoreBase):
         Returns the amount of sICX required for rebalancing the price.
         """
         return self._sqrt(price * base_supply * quote_supply // EXA) - base_supply
-
 
     @external
     @only_governance
@@ -196,9 +204,9 @@ class Rebalancing(IconScoreBase):
         than the threshold then the function returns total sICX value that needs to be
         converted to bnUSD and retired to reduce the price difference.
         """
-        bnusd_score = self.create_interface_score(self._bnUSD.get(), BnusdTokenInterface)
-        dex_score = self.create_interface_score(self._dex.get(), DexTokenInterface)
-        sicx_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
+        bnusd_score = self.create_interface_score(self._bnUSD, BnusdTokenInterface)
+        dex_score = self.create_interface_score(self._dex, DexTokenInterface)
+        sicx_score = self.create_interface_score(self._sicx, sICXTokenInterface)
 
         price = bnusd_score.lastPriceInLoop() * EXA // sicx_score.lastPriceInLoop()
         pool_stats = dex_score.getPoolStats(2)
@@ -216,7 +224,7 @@ class Rebalancing(IconScoreBase):
            Calls the retireRedeem method on loans to balance the bnUSD price on the DEX.
            Rebalances only if the difference between the DEX price and oracle price is greater than the threshold.
         """
-        loans = self.create_interface_score(self._loans.get(), LoansInterface)
+        loans = self.create_interface_score(self._loans, LoansInterface)
         rebalance_needed, required_retire_amount = self.getRebalancingStatus()
         sicx_sale_amount = self._sicx_receivable.get()
         if rebalance_needed:
