@@ -1726,7 +1726,10 @@ class DEX(IconScoreBase):
         user_quote_holdings = self._balance[_id][self.msg.sender] \
                               * self._pool_total[_id][_quoteToken] // self.totalSupply(_id)
 
-        self._revert_below_minimum(user_quote_holdings, _quoteToken)
+        # Only add restrictions to Balanced pools
+        if _id < 5:
+            self._revert_below_minimum(user_quote_holdings, _quoteToken)
+        
         self._active_addresses[_id].add(self.msg.sender)
 
         self._update_account_snapshot(_owner, _id)
