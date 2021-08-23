@@ -65,7 +65,7 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
                      {"_value": 5 * 10 ** 17})
 
     def test_rebalance(self):
-        self.test_update("loans")
+        self.score_update("loans")
         test_cases = REBALANCING_STORIES
         self.send_tx(self._test1, self.contracts['loans'], 1200000 * 10 ** 18, 'depositAndBorrow',
                      {'_asset': 'bnUSD', '_amount': 450000 * 10 ** 18})

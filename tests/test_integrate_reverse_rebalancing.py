@@ -63,11 +63,11 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
 
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingThreshold',
                      {"_value": 5 * 10 ** 17})
-        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setBnusdReceivable',
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingBnusdValue',
                      {"_value": 1000 * 10 ** 18})
 
-    def test_rebalance_down(self):
-        self.test_update("rebalancing")
+    def test_reverse_rebalance(self):
+        self.score_update("rebalancing")
         test_cases = REVERSE_REBALANCING_STORIES
         self.send_tx(self._test1, self.contracts['loans'], 10000 * 10 ** 18, 'depositAndBorrow',
                      {'_asset': 'bnUSD', '_amount': 2000 * 10 ** 18})

@@ -319,8 +319,7 @@ class BalancedTestBaseRebalancing(BalancedTestUtils):
     def get_sicx_address(self) -> str:
         return self.contracts['sicx']
 
-    def test_update(self, _score: str):
-        # loans = "loans"
+    def score_update(self, _score: str):
         score = _score
         loans_deploy_tx = self.deploy_tx(
             from_=self.btest_wallet,
