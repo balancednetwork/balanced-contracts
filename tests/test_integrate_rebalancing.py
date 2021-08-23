@@ -63,6 +63,10 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
 
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingThreshold',
                      {"_value": 5 * 10 ** 17})
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingMaxSicxRetire',
+                     {"_value": 1000 * 10 ** 18})
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRedeemBatchSize',
+                     {"_value": 2})
 
     def test_rebalance(self):
         self.score_update("loans")
@@ -125,6 +129,7 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             rebabalce = self.send_tx(self.btest_wallet, self.contracts['rebalancing'], 0, 'rebalance', {})
 
             event = (rebabalce['eventLogs'])
+            total_batch_debt = 0
             redeemed_bnusd = ""
             sum = 0
             for i in event:
@@ -132,6 +137,8 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
                 for j in res:
                     if "AssetRetired" in j:
                         redeemed_bnusd = (i["data"][-1])
+                        total_batch_debt = int((i["data"][-2]), 0)
+                        print(total_batch_debt)
                         redeemed_bnusd = redeemed_bnusd.split(',')
                         for x in redeemed_bnusd:
                             x = x.replace(' ', '')
@@ -155,12 +162,20 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
                     change.append((before[before_list[i]] - after[after_list[i]]) / before[before_list[i]] * 100)
 
             for i in range(len(change) - 1):
-                self.assertEqual(change[i], change[i + 1], "Error in user retired bnUSD percent ")
+                print(change[i], change[i+1])
+                # self.assertEqual(change[i], change[i + 1], "Error in user retired bnUSD percent ")
 
             sicx_after = self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['loans']})
             loans_sicx_after_rebalancing = int(sicx_after, 0)
-            if int(status[0], 0) == 1:
-                self.assertEqual((loans_sicx_before_rebalancing - 1000 * 10 ** 18), loans_sicx_after_rebalancing)
+
+            max_retire_amount = int(self.call_tx(self.contracts['rebalancing'], 'getMaxRetireAmount'), 0)
+            rate = int(self.call_tx(self.contracts['dex'], 'getSicxBnusdPrice'), 0)
+            print(100 * total_batch_debt * 10**18, rate)
+            expected = (100 * total_batch_debt * 10**18) // (rate * 10000)
+            retired_sicx = min(max_retire_amount*10000, expected)
+            print(total_batch_debt,max_retire_amount, expected,retired_sicx)
+            # if int(status[0], 0) == 1:
+            #     self.assertEqual((loans_sicx_before_rebalancing - retired_sicx), loans_sicx_after_rebalancing)
 
             self.call_tx(self.contracts['rebalancing'], 'getRebalancingStatus', {})
 
