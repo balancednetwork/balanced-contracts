@@ -666,7 +666,7 @@ class Loans(IconScoreBase):
     @loans_on
     @external
     @only_rebalance
-    def retireRedeem(self, _symbol: str, _sicx_from_lenders: int) -> None:
+    def retireRedeem(self, _symbol: str, _max_sicx_to_retire: int) -> None:
         """
         This function will  pay off debt from a batch of
         borrowers proportionately, returning a share of collateral from each
@@ -674,8 +674,8 @@ class Loans(IconScoreBase):
 
         :param _symbol: retired token symbol.
         :type _symbol: str
-        :param _sicx_from_lenders: Total sICX token as a share of collateral.
-        :type _sicx_from_lenders: int
+        :param _max_sicx_to_retire: Maximum sICX amount to retire.
+        :type _max_sicx_to_retire: int
         """
         asset = self._assets[_symbol]
         if not (asset and asset.is_active()) or asset.is_collateral():
@@ -683,7 +683,8 @@ class Loans(IconScoreBase):
 
         dex_score = self.create_interface_score(self._dex.get(), DexTokenInterface)
         rate = dex_score.getSicxBnusdPrice()
-        _to_redeemed = rate * _sicx_from_lenders // EXA
+        _to_redeemed = rate * _max_sicx_to_retire // EXA
+
         batch_size = self._redeem_batch.get()
         borrowers = asset.get_borrowers()
         node_id = borrowers.get_head_id()
@@ -697,19 +698,22 @@ class Loans(IconScoreBase):
             node_id = borrowers.get_head_id()
         borrowers.serialize()
 
+        sicx_to_retire = _max_sicx_to_retire
+
         if POINTS * _to_redeemed > self._max_retire_percent.get() * total_batch_debt:
-            return
+            sicx_to_retire = (self._max_retire_percent.get() * total_batch_debt) * EXA // rate
+
         sicx_address = self._assets["sICX"].get_address()
         sicx = self.create_interface_score(sicx_address, TokenInterface)
 
         self._bnUSD_expected.set(True)
-        sicx.transfer(self._dex.get(), _sicx_from_lenders, data_for_dex)
+        sicx.transfer(self._dex.get(), sicx_to_retire, data_for_dex)
         _redeemed = self._bnUSD_received.get()
         self._bnUSD_received.set(0)
         self._bnUSD_expected.set(False)
 
         asset.burnFrom(self.address, _redeemed)
-        remaining_sicx = _sicx_from_lenders
+        remaining_sicx = sicx_to_retire
         remaining_supply = total_batch_debt
         remaining_value = _redeemed
         redeemed_dict = {}
@@ -724,7 +728,7 @@ class Loans(IconScoreBase):
 
             remaining_supply -= user_debt
         price = asset.priceInLoop()
-        self.AssetRetired(self.msg.sender, _symbol, _redeemed, price, _redeemed,
+        self.AssetRetired(self.msg.sender, _symbol, _redeemed, price,
                           total_batch_debt, str(redeemed_dict))
 
     def bd_redeem(self, _from: Address,
@@ -1102,8 +1106,7 @@ class Loans(IconScoreBase):
         pass
 
     @eventlog(indexed=3)
-    def AssetRetired(self, account: Address, symbol: str, amount: int, price: int,
-                     redeemed_from_batch: int, total_batch_debt: int, batch_dict: str):
+    def AssetRetired(self, account: Address, symbol: str, amount: int, price: int, total_batch_debt: int, batch_dict: str):
         pass
 
     @eventlog(indexed=3)
