@@ -35,7 +35,19 @@ class VoteActions(object):
             'updateDistPercent': self._gov.updateBalTokenDistPercentage,
             'update_mining_ratio': self._gov.setMiningRatio,
             'update_locking_ratio': self._gov.setLockingRatio,
-            'update_origination_fee': self._gov.setOriginationFee
+            'update_origination_fee': self._gov.setOriginationFee,
+            'update_liquidation_ratio': self._gov.setLiquidationRatio,
+            'update_retirement_bonus': self._gov.setRetirementBonus,
+            'update_liquidation_rewards': self._gov.setLiquidationReward,
+            'update_max_retire_percent': self._gov.setMaxRetirePercent,
+            'update_rebalancing_sicx': self._gov.setRebalancingSicx,
+            'update_rebalancing_threshold': self._gov.setRebalancingThreshold,
+            'update_vote_duration': self._gov.setVoteDuration,
+            'update_quorum': self._gov.setQuorum,
+            'update_vote_definition_fee': self.setVoteDefinitionFee,
+            'update_baln_vote_definition_criterion': self.setBalnVoteDefinitionCriterion,
+            'update_dividends_category_percent': self._gov.setDividendsCategoryPercentage,
+            'update_dao_disburse': self._gov.daoDisburse
         }
 
     def __getitem__(self, key: str):

@@ -533,6 +533,38 @@ class Governance(IconScoreBase):
         loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         loans.setOriginationFee(_fee)
 
+    def setLiquidationRatio(self, _ratio: int):
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setLiquidationRatio(_ratio)
+
+    def setRetirementBonus(self, _points: int):
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setRetirementBonus(_points)
+
+    def setLiquidationReward(self, _points: int):
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setLiquidationReward(_points)
+
+    def setDividendsCategoryPercentage(self, _dist_list: List[DistPercentDict]):
+        dividends = self.create_interface_score(self.addresses['dividends'], DividendsInterface)
+        dividends.setDividendsCategoryPercentage(_dist_list)
+
+    def setPoolLpFee(self, _value: int):
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        dex.setPoolLpFee(_value)
+
+    def setPoolBalnFee(self, _value: int):
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        dex.setPoolBalnFee(_value)
+
+    def setIcxConversionFee(self, _value: int):
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        dex.setIcxConversionFee(_value)
+
+    def setIcxBalnFee(self, _value: int):
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        dex.setIcxBalnFee(_value)
+
     @external
     @only_owner
     def addAsset(self, _token_address: Address,
