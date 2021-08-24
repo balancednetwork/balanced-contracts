@@ -144,7 +144,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
         return response
 
     def send_tx(self, from_: KeyWallet, to: str, value: int = 0, method: str = None, params: dict = None) -> dict:
-        print(f"------------Calling {method}, with params={params} to {get_key(self.contracts, to)} contract----------")
+        print(f"------------Calling {method} contract----------")
         signed_transaction = self.build_tx(from_, to, value, method, params)
         tx_result = self.process_transaction(signed_transaction, self.icon_service, self.BLOCK_INTERVAL)
         self.assertTrue('status' in tx_result)
@@ -176,8 +176,8 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
             params=params
         ).build()
         response = self.process_call(call, self.icon_service)
-        print(f"-----Reading method={method}, with params={params} on the {get_key(self.contracts, to)} contract------")
-        print(f"-------------------The output is: : {response}")
+        print(f"-----Reading method={method} contract------")
+        # print(f"-------------------The output is: : {response}")
         return response
 
     def _deploy_all(self):
