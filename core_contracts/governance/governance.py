@@ -144,6 +144,8 @@ class Governance(IconScoreBase):
         proposal = ProposalDB(vote_index, self.db)
         eligible_addresses = [proposal.proposer.get(), self.owner]
         
+        if proposal.start_snapshot >= self.getDay():
+            revert("Start for this vote has already passed. This vote can't be activated.")
         if self.msg.sender not in eligible_addresses:
             revert("Only owner or proposer may call this method.")
         if vote_index == 0:
