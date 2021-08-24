@@ -185,14 +185,14 @@ class TestGovernanceUnit(ScoreTestCase):
                 self.governance.defineVote(name="Enable the dividends", description='Testing description field', 
                                            vote_start=day + 1, snapshot= day - 1, actions="{\"enable_dividends\": {}}")
             self.assertEqual(f'The reference snapshot must be in the range: [current_day ({day}), ' 
-                             f'start_day ({day + 1})].', snapshot_1.exception.message)
+                             f'start_day - 1 ({day})].', snapshot_1.exception.message)
 
-            # Snapshot larger than day of vote start.
+            # Snapshot larger than or equal to the day of vote start.
             with self.assertRaises(IconScoreException) as snapshot_2:
                 self.governance.defineVote(name="Enable the dividends", description='Testing description field', 
-                                           vote_start=day + 1, snapshot= day + 2, actions="{\"enable_dividends\": {}}")
+                                           vote_start=day + 1, snapshot= day + 1, actions="{\"enable_dividends\": {}}")
             self.assertEqual(f'The reference snapshot must be in the range: [current_day ({day}), '
-                             f'start_day ({day + 1})].', snapshot_2.exception.message)
+                             f'start_day - 1 ({day})].', snapshot_2.exception.message)
 
             # Dublicate use of poll name.
             with self.assertRaises(IconScoreException) as duplicate:
@@ -319,7 +319,7 @@ class TestGovernanceUnit(ScoreTestCase):
             launch_time = self.governance._launch_time.get()
             new_day = launch_time + (DAY_ZERO + day + duration + 1) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
-            self.governance.executeVoteAction(1)
+            self.governance.evaluateVote("Test add data source")
 
     def test_refund_vote_definition_fee(self):
         self.set_msg(self.test_account1)
