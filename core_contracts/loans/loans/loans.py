@@ -698,7 +698,8 @@ class Loans(IconScoreBase):
             node_id = borrowers.get_head_id()
         borrowers.serialize()
 
-        sicx_to_retire = min(_max_sicx_to_retire, (self._max_retire_percent.get() * total_batch_debt * EXA) // rate)
+        sicx_to_retire = min(_max_sicx_to_retire * POINTS, (self._max_retire_percent.get() * total_batch_debt * EXA) // (rate * POINTS))
+
 
         # if POINTS * _to_redeemed > self._max_retire_percent.get() * total_batch_debt:
         #     sicx_to_retire = (self._max_retire_percent.get() * total_batch_debt) * EXA // rate
