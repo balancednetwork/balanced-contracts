@@ -65,7 +65,7 @@ class Governance(IconScoreBase):
     @only_owner
     def setVoteDuration(self, duration: int) -> None:
         """
-        Set the vote duration.
+        Sets the vote duration.
 
         :param duration: number of days a vote will be active once started
         """
@@ -82,10 +82,10 @@ class Governance(IconScoreBase):
     @only_owner
     def setQuorum(self, quorum: int) -> None:
         """
-        Set percentage of total baln supply which must participate in a vote 
-        for the vote to be valid.
+        Sets the percentage of the total eligible baln which must participate in a vote 
+        for a vote to be valid.
 
-        :param quorum: percentage of total baln supply required for a vote to be valid
+        :param quorum: percentage of the total eligible baln required for a vote to be valid
         """
         if not 0 < quorum < 100:
             revert("Quorum must be between 0 and 100.")
@@ -94,8 +94,8 @@ class Governance(IconScoreBase):
     @external(readonly=True)
     def getQuorum(self) -> int:
         """
-        Returns the percentage of total baln supply which must participate in a vote
-        for the vote to be valid.
+        Returns the percentage of the total eligible baln which must participate in a vote
+        for a vote to be valid.
         """
         return self._quorum.get()
     
@@ -103,7 +103,7 @@ class Governance(IconScoreBase):
     @only_owner
     def setVoteDefinitionFee(self, fee: int) -> None:
         """
-        Set the fee for defining votes. Fee in bnUSD.
+        Sets the fee for defining votes. Fee in bnUSD.
         """
         self._bnusd_vote_definition_fee.set(fee)
 
@@ -118,7 +118,7 @@ class Governance(IconScoreBase):
     @only_owner
     def setBalnVoteDefinitionCriterion(self, percentage: int) -> None:
         """
-        Set the minimum percentage of baln's total supply which a user must have staked
+        Sets the minimum percentage of baln's total supply which a user must have staked
         in order to define a vote.
 
         :param percentage: percent represented in basis points
@@ -136,40 +136,49 @@ class Governance(IconScoreBase):
         return self._baln_vote_definition_criterion.get()
 
     @external
-    @only_owner
     def activateVote(self, name: str) -> None:
         """
         After defining a vote it will have to be activated.
         """
         vote_index = ProposalDB.proposal_id(name, self.db)
-        if vote_index == 0:
-            revert(f'That is not a valid vote name.')
         proposal = ProposalDB(vote_index, self.db)
+        eligible_addresses = [proposal.proposer.get(), self.owner]
+        
+        if self.msg.sender not in eligible_addresses:
+            revert("Only owner or proposer may call this method.")
+        if vote_index == 0:
+            revert(f"That is not a valid vote name.")
         if proposal.status.get() != ProposalStatus.STATUS[ProposalStatus.PENDING]:
-            revert("Balanced Governance: A vote can be activated only from Pending status")
+            revert("Balanced Governance: A vote can be activated only from Pending status.")
+
         proposal.active.set(True)
         proposal.status.set(ProposalStatus.STATUS[ProposalStatus.ACTIVE])
 
     @external
-    @only_owner
     def cancelVote(self, name: str) -> None:
         """
         Cancels a vote, in case a mistake was made in its definition.
         """
         vote_index = ProposalDB.proposal_id(name, self.db)
+        proposal = ProposalDB(vote_index, self.db)
+        eligible_addresses = [proposal.proposer.get(), self.owner]
+        
+        if self.msg.sender not in eligible_addresses:
+            revert("Only owner or proposer may call this method.")
         if vote_index == 0:
             revert(f'That is not a valid vote name.')
-        proposal = ProposalDB(vote_index, self.db)
         if proposal.status.get() != ProposalStatus.STATUS[ProposalStatus.PENDING]:
-            revert("Balanced Governance: Proposal can be cancelled only from pending status")
+            revert("Balanced Governance: Proposal can be cancelled only from pending status.")
+
+        self._refund_vote_definition_fee(proposal)
         proposal.active.set(False)
         proposal.status.set(ProposalStatus.STATUS[ProposalStatus.CANCELLED])
 
     @external
     def defineVote(self, name: str, description: str, vote_start: int, 
-                   snapshot: int, actions: str) -> None:
+                   snapshot: int, actions: str = "{}") -> None:
         """
-        Define a new vote and which actions are to be executed if it is successful.
+        Defines a new vote and which actions are to be executed if it is successful.
 
         :param name: name of the vote
         :param description: description of the vote
@@ -182,9 +191,9 @@ class Governance(IconScoreBase):
             revert(f'Description must be less than or equal to 500 characters.')
         if vote_start <= self.getDay():
             revert(f'Vote cannot start at or before the current day.')
-        if not self.getDay() <= snapshot <= vote_start:
+        if not self.getDay() <= snapshot < vote_start:
             revert(f'The reference snapshot must be in the range: [current_day ({self.getDay()}), '
-                   f'start_day ({vote_start})].')
+                   f'start_day - 1 ({vote_start - 1})].')
         vote_index = ProposalDB.proposal_id(name, self.db)
         if vote_index > 0:
             revert(f'Poll name {name} has already been used.')
@@ -314,27 +323,36 @@ class Governance(IconScoreBase):
         return total_baln_token
 
     @external
-    def executeVoteAction(self, vote_index: int) -> None:
+    def evaluateVote(self, name: str) -> None:
         """
-        Executes the vote action if the vote has completed and passed.
+        Evaluates a vote after the voting period is done. If the vote passed,
+        any actions included in the proposal are executed. The vote definition fee
+        is also refunded to the proposer if the vote passed.
         """
+        vote_index = ProposalDB.proposal_id(name, self.db)
         result = self.checkVote(vote_index)
-        if result == {}:
-            revert(f'Provided vote index, {vote_index}, out of range.')
         proposal = ProposalDB(vote_index, self.db)
         end_snap = proposal.end_snapshot.get()
+        actions = proposal.actions.get()
+        majority = proposal.majority.get()
 
+        if vote_index == 0:
+            revert(f'That is not a valid vote name.')
         if self.getDay() < end_snap:
-            revert("Balanced Governance: Voting period has not ended")
+            revert("Balanced Governance: Voting period has not ended.")
+        if not proposal.active.get():
+            revert("This proposal is not active.")
 
         if result['for'] + result['against'] >= result['quorum']:
-            majority = proposal.majority.get()
             if (EXA - majority) * result['for'] > majority * result['against']:
-                try:
-                    self._execute_vote_actions(proposal.actions.get())
-                except BaseException as e:
-                    revert(f"Failed Execution of action. Reason: {e}")
-                proposal.status.set(ProposalStatus.STATUS[ProposalStatus.EXECUTED])
+                if actions != "{}":
+                    try:
+                        self._execute_vote_actions(actions)
+                        proposal.status.set(ProposalStatus.STATUS[ProposalStatus.EXECUTED])
+                    except BaseException as e:
+                        proposal.status.set(ProposalStatus.STATUS[ProposalStatus.FAILED_EXECUTION])
+                else:
+                    proposal.status.set(ProposalStatus.STATUS[ProposalStatus.SUCCEEDED])
                 self._refund_vote_definition_fee(proposal)
             else:
                 proposal.status.set(ProposalStatus.STATUS[ProposalStatus.DEFEATED])
