@@ -11,11 +11,12 @@ from core_contracts.rebalancing.utils.checks import SenderNotGovernance, SenderN
 
 class MockClass:
 
-    def __init__(self, bnusd_address, dex_address, sicx_address,
+    def __init__(self, bnusd_address, dex_address, loans_address, sicx_address,
                  bnusd_lastPriceInLoop, sicx_lastPriceInLoop, dex_getPoolStats):
         self.bnusd_address = bnusd_address
         self.dex_address = dex_address
         self.sicx_address = sicx_address
+        self.loans_address = loans_address
         self.call_stack = []
         outer_class = self
 
@@ -30,6 +31,12 @@ class MockClass:
                 return dex_getPoolStats
 
         self.mock_dex = MockDex()
+
+        class MockLoans:
+            def retireRedeem(self, _symbol: str, _sicx_from_lenders: int):
+                outer_class.call_stack.append(f"retireRedeem( {_symbol} , {_sicx_from_lenders})")
+
+        self.mock_loans = MockLoans()
 
         class MockSICX:
 
@@ -48,6 +55,8 @@ class MockClass:
             return self.mock_dex
         elif address == self.sicx_address:
             return self.mock_sicx
+        elif address == self.loans_address:
+            return self.mock_loans
         else:
             raise NotImplemented()
 
@@ -160,21 +169,21 @@ class TestRebalancing(ScoreTestCase):
         result = self.score._calculate_tokens_to_retire(12 * 10 ** 18, 2 * 10 ** 18, 10 * 10 ** 18)
         self.assertEqual(13491933384829667540, result)
 
-    def test_setPriceChangeThreshold_not_governance(self):
+    def test_setPriceDiffThreshold_not_governance(self):
         # setup
         governance = Address.from_string(f"cx{'1010' * 10}")
         self.set_msg(self.owner)
         self.score.setGovernance(governance)
         # actual test
         with self.assertRaises(SenderNotGovernance):
-            self.score.setPriceChangeThreshold(12)
+            self.score.setPriceDiffThreshold(12)
 
-    def test_setPriceChangeThreshold(self):
+    def test_setPriceDiffThreshold(self):
         # setup
         governance = self._setup_governance()
         # actual test
         self.set_msg(governance)
-        self.score.setPriceChangeThreshold(12)
+        self.score.setPriceDiffThreshold(12)
         self.assertEqual(12, self.score._price_threshold.get())
 
     def _setup_governance(self):
@@ -187,7 +196,7 @@ class TestRebalancing(ScoreTestCase):
         governance = self._setup_governance()
 
         self.set_msg(governance)
-        self.score.setPriceChangeThreshold(12)
+        self.score.setPriceDiffThreshold(12)
         self.assertEqual(12, self.score.getPriceChangeThreshold())
 
     def test_setSicxReceivable_not_governance(self):
@@ -211,6 +220,8 @@ class TestRebalancing(ScoreTestCase):
         bnusd_address = Address.from_string(f"cx{'7894' * 10}")
         dex_address = Address.from_string(f"cx{'7854' * 10}")
         sicx_address = Address.from_string(f"cx{'9458' * 10}")
+        loans_address = Address.from_string(f"cx{'9845' * 10}")
+
 
         # setup
         self.set_msg(self.admin)
@@ -225,6 +236,7 @@ class TestRebalancing(ScoreTestCase):
 
         patched_interface_fxn = MockClass(bnusd_address=bnusd_address,
                                           dex_address=dex_address,
+                                          loans_address=loans_address,
                                           sicx_address=sicx_address,
                                           bnusd_lastPriceInLoop=bnusd_lastPriceInLoop,
                                           sicx_lastPriceInLoop=sicx_lastPriceInLoop,
@@ -232,13 +244,15 @@ class TestRebalancing(ScoreTestCase):
                                           ).create_interface_score
         with mock.patch.object(self.score, "create_interface_score", wraps=patched_interface_fxn):
             response = self.score.getRebalancingStatus()
-            expected_list = [True, 1314213562373, 'sICX']
+            expected_list = [True, 1314213562373]
             self.assertListEqual(expected_list, response)
 
     def test_getRebalancingStatus_false_case(self):
         bnusd_address = Address.from_string(f"cx{'7894' * 10}")
         dex_address = Address.from_string(f"cx{'7854' * 10}")
         sicx_address = Address.from_string(f"cx{'9458' * 10}")
+        loans_address = Address.from_string(f"cx{'9845' * 10}")
+
 
         # setup
         self.set_msg(self.admin)
@@ -253,6 +267,7 @@ class TestRebalancing(ScoreTestCase):
 
         patched_interface_fxn = MockClass(bnusd_address=bnusd_address,
                                           dex_address=dex_address,
+                                          loans_address=loans_address,
                                           sicx_address=sicx_address,
                                           bnusd_lastPriceInLoop=bnusd_lastPriceInLoop,
                                           sicx_lastPriceInLoop=sicx_lastPriceInLoop,
@@ -285,6 +300,7 @@ class TestRebalancing(ScoreTestCase):
 
         patched_class = MockClass(bnusd_address=bnusd_address,
                                   dex_address=dex_address,
+                                  loans_address=loans_address,
                                   sicx_address=sicx_address,
                                   bnusd_lastPriceInLoop=bnusd_lastPriceInLoop,
                                   sicx_lastPriceInLoop=sicx_lastPriceInLoop,
@@ -292,6 +308,6 @@ class TestRebalancing(ScoreTestCase):
                                   )
         with mock.patch.object(self.score, "create_interface_score", wraps=patched_class.create_interface_score):
             self.score.rebalance()
-            expected = (Address.from_string("cx9845984598459845984598459845984598459845"), 12 * 10 ** 3,
-                        b'{"_asset": "bnUSD", "_amount": ""}')
-            self.assertTupleEqual(expected, patched_class.call_stack[0])
+            sicx_value = 12 * 10 ** 3
+            expected = f"retireRedeem( bnUSD , {sicx_value})"
+            self.assertEqual(expected, patched_class.call_stack[0])
