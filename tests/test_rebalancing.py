@@ -216,6 +216,23 @@ class TestRebalancing(ScoreTestCase):
         self.score.setSicxReceivable(12)
         self.assertEqual(12, self.score.getSicxReceivable())
 
+    def test_setMaxRetireAmount_not_governance(self):
+        governance = self._setup_governance()
+        with self.assertRaises(SenderNotGovernance):
+            self.score.setMaxRetireAmount(12)
+
+    def test_setMaxRetireAmount(self):
+        governance = self._setup_governance()
+        self.set_msg(governance)
+        self.score.setMaxRetireAmount(12)
+        self.assertEqual(12, self.score._max_retire.get())
+
+    def test_getMaxRetireAmount(self):
+        governance = self._setup_governance()
+        self.set_msg(governance)
+        self.score.setMaxRetireAmount(12)
+        self.assertEqual(12, self.score.getMaxRetireAmount())
+
     def test_getRebalancingStatus_true_case(self):
         bnusd_address = Address.from_string(f"cx{'7894' * 10}")
         dex_address = Address.from_string(f"cx{'7854' * 10}")
@@ -290,6 +307,7 @@ class TestRebalancing(ScoreTestCase):
         self.score.setSicx(sicx_address)
         self.score.setBnusd(bnusd_address)
         self.score.setLoans(loans_address)
+        self.score._max_retire.set(1000*10**18)
         governance = self._setup_governance()
         self.set_msg(governance)
         self.score.setSicxReceivable(12 * 10 ** 3)
@@ -308,6 +326,6 @@ class TestRebalancing(ScoreTestCase):
                                   )
         with mock.patch.object(self.score, "create_interface_score", wraps=patched_class.create_interface_score):
             self.score.rebalance()
-            sicx_value = 12 * 10 ** 3
+            sicx_value = 1000 * 10 ** 18
             expected = f"retireRedeem( bnUSD , {sicx_value})"
             self.assertEqual(expected, patched_class.call_stack[0])
