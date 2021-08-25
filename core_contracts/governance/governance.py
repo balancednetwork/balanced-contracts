@@ -335,34 +335,6 @@ class Governance(ContractAddresses):
                            asset['active'],
                            asset['collateral'])
 
-    def setAdmins(self) -> None:
-        """
-        Set the admin addresses for each SCORE.
-        """
-        for contract in ADMIN_ADDRESSES:
-            score = self.create_interface_score(self.get_contract_address(contract), SetAddressesInterface)
-            try:
-                score.set_contract_addresses(
-                    [{"name": "admin",
-                      "address":
-                          self.address if ADMIN_ADDRESSES[contract] == "governance"
-                          else self.get_contract_address[ADMIN_ADDRESSES[contract]]}])
-            except BaseException as e:
-                revert(f'Problem setting admin address to {ADMIN_ADDRESSES[contract]} '
-                       f'on {contract}. Exception: {e}')
-
-    def setContractAddresses(self) -> None:
-        """
-        Set the addresses in each SCORE for the other SCOREs. Which addresses
-        are set in which SCOREs is specified in the consts.py file.
-        """
-        for contract, contract_address in self.get_all_contract_addresses().items():
-            score = self.create_interface_score(contract_address, SetAddressesInterface)
-            score.set_contract_addresses(
-                [{"name": k, "address": v}
-                 for k, v in self.get_all_contract_addresses()]
-            )
-
     @external
     @only_owner
     def launchBalanced(self) -> None:
@@ -520,12 +492,37 @@ class Governance(ContractAddresses):
     @external
     @only_owner
     def setAdmins(self) -> None:
-        self.setAdmins()
+        """
+        Set the admin addresses for each SCORE.
+        """
+        for contract in ADMIN_ADDRESSES:
+            score = self.create_interface_score(self.get_contract_address(contract), SetAddressesInterface)
+            try:
+                score.set_contract_addresses(
+                    [{"name": "admin",
+                      "address":
+                          self.address if ADMIN_ADDRESSES[contract] == "governance"
+                          else self.get_contract_address(ADMIN_ADDRESSES[contract])}])
+            except BaseException as e:
+                revert(f'Problem setting admin address to {ADMIN_ADDRESSES[contract]} '
+                       f'on {contract}. Exception: {e}')
 
     @external
     @only_owner
     def setContractAddresses(self) -> None:
-        self.setContractAddresses()
+        """
+        Set the addresses in each SCORE for the other SCOREs. Which addresses
+        are set in which SCOREs is specified in the consts.py file.
+        """
+        all_contract_addresses = self.get_all_contract_addresses()
+        param = [{"name": k, "address": v} for k, v in all_contract_addresses.items()]
+        for contract, contract_address in all_contract_addresses.items():
+            score = self.create_interface_score(contract_address, SetAddressesInterface)
+            try:
+                score.set_contract_addresses(param)
+            except BaseException as e:
+                revert(f'Problem setting address to {contract}.'
+                       f'Exception: {e}')
 
     @external
     @only_owner

@@ -222,7 +222,7 @@ class Dividends(ContractAddresses):
     def on_update(self) -> None:
         super().on_update()
         self._dividends_batch_size.set(50)
-        self._set_time_offset()
+        # self._set_time_offset()
 
         VarDB('governance', self.db, value_type=Address).remove()
         VarDB("loans_score", self.db, value_type=Address).remove()
