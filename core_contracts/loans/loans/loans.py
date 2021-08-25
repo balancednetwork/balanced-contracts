@@ -72,6 +72,18 @@ class DexTokenInterface(InterfaceScore):
     def getSicxBnusdPrice(self) -> int:
         pass
 
+class BnusdTokenInterface(InterfaceScore):
+    @interface
+    def transfer(self, _to: Address, _value: int, _data: bytes = None):
+        pass
+
+    @interface
+    def lastPriceInLoop(self) -> int:
+        pass
+
+    @interface
+    def balanceOf(self, _owner: Address) -> int:
+        pass
 
 class Loans(IconScoreBase):
     _LOANS_ON = 'loans_on'
@@ -529,8 +541,6 @@ class Loans(IconScoreBase):
             revert(f'{TAG}: Invalid data: {_data}, returning tokens. Exception: {e}')
         if set(d.keys()) == {"_asset", "_amount"}:
             self.depositAndBorrow(d['_asset'], d['_amount'], _from, _value)
-        elif set(d.keys()) == {"bnusd_to_receive", "sicx_amount"}:
-            self._generate_bnUSD(d["bnusd_to_receive"], d["sicx_amount"])
         else:
             revert(f'{TAG}: Invalid parameters.')
 
@@ -694,7 +704,8 @@ class Loans(IconScoreBase):
             node_id = borrowers.get_head_id()
         borrowers.serialize()
 
-        sicx_to_retire = min(_max_sicx_to_retire, (self._max_retire_percent.get() * total_batch_debt * EXA) // rate)
+        sicx_to_retire = min(_max_sicx_to_retire * POINTS, (self._max_retire_percent.get() * total_batch_debt * EXA)
+                             // (POINTS * rate))
 
         # if POINTS * _to_redeemed > self._max_retire_percent.get() * total_batch_debt:
         #     sicx_to_retire = (self._max_retire_percent.get() * total_batch_debt) * EXA // rate
@@ -727,14 +738,14 @@ class Loans(IconScoreBase):
         self.AssetRetired(self.msg.sender, _symbol, _redeemed, price,
                           total_batch_debt, str(redeemed_dict))
 
-    def _generate_bnUSD(self, _bnusd_to_receive: int, received_sicx: int) -> None:
+    @external
+    @only_rebalance
+    def generateBnusd(self, _max_bnusd_to_retire: int) -> None:
         """
         This function will  add off debt to a batch of
         borrowers proportionately along with their collateral.
-        :param _bnusd_to_receive: Total bnUSD token to mint.
-        :type _bnusd_to_receive: int
-        :param received_sicx: Total sICX token received from rebalancing..
-        :type received_sicx: int
+        :param _max_bnusd_to_retire: Max bnUSD token to retiire.
+        :type _max_bnusd_to_retire: int
         """
         _symbol = "sICX"
         _from = self._rebalance.get()
@@ -757,7 +768,19 @@ class Loans(IconScoreBase):
             node_id = borrowers.get_head_id()
         borrowers.serialize()
 
-        remaining_sicx = _bnusd_to_receive
+        bnusd_to_retire = min(_max_bnusd_to_retire * POINTS, (self._max_retire_percent.get() * total_batch_debt // POINTS))
+        if self._assets['bnUSD'].balanceOf(self.address) == 0:
+            self._assets["bnUSD"].mint(self.address, bnusd_to_retire)
+
+        bnusd_score = self.create_interface_score(self._assets['bnUSD'].get_address(), BnusdTokenInterface)
+
+        self._sICX_expected.set(True)
+        bnusd_score.transfer(self._dex.get(), bnusd_to_retire, data_swap_bnusd)
+        received_sicx = self._sICX_received.get()
+        self._sICX_received.set(0)
+        self._sICX_expected.set(False)
+
+        remaining_sicx = received_sicx
         remaining_supply = total_batch_debt
         debt_added = {}
 
@@ -772,9 +795,9 @@ class Loans(IconScoreBase):
 
             remaining_supply -= user_debt
 
-        self._assets["bnUSD"].mint(_from, _bnusd_to_receive)
+        self._assets["bnUSD"].mint(self.address, bnusd_to_retire)
 
-        self.AssetGenerated(_from, 'bnUSD', _bnusd_to_receive, price, total_batch_debt, str(debt_added))
+        self.AssetGenerated(_from, 'bnUSD', bnusd_to_retire, price, total_batch_debt, str(debt_added))
 
     def bd_redeem(self, _from: Address,
                   _asset: Asset,
