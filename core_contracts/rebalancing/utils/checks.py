@@ -58,7 +58,7 @@ def only_admin(func):
 
     @wraps(func)
     def __wrapper(self: object, *args, **kwargs):
-        if self.msg.sender != self._admin.get():
+        if self.msg.sender != self.get_contact_address("admin"):
             raise SenderNotAuthorized(self.msg.sender)
 
         return func(self, *args, **kwargs)

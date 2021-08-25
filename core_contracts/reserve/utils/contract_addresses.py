@@ -49,8 +49,9 @@ class ContractAddresses(IconScoreBase):
 
         :return:
         """
-        if self.msg.sender != self.get_contract_address("governance"):
-            revert(f"Unauthorized: Governance only.")
+        if self.msg.sender != self.owner:
+            if self.msg.sender != self.get_contract_address("governance"):
+                revert(f"Unauthorized: Governance only.")
         self._set_address(addresses)
 
     def _set_address(self, addresses: List[AddressDict]):

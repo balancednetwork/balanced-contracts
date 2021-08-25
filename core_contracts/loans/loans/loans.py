@@ -106,15 +106,6 @@ class Loans(ContractAddresses):
         super().__init__(db)
         self._loans_on = VarDB(self._LOANS_ON, db, value_type=bool)
 
-        self._governance = self.contract_address_collection["governance"]
-        self._rebalance = self.contract_address_collection["rebalance"]
-        self._dex = self.contract_address_collection["dex"]
-        self._dividends = self.contract_address_collection["dividends"]
-        self._reserve = self.contract_address_collection["reserve"]
-        self._rewards = self.contract_address_collection["rewards"]
-        self._staking = self.contract_address_collection["staking"]
-        self._admin = self.contract_address_collection["admin"]
-
         self._snap_batch_size = VarDB(self._SNAP_BATCH_SIZE, db, value_type=int)
         self._global_index = VarDB(self._GLOBAL_INDEX, db, value_type=int)
         self._global_batch_index = VarDB(self._GLOBAL_BATCH_INDEX, db, value_type=int)
@@ -148,9 +139,8 @@ class Loans(ContractAddresses):
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
-        self._governance = _governance
+        self.set_contract_addresses([{"name": "governance", "address": _governance}, {"admin": self.owner}])
         self._loans_on.set(False)
-        self._admin = self.owner
         self._snap_batch_size.set(SNAP_BATCH_SIZE)
         self._rewards_done.set(True)
         self._dividends_done.set(True)
@@ -222,7 +212,7 @@ class Loans(ContractAddresses):
         :param _delegations: List of dictionaries with two keys, Address and percent.
         :type _delegations: List[PrepDelegations]
         """
-        staking = self.create_interface_score(self._staking, Staking)
+        staking = self.create_interface_score(self.get_contract_address("staking"), Staking)
         staking.delegate(_delegations)
 
     @external(readonly=True)
@@ -435,7 +425,7 @@ class Loans(ContractAddresses):
         """
         prepares the position data snapshot to send to the rewards SCORE.
         """
-        if self.msg.sender != self._rewards:
+        if self.msg.sender != self.get_contract_address("rewards"):
             revert(f'{TAG}: The precompute method may only be invoked by the rewards SCORE.')
         self.checkForNewDay()  # Only does something if it is internal on a DEX tx.
         # Iterate through all positions in the snapshot to bring them up to date.
@@ -505,10 +495,10 @@ class Loans(ContractAddresses):
             self._rewards_done.set(False)
             self._dividends_done.set(False)
         elif not dividends_done:
-            dividends = self.create_interface_score(self._dividends, Dividends)
+            dividends = self.create_interface_score(self.get_contract_address("dividends"), Dividends)
             self._dividends_done.set(dividends.distribute())
         elif not rewards_done:
-            rewards = self.create_interface_score(self._rewards, Rewards)
+            rewards = self.create_interface_score(self.get_contract_address("rewards"), Rewards)
             self._rewards_done.set(rewards.distribute())
 
     @loans_on
@@ -572,7 +562,7 @@ class Loans(ContractAddresses):
             _from = sender
             if deposit > 0:
                 self._sICX_expected.set(True)
-                staking = self.create_interface_score(self._staking, Staking)
+                staking = self.create_interface_score(self.get_contract_address("staking"), Staking)
                 staking.icx(deposit).stakeICX(self.address)
                 received = self._sICX_received.get()
                 if received == 0:
@@ -692,7 +682,7 @@ class Loans(ContractAddresses):
         if not (asset and asset.is_active()) or asset.is_collateral():
             revert(f'{TAG}: {_symbol} is not an active, borrowable asset on Balanced.')
 
-        dex_score = self.create_interface_score(self._dex, DexTokenInterface)
+        dex_score = self.create_interface_score(self.get_contract_address("dex"), DexTokenInterface)
         rate = dex_score.getSicxBnusdPrice()
         _to_redeemed = rate * _sicx_from_lenders // EXA
         batch_size = self._redeem_batch.get()
@@ -714,7 +704,7 @@ class Loans(ContractAddresses):
         sicx = self.create_interface_score(sicx_address, TokenInterface)
 
         self._bnUSD_expected.set(True)
-        sicx.transfer(self._dex, _sicx_from_lenders, data_for_dex)
+        sicx.transfer(self.get_contract_address("dex"), _sicx_from_lenders, data_for_dex)
         _redeemed = self._bnUSD_received.get()
         self._bnUSD_received.set(0)
         self._bnUSD_expected.set(False)
@@ -757,7 +747,7 @@ class Loans(ContractAddresses):
         """
         _price = _asset.priceInLoop()
         _sicx_rate = self._assets['sICX'].priceInLoop()
-        reserve_address = self._reserve
+        reserve_address = self.get_contract_address("reserve")
         in_pool = _asset.liquidation_pool.get()
         bad_debt = _asset.bad_debt.get() - _bd_value
         _asset.bad_debt.set(bad_debt)
@@ -835,7 +825,7 @@ class Loans(ContractAddresses):
         self._assets[_asset].mint(_from, _amount)
 
         # Pay fee
-        self._assets[_asset].mint(self._dividends, fee)
+        self._assets[_asset].mint(self.get_contract_address("dividends"), fee)
         self.FeePaid(_asset, fee, "origination")
 
     @loans_on
@@ -951,54 +941,54 @@ class Loans(ContractAddresses):
     def setGovernance(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._governance = _address
+        self.set_contract_addresses([{"name": "governance", "address": _address}])
 
     @external
     @only_admin
     def setRebalance(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._rebalance = _address
+        self.set_contract_addresses([{"name": "rebalance", "address": _address}])
 
     @external
     @only_admin
     def setDex(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._dex = _address
+        self.set_contract_addresses([{"name": "dex", "address": _address}])
 
     @external
     @only_governance
     def setAdmin(self, _admin: Address) -> None:
-        self._admin = _admin
+        self.set_contract_addresses([{"name": "admin", "address":_admin}])
 
     @external
     @only_admin
     def setDividends(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._dividends = _address
+        self.set_contract_addresses([{"name": "dividends", "address": _address}])
 
     @external
     @only_admin
     def setReserve(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._reserve = _address
+        self.set_contract_addresses([{"name": "reserve", "address": _address}])
 
     @external
     @only_admin
     def setRewards(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._rewards = _address
+        self.set_contract_addresses([{"name": "_rewards", "address": _address}])
 
     @external
     @only_admin
     def setStaking(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._staking = _address
+        self.set_contract_addresses([{"name": "staking", "address": _address}])
 
     @external
     @only_admin

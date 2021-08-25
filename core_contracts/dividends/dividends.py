@@ -169,12 +169,6 @@ class Dividends(ContractAddresses):
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
 
-        # Addresses of other SCORES, that dividends score interacts with
-        self._governance = self.contract_address_collection["governance"]
-        self._admin = self.contract_address_collection["admin"]
-        self._loans_score = self.contract_address_collection["loans"]
-        self._daofund = self.contract_address_collection["daofund"]
-        self._baln_score = self.contract_address_collection["baln"]
         self._dex_score = self.contract_address_collection["dex"]
 
         # Accepted tokens store all the tokens that dividends can distribute and accept, store cx00.. for ICX
@@ -216,7 +210,7 @@ class Dividends(ContractAddresses):
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
-        self._governance = _governance
+        self.set_contract_addresses([{"name": "governance", "address": _governance}])
 
         self._accepted_tokens.put(ZERO_SCORE_ADDRESS)
         self._snapshot_id.set(1)
@@ -264,49 +258,49 @@ class Dividends(ContractAddresses):
     @external
     @only_owner
     def setGovernance(self, _address: Address) -> None:
-        self._governance = _address
+        self.set_contract_addresses([{"name": "governance", "address": _address}])
 
     @external(readonly=True)
     def getGovernance(self) -> Address:
-        return self._governance
+        return self.get_contract_addresses("governance")
 
     @external
     @only_governance
     def setAdmin(self, _address: Address) -> None:
-        self._admin = _address
+        self.set_contract_addresses([{"name": "admin", "address": _address}])
 
     @external(readonly=True)
     def getAdmin(self) -> Address:
-        return self._admin
+        return self.get_contract_address("admin")
 
     @external
     @only_admin
     def setLoans(self, _address: Address) -> None:
-        self._loans_score = _address
+        self.set_contract_addresses([{"name": "loans", "address": _address}])
 
     @external(readonly=True)
     def getLoans(self) -> Address:
-        return self._loans_score
+        return self.get_contract_address("loans")
 
     @external
     @only_admin
     def setDaofund(self, _address: Address) -> None:
-        self._daofund = _address
+        self.set_contract_addresses([{"name": "daofund", "address": _address}])
 
     @external(readonly=True)
     def getDaofund(self) -> Address:
-        return self._daofund
+        return self.get_contract_address("daofund")
 
     @external
     @only_admin
     def setBaln(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is EOA address. Should be a contract address.")
-        self._baln_score = _address
+        self.set_contract_addresses([{"name": "baln", "address": _address}])
 
     @external(readonly=True)
     def getBaln(self) -> Address:
-        return self._baln_score
+        return self.get_contract_address("baln")
 
     @external
     @only_admin
@@ -321,7 +315,7 @@ class Dividends(ContractAddresses):
 
     @external(readonly=True)
     def getBalances(self) -> dict:
-        loans = self.create_interface_score(self._loans_score, LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address("loans"), LoansInterface)
         assets = loans.getAssetTokens()
         balances = {}
         for symbol in assets:
@@ -447,17 +441,19 @@ class Dividends(ContractAddresses):
         for day in range(start, end):
             dividends = self._get_dividends_for_daofund(day)
             if dividends:
-                self._set_claimed(self._daofund, day)
+                self._set_claimed(self.get_contract_address("daofund"), day)
             total_dividends = self._add_dividends(total_dividends, dividends)
 
         try:
             for token in self._accepted_tokens:
                 if total_dividends.get(str(token), 0) > 0:
                     if str(token) == str(ZERO_SCORE_ADDRESS):
-                        self._send_ICX(self._daofund, total_dividends[str(token)], "Daofund dividends")
+                        self._send_ICX(self.get_contract_address("daofund"), total_dividends[str(token)],
+                                       "Daofund dividends")
                     else:
-                        self._send_token(self._daofund, total_dividends[str(token)], token, "Daofund dividends")
-            self.Claimed(self._daofund, start, end, str(total_dividends))
+                        self._send_token(self.get_contract_address("daofund"), total_dividends[str(token)], token,
+                                         "Daofund dividends")
+            self.Claimed(self.get_contract_address("daofund"), start, end, str(total_dividends))
         except BaseException as e:
             revert(f"Balanced Dividends: Error in transferring daofund dividends: Error {e}")
 
@@ -536,7 +532,7 @@ class Dividends(ContractAddresses):
         :type _data: bytes
         """
         if self.msg.sender not in self._accepted_tokens:
-            loans = self.create_interface_score(self._loans_score, LoansInterface)
+            loans = self.create_interface_score(self.get_contract_address("loans"), LoansInterface)
             available_tokens = loans.getAssetTokens()
             if str(self.msg.sender) in available_tokens.values():
                 self._accepted_tokens.put(self.msg.sender)
@@ -608,7 +604,7 @@ class Dividends(ContractAddresses):
         if self._is_claimed(_account, _day):
             return {}
 
-        baln_token_score = self.create_interface_score(self._baln_score, BalnTokenInterface)
+        baln_token_score = self.create_interface_score(self.get_contract_address("baln"), BalnTokenInterface)
         dex_score = self.create_interface_score(self._dex_score, DexInterface)
 
         staked_baln = baln_token_score.stakedBalanceOfAt(_account, _day)
@@ -640,7 +636,7 @@ class Dividends(ContractAddresses):
         return my_dividends
 
     def _get_dividends_for_daofund(self, _day: int) -> dict:
-        if self._is_claimed(self._daofund, _day):
+        if self._is_claimed(self.get_contract_address("daofund"), _day):
             return {}
 
         daofund_dividends = {}

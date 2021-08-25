@@ -49,12 +49,14 @@ class ContractAddresses(IconScoreBase):
 
         :return:
         """
-        if self.msg.sender != self.get_contract_address("governance"):
-            revert(f"Unauthorized: Governance only.")
+        if self.msg.sender != self.owner:
+            if self.msg.sender != self.get_contract_address("governance"):
+                revert(f"Unauthorized: Governance only.")
         self._set_address(addresses)
 
     def _set_address(self, addresses: List[AddressDict]):
-        if any(not (type(i["address"]) == Address and i["address"].is_contract) for i in addresses):
+        # and i["address"].is_contract)
+        if any(not type(i["address"]) == Address for i in addresses):
             revert(f"All addresses should be contract addresses.")
 
         for address in addresses:

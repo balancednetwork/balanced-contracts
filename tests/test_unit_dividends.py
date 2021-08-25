@@ -7,7 +7,7 @@ from core_contracts.dividends.dividends import Dividends
 class TestDividendsUnit(ScoreTestCase):
     def setUp(self):
         super().setUp()
-        self.mock_score = Address.from_string(f"cx{'1234'*10}")
+        self.mock_score = Address.from_string(f"cx{'1234' * 10}")
         self.dividends = self.get_score_instance(Dividends, self.test_account1,
                                                  on_install_params={"_governance": self.mock_score})
         self.test_account3 = Address.from_string(f"hx{'12345' * 8}")
@@ -16,6 +16,9 @@ class TestDividendsUnit(ScoreTestCase):
             self.test_account3: 10 ** 21,
             self.test_account4: 10 ** 21}
         self.initialize_accounts(account_info)
+        self.daofund = Address.from_string(f"cx{'12345' * 8}")
+        self.set_msg(self.test_account1)
+        self.dividends.set_contract_addresses([{"name": "daofund", "address": self.daofund}])
 
     def test_check_start_end(self):
         self.dividends._snapshot_id.set(4)
@@ -38,7 +41,7 @@ class TestDividendsUnit(ScoreTestCase):
         with self.assertRaises(IconScoreException) as equal_start_end:
             self.dividends._check_start_end(2, 2)
             self.dividends._check_start_end(3, 1)
-        self.assertEqual("Neither start and end can't be same nor start can be greater",
+        self.assertEqual("Start must not be greater than or equal to end.",
                          equal_start_end.exception.message)
 
         self.dividends._snapshot_id.set(101)
@@ -49,7 +52,7 @@ class TestDividendsUnit(ScoreTestCase):
 
         with self.assertRaises(IconScoreException) as max_gap:
             self.dividends._check_start_end(12, 98)
-        self.assertEqual("Please select with a difference between start and end of max 50", max_gap.exception.message)
+        self.assertEqual("Maximum allowed range is 50", max_gap.exception.message)
 
     def test_claimed_bit_map(self):
         self.dividends._set_claimed(self.test_account1, 1)
@@ -79,10 +82,9 @@ class TestDividendsUnit(ScoreTestCase):
         token2 = Address.from_string(f"cx{'12345' * 8}")
         self.dividends._accepted_tokens.put(token1)
         self.dividends._accepted_tokens.put(token2)
-        self.dividends._daofund.set(Address.from_string(f"cx{'12345'*8}"))
         day = 1
-        self.dividends._daily_fees[day][str(token1)] = 5*10**18
-        self.dividends._daily_fees[day][str(token2)] = 10*10**18
+        self.dividends._daily_fees[day][str(token1)] = 5 * 10 ** 18
+        self.dividends._daily_fees[day][str(token2)] = 10 * 10 ** 18
 
         expected_output = {str(token1): 2000000000000000000, str(token2): 4000000000000000000}
         self.assertEqual(expected_output, self.dividends._get_dividends_for_daofund(day))

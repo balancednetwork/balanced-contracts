@@ -14,7 +14,7 @@
 
 from .data_objects import *
 from .utils.checks import *
-from utils.contract_addresses import ContractAddresses
+from .utils.contract_addresses import ContractAddresses
 
 TAG = 'Governance'
 
@@ -313,7 +313,7 @@ class Governance(ContractAddresses):
 
     @external(readonly=True)
     def myVotingWeight(self, _address: Address, _day: int) -> int:
-        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        baln = self.create_interface_score(self.get_contract_address('baln'), BalancedInterface)
         stake = baln.stakedBalanceOfAt(_address, _day)
         dex_pool = self._get_pool_baln(_address, _day)
         total_vote = stake + dex_pool
@@ -552,15 +552,15 @@ class Governance(ContractAddresses):
         dividends.setDistributionActivationStatus(True)
 
     def setMiningRatio(self, _value: int):
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
         loans.setMiningRatio(_value)
 
     def setLockingRatio(self, _value: int):
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
         loans.setLockingRatio(_value)
 
     def setOriginationFee(self, _fee: int):
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address('loans'), LoansInterface)
         loans.setOriginationFee(_fee)
 
     @external

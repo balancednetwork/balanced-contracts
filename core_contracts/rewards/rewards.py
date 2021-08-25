@@ -38,9 +38,6 @@ class Rewards(ContractAddresses):
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
-        self._governance = self.contract_address_collection['governance']
-        self._admin = self.contract_address_collection['admin']
-        self._baln_address = self.contract_address_collection['baln_address']
         self._bwt_address = self.contract_address_collection['bwt_address']
         self._reserve_fund = self.contract_address_collection['reserve_fund']
         self._daofund = self.contract_address_collection['dao_fund']
@@ -50,16 +47,13 @@ class Rewards(ContractAddresses):
         self._baln_holdings = DictDB('baln_holdings', db, value_type=int)
         self._recipient_split = DictDB('recipient_split', db, value_type=int)
         self._recipients = ArrayDB('recipients', db, value_type=str)
-        self._platform_recipients = {'Worker Tokens': self._bwt_address,
-                                     'Reserve Fund': self._reserve_fund,
-                                     'DAOfund': self._daofund}
         self._total_dist = VarDB('total_dist', db, value_type=int)
         self._platform_day = VarDB('platform_day', db, value_type=int)
         self._data_source_db = DataSourceDB(db, self)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
-        self._governance = _governance
+        self.set_contract_addresses([{"name": "governance", "address": _governance}])
         self._platform_day.set(1)
         self._batch_size.set(DEFAULT_BATCH_SIZE)
         self._recipient_split['Worker Tokens'] = 0
@@ -226,18 +220,22 @@ class Rewards(ContractAddresses):
         if platform_day < day:
             if self._total_dist.get() == 0:
                 distribution = self._daily_dist(platform_day)
-                baln_token = self.create_interface_score(self._baln_address, TokenInterface)
+                baln_token = self.create_interface_score(self.get_contract_address("baln"), TokenInterface)
                 baln_token.mint(distribution)
                 self._total_dist.set(distribution)
                 shares = EXA
                 remaining = distribution
+
+                _platform_recipients = {'Worker Tokens': self.get_contract_address("bwt"),
+                                        'Reserve Fund': self.get_contract_address("reserve"),
+                                        'DAOfund': self.get_contract_address("daofund")}
                 for name in self._recipients:
                     split = self._recipient_split[name]
                     share = remaining * split // shares
                     if name in self._data_source_db:
                         self._data_source_db[name].total_dist[platform_day] = share
                     else:
-                        baln_token.transfer(self._platform_recipients[name], share)
+                        baln_token.transfer(_platform_recipients[name], share)
                     remaining -= share
                     shares -= split
                     if shares == 0:
@@ -258,7 +256,7 @@ class Rewards(ContractAddresses):
         address = str(self.msg.sender)
         amount = self._baln_holdings[address]
         if amount:
-            baln_token = self.create_interface_score(self._baln_address, TokenInterface)
+            baln_token = self.create_interface_score(self.get_contract_address("baln"), TokenInterface)
             self._baln_holdings[address] = 0
             baln_token.transfer(self.msg.sender, amount)
             self.RewardsClaimed(self.msg.sender, amount)
@@ -305,10 +303,10 @@ class Rewards(ContractAddresses):
         :param _data: Unused, ignored.
         :type _data: bytes
         """
-        if self.msg.sender != self._baln_address:
+        if self.msg.sender != self.get_contract_address("baln"):
             revert(f'{TAG}: The Rewards SCORE can only accept BALN tokens. '
                    f'Deposit not accepted from {self.msg.sender} '
-                   f'Only accepted from BALN = {self._baln_address}')
+                   f'Only accepted from BALN = {self.get_contract_address("baln")}')
 
     @external
     @only_governance
@@ -342,64 +340,64 @@ class Rewards(ContractAddresses):
     def setGovernance(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._governance = _address
+        self.set_contract_addresses([{"name": "governance", "address": _address}])
 
     @external(readonly=True)
     def getGovernance(self) -> Address:
-        return self._governance
+        return self.get_contract_address("governance")
 
     @external
     @only_governance
     def setAdmin(self, _address: Address) -> None:
-        self._admin = _address
+        self.set_contract_addresses([{"name": "admin", "address": _address}])
 
     @external(readonly=True)
     def getAdmin(self) -> Address:
-        return self._admin
+        return self.get_contract_address("admin")
 
     @external
     @only_admin
     def setBaln(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._baln_address = _address
+        self.set_contract_addresses([{"name": "baln", "address": _address}])
 
     @external(readonly=True)
     def getBaln(self) -> Address:
-        return self._baln_address
+        return self.get_contract_address("baln")
 
     @external
     @only_admin
     def setBwt(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._bwt_address = _address
+        self.set_contract_addresses([{"name": "bwt", "address": _address}])
 
     @external(readonly=True)
     def getBwt(self) -> Address:
-        return self._bwt_address
+        return self.get_contract_address("bwt")
 
     @external
     @only_admin
     def setReserve(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._reserve_fund = _address
+        self.set_contract_addresses([{"name": "reserve", "address": _address}])
 
     @external(readonly=True)
     def getReserve(self) -> Address:
-        return self._reserve_fund
+        return self.get_contract_address("reserve")
 
     @external
     @only_admin
     def setDaofund(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._daofund = _address
+        self.set_contract_addresses([{"name": "daofund", "address": _address}])
 
     @external(readonly=True)
     def getDaofund(self) -> Address:
-        return self._daofund
+        return self.get_contract_address("daofund")
 
     @external
     @only_admin

@@ -130,7 +130,6 @@ class Staking(ContractAddresses):
         # to store the block height for checking the top 100 preps in a week
         self._block_height_week = VarDB(self._BLOCK_HEIGHT_WEEK, db, value_type=int)
         self._block_height_day = VarDB(self._BLOCK_HEIGHT_DAY, db, value_type=int)
-        self._sICX_address = self.contract_address_collection["sicx"]
         # total staked from staking contract
         self._total_stake = VarDB(self._TOTAL_STAKE, db, value_type=int)
         # vardb to store total rewards
@@ -191,7 +190,7 @@ class Staking(ContractAddresses):
 
     def get_sICX_score(self) -> sICXTokenInterface:
         if self._sICX_score is None:
-            self._sICX_score = self.create_interface_score(self._sICX_address, sICXTokenInterface)
+            self._sICX_score = self.create_interface_score(self.get_contract_address("sicx"), sICXTokenInterface)
         return self._sICX_score
 
     def getRate(self) -> int:
@@ -210,7 +209,7 @@ class Staking(ContractAddresses):
         """
         Get the address of sICX token contract.
         """
-        return self._sICX_address
+        return self.get_contract_address("sicx")
 
     @external
     @only_owner
@@ -310,7 +309,7 @@ class Staking(ContractAddresses):
         """
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._sICX_address = _address
+        self.set_contract_addresses([{"name": "sicx", "address":_address}])
 
     @external(readonly=True)
     def getUnstakeInfo(self) -> list:
@@ -598,7 +597,7 @@ class Staking(ContractAddresses):
         :params _to : Address that receives the sICX token.
         :params _value : Amount of token to be transferred.
         """
-        if self.msg.sender != self._sICX_address:
+        if self.msg.sender != self.get_contract_address("sicx"):
             revert(f'{TAG}: Only sicx token contract can call this function.')
         sicx_to_icx_conversion = _value * self._rate.get() // DENOMINATOR
         receiver_delegation_in_per = self._get_address_delegations_in_per(_to)
@@ -679,7 +678,7 @@ class Staking(ContractAddresses):
         :param _data: Unused, ignored.
         :type _data: bytes
         """
-        if self.msg.sender != self._sICX_address:
+        if self.msg.sender != self.get_contract_address("sicx"):
             revert(f'{TAG}: The Staking contract only accepts sICX tokens.')
         Logger.debug(f'({_value}) tokens received from {_from}.', TAG)
         try:

@@ -68,17 +68,12 @@ class ReserveFund(ContractAddresses):
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
-        self._governance = self.contract_address_collection["governance"]
-        self._admin = self.contract_address_collection["admin"]
-        self._loans_score = self.contract_address_collection["loans"]
-        self._baln_token = self.contract_address_collection["baln"]
-        self._sicx_token = self.contract_address_collection["sicx"]
         self._baln = VarDB(self._BALN, db, value_type=int)
         self._sicx = VarDB(self._SICX, db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
-        self._governance = _governance
+        self.set_contract_addresses([{"name": "governance", "address": _governance}])
 
     def on_update(self) -> None:
         super().on_update()
@@ -102,57 +97,57 @@ class ReserveFund(ContractAddresses):
     def setGovernance(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._governance = _address
+        self.set_contract_addresses([{"name": "governance", "address": _address}])
 
     @external(readonly=True)
     def getGovernance(self) -> Address:
-        return self._governance
+        return self.get_contract_address("governance")
 
     @external
     @only_governance
     def setAdmin(self, _address: Address) -> None:
-        self._admin = _address
+        self.set_contract_addresses([{"name": "admin", "address": _address}])
 
     @external(readonly=True)
     def getAdmin(self) -> Address:
-        return self._admin
+        return self.get_contract_address("admin")
 
     @external
     @only_admin
     def setLoans(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._loans_score = _address
+        self.set_contract_addresses([{"name": "loans", "address":_address}])
 
     @external(readonly=True)
     def getLoans(self) -> Address:
-        return self._loans_score
+        return self.get_contract_address("loans")
 
     @external
     @only_admin
     def setBaln(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._baln_token = _address
+        self.set_contract_addresses([{"name": "baln", "address":_address}])
 
     @external(readonly=True)
     def getBaln(self) -> Address:
-        return self._baln_token
+        return self.get_contract_address("baln")
 
     @external
     @only_admin
     def setSicx(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._sicx_token = _address
+        self.set_contract_addresses([{"name": "sicx", "address":_address}])
 
     @external(readonly=True)
     def getSicx(self) -> Address:
-        return self._sicx_token
+        return self.get_contract_address("sicx")
 
     @external(readonly=True)
     def getBalances(self) -> dict:
-        loans = self.create_interface_score(self._loans_score, LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address("loans"), LoansInterface)
         assets = loans.getCollateralTokens()
         balances = {}
         for symbol in assets:
@@ -164,14 +159,14 @@ class ReserveFund(ContractAddresses):
 
     @external
     def redeem(self, _to: Address, _amount: int, _sicx_rate: int) -> int:
-        if self.msg.sender != self._loans_score:
+        if self.msg.sender != self.get_contract_address("loans"):
             revert(f'{TAG}: The redeem method can only be called by the Loans SCORE.')
         sicx = self._sicx.get()
         if _amount <= sicx:
             sicx_to_send = _amount
         else:
             sicx_to_send = sicx
-            baln_address = self._baln_token
+            baln_address = self.get_contract_address("baln")
             baln = self.create_interface_score(baln_address, TokenInterface)
             baln_rate = baln.priceInLoop()
             baln_to_send = (_amount - sicx) * _sicx_rate // baln_rate
@@ -182,7 +177,7 @@ class ReserveFund(ContractAddresses):
             self._send_token(baln_address, _to, baln_to_send, 'Redeemed:')
         self._sicx.set(sicx - sicx_to_send)
         if sicx_to_send > 0:
-            self._send_token(self._sicx_token, self._loans_score, sicx_to_send, 'To Loans:')
+            self._send_token(self.get_contract_address("sicx"), self.get_contract_address("loans"), sicx_to_send, 'To Loans:')
         return sicx_to_send
 
     @external
@@ -197,15 +192,15 @@ class ReserveFund(ContractAddresses):
         :param _data: Unused, ignored.
         :type _data: bytes
         """
-        if self.msg.sender == self._baln_token:
+        if self.msg.sender == self.get_contract_address("baln"):
             self._baln.set(self._baln.get() + _value)
-        elif self.msg.sender == self._sicx_token:
+        elif self.msg.sender == self.get_contract_address("sicx"):
             self._sicx.set(self._sicx.get() + _value)
         else:
             revert(f'{TAG}: The Reserve Fund can only accept BALN or sICX tokens. '
                    f'Deposit not accepted from {self.msg.sender}'
-                   f'Only accepted from BALN = {self._baln_token}'
-                   f'Or sICX = {self._sicx_token}')
+                   f'Only accepted from BALN = {self.get_contract_address("baln")}'
+                   f'Or sICX = {self.get_contract_address("sicx")}')
 
     def _send_token(self, _token_address: Address, _to: Address, _amount: int, msg: str) -> None:
         """
