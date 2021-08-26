@@ -546,6 +546,16 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def removeDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
+        """
+        Add a new data source to receive BALN tokens. Starts with a default of
+        zero percentage of the distribution.
+        """
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
+        rewards.removeDataSource(_data_source_name, _contract_address)
+
+    @external
+    @only_owner
     def updateBalTokenDistPercentage(self, _recipient_list: List[DistPercentDict]) -> None:
         """
         Assign percentages for distribution to the data sources. Must sum to 100%.
