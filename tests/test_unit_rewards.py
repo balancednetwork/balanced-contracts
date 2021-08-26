@@ -160,6 +160,26 @@ class TestRewards(ScoreTestCase):
         # returns although the address is wallet address
         self.rewards.addNewDataSource("Loans", Address.from_string(f"hx{'02345' * 8}"))
 
+    def test_removeDataSources(self):
+        self.set_msg(self.mock_score)
+        day = self.rewards._get_day()
+        # test if the data source address is a contract or not
+
+        try:
+            self.rewards.removeDataSource("sICX", Address.from_string(f"hx{'02345' * 8}"))
+        except IconScoreException as e:
+            self.assertEqual("BalancedRewards: Data source must be a contract.", e.message)
+        self.rewards.addNewDataSource("Loans", Address.from_string(f"cx{'02345' * 8}"))
+        self.rewards.removeDataSource("Loans", Address.from_string(f"cx{'02345' * 8}"))
+        self.assertListEqual(['Worker Tokens', 'Reserve Fund', 'DAOfund'],self.rewards.getRecipients())
+
+        self.assertEqual("", self.rewards._data_source_db["Loans"].name.get())
+        self.assertEqual(None, self.rewards._data_source_db["Loans"].contract_address.get())
+        self.assertEqual(0, self.rewards._data_source_db["Loans"].day.get())
+        self.assertEqual({}, self.rewards.getDataSources())
+
+
+
     def test_claimRewards(self):
         # with no holdings
         self.rewards.claimRewards()
