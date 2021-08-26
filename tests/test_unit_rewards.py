@@ -38,9 +38,9 @@ class TestRewards(ScoreTestCase):
         mock_class = MockClass()
         self.set_block(1, 1 * 24 * 60 * 60 * 10 ** 6)
         # test the initial snapshot
-        self.assertDictEqual({'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0}, self.rewards.recipientAt(1))
-        self.assertDictEqual({'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0}, self.rewards.recipientAt(0))
-        self.assertDictEqual({'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0}, self.rewards.recipientAt(60))
+        self.assertDictEqual({}, self.rewards.recipientAt(1))
+        self.assertDictEqual({}, self.rewards.recipientAt(0))
+        self.assertDictEqual({}, self.rewards.recipientAt(60))
         # update the recipent_split percentage
 
         test_list = [{'recipient_name': 'Reserve Fund', 'dist_percent': 70 * 10 ** 16},
@@ -54,12 +54,11 @@ class TestRewards(ScoreTestCase):
             per = x['dist_percent']
             check_split[name] = per
         self.assertDictEqual(check_split, self.rewards.getRecipientsSplit())
-        self.assertDictEqual({'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0}, self.rewards.recipientAt(0))
+        self.assertDictEqual({}, self.rewards.recipientAt(0))
         self.assertDictEqual(check_split, self.rewards.recipientAt(60))
         self.assertDictEqual(check_split, self.rewards.recipientAt(1))
         with mock.patch.object(self.rewards, "create_interface_score", wraps=mock_class.create_interface_score):
             self.set_block(1, 9 * 24 * 60 * 60 * 10 ** 6)
-
             # day is set to 9 and new recipents are added
 
             recipient_list = [{'recipient_name': 'Loans', 'dist_percent': 25 * 10 ** 16},
@@ -79,12 +78,12 @@ class TestRewards(ScoreTestCase):
                 name = x['recipient_name']
                 per = x['dist_percent']
                 check_split2[name] = per
-            self.assertDictEqual({'Worker Tokens': 0, 'Reserve Fund': 0, 'DAOfund': 0, 'Loans': 0, 'sICX/ICX': 0,
-                              'sICX/bnUSD': 0}, self.rewards.recipientAt(0))
+            self.assertDictEqual({}, self.rewards.recipientAt(0))
             self.assertDictEqual(check_split, self.rewards.recipientAt(8))
             self.assertDictEqual(check_split2, self.rewards.recipientAt(60))
             self.assertDictEqual(check_split2, self.rewards.recipientAt(9))
             self.assertDictEqual(check_split, self.rewards.recipientAt(1))
+
             self.assertDictEqual(check_split, self.rewards.recipientAt(8))
             self.rewards.distribute()
             self.set_block(1, 11 * 24 * 60 * 60 * 10 ** 6)
@@ -130,6 +129,7 @@ class TestRewards(ScoreTestCase):
         expected = {}
         for recipient in recipient_list:
             expected[recipient["recipient_name"]] = recipient["dist_percent"]
+        print(self.rewards.recipientAt(day))
         self.assertEqual(expected, self.rewards.recipientAt(day))
         # self.assertEqual(10 * 10 ** 16, self.rewards.recipientAt('DAOfund', day))
         # self.assertEqual(70 * 10 ** 16, self.rewards.recipientAt('Reserve Fund', day))
