@@ -148,8 +148,8 @@ class Governance(IconScoreBase):
             revert("Only owner or proposer may call this method.")
         if vote_index == 0:
             revert(f'That is not a valid vote name.')
-        if proposal.status.get() != ProposalStatus.STATUS[ProposalStatus.PENDING]:
-            revert("Balanced Governance: Proposal can be cancelled only from pending status.")
+        if proposal.status.get() != ProposalStatus.STATUS[ProposalStatus.ACTIVE]:
+            revert("Balanced Governance: Proposal can be cancelled only from active status.")
 
         self._refund_vote_definition_fee(proposal)
         proposal.active.set(False)
