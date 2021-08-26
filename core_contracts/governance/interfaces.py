@@ -55,7 +55,7 @@ class RebalancingInterface(InterfaceScore):
         pass
 
     @interface
-    def setMaxRetireAmount(self, _value: int) -> None:
+    def setMaxRetireAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
         pass
 
 
