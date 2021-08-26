@@ -666,7 +666,7 @@ class DEX(IconScoreBase):
         if self._balance[_id][_from] < _value:
             revert(f"{TAG}: Out of balance.")
         
-        if _id < 5:
+        if _id < FIRST_NON_BALANCED_POOL:
             revert(f"{TAG}: untransferrable token id")
 
         self._balance[_id][_from] = self._balance[_id][_from] - _value
@@ -1716,7 +1716,9 @@ class DEX(IconScoreBase):
         self._balance[_id][_owner] += liquidity
         self._total[_id] += liquidity
 
-        self._withdraw_lock[_id][self.msg.sender] = self.now()
+        # Only add withdraw locks to Balanced pools
+        if _id < FIRST_NON_BALANCED_POOL:
+            self._withdraw_lock[_id][self.msg.sender] = self.now()
 
         self.Add(_id, _owner, liquidity, base_to_commit, quote_to_commit)
 
@@ -1727,7 +1729,7 @@ class DEX(IconScoreBase):
                               * self._pool_total[_id][_quoteToken] // self.totalSupply(_id)
 
         # Only add restrictions to Balanced pools
-        if _id < 5:
+        if _id < FIRST_NON_BALANCED_POOL:
             self._revert_below_minimum(user_quote_holdings, _quoteToken)
         
         self._active_addresses[_id].add(self.msg.sender)
