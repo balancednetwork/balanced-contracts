@@ -46,11 +46,9 @@ REVERSE_REBALANCING_STORIES = {
             "description": "In this condition rebalancing doesn't happen as price of dex is not more than 0.5% of "
                            "oracle price.",
             "actions": {
-                "initial_bnUSD_in_rebalancer": 1000 * ICX,
                 "method": "transfer",
                 "amount": 200 * ICX,
                 "rebalancing_status": 0,
-                "final_bnUSD_in_rebalancer": 1000 * ICX
 
             }
         },
@@ -58,22 +56,18 @@ REVERSE_REBALANCING_STORIES = {
             "description": "In this condition also rebalancing doesn't happen as price of dex is not more than 0.5% "
                            "of oracle price.",
             "actions": {
-                "initial_bnUSD_in_rebalancer": 1000 * ICX,
                 "method": "transfer",
                 "amount": 1600 * ICX,
                 "rebalancing_status": 0,
-                "final_bnUSD_in_rebalancer": 1000 * ICX
             }
         },
         {
             "description": "In this condition rebalancing happens as dex price increases with more than 0.5% of "
                            "oracle price.",
             "actions": {
-                "initial_bnUSD_in_rebalancer": 1000 * ICX,
                 "method": "transfer",
                 "amount": 200000 * ICX,
                 "rebalancing_status": 1,
-                "final_bnUSD_in_rebalancer": 1000 * ICX
             }
         }
     ]

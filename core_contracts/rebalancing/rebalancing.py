@@ -4,8 +4,6 @@ from .utils.checks import *
 TAG = 'Rebalancing'
 
 EXA = 10 ** 18
-# sICX token address in toToken
-data_bytes_sicx = b'{"method": "_swap", "params": {"toToken": "cx2609b924e33ef00b648a409245c7ea394c467824"}}'
 
 
 class sICXTokenInterface(InterfaceScore):

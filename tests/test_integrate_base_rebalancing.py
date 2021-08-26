@@ -146,7 +146,7 @@ class BalancedTestUtils(IconIntegrateTestBase):
         ).build()
         response = self.process_call(call, self.icon_service)
         print(f"-----Reading method={method}------")
-        # print(f"-------------------The output is: : {response}")
+        print(f"-------------------The output is: : {response}")
         return response
 
 
