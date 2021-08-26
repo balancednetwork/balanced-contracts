@@ -206,6 +206,29 @@ class Rewards(IconScoreBase):
         # self._update_recipient_snapshot(_name, 0)
         self._data_source_db.new_source(_name, _address)
 
+    @external
+    @only_governance
+    def removeDataSource(self, _name: str, _address: Address) -> None:
+        """
+        Sources for data on which to base incentive rewards are removed with this
+        method.
+
+        :param _name: Identifying name for the data source.
+        :type _name: str
+        :param _address: Address of the data source.
+        :type _address: :class:`iconservice.base.address.Address`
+        """
+        if _name not in self._recipients:
+            return
+        if not _address.is_contract:
+            revert(f'{TAG}: Data source must be a contract.')
+        top = self._recipients.pop()
+        if top != _name:
+            for i in range(len(self._recipients)):
+                if self._recipients[i] == _name:
+                    self._recipients[i] = top
+        self._data_source_db.remove_source(_name, _address)
+
     @external(readonly=True)
     def getDataSources(self) -> dict:
         result = {}
