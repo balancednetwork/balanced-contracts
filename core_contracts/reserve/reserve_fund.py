@@ -104,15 +104,6 @@ class ReserveFund(ContractAddresses):
         return self.get_contract_address("governance")
 
     @external
-    @only_governance
-    def setAdmin(self, _address: Address) -> None:
-        self.set_contract_addresses([{"name": "admin", "address": _address}])
-
-    @external(readonly=True)
-    def getAdmin(self) -> Address:
-        return self.get_contract_address("admin")
-
-    @external
     @only_admin
     def setLoans(self, _address: Address) -> None:
         if not _address.is_contract:

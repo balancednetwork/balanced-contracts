@@ -15,6 +15,7 @@
 from iconservice import *
 from .tokens.IRC2 import IRC2
 from .utils.checks import *
+from .utils.contract_addresses import ContractAddresses
 
 TAG = 'BALW'
 
@@ -22,6 +23,7 @@ TOKEN_NAME = 'Balanced Worker Token'
 SYMBOL_NAME = 'BALW'
 INITIAL_SUPPLY = 100
 DECIMALS = 6
+
 
 # An interface of token to distribute daily BALN
 class TokenInterface(InterfaceScore):
@@ -34,36 +36,36 @@ class TokenInterface(InterfaceScore):
         pass
 
 
-class WorkerToken(IRC2):
-
+class WorkerToken(IRC2, ContractAddresses):
     _ACCOUNTS = 'accounts'
-    _GOVERNANCE = 'governance'
-    _BALN_TOKEN = 'baln_token'
     _BALN = 'baln'
 
     def __init__(self, db: IconScoreDatabase) -> None:
-        super().__init__(db)
-        self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
-        self._baln_token = VarDB(self._BALN_TOKEN, db, value_type=Address)
+        IRC2.__init__(self, db)
+        ContractAddresses.__init__(self, db)
         self._baln = VarDB(self._BALN, db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install(TOKEN_NAME, SYMBOL_NAME, INITIAL_SUPPLY, DECIMALS)
-        self._governance.set(_governance)
+        self.set_contract_addresses([{"name": "governance", "address": _governance}])
 
     def on_update(self) -> None:
         super().on_update()
+        _GOVERNANCE = 'governance'
+        _BALN_TOKEN = 'baln_token'
+        VarDB(_GOVERNANCE, self.db, value_type=Address).remove()
+        VarDB(_BALN_TOKEN, self.db, value_type=Address).remove()
 
     @external
     @only_owner
     def setGovernance(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._governance.set(_address)
+        self.set_contract_addresses([{"name": "governance", "address": _address}])
 
     @external(readonly=True)
     def getGovernance(self) -> Address:
-        return self._governance.get()
+        return self.get_contract_address("governance")
 
     @external
     @only_governance
@@ -78,11 +80,11 @@ class WorkerToken(IRC2):
     @external
     @only_admin
     def setBaln(self, _address: Address) -> None:
-        self._baln_token.set(_address)
+        self.set_contract_addresses([{"name": "baln", "address": _address}])
 
     @external(readonly=True)
     def getBaln(self) -> Address:
-        return self._baln_token.get()
+        return self.get_contract_address("baln")
 
     @external
     @only_admin
@@ -95,7 +97,7 @@ class WorkerToken(IRC2):
     def distribute(self) -> None:
         length = len(self._addresses)  # length of _addresses is limited at the transfer method.
         tokens = self.totalSupply()
-        baln = self.create_interface_score(self._baln_token.get(), TokenInterface)
+        baln = self.create_interface_score(self.getBaln(), TokenInterface)
         dist = baln.balanceOf(self.address)
         for i in range(length):
             address = self._addresses[i]
@@ -122,9 +124,9 @@ class WorkerToken(IRC2):
         :param _data: Unused, ignored.
         :type _data: bytes
         """
-        if self.msg.sender == self._baln_token.get():
+        if self.msg.sender == self.getBaln():
             self._baln.set(self._baln.get() + _value)
         else:
             revert(f'The Worker Token contract can only accept BALN tokens. '
                    f'Deposit not accepted from {self.msg.sender} '
-                   f'Only accepted from BALN = {self._baln_token.get()}')
+                   f'Only accepted from BALN = {self.getBaln()}')

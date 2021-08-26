@@ -958,11 +958,6 @@ class Loans(ContractAddresses):
         self.set_contract_addresses([{"name": "dex", "address": _address}])
 
     @external
-    @only_governance
-    def setAdmin(self, _admin: Address) -> None:
-        self.set_contract_addresses([{"name": "admin", "address":_admin}])
-
-    @external
     @only_admin
     def setDividends(self, _address: Address) -> None:
         if not _address.is_contract:

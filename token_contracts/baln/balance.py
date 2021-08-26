@@ -15,6 +15,7 @@
 from .tokens.IRC2 import IRC2
 from .utils.checks import *
 from .utils.consts import *
+from .utils.contract_addresses import ContractAddresses
 
 
 # An interface to the Band Price Oracle
@@ -54,7 +55,7 @@ class TotalStakedBalnTokenSnapshots(TypedDict):
     day: int
 
 
-class BalancedToken(IRC2):
+class BalancedToken(IRC2, ContractAddresses):
     _PRICE_UPDATE_TIME = "price_update_time"
     _LAST_PRICE = "last_price"
     _MIN_INTERVAL = "min_interval"
@@ -74,12 +75,6 @@ class BalancedToken(IRC2):
     _UNSTAKING_PERIOD = "unstaking_period"
     _TOTAL_STAKED_BALANCE = "total_staked_balance"
 
-    _DIVIDENDS_SCORE = "dividends_score"
-    _GOVERNANCE = "governance"
-
-    _DEX_SCORE = "dex_score"
-    _BNUSD_SCORE = "bnUSD_score"
-    _ORACLE = "oracle"
     _ORACLE_NAME = "oracle_name"
 
     _TIME_OFFSET = "time_offset"
@@ -91,11 +86,9 @@ class BalancedToken(IRC2):
     _ENABLE_SNAPSHOTS = "enable_snapshots"
 
     def __init__(self, db: IconScoreDatabase) -> None:
-        super().__init__(db)
-        self._dex_score = VarDB(self._DEX_SCORE, db, value_type=Address)
-        self._bnusd_score = VarDB(self._BNUSD_SCORE, db, value_type=Address)
-        self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
-        self._oracle = VarDB(self._ORACLE, db, value_type=Address)
+        IRC2.__init__(self, db)
+        ContractAddresses.__init__(self, db)
+
         self._oracle_name = VarDB(self._ORACLE_NAME, db, value_type=str)
         self._price_update_time = VarDB(self._PRICE_UPDATE_TIME, db, value_type=int)
         self._last_price = VarDB(self._LAST_PRICE, db, value_type=int)
@@ -118,8 +111,6 @@ class BalancedToken(IRC2):
         self._unstaking_period = VarDB(self._UNSTAKING_PERIOD, db, value_type=int)
         self._total_staked_balance = VarDB(self._TOTAL_STAKED_BALANCE, db, value_type=int)
 
-        self._dividends_score = VarDB(self._DIVIDENDS_SCORE, db, value_type=Address)
-
         self._time_offset = VarDB(self._TIME_OFFSET, db, value_type=int)
 
         # [address][snapshot_id]["ids" || "amount"]
@@ -135,7 +126,7 @@ class BalancedToken(IRC2):
 
     def on_install(self, _governance: Address) -> None:
         super().on_install(TOKEN_NAME, SYMBOL_NAME)
-        self._governance.set(_governance)
+        self.set_contract_addresses([{"name": "governance", "address": _governance}])
         self._staking_enabled.set(False)
         self._index_update_stake.set(0)
         self._index_stake_address_changes.set(0)
@@ -152,6 +143,17 @@ class BalancedToken(IRC2):
         self.setTimeOffset()
         self._enable_snapshots.set(False)
 
+        _DEX_SCORE = "dex_score"
+        _BNUSD_SCORE = "bnUSD_score"
+        _ORACLE = "oracle"
+        _DIVIDENDS_SCORE = "dividends_score"
+        _GOVERNANCE = "governance"
+        VarDB(_DEX_SCORE, self.db, value_type=Address).remove()
+        VarDB(_BNUSD_SCORE, self.db, value_type=Address).remove()
+        VarDB(_GOVERNANCE, self.db, value_type=Address).remove()
+        VarDB(_ORACLE, self.db, value_type=Address).remove()
+        VarDB(_DIVIDENDS_SCORE, self.db, value_type=Address).remove()
+
     @external(readonly=True)
     def getPeg(self) -> str:
         return TAG
@@ -159,29 +161,29 @@ class BalancedToken(IRC2):
     @external
     @only_governance
     def setbnUSD(self, _address: Address) -> None:
-        self._bnusd_score.set(_address)
+        self.set_contract_addresses([{"name": "bnusd", "address": _address}])
 
     @external(readonly=True)
-    def getbnUSD(self) -> dict:
-        return self._bnusd_score.get()
+    def getbnUSD(self) -> Address:
+        return self.get_contract_address("bnusd")
 
     @external
     @only_governance
     def setOracle(self, _address: Address) -> None:
-        self._oracle.set(_address)
+        self.set_contract_addresses([{"name": "oracle", "address": _address}])
 
     @external(readonly=True)
-    def getOracle(self) -> dict:
-        return self._oracle.get()
+    def getOracle(self) -> Address:
+        return self.get_contract_address("oracle")
 
     @external
     @only_governance
     def setDex(self, _address: Address) -> None:
-        self._dex_score.set(_address)
+        self.set_contract_addresses([{"name": "dex", "address": _address}])
 
     @external(readonly=True)
-    def getDex(self) -> dict:
-        return self._dex_score.get()
+    def getDex(self) -> Address:
+        return self.get_contract_address("dex")
 
     @external
     @only_governance
@@ -195,11 +197,11 @@ class BalancedToken(IRC2):
     @external
     @only_owner
     def setGovernance(self, _address: Address) -> None:
-        self._governance.set(_address)
+        self.set_contract_addresses([{"name": "governance", "address": _address}])
 
     @external(readonly=True)
     def getGovernance(self) -> Address:
-        return self._governance.get()
+        return self.get_contract_address("governance")
 
     @external
     @only_governance
@@ -235,8 +237,8 @@ class BalancedToken(IRC2):
         """
         Returns the latest price of the asset in loop.
         """
-        dex_score = self._dex_score.get()
-        oracle_address = self._oracle.get()
+        dex_score = self.get_contract_address("dex")
+        oracle_address = self.get_contract_address("oracle")
         dex = self.create_interface_score(dex_score, DexInterface)
         oracle = self.create_interface_score(oracle_address, OracleInterface)
         price = dex.getBalnPrice()
@@ -251,8 +253,8 @@ class BalancedToken(IRC2):
         """
         base = "BALN"
         quote = "bnUSD"
-        dex_score = self._dex_score.get()
-        oracle_address = self._oracle.get()
+        dex_score = self.get_contract_address("dex")
+        oracle_address = self.get_contract_address("oracle")
         try:
             dex = self.create_interface_score(dex_score, DexInterface)
             oracle = self.create_interface_score(oracle_address, OracleInterface)
@@ -409,14 +411,14 @@ class BalancedToken(IRC2):
     @external
     @only_governance
     def setDividends(self, _score: Address) -> None:
-        self._dividends_score.set(_score)
+        self.set_contract_addresses([{"name": "dividends", "address": _score}])
 
     @external(readonly=True)
     def getDividends(self) -> Address:
-        return self._dividends_score.get()
+        return self.get_contract_address("dividends")
 
     def dividends_only(self):
-        if self.msg.sender != self._dividends_score.get():
+        if self.msg.sender != self.get_contract_address("dividends"):
             revert(f"{TAG}: This method can only be called by the dividends distribution contract.")
 
     @external
@@ -567,7 +569,7 @@ class BalancedToken(IRC2):
     @external
     @only_owner
     def setTimeOffset(self) -> None:
-        _dex = self.create_interface_score(self._dex_score.get(), DexInterface)
+        _dex = self.create_interface_score(self.get_contract_address("dex"), DexInterface)
         _delta_time = _dex.getTimeOffset()
         self._time_offset.set(_delta_time)
 
@@ -633,7 +635,7 @@ class BalancedToken(IRC2):
         low = 0
         high = total_snapshots_taken - 1
         while high > low:
-            mid = high - (high - low)//2
+            mid = high - (high - low) // 2
             mid_value = self._stake_snapshots[_account][mid]
             if mid_value[IDS] == _day:
                 return mid_value[AMOUNT]
@@ -664,7 +666,7 @@ class BalancedToken(IRC2):
         low = 0
         high = total_snapshots_taken - 1
         while high > low:
-            mid = high - (high-low)//2
+            mid = high - (high - low) // 2
             mid_value = self._total_staked_snapshot[mid]
             if mid_value[IDS] == _day:
                 return mid_value[AMOUNT]

@@ -257,24 +257,6 @@ class DEX(ContractAddresses):
         return TAG
 
     @external(readonly=True)
-    def getAdmin(self) -> Address:
-        """
-        Gets the current admin address. This user can call using the
-        `@only_admin` decorator.
-        """
-        return self.get_contract_address("admin")
-
-    @only_governance
-    @external
-    def setAdmin(self, _admin: Address) -> None:
-        """
-        :param _admin: The new admin address to set.
-        Can make calls with the `@only_admin` decorator.
-        Should be called before DEX use.
-        """
-        self.set_contract_addresses([{"name": "admin", "address": _admin}])
-
-    @external(readonly=True)
     def getSicx(self) -> Address:
         """
         Gets the address of the Sicx contract.

@@ -1,0 +1,58 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+actor "Externally Owned \nAddress(EOA)" as EOA
+participant Loans as l
+participant Rewards as r
+participant Dividend as d
+autonumber
+
+EOA->l++: Deposit/Withdraw\n amount,asset
+l->l:Check if loans is enabled
+autonumber stop
+group Loans is disabled
+l->EOA!!
+end
+
+autonumber resume
+
+
+group Loan
+l->l:Get assert score address
+l->l:Ensure asset is active,\nnot collateral and not dead
+group Asset check failed
+autonumber stop
+l->EOA!!
+end
+
+autonumber resume
+
+l->l:Get user collateral,\ncurrent debt and fee
+l->l:Compute new debt
+l->l:Ensure loan> min loan amt,\n enough collateral for loan
+l->l: Add loan to the position db
+l->EOA:Mint loan asset to EOA
+l->d:Mint fee to dividends
+group Check failed
+autonumber stop
+l->EOA!!
+autonumber resume
+end
+
+
+end
+group Check distribution status
+l->l: Check distribution status
+group Rewards distribution required
+l->r++: Distribute rewards
+note over r:check rewards contract
+r-->l--
+end
+
+group Dividend distribution required
+l->d++:Distribute dividends
+note over d:check dividends score
+d-->l--
+end
+end
+@enduml

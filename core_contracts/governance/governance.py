@@ -498,11 +498,9 @@ class Governance(ContractAddresses):
         for contract in ADMIN_ADDRESSES:
             score = self.create_interface_score(self.get_contract_address(contract), SetAddressesInterface)
             try:
-                score.set_contract_addresses(
-                    [{"name": "admin",
-                      "address":
-                          self.address if ADMIN_ADDRESSES[contract] == "governance"
-                          else self.get_contract_address(ADMIN_ADDRESSES[contract])}])
+                score.set_admin(self.address if ADMIN_ADDRESSES[contract] == "governance"
+                                else self.get_contract_address(ADMIN_ADDRESSES[contract]))
+
             except BaseException as e:
                 revert(f'Problem setting admin address to {ADMIN_ADDRESSES[contract]} '
                        f'on {contract}. Exception: {e}')

@@ -1,0 +1,57 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+actor "Externally Owned \nAddress(EOA)" as EOA
+participant Loans as l
+participant Staking as s
+participant Rewards as r
+participant Dividend as d
+autonumber
+
+EOA->l++: Deposit/Withdraw\n amount,asset
+l->l:Check if loans is enabled
+autonumber stop
+group Loans is disabled
+l->EOA!!
+end
+
+autonumber resume
+
+group Deposit Collateral
+l->l:Get Collateral score address
+l->s++:Stake Collateral
+note over s: Check stacking contract
+s-->l--:
+
+
+
+l->l: Get user position
+note right:what is position
+l->l: Add deposited value to position
+end
+
+
+group Check day
+l->l: Check for new day
+group If new day
+l->l:Update current day tracker
+l->l:Take snapshot
+l->l: Check if market id dead
+end
+end
+
+group Check distribution status
+l->l: Check distribution status
+group Rewards distribution required
+l->r++: Distribute rewards
+note over r:check rewards contract
+r-->l--
+end
+
+group Dividend distribution required
+l->d++:Distribute dividends
+note over d:check dividends score
+d-->l--
+end
+end
+@enduml

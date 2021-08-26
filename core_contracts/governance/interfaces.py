@@ -268,6 +268,10 @@ class DividendsInterface(InterfaceScore):
 class SetAddressesInterface(InterfaceScore):
 
     @interface
+    def set_admin(self, _admin: Address) -> None:
+        pass
+
+    @interface
     def set_contract_addresses(self, addresses: List) -> None:
         pass
 
