@@ -143,7 +143,7 @@ class TestGovernanceUnit(ScoreTestCase):
                         'majority': 666666666666666667, 'vote snapshot': day,
                         'start day': vote_start, 'end day': vote_start + duration, 'actions': "{\"enable_dividends\": {}}",
                         'quorum': 400000000000000000, 'for': 0, 'against': 0, 'for_voter_count': 0,
-                        'against_voter_count': 0, 'status': 'Pending'}
+                        'against_voter_count': 0, 'status': 'Active'}
 
             self.assertEqual(expected, self.governance.checkVote(_vote_index=1))
 
@@ -232,17 +232,12 @@ class TestGovernanceUnit(ScoreTestCase):
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             self.governance.defineVote(name="Enable the dividends", description="Count pool BALN",
                                        vote_start=day + 1, snapshot=day, actions="{\"enable_dividends\": {}}")
-            self.assertEqual("Pending", self.governance.checkVote(1).get("status"))
+            self.assertEqual("Active", self.governance.checkVote(1).get("status"))
 
             with self.assertRaises(IconScoreException) as inactive_poll:
                 self.governance.castVote("Enable the dividends", True)
             self.assertEqual("That is not an active poll.", inactive_poll.exception.message)
 
-            try:
-                self.governance.activateVote("Enable the dividends")
-            except IconScoreException:
-                self.fail("Failed to execute activate poll method")
-            self.assertEqual("Active", self.governance.checkVote(1).get("status"))
             launch_time = self.governance._launch_time.get()
             new_day = launch_time + (DAY_ZERO + day + 2) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
@@ -309,7 +304,6 @@ class TestGovernanceUnit(ScoreTestCase):
                        "updateDistPercent": {"_recipient_list": [{"recipient_name": "", "dist_percent": 12}]}}
             self.governance.defineVote(name="Test add data source", description="Count pool BALN",
                                        vote_start=day + 1, snapshot=day, actions=json.dumps(actions))
-            self.governance.activateVote("Test add data source")
             
             launch_time = self.governance._launch_time.get()
             new_day = launch_time + (DAY_ZERO + day + 1) * 10 ** 6 * 60 * 60 * 24
