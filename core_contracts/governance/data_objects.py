@@ -192,7 +192,8 @@ class ProposalDB:
         new_proposal.actions.set(actions)
         new_proposal.name.set(name)
         new_proposal.description.set(description)
-        new_proposal.status.set(ProposalStatus.STATUS[ProposalStatus.PENDING])
+        new_proposal.status.set(ProposalStatus.STATUS[ProposalStatus.ACTIVE])
+        new_proposal.active.set(True)
         new_proposal.fee.set(fee)
         new_proposal.fee_refunded.set(False)
         return new_proposal
