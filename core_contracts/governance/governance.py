@@ -136,27 +136,6 @@ class Governance(IconScoreBase):
         return self._baln_vote_definition_criterion.get()
 
     @external
-    def activateVote(self, name: str) -> None:
-        """
-        After defining a vote it will have to be activated.
-        """
-        vote_index = ProposalDB.proposal_id(name, self.db)
-        proposal = ProposalDB(vote_index, self.db)
-        eligible_addresses = [proposal.proposer.get(), self.owner]
-        
-        if proposal.start_snapshot.get() <= self.getDay():
-            revert("Start for this vote has already passed. This vote can't be activated.")
-        if self.msg.sender not in eligible_addresses:
-            revert("Only owner or proposer may call this method.")
-        if vote_index == 0:
-            revert(f"That is not a valid vote name.")
-        if proposal.status.get() != ProposalStatus.STATUS[ProposalStatus.PENDING]:
-            revert("Balanced Governance: A vote can be activated only from Pending status.")
-
-        proposal.active.set(True)
-        proposal.status.set(ProposalStatus.STATUS[ProposalStatus.ACTIVE])
-
-    @external
     def cancelVote(self, name: str) -> None:
         """
         Cancels a vote, in case a mistake was made in its definition.
