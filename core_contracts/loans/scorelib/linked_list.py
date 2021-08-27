@@ -264,6 +264,13 @@ class LinkedListDB:
             raise StopIteration(self._name)
         return next_id
 
+    def get_prev(self, cur_id: int) -> int:
+        cur = self._get_node(cur_id)
+        return cur.get_prev()
+
+    def get_metadata(self) -> str:
+        return self._metadata.get()
+
     def clear(self) -> None:
         # Delete all nodes from the linkedlist
         cur_id = self._head_id
