@@ -546,8 +546,8 @@ class Loans(IconScoreBase):
             return
         try:
             d = json_loads(_data.decode("utf-8"))
-        except BaseException as e:
-            revert(f'{TAG}: Invalid data: {_data}, returning tokens. Exception: {e}')
+        except Exception:
+            revert(f'{TAG}: Invalid data: {_data}, returning tokens.')
         if set(d.keys()) == {"_asset", "_amount"}:
             self.depositAndBorrow(d['_asset'], d['_amount'], _from, _value)
         else:
@@ -943,9 +943,8 @@ class Loans(IconScoreBase):
             token_score = self.create_interface_score(address, TokenInterface)
             token_score.transfer(_to, _amount)
             self.TokenTransfer(_to, _amount, f'{msg} {_amount} {_token} sent to {_to}.')
-        except BaseException as e:
-            revert(f'{TAG}: {_amount} {_token} not sent to {_to}. '
-                   f'Exception: {e}')
+        except Exception:
+            revert(f'{TAG}: {_amount} {_token} not sent to {_to}. ')
 
     def fallback(self):
         pass
