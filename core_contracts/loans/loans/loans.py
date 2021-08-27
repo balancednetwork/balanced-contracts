@@ -188,7 +188,7 @@ class Loans(IconScoreBase):
     @external(readonly=True)
     def getNonzeroNode(self, _id: int) -> dict:
         nonzero = self._positions.get_nonzero()
-        return {"next": nonzero.next(_id), "prev": nonzero.get_prev(_id)}
+        return {"next": nonzero.get_next_ro(_id), "prev": nonzero.get_prev_ro(_id)}
 
     @external(readonly=True)
     def getMetaData(self) -> str:
