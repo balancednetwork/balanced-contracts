@@ -139,7 +139,7 @@ class Loans(ContractAddresses):
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
-        self.set_contract_addresses([{"name": "governance", "address": _governance}, {"admin": self.owner}])
+        self.set_contract_addresses([{"name": "governance", "address": _governance}, {"name": "admin", "address": self.owner}])
         self._loans_on.set(False)
         self._snap_batch_size.set(SNAP_BATCH_SIZE)
         self._rewards_done.set(True)
