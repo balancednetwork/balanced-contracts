@@ -176,6 +176,25 @@ class Loans(IconScoreBase):
     def on_update(self) -> None:
         super().on_update()
 
+    @external
+    @only_owner
+    def setNextNode(self, _node_id: int) -> None:
+        self._positions.next_node.set(_node_id)
+
+    @external(readonly=True)
+    def getNextNode(self) -> int:
+        return self._positions.next_node.get()
+
+    @external(readonly=True)
+    def getNonzeroNode(self, _id: int) -> dict:
+        nonzero = self._positions.get_nonzero()
+        return {"next": nonzero.next(_id), "prev": nonzero.get_prev(_id)}
+
+    @external(readonly=True)
+    def getMetaData(self) -> str:
+        nonzero = self._positions.get_nonzero()
+        return nonzero.get_metadata()
+
     @external(readonly=True)
     def name(self) -> str:
         return "Balanced Loans"
