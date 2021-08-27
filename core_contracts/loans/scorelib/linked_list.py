@@ -265,7 +265,7 @@ class LinkedListDB:
         return next_id
 
     def get_prev(self, cur_id: int) -> int:
-        cur = self._get_node(cur_id)
+        cur = self._node(cur_id)
         return cur.get_prev()
 
     def get_metadata(self) -> str:
