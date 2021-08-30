@@ -241,7 +241,8 @@ class Governance(IconScoreBase):
                 try:
                     self._execute_vote_actions(proposal.actions.get())
                 except BaseException as e:
-                    revert(f"Failed Execution of action. Reason: {e}")
+                    proposal.status.set(ProposalStatus.STATUS[ProposalStatus.FAILED_EXECUTION])
+                    return
                 proposal.status.set(ProposalStatus.STATUS[ProposalStatus.EXECUTED])
             else:
                 proposal.status.set(ProposalStatus.STATUS[ProposalStatus.DEFEATED])
