@@ -31,6 +31,10 @@ class RebalancingInterface(InterfaceScore):
         pass
 
     @interface
+    def setBnusdReceivable(self, _value: int) -> None:
+        pass
+
+    @interface
     def setPriceDiffThreshold(self, _value: int) -> None:
         pass
 
@@ -48,6 +52,10 @@ class RebalancingInterface(InterfaceScore):
 
     @interface
     def setBnusd(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setMaxRetireAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
         pass
 
 

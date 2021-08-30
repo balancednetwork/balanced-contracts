@@ -480,6 +480,12 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def setRebalancingMaxSicxRetire(self, _sicx_value: int, _bnusd_value: int) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setMaxRetireAmount(_sicx_value, _bnusd_value)
+
+    @external
+    @only_owner
     def setAddresses(self, _addresses: BalancedAddresses) -> None:
         self.addresses.setAddresses(_addresses)
 
