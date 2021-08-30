@@ -11,6 +11,7 @@ from .utils.checks import *
 from .utils.consts import *
 from .lp_metadata import *
 from .utils.scoremath import *
+from .utils.contract_addresses import ContractAddresses
 
 TAG = 'Balanced DEX'
 
@@ -41,20 +42,12 @@ class stakingInterface(InterfaceScore):
         pass
 
 
-class DEX(IconScoreBase):
+class DEX(ContractAddresses):
     _ACCOUNT_BALANCE_SNAPSHOT = 'account_balance_snapshot'
     _TOTAL_SUPPLY_SNAPSHOT = 'total_supply_snapshot'
     _QUOTE_COINS = 'quote_coins'
     _ICX_QUEUE_TOTAL = 'icx_queue_total'
-    _SICX_ADDRESS = 'sicx_address'
-    _bnUSD_ADDRESS = 'bnUSD_address'
-    _BALN_ADDRESS = 'baln_address'
-    _STAKING_ADDRESS = 'staking_address'
-    _DIVIDENDS_ADDRESS = 'dividends_address'
-    _REWARDS_ADDRESS = 'rewards_address'
-    _GOVERNANCE_ADDRESS = 'governance_address'
     _NAMED_MARKETS = 'named_markets'
-    _ADMIN = 'admin'
     _DEX_ON = 'dex_on'
     _SICXICX_MARKET_NAME = 'sICX/ICX'
     _CURRENT_DAY = 'current_day'
@@ -144,22 +137,6 @@ class DEX(IconScoreBase):
     # System
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
-
-        # Linked Addresses
-        self._admin = VarDB(self._ADMIN, db, value_type=Address)
-        self._sicx = VarDB(self._SICX_ADDRESS, db, value_type=Address)
-        self._staking = VarDB(
-            self._STAKING_ADDRESS, db, value_type=Address)
-        self._dividends = VarDB(
-            self._DIVIDENDS_ADDRESS, db, value_type=Address)
-        self._governance = VarDB(
-            self._GOVERNANCE_ADDRESS, db, value_type=Address)
-        self._rewards = VarDB(
-            self._REWARDS_ADDRESS, db, value_type=Address)
-        self._bnUSD = VarDB(
-            self._bnUSD_ADDRESS, db, value_type=Address)
-        self._baln = VarDB(
-            self._BALN_ADDRESS, db, value_type=Address)
 
         # DEX Activation (can be set by governance only)
         self._dex_on = VarDB(self._DEX_ON, db, value_type=bool)
@@ -251,7 +228,7 @@ class DEX(IconScoreBase):
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
-        self._governance.set(_governance)
+        self.set_contract_addresses([{"name": "governance", "address": _governance}])
         self._pool_lp_fee.set(15)
         self._pool_baln_fee.set(15)
         self._icx_conversion_fee.set(70)
@@ -266,35 +243,25 @@ class DEX(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        VarDB('sicx_address', self.db, value_type=Address).remove()
+        VarDB('staking_address', self.db, value_type=Address).remove()
+        VarDB("dividends_address", self.db, value_type=Address).remove()
+        VarDB("governance_address", self.db, value_type=Address).remove()
+        VarDB("rewards_address", self.db, value_type=Address).remove()
+        VarDB('baln_address', self.db, value_type=Address).remove()
+        VarDB('bnUSD_address', self.db, value_type=Address).remove()
+        VarDB("admin", self.db, value_type=Address).remove()
 
     @external(readonly=True)
     def name(self) -> str:
         return TAG
 
     @external(readonly=True)
-    def getAdmin(self) -> Address:
-        """
-        Gets the current admin address. This user can call using the
-        `@only_admin` decorator.
-        """
-        return self._admin.get()
-
-    @only_governance
-    @external
-    def setAdmin(self, _admin: Address) -> None:
-        """
-        :param _admin: The new admin address to set.
-        Can make calls with the `@only_admin` decorator.
-        Should be called before DEX use.
-        """
-        self._admin.set(_admin)
-
-    @external(readonly=True)
     def getSicx(self) -> Address:
         """
         Gets the address of the Sicx contract.
         """
-        return self._sicx.get()
+        return self._sicx
 
     @only_admin
     @external
@@ -305,7 +272,7 @@ class DEX(IconScoreBase):
         """
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._sicx.set(_address)
+        self.set_contract_addresses([{"name": "sicx", "address": _address}])
         self._quote_coins.add(_address)
 
     @only_admin
@@ -317,14 +284,14 @@ class DEX(IconScoreBase):
         """
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._dividends.set(_address)
+        self.set_contract_addresses([{"name": "dividends", "address": _address}])
 
     @external(readonly=True)
     def getDividends(self) -> Address:
         """
         Gets the address of the Dividends contract.
         """
-        return self._dividends.get()
+        return self.get_contract_address("dividends")
 
     @only_admin
     @external
@@ -335,14 +302,14 @@ class DEX(IconScoreBase):
         """
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._staking.set(_address)
+        self.set_contract_addresses([{"name": "staking", "address": _address}])
 
     @external(readonly=True)
     def getStaking(self) -> Address:
         """
         Gets the address of the Staking contract.
         """
-        return self._staking.get()
+        return self.get_contract_address("staking")
 
     @only_owner
     @external
@@ -353,14 +320,14 @@ class DEX(IconScoreBase):
         """
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._governance.set(_address)
+        self.set_contract_addresses([{"name": "governance", "address": _address}])
 
     @external(readonly=True)
     def getGovernance(self) -> Address:
         """
         Gets the address of the Governance contract.
         """
-        return self._governance.get()
+        return self.get_contract_address("governance")
 
     @only_admin
     @external
@@ -371,14 +338,14 @@ class DEX(IconScoreBase):
         """
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._rewards.set(_address)
+        self.set_contract_addresses([{"name": "rewards", "address": _address}])
 
     @external(readonly=True)
     def getRewards(self) -> Address:
         """
         Gets the address of the Rewards contract.
         """
-        return self._rewards.get()
+        return self.get_contract_address("rewards")
 
     @only_admin
     @external
@@ -389,7 +356,7 @@ class DEX(IconScoreBase):
         """
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._bnUSD.set(_address)
+        self.set_contract_addresses([{"name":"bnUSD","address":_address}])
         self._quote_coins.add(_address)
 
     @external(readonly=True)
@@ -397,7 +364,7 @@ class DEX(IconScoreBase):
         """
         Gets the address of the bnUSD contract.
         """
-        return self._bnUSD.get()
+        return self.get_contract_address("bnusd")
 
     @only_admin
     @external
@@ -408,14 +375,14 @@ class DEX(IconScoreBase):
         """
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._baln.set(_address)
+        self.set_contract_addresses([{"name":"baln","address":_address}])
 
     @external(readonly=True)
     def getBaln(self) -> Address:
         """
         Gets the address of the BALN contract.
         """
-        return self._baln.get()
+        return self.get_contract_address("baln")
 
     @only_governance
     @external
@@ -617,7 +584,7 @@ class DEX(IconScoreBase):
                 self._token_precisions[_fromToken] = from_token_score.decimals()
 
         elif unpacked_data["method"] == "_swap_icx":
-            if _fromToken == self._sicx.get():
+            if _fromToken == self._sicx:
                 self._swap_icx(_from, _value)
             else:
                 revert(f"{TAG}: InvalidAsset: _swap_icx can only be called with sICX")
@@ -636,7 +603,6 @@ class DEX(IconScoreBase):
 
         else:
             revert(f"{TAG}: Fallback directly not allowed.")
-
 
     @dex_on
     @external
@@ -662,10 +628,10 @@ class DEX(IconScoreBase):
         """
         if _value < 0:
             revert(f"{TAG}: Transferring value cannot be less than 0.")
-        
+
         if self._balance[_id][_from] < _value:
             revert(f"{TAG}: Out of balance.")
-        
+
         if _id < 5:
             revert(f"{TAG}: untransferrable token id")
 
@@ -860,14 +826,14 @@ class DEX(IconScoreBase):
         """
         This method is an alias to the current price of BALN tokens
         """
-        return self.getBasePriceInQuote(self._pool_id[self._baln.get()][self._bnUSD.get()])
+        return self.getBasePriceInQuote(self._pool_id[self.get_contract_address("baln")][self.get_contract_address("bnusd")])
 
     @external(readonly=True)
     def getSicxBnusdPrice(self) -> int:
         """
         This method is an alias to the current price of sICX tokens in bnUSD
         """
-        return self.getBasePriceInQuote(self._pool_id[self._sicx.get()][self._bnUSD.get()])
+        return self.getBasePriceInQuote(self._pool_id[self._sicx][self.get_contract_address("bnusd")])
 
     @external(readonly=True)
     def getBnusdValue(self, _name: str) -> int:
@@ -880,11 +846,11 @@ class DEX(IconScoreBase):
         if _id == self._SICXICX_POOL_ID:
             icx_total = self._icx_queue_total.get()
             return icx_total * self.getSicxBnusdPrice() // self._get_sicx_rate()
-        elif self._pool_quote[_id] == self._sicx.get():
-            sicx_total =  self._pool_total[_id][self._sicx.get()] * 2
+        elif self._pool_quote[_id] == self._sicx:
+            sicx_total = self._pool_total[_id][self._sicx] * 2
             return self.getSicxBnusdPrice() * sicx_total // EXA
-        elif self._pool_quote[_id] == self._bnUSD.get():
-            return self._pool_total[_id][self._bnUSD.get()] * 2
+        elif self._pool_quote[_id] == self.get_contract_address("bnusd"):
+            return self._pool_total[_id][self.get_contract_address("bnusd")] * 2
         else:
             # No support for arbitrary pathing yet
             return 0
@@ -908,7 +874,7 @@ class DEX(IconScoreBase):
 
         if _id == self._SICXICX_POOL_ID:
             return {
-                'base_token': self._sicx.get(),
+                'base_token': self._sicx,
                 'quote_token': None,
                 'base': 0,
                 'quote': self._icx_queue_total.get(),
@@ -938,7 +904,6 @@ class DEX(IconScoreBase):
                 'min_quote': self._get_rewardable_amount(quote_token)
             }
 
-
     @external(readonly=True)
     def isEarningRewards(self, _address: Address, _id: int) -> bool:
         """
@@ -963,7 +928,7 @@ class DEX(IconScoreBase):
         Requires that the _staking_address property is set via the contract admin.
         """
         staking_score = self.create_interface_score(
-            self._staking.get(), stakingInterface)
+            self.get_contract_address("staking"), stakingInterface)
         return staking_score.getTodayRate()
 
     def _revert_on_incomplete_rewards(self):
@@ -1043,7 +1008,7 @@ class DEX(IconScoreBase):
         # Send the dividends share to the dividends SCORE
         from_token_score = self.create_interface_score(
             _fromToken, TokenInterface)
-        from_token_score.transfer(self._dividends.get(), baln_fees)
+        from_token_score.transfer(self.get_contract_address("dividends"), baln_fees)
 
         # Broadcast pool ending price
         ending_price = self.getPrice(_id)
@@ -1051,7 +1016,7 @@ class DEX(IconScoreBase):
         if not is_sell:
             effective_fill_price = (EXA * send_amt) // _value
 
-        if (_fromToken == self._baln.get()) or (_toToken == self._baln.get()):
+        if (_fromToken == self.get_contract_address("baln")) or (_toToken == self.get_contract_address("baln")):
             self._update_baln_snapshot(_id)
 
         self.Swap(_id, self._pool_base[_id], _fromToken, _toToken, _sender,
@@ -1060,7 +1025,7 @@ class DEX(IconScoreBase):
 
     def _get_sicx_rate(self) -> int:
         staking_score = self.create_interface_score(
-            self._staking.get(), stakingInterface)
+            self.get_contract_address("staking"), stakingInterface)
         return staking_score.getTodayRate()
 
     def _get_rewardable_amount(self, _token_address: Address = None) -> int:
@@ -1074,9 +1039,9 @@ class DEX(IconScoreBase):
         """
         if _token_address is None:
             return 10 * EXA
-        elif self._sicx.get() == _token_address:
+        elif self._sicx == _token_address:
             return (10 * EXA * EXA) // self._get_sicx_rate()
-        elif self._bnUSD.get() == _token_address:
+        elif self.get_contract_address("bnusd") == _token_address:
             return 10 * EXA
         else:
             return 0
@@ -1092,7 +1057,7 @@ class DEX(IconScoreBase):
         sicx_icx_price = self._get_sicx_rate()
 
         sicx_score = self.create_interface_score(
-            self._sicx.get(), TokenInterface)
+            self.get_contract_address("sicx"), TokenInterface)
 
         # subtract out fees to LPs
         baln_fees = _value * self._icx_baln_fee.get() // FEE_SCALE
@@ -1127,7 +1092,6 @@ class DEX(IconScoreBase):
             counterparty_address = counterparty_order.get_value2()
             counterparty_icx = counterparty_order.get_value1()
             counterparty_filled = False
-
 
             # Perform match. Matched amount is up to order size
             matched_icx = min(counterparty_icx, order_remaining_icx)
@@ -1164,13 +1128,13 @@ class DEX(IconScoreBase):
         effective_fill_price = (EXA * order_icx_value) // _value
 
         # Publish an eventlog with the swap results
-        self.Swap(self._SICXICX_POOL_ID, self._sicx.get(), self._sicx.get(), None, _sender,
+        self.Swap(self._SICXICX_POOL_ID, self._sicx, self._sicx, None, _sender,
                   _sender, _value, order_icx_value, self.now(), conversion_fees,
-                  baln_fees, self._icx_queue_total.get(), 
+                  baln_fees, self._icx_queue_total.get(),
                   0, self._get_sicx_rate(), effective_fill_price)
 
         # Settle fees to dividends and ICX converted to the sender
-        sicx_score.transfer(self._dividends.get(), baln_fees)
+        sicx_score.transfer(self.get_contract_address("dividends"), baln_fees)
         self.icx.transfer(_sender, order_icx_value)
 
     def _get_unit_value(self, _token_address: Address):
@@ -1198,11 +1162,11 @@ class DEX(IconScoreBase):
 
     def _check_distributions(self) -> None:
         if not self._rewards_done.get():
-            rewards = self.create_interface_score(self._rewards.get(), Rewards)
+            rewards = self.create_interface_score(self.get_contract_address("rewards"), Rewards)
             self._rewards_done.set(rewards.distribute())
         elif not self._dividends_done.get():
             dividends = self.create_interface_score(
-                self._dividends.get(), Dividends)
+                self.get_contract_address("dividends"), Dividends)
             self._dividends_done.set(dividends.distribute())
 
     @external(readonly=True)
@@ -1287,7 +1251,7 @@ class DEX(IconScoreBase):
         """
         current_id = self._current_day.get()
         current_time = self.now()
-        current_value = self._pool_total[_id][self._baln.get()]
+        current_value = self._pool_total[_id][self.get_contract_address("baln")]
         length = self._baln_snapshot[_id]['length'][0]
         last_snapshot_id = 0
 
@@ -1465,7 +1429,6 @@ class DEX(IconScoreBase):
         else:
             return self._baln_snapshot[_id]['values'][matched_index]
 
-
     @external(readonly=True)
     def getTotalValue(self, _name: str, _snapshot_id: int) -> int:
         # return self.totalSupplyAt(self._named_markets[_name], _snapshot_id)
@@ -1577,8 +1540,8 @@ class DEX(IconScoreBase):
         quote_token = self._pool_quote[_id]
 
         user_quote_left = (balance - _value) * self._pool_total[_id][quote_token] \
-            // self._total[_id]
-        
+                          // self._total[_id]
+
         if user_quote_left < self._get_rewardable_amount(quote_token):
             _value = balance
             self._active_addresses[_id].remove(self.msg.sender)
@@ -1604,7 +1567,7 @@ class DEX(IconScoreBase):
 
         self._update_account_snapshot(self.msg.sender, _id)
         self._update_total_supply_snapshot(_id)
-        if base_token == self._baln.get():
+        if base_token == self.get_contract_address("baln"):
             self._update_baln_snapshot(_id)
 
         if _withdraw:
@@ -1734,7 +1697,7 @@ class DEX(IconScoreBase):
 
         self._update_account_snapshot(_owner, _id)
         self._update_total_supply_snapshot(_id)
-        if _baseToken == self._baln.get():
+        if _baseToken == self.get_contract_address("baln"):
             self._update_baln_snapshot(_id)
 
         Logger.info(
@@ -1772,7 +1735,7 @@ class DEX(IconScoreBase):
             revert(f"{TAG}: InvalidAmountError: Please send a positive amount.")
 
         self._sicx_earnings[self.msg.sender] -= _value
-        token_score = self.create_interface_score(self._sicx.get(), TokenInterface)
+        token_score = self.create_interface_score(self._sicx, TokenInterface)
         token_score.transfer(self.msg.sender, _value)
         self.ClaimSicxEarnings(self.msg.sender, _value)
 

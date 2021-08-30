@@ -66,8 +66,18 @@ class TestGovernanceUnit(ScoreTestCase):
         self.governance = self.update_score(self.governance.address, Governance)
         self.baln = Address.from_string(f"cx{'12345' * 8}")
         self.dex = Address.from_string(f"cx{'15785' * 8}")
-        self.governance.addresses._baln.set(self.baln)
-        self.governance.addresses._dex.set(self.dex)
+        self.rewards = Address.from_string(f"cx{'57842' * 8}")
+        self.dividends = Address.from_string(f"cx{'12345' * 8}")
+        self.loans = Address.from_string(f"cx{'94586' * 8}")
+
+        self.set_msg(self.test_account1)
+        self.governance.set_contract_addresses([
+            {"name": "baln", "address": self.baln},
+            {"name": "rewards", "address": self.rewards},
+            {"name": "dividends", "address": self.dividends},
+            {"name": "loans", "address": self.loans},
+            {"name": "dex", "address": self.dex}
+        ])
 
     def test_create_vote(self):
         self.set_msg(self.test_account1)
@@ -86,9 +96,7 @@ class TestGovernanceUnit(ScoreTestCase):
 
     def test_execute_vote_actions(self):
 
-        dividends = Address.from_string(f"cx{'12345' * 8}")
-        self.governance.addresses._dividends.set(dividends)
-        self.patch_internal_method(dividends, "setDistributionActivationStatus", lambda x: x)
+        self.patch_internal_method(self.dividends, "setDistributionActivationStatus", lambda x: x)
 
         incorrect_actions = json.dumps({"enable_dividends": {"status": True}})
         correct_actions = json.dumps({"enable_dividends": {}})
@@ -137,6 +145,7 @@ class TestGovernanceUnit(ScoreTestCase):
         self.assertEqual("Snapshot reference index must be less than vote start.", snapshot.exception.message)
 
         with self.assertRaises(IconScoreException) as duration:
+            self.governance._minimum_vote_duration.set(1)
             self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40,
                                        vote_start=day + 1, duration=0,
                                        snapshot=15, actions="{\"enable_dividends\": {}}")
@@ -183,8 +192,7 @@ class TestGovernanceUnit(ScoreTestCase):
                 self.fail("Failed to execute activate poll method")
             self.assertEqual("Active", self.governance.checkVote(1).get("status"))
             launch_time = self.governance._launch_time.get()
-            from core_contracts.governance.utils.consts import DAY_ZERO
-            new_day = launch_time + (DAY_ZERO + day + 2) * 10 ** 6 * 60 * 60 * 24
+            new_day = launch_time + (day + 2) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.castVote(1, True)
 
@@ -216,9 +224,6 @@ class TestGovernanceUnit(ScoreTestCase):
 
     def test_get_pool_baln(self):
 
-        dex_score = Address.from_string(f"cx{'2578' * 10}")
-
-        self.governance.addresses._dex.set(dex_score)
         mock_class = MockClass(balanceOfAt=10, totalSupplyAt=20, totalBalnAt=30)
         with mock.patch.object(self.governance, "create_interface_score", wraps=mock_class.patch_internal):
             result = self.governance._get_pool_baln(_account=self.test_account3, _day=1)
@@ -248,14 +253,14 @@ class TestGovernanceUnit(ScoreTestCase):
                        "update_locking_ratio": {"_value": 10},
                        "update_origination_fee": {"_fee": 1}
                        }
+            launch_time = self.governance._launch_time.get()
             self.governance.defineVote(name="Test add data source", description="Count pool BALN", quorum=1,
-                                       vote_start=day + 1, duration=1,
+                                       vote_start=launch_time+day + 1, duration=2,
                                        snapshot=15, actions=json.dumps(actions))
 
             self.governance.activateVote("Test add data source")
 
-            launch_time = self.governance._launch_time.get()
-            new_day = launch_time + (DAY_ZERO + day + 1) * 10 ** 6 * 60 * 60 * 24
+            new_day = launch_time + (day + 1) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.castVote(1, True)
 

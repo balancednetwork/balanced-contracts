@@ -1,0 +1,15 @@
+cp contract_addresses.py ../core_contracts/daofund/utils/contract_addresses.py
+cp contract_addresses.py ../core_contracts/dex/utils/contract_addresses.py
+cp contract_addresses.py ../core_contracts/dividends/utils/contract_addresses.py
+cp contract_addresses.py ../core_contracts/governance/utils/contract_addresses.py
+cp contract_addresses.py ../core_contracts/loans/utils/contract_addresses.py
+cp contract_addresses.py ../core_contracts/rebalancing/utils/contract_addresses.py
+cp contract_addresses.py ../core_contracts/reserve/utils/contract_addresses.py
+cp contract_addresses.py ../core_contracts/rewards/utils/contract_addresses.py
+cp contract_addresses.py ../core_contracts/staking/utils/contract_addresses.py
+cp contract_addresses.py ../token_contracts/baln/utils/contract_addresses.py
+cp contract_addresses.py ../token_contracts/bnDOGE/utils/contract_addresses.py
+cp contract_addresses.py ../token_contracts/bnUSD/utils/contract_addresses.py
+cp contract_addresses.py ../token_contracts/bnXLM/utils/contract_addresses.py
+cp contract_addresses.py ../token_contracts/bwt/utils/contract_addresses.py
+cp contract_addresses.py ../token_contracts/sicx/utils/contract_addresses.py

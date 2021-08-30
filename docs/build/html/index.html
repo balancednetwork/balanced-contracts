@@ -1,0 +1,449 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Welcome to Bridge’s documentation! &#8212; Bridge  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="welcome-to-bridge-s-documentation">
+<h1>Welcome to Bridge’s documentation!<a class="headerlink" href="#welcome-to-bridge-s-documentation" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+</div>
+<span class="target" id="module-core_contracts.loans.loans.loans"></span><dl class="py class">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Dividends">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">core_contracts.loans.loans.loans.</span></span><span class="sig-name descname"><span class="pre">Dividends</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">addr_to</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">iconservice.base.address.Address</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core_contracts.loans.loans.loans.Dividends" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">core_contracts.loans.loans.loans.</span></span><span class="sig-name descname"><span class="pre">Loans</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">iconservice.iconscore.db.IconScoreDatabase</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.Snapshot">
+<span class="sig-name descname"><span class="pre">Snapshot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.Snapshot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Emitted as a new snapshot is generated.
+:param _id: ID of the snapshot.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.addAsset">
+<span class="sig-name descname"><span class="pre">addAsset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_token_address</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">iconservice.base.address.Address</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_active</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><span class="pre">bool</span></a></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_collateral</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><span class="pre">bool</span></a></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><span class="pre">None</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.addAsset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a token to the assets dictionary.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.assetCount">
+<span class="sig-name descname"><span class="pre">assetCount</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.assetCount" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the number of assets in the AssetsDB.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.bd_redeem">
+<span class="sig-name descname"><span class="pre">bd_redeem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_from</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">iconservice.base.address.Address</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_asset</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">core_contracts.loans.loans.assets.Asset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_bd_value</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">_sicx_rate</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">_price</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.bd_redeem" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the amount of the bad debt paid off in sICX coming from both
+the liquidation pool for the asset or the ReserveFund SCORE.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>_from</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">iconservice.base.address.Address</span></code>) – Address of the token sender.</p></li>
+<li><p><strong>_asset</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">loans.assets.Asset</span></code>) – Balanced Asset that is being redeemed.</p></li>
+<li><p><strong>_bd_value</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – Amount of bad debt to redeem.</p></li>
+<li><p><strong>_sicx_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – Price of sICX in loop.</p></li>
+<li><p><strong>_price</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – Price of the asset in loop.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Amount of sICX supplied from reserve.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.borrowerCount">
+<span class="sig-name descname"><span class="pre">borrowerCount</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.borrowerCount" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the number of borrowers on Balanced.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.checkDeadMarkets">
+<span class="sig-name descname"><span class="pre">checkDeadMarkets</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><span class="pre">list</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.checkDeadMarkets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the symbols for all assets with dead_market status.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.check_dead_markets">
+<span class="sig-name descname"><span class="pre">check_dead_markets</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><span class="pre">None</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.check_dead_markets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks if any of the assets have changed Dead Market status and updates
+them accordingly.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.delegate">
+<span class="sig-name descname"><span class="pre">delegate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_delegations</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#core_contracts.loans.loans.loans.PrepDelegations" title="core_contracts.loans.loans.loans.PrepDelegations"><span class="pre">core_contracts.loans.loans.loans.PrepDelegations</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.delegate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets the delegation preference for the sICX held on the contract.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>_delegations</strong> (<em>List</em><em>[</em><a class="reference internal" href="#core_contracts.loans.loans.loans.PrepDelegations" title="core_contracts.loans.loans.loans.PrepDelegations"><em>PrepDelegations</em></a><em>]</em>) – List of dictionaries with two keys, Address and percent.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.depositAndBorrow">
+<span class="sig-name descname"><span class="pre">depositAndBorrow</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_asset</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><span class="pre">str</span></a></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_amount</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_from</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">iconservice.base.address.Address</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_value</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><span class="pre">None</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.depositAndBorrow" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method may be used to deposit ICX or sICX as collateral and / or
+originate a loan of one of the assets supported by Balanced.
+If the optional parameters of _asset and _amount are present a loan of
+_amount of _asset will be returned to the originating address if
+there is sufficient collateral present.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>_from</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">iconservice.base.address.Address</span></code>) – Sender address if sICX is received.</p></li>
+<li><p><strong>_value</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – Amount of sICX received.</p></li>
+<li><p><strong>_asset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Symbol of asset to borrow.</p></li>
+<li><p><strong>_amount</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – Size of loan requested.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.fallback">
+<span class="sig-name descname"><span class="pre">fallback</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.fallback" title="Permalink to this definition">¶</a></dt>
+<dd><p>fallback function can not be decorated with <cite>&#64;external</cite>.
+(i.e., fallback function is not allowed to be called by external contract or user.)
+This fallback function is executed whenever the contract receives plain icx coins without data.
+If the fallback function is not decorated with <cite>&#64;payable</cite>,
+it is not listed on the SCORE APIs also cannot be called.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.getAccountPositions">
+<span class="sig-name descname"><span class="pre">getAccountPositions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_owner</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">iconservice.base.address.Address</span></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><span class="pre">dict</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.getAccountPositions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get account positions.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.getAssetTokens">
+<span class="sig-name descname"><span class="pre">getAssetTokens</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><span class="pre">dict</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.getAssetTokens" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a dictionary of assets from the assetsDB with token symbol as
+the key and address as a string value.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.getAvailableAssets">
+<span class="sig-name descname"><span class="pre">getAvailableAssets</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><span class="pre">dict</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.getAvailableAssets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a dict of assets.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.getBnusdValue">
+<span class="sig-name descname"><span class="pre">getBnusdValue</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.getBnusdValue" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the total bnUSD value of loans mining BALN for APY calculation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.getCollateralTokens">
+<span class="sig-name descname"><span class="pre">getCollateralTokens</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><span class="pre">dict</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.getCollateralTokens" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a dictionary of assets from the assetsDB that are marked as
+collateral, with token symbol as the key and address as a string value.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.getDataBatch">
+<span class="sig-name descname"><span class="pre">getDataBatch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">_snapshot_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">_limit</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">_offset</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><span class="pre">dict</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.getDataBatch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read position data batch.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.getDataCount">
+<span class="sig-name descname"><span class="pre">getDataCount</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_snapshot_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.getDataCount" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the number of records in the snapshot.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.getDebts">
+<span class="sig-name descname"><span class="pre">getDebts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_address_list</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_day</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><span class="pre">dict</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.getDebts" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the debt held by each address in the list.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.getMaxRetireAmount">
+<span class="sig-name descname"><span class="pre">getMaxRetireAmount</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_symbol</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.getMaxRetireAmount" title="Permalink to this definition">¶</a></dt>
+<dd><p>The maximum amount allowed to be liquidated from a batch of borrowers
+is 1% of their debt, to limit the impact on any single borrower.
+The limit on the amount that can be retired is increased by the amount
+of bad debt for the asset since all of that can be paid off at once.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>_symbol</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – Symbol for the asset to be retired.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Maximum amount accepted by the _retire_asset method.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.getNonzeroPositionCount">
+<span class="sig-name descname"><span class="pre">getNonzeroPositionCount</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.getNonzeroPositionCount" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the total number of nonzero positions.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.getPositionAddress">
+<span class="sig-name descname"><span class="pre">getPositionAddress</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_index</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">iconservice.base.address.Address</span><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.getPositionAddress" title="Permalink to this definition">¶</a></dt>
+<dd><p>returns the address of a position given its index. Enables iteration over
+all positions in Balanced.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.getPositionByIndex">
+<span class="sig-name descname"><span class="pre">getPositionByIndex</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_index</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">_day</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><span class="pre">dict</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.getPositionByIndex" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get account positions.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.getPositionStanding">
+<span class="sig-name descname"><span class="pre">getPositionStanding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_address</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">iconservice.base.address.Address</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_snapshot</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">-</span> <span class="pre">1</span></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><span class="pre">dict</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.getPositionStanding" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the current standing for a position.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.getSnapshot">
+<span class="sig-name descname"><span class="pre">getSnapshot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_snap_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">-</span> <span class="pre">1</span></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)"><span class="pre">dict</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.getSnapshot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a summary of the snapshot for the system. Returns an empty dict
+for snapshot indexes that are out of range.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.getTotalCollateral">
+<span class="sig-name descname"><span class="pre">getTotalCollateral</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.getTotalCollateral" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sum of all active collateral held on the loans SCORE in loop.
+Read-only; does not check for a more recent price update.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.getTotalValue">
+<span class="sig-name descname"><span class="pre">getTotalValue</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_name</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">_snapshot_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.getTotalValue" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets total outstanding debt for mining rewards calculation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.hasDebt">
+<span class="sig-name descname"><span class="pre">hasDebt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_owner</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">iconservice.base.address.Address</span></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><span class="pre">bool</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.hasDebt" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns whether the address holds a debt position.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.liquidate">
+<span class="sig-name descname"><span class="pre">liquidate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_owner</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">iconservice.base.address.Address</span></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><span class="pre">None</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.liquidate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Liquidate collateral if the position is below the liquidation threshold.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>_owner</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">iconservice.base.address.Address</span></code>) – Address of position to update.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.on_install">
+<span class="sig-name descname"><span class="pre">on_install</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_governance</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">iconservice.base.address.Address</span></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><span class="pre">None</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.on_install" title="Permalink to this definition">¶</a></dt>
+<dd><p>Invoked when the contract is deployed for the first time,
+and will not be called again on contract update or deletion afterward.
+This is the place where you initialize the state DB.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.on_update">
+<span class="sig-name descname"><span class="pre">on_update</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><span class="pre">None</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.on_update" title="Permalink to this definition">¶</a></dt>
+<dd><p>Invoked when the contract is deployed for update.
+This is the place where you migrate old states.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.precompute">
+<span class="sig-name descname"><span class="pre">precompute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_snapshot_id</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><span class="pre">bool</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.precompute" title="Permalink to this definition">¶</a></dt>
+<dd><p>prepares the position data snapshot to send to the rewards SCORE.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.returnAsset">
+<span class="sig-name descname"><span class="pre">returnAsset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_symbol</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">_value</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">_repay</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><span class="pre">bool</span></a></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><span class="pre">None</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.returnAsset" title="Permalink to this definition">¶</a></dt>
+<dd><p>All returned assets come back to Balanced through this method.
+A borrower will use this method to pay off their loan.
+An asset holder who does not hold a position in the asset will retire
+it here as well. This will either pay off bad debt in exchange for
+collateral from the liquidation pool or pay off debt from a batch of
+borrowers proportionately, returning a share of collateral from each
+position in the batch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>_symbol</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><em>str</em></a>) – retired token symbol.</p></li>
+<li><p><strong>_value</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – Number of tokens sent.</p></li>
+<li><p><strong>_repay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – Whether returned funds should be used to repay loan first.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.tokenFallback">
+<span class="sig-name descname"><span class="pre">tokenFallback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_from</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">iconservice.base.address.Address</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_value</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">_data</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#bytes" title="(in Python v3.9)"><span class="pre">bytes</span></a></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><span class="pre">None</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.tokenFallback" title="Permalink to this definition">¶</a></dt>
+<dd><p>Directs incoming tokens to either deposit collateral or return an asset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>_from</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">iconservice.base.address.Address</span></code>) – Address of the token sender.</p></li>
+<li><p><strong>_value</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – Number of tokens sent.</p></li>
+<li><p><strong>_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#bytes" title="(in Python v3.9)"><em>bytes</em></a>) – Method and parameters to call once tokens are received.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Loans.withdrawCollateral">
+<span class="sig-name descname"><span class="pre">withdrawCollateral</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_value</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><span class="pre">None</span></a><a class="headerlink" href="#core_contracts.loans.loans.loans.Loans.withdrawCollateral" title="Permalink to this definition">¶</a></dt>
+<dd><p>Withdraw sICX collateral up to the collateral locking ratio.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>_value</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – Amount of sICX to withdraw.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.PrepDelegations">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">core_contracts.loans.loans.loans.</span></span><span class="sig-name descname"><span class="pre">PrepDelegations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core_contracts.loans.loans.loans.PrepDelegations" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.ReserveFund">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">core_contracts.loans.loans.loans.</span></span><span class="sig-name descname"><span class="pre">ReserveFund</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">addr_to</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">iconservice.base.address.Address</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core_contracts.loans.loans.loans.ReserveFund" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Rewards">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">core_contracts.loans.loans.loans.</span></span><span class="sig-name descname"><span class="pre">Rewards</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">addr_to</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">iconservice.base.address.Address</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core_contracts.loans.loans.loans.Rewards" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.Staking">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">core_contracts.loans.loans.loans.</span></span><span class="sig-name descname"><span class="pre">Staking</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">addr_to</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">iconservice.base.address.Address</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core_contracts.loans.loans.loans.Staking" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="core_contracts.loans.loans.loans.TokenInterface">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">core_contracts.loans.loans.loans.</span></span><span class="sig-name descname"><span class="pre">TokenInterface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">addr_to</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">iconservice.base.address.Address</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#core_contracts.loans.loans.loans.TokenInterface" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="#">Bridge</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Balanced.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.0.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

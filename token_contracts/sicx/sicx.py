@@ -19,11 +19,13 @@ from .tokens.IRC2mintable import IRC2Mintable
 from .tokens.IRC2burnable import IRC2Burnable
 from .utils.checks import *
 from .utils.consts import *
+from .utils.contract_addresses import ContractAddresses
 
 TAG = 'sICX'
 
 TOKEN_NAME = 'Staked ICX'
 SYMBOL_NAME = 'sICX'
+
 
 class stakingInterface(InterfaceScore):
     @interface
@@ -31,30 +33,32 @@ class stakingInterface(InterfaceScore):
         pass
 
 
-class StakedICX(IRC2Mintable, IRC2Burnable):
-
+class StakedICX(IRC2Mintable, IRC2Burnable, ContractAddresses):
     _PEG = 'peg'
-    _STAKING = 'staking'
 
     def __init__(self, db: IconScoreDatabase) -> None:
-        super().__init__(db)
+        IRC2Burnable.__init__(self, db)
+        IRC2Mintable.__init__(self, db)
+        ContractAddresses.__init__(self, db)
         self._peg = VarDB(self._PEG, db, value_type=str)
-        self._staking_address = VarDB(self._STAKING, db, value_type=Address)
 
     def on_install(self, _admin: Address) -> None:
         super().on_install(TOKEN_NAME, SYMBOL_NAME)
         self._admin.set(_admin)
-        self._staking_address.set(_admin)
+        self.set_contract_addresses([{"name": "staking", "address": _admin}])
         self._peg.set('sICX')
 
     def on_update(self) -> None:
         super().on_update()
-        old_div_address = Address.from_string('cx13f08df7106ae462c8358066e6d47bb68d995b6d')
-        new_div_address = Address.from_string('cx203d9cd2a669be67177e997b8948ce2c35caffae')
-        old_div_balance = self._balances[old_div_address]
-        staking_score = self.create_interface_score(self._staking_address.get(), stakingManagementInterface)
-        staking_score.transferUpdateDelegations(old_div_address, new_div_address, old_div_balance)
-        self._transfer(old_div_address, new_div_address, old_div_balance, b'')
+        # old_div_address = Address.from_string('cx13f08df7106ae462c8358066e6d47bb68d995b6d')
+        # new_div_address = Address.from_string('cx203d9cd2a669be67177e997b8948ce2c35caffae')
+        # old_div_balance = self._balances[old_div_address]
+        # staking_score = self.create_interface_score(self._staking_address.get(), stakingManagementInterface)
+        # staking_score.transferUpdateDelegations(old_div_address, new_div_address, old_div_balance)
+        # self._transfer(old_div_address, new_div_address, old_div_balance, b'')
+
+        _STAKING = 'staking'
+        VarDB(_STAKING, self.db, value_type=Address).remove()
 
     @external(readonly=True)
     def getPeg(self) -> str:
@@ -63,18 +67,18 @@ class StakedICX(IRC2Mintable, IRC2Burnable):
     @external
     @only_owner
     def setStakingAddress(self, _address: Address) -> None:
-        self._staking_address.set(_address)
+        self.set_contract_addresses([{"name": "staking", "address": _address}])
 
     @external(readonly=True)
     def getStakingAddress(self) -> Address:
-        return self._staking_address.get()
+        return self.get_contract_address("staking")
 
     @external
     def priceInLoop(self) -> int:
         """
         Returns the price of sICX in loop.
         """
-        staking_score = self.create_interface_score(self._staking_address.get(), stakingInterface)
+        staking_score = self.create_interface_score(self.getStakingAddress(), stakingInterface)
         return staking_score.getTodayRate()
 
     @external(readonly=True)

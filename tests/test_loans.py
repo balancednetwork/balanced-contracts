@@ -152,6 +152,7 @@ class TestLoans(ScoreTestCase):
 
         self.admin = Address.from_string(f"hx{'12345' * 8}")
         self.owner = Address.from_string(f"hx{'1234' * 10}")
+        self.governance = Address.from_string(f"cx{'3456' * 10}")
         self.test_account3 = Address.from_string(f"hx{'12341' * 8}")
         account_info = {
             self.admin: 10 ** 21,
@@ -159,12 +160,12 @@ class TestLoans(ScoreTestCase):
             self.owner: 10 ** 21}
         self.initialize_accounts(account_info)
         self.score = self.get_score_instance(Loans, self.owner,
-                                             on_install_params={'_governance': self.admin})
+                                             on_install_params={'_governance': self.governance})
         global DEPLOY_TIME
         DEPLOY_TIME = int(str(time.time()).replace(".", ""))
 
     def _turn_loans_on(self):
-        self.set_msg(self.admin)
+        self.set_msg(self.governance)
         self.score.turnLoansOn()
         self.set_msg(None)
 
@@ -245,7 +246,7 @@ class TestLoans(ScoreTestCase):
         with self.assertRaises(SenderNotGovernance):
             self.score.turnLoansOn()
 
-        self.set_msg(self.admin)
+        self.set_msg(self.governance)
         with mock.patch.object(self.score, "getDay", return_value=12):
             self.score.turnLoansOn()
         self.assertTrue(self.score._loans_on.get())
@@ -257,7 +258,7 @@ class TestLoans(ScoreTestCase):
         with self.assertRaises(SenderNotGovernance):
             self.score.toggleLoansOn()
 
-        self.set_msg(self.admin)
+        self.set_msg(self.governance)
 
         status = self.score._loans_on.get()
         self.score.toggleLoansOn()
@@ -284,7 +285,7 @@ class TestLoans(ScoreTestCase):
 
         patched_cls = MockClass()
 
-        self.set_msg(self.admin)
+        self.set_msg(self.governance)
         delegate_params = ["param1", "param2"]
         with mock.patch.object(self.score, "create_interface_score", wraps=patched_cls.create_interface_score):
             self.score.delegate(delegate_params)
@@ -339,7 +340,7 @@ class TestLoans(ScoreTestCase):
         self._configure_loans()
         patched_cls = MockClass(self.score, 10, 10, 10, 10)
         with mock.patch.object(self.score, "create_interface_score", wraps=patched_cls.create_interface_score):
-            self.set_msg(self.admin)
+            self.set_msg(self.governance)
             self.score.setTimeOffset(DEPLOY_TIME)
 
             self.set_block(0, DEPLOY_TIME + DAY + 1)
@@ -676,7 +677,7 @@ class TestLoans(ScoreTestCase):
             with self.assertRaises(IconScoreException) as err:
                 self.score.returnAsset("bnUSD", 12)
             self.assertEqual(
-                f"BalancedLoans: Repaid amount is greater than the amount in the position of {self.test_account3}",
+                f"BalancedLoans: Repaid amount is greater than the amount in the position of the address",
                 err.exception.message)
 
             # RETURN MORE THAN BALANCE
@@ -835,7 +836,7 @@ class TestLoans(ScoreTestCase):
     def test_setGovernance(self):
         self.set_msg(self.owner)
         self.score.setGovernance(SICX_ADDR)
-        self.assertEqual(SICX_ADDR, self.score._governance.get())
+        self.assertEqual(SICX_ADDR, self.score.get_contract_address("governance"))
 
     def test_setRebalance_not_auth(self):
         with self.assertRaises(SenderNotAuthorized):
@@ -851,7 +852,7 @@ class TestLoans(ScoreTestCase):
     def test_setRebalance(self):
         self.set_msg(self.owner)
         self.score.setRebalance(REBALANCE_ADDR)
-        self.assertEqual(REBALANCE_ADDR, self.score._rebalance.get())
+        self.assertEqual(REBALANCE_ADDR, self.score.get_contract_address("rebalance"))
 
     def test_setDex_not_auth(self):
         with self.assertRaises(SenderNotAuthorized):
@@ -865,13 +866,14 @@ class TestLoans(ScoreTestCase):
                          err.exception.message)
 
     def test_setAdmin_not_auth(self):
-        with self.assertRaises(SenderNotGovernance):
-            self.score.setAdmin()
+        with self.assertRaises(IconScoreException) as err:
+            self.score.setAdmin(self.admin)
+        self.assertEqual("Unauthorized: Owner or governance only.", err.exception.message)
 
     def test_setAdmin(self):
-        self.set_msg(self.admin)
+        self.set_msg(self.governance)
         self.score.setAdmin(SICX_ADDR)
-        self.assertEqual(SICX_ADDR, self.score._admin.get())
+        self.assertEqual(SICX_ADDR, self.score.admin.get())
 
     def test_setDividends_not_auth(self):
         with self.assertRaises(SenderNotAuthorized):
@@ -887,7 +889,7 @@ class TestLoans(ScoreTestCase):
     def test_setDividends(self):
         self.set_msg(self.owner)
         self.score.setDividends(SICX_ADDR)
-        self.assertEqual(SICX_ADDR, self.score._dividends.get())
+        self.assertEqual(SICX_ADDR, self.score.get_contract_address("dividends"))
 
     def test_setReserve_not_auth(self):
         with self.assertRaises(SenderNotAuthorized):
@@ -903,7 +905,7 @@ class TestLoans(ScoreTestCase):
     def test_setReserve(self):
         self.set_msg(self.owner)
         self.score.setReserve(SICX_ADDR)
-        self.assertEqual(SICX_ADDR, self.score._reserve.get())
+        self.assertEqual(SICX_ADDR, self.score.get_contract_address("reserve"))
 
     def test_setStaking_not_auth(self):
         with self.assertRaises(SenderNotAuthorized):
@@ -919,7 +921,7 @@ class TestLoans(ScoreTestCase):
     def test_setStaking(self):
         self.set_msg(self.owner)
         self.score.setStaking(SICX_ADDR)
-        self.assertEqual(SICX_ADDR, self.score._staking.get())
+        self.assertEqual(SICX_ADDR, self.score.get_contract_address("staking"))
 
     def test_setMiningRatio_not_auth(self):
         with self.assertRaises(SenderNotAuthorized):
@@ -998,7 +1000,7 @@ class TestLoans(ScoreTestCase):
             self.score.setTimeOffset(1)
 
     def test_setTimeOffset(self):
-        self.set_msg(self.admin)
+        self.set_msg(self.governance)
         self.score.setTimeOffset(1)
         self.assertEqual(1, self.score._time_offset.get())
 
@@ -1036,15 +1038,24 @@ class TestLoans(ScoreTestCase):
         self._configure_loans()
         result = self.score.getParameters()
         expected = {'admin': self.owner,
-                    'governance': self.admin,
+                    'governance': self.governance,
                     'dividends': DIVIDENDS_ADDR,
-                    'reserve_fund': RESERVE_ADDR,
+                    'reserve': RESERVE_ADDR,
                     'rewards': REWARDS_ADDR,
-                    'staking': STAKING_ADDR, 'mining ratio': 50000,
-                    'locking ratio': 40000, 'liquidation ratio': 15000, 'origination fee': 100, 'redemption fee': 50,
-                    'liquidation reward': 67, 'new loan minimum': 10000000000000000000,
-                    'min mining debt': 50000000000000000000, 'max div debt length': 400, 'time offset': 0,
-                    'redeem batch size': 50, 'retire percent max': 100}
+                    'staking': STAKING_ADDR,
+                    "mining ratio": self.score._mining_ratio.get(),
+                    "locking ratio": self.score._locking_ratio.get(),
+                    "liquidation ratio": self.score._liquidation_ratio.get(),
+                    "origination fee": self.score._origination_fee.get(),
+                    "redemption fee": self.score._redemption_fee.get(),
+                    "liquidation reward": self.score._liquidation_reward.get(),
+                    "new loan minimum": self.score._new_loan_minimum.get(),
+                    "min mining debt": self.score._min_mining_debt.get(),
+                    "max div debt length": self.score._max_debts_list_length.get(),
+                    "time offset": self.score._time_offset.get(),
+                    "redeem batch size": self.score._redeem_batch.get(),
+                    "retire percent max": self.score._max_retire_percent.get()
+                    }
         self.assertDictEqual(expected, result)
 
     def test_getAvailableAssets(self):

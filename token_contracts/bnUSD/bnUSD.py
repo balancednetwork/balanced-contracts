@@ -16,6 +16,7 @@ from iconservice import *
 from .tokens.IRC2mintable import IRC2Mintable
 from .tokens.IRC2burnable import IRC2Burnable
 from .utils.checks import *
+from .utils.contract_addresses import ContractAddresses
 
 TAG = 'bnUSD'
 
@@ -33,21 +34,21 @@ class OracleInterface(InterfaceScore):
         pass
 
 
-class BalancedDollar(IRC2Mintable, IRC2Burnable):
+class BalancedDollar(IRC2Mintable, IRC2Burnable,ContractAddresses):
 
     _PEG = 'peg'
-    _GOVERNANCE = 'governance'
-    _ORACLE_ADDRESS = 'oracle_address'
     _ORACLE_NAME = 'oracle_name'
     _PRICE_UPDATE_TIME = 'price_update_time'
     _LAST_PRICE = 'last_price'
     _MIN_INTERVAL = 'min_interval'
 
     def __init__(self, db: IconScoreDatabase) -> None:
-        super().__init__(db)
+
+        IRC2Mintable.__init__(self, db)
+        IRC2Burnable.__init__(self, db)
+        ContractAddresses.__init__(self, db)
+
         self._peg = VarDB(self._PEG, db, value_type=str)
-        self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
-        self._oracle_address = VarDB(self._ORACLE_ADDRESS, db, value_type=Address)
         self._oracle_name = VarDB(self._ORACLE_NAME, db, value_type=str)
         self._price_update_time = VarDB(self._PRICE_UPDATE_TIME, db, value_type=int)
         self._last_price = VarDB(self._LAST_PRICE, db, value_type=int)
@@ -55,7 +56,7 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
 
     def on_install(self, _governance: Address) -> None:
         super().on_install(TOKEN_NAME, SYMBOL_NAME)
-        self._governance.set(_governance)
+        self.set_contract_addresses([{"name": "governance", "address": _governance}])
         self._peg.set(DEFAULT_PEG)
         self._oracle_name.set(DEFAULT_ORACLE_NAME)
         self._last_price.set(INITIAL_PRICE_ESTIMATE)
@@ -68,6 +69,11 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
         old_div_balance = self._balances[old_div_address]
         self._transfer(old_div_address, new_div_address, old_div_balance, b'')
 
+        _GOVERNANCE = 'governance'
+        _ORACLE_ADDRESS = 'oracle_address'
+        VarDB(_GOVERNANCE, self.db, value_type=Address).remove()
+        VarDB(_ORACLE_ADDRESS, self.db, value_type=Address).remove()
+
     @external(readonly=True)
     def getPeg(self) -> str:
         return self._peg.get()
@@ -75,11 +81,11 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
     @external
     @only_owner
     def setGovernance(self, _address: Address) -> None:
-        self._governance.set(_address)
+        self.set_contract_addresses([{"name": "governance", "address": _address}])
 
     @external(readonly=True)
     def getGovernance(self) -> Address:
-        return self._governance.get()
+        return self.get_contract_address("governance")
 
     @external
     @only_governance
@@ -94,11 +100,11 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
     @external
     @only_governance
     def setOracle(self, _address: Address) -> None:
-        self._oracle_address.set(_address)
+        self.set_contract_addresses([{"name":"oracle","address":_address}])
 
     @external(readonly=True)
-    def getOracle(self) -> dict:
-        return self._oracle_address.get()
+    def getOracle(self) -> Address:
+        return self.get_contract_address("oracle")
 
     @external
     @only_governance
@@ -139,7 +145,7 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
         """
         base = self._peg.get()
         quote = "ICX"
-        oracle_address = self._oracle_address.get()
+        oracle_address = self.getOracle()
         oracle = self.create_interface_score(oracle_address, OracleInterface)
         priceData = oracle.get_reference_data(base, quote)
         return priceData['rate']
@@ -151,7 +157,7 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
         """
         base = self._peg.get()
         quote = "ICX"
-        oracle_address = self._oracle_address.get()
+        oracle_address = self.getOracle()
         try:
             oracle = self.create_interface_score(oracle_address, OracleInterface)
             priceData = oracle.get_reference_data(base, quote)

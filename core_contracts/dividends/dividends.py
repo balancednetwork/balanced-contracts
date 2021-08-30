@@ -15,6 +15,7 @@
 from .utils.checks import *
 from .utils.consts import *
 from .utils.arraydb_helpers import *
+from .utils.contract_addresses import ContractAddresses
 
 TAG = 'Balanced Dividends'
 
@@ -116,7 +117,7 @@ class IRC2Interface(InterfaceScore):
         pass
 
 
-class Dividends(IconScoreBase):
+class Dividends(ContractAddresses):
 
     @eventlog(indexed=3)
     def Transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
@@ -129,13 +130,6 @@ class Dividends(IconScoreBase):
     @eventlog(indexed=2)
     def TokenTransfer(self, recipient: Address, amount: int, note: str):
         pass
-
-    _GOVERNANCE = 'governance'
-    _ADMIN = 'admin'
-    _LOANS_SCORE = 'loans_score'
-    _DAOFUND = 'daofund'
-    _BALN_SCORE = "baln_score"
-    _DEX_SCORE = "dex_score"
 
     _ACCEPTED_TOKENS = "accepted_tokens"
     _AMOUNT_TO_DISTRIBUTE = "amount_to_distribute"
@@ -175,13 +169,7 @@ class Dividends(IconScoreBase):
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
 
-        # Addresses of other SCORES, that dividends score interacts with
-        self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
-        self._admin = VarDB(self._ADMIN, db, value_type=Address)
-        self._loans_score = VarDB(self._LOANS_SCORE, db, value_type=Address)
-        self._daofund = VarDB(self._DAOFUND, db, value_type=Address)
-        self._baln_score = VarDB(self._BALN_SCORE, db, value_type=Address)
-        self._dex_score = VarDB(self._DEX_SCORE, db, value_type=Address)
+        self._dex_score = self.contract_address_collection["dex"]
 
         # Accepted tokens store all the tokens that dividends can distribute and accept, store cx00.. for ICX
         self._accepted_tokens = ArrayDB(self._ACCEPTED_TOKENS, db, value_type=Address)
@@ -222,7 +210,7 @@ class Dividends(IconScoreBase):
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
-        self._governance.set(_governance)
+        self.set_contract_addresses([{"name": "governance", "address": _governance}])
 
         self._accepted_tokens.put(ZERO_SCORE_ADDRESS)
         self._snapshot_id.set(1)
@@ -234,18 +222,25 @@ class Dividends(IconScoreBase):
     def on_update(self) -> None:
         super().on_update()
         self._dividends_batch_size.set(50)
-        self._set_time_offset()
+        # self._set_time_offset()
+
+        VarDB('governance', self.db, value_type=Address).remove()
+        VarDB("loans_score", self.db, value_type=Address).remove()
+        VarDB("daofund", self.db, value_type=Address).remove()
+        VarDB("baln_score", self.db, value_type=Address).remove()
+        VarDB("dex_score", self.db, value_type=Address).remove()
+        VarDB("admin", self.db, value_type=Address).remove()
 
     def _set_time_offset(self) -> None:
-        _dex = self.create_interface_score(self._dex_score.get(), DexInterface)
+        _dex = self.create_interface_score(self._dex_score, DexInterface)
         offset_time = _dex.getTimeOffset()
         self._time_offset.set(offset_time)
 
     def _add_initial_categories(self):
         self._dividends_categories.put(DAOFUND)
         self._dividends_categories.put(BALN_HOLDERS)
-        self._dividends_percentage[DAOFUND] = 4*10**17
-        self._dividends_percentage[BALN_HOLDERS] = 6*10**17
+        self._dividends_percentage[DAOFUND] = 4 * 10 ** 17
+        self._dividends_percentage[BALN_HOLDERS] = 6 * 10 ** 17
 
     @external(readonly=True)
     def name(self) -> str:
@@ -263,64 +258,55 @@ class Dividends(IconScoreBase):
     @external
     @only_owner
     def setGovernance(self, _address: Address) -> None:
-        self._governance.set(_address)
+        self.set_contract_addresses([{"name": "governance", "address": _address}])
 
     @external(readonly=True)
     def getGovernance(self) -> Address:
-        return self._governance.get()
-
-    @external
-    @only_governance
-    def setAdmin(self, _address: Address) -> None:
-        self._admin.set(_address)
-
-    @external(readonly=True)
-    def getAdmin(self) -> Address:
-        return self._admin.get()
+        return self.get_contract_addresses("governance")
 
     @external
     @only_admin
     def setLoans(self, _address: Address) -> None:
-        self._loans_score.set(_address)
+        self.set_contract_addresses([{"name": "loans", "address": _address}])
 
     @external(readonly=True)
     def getLoans(self) -> Address:
-        return self._loans_score.get()
+        return self.get_contract_address("loans")
 
     @external
     @only_admin
     def setDaofund(self, _address: Address) -> None:
-        self._daofund.set(_address)
+        self.set_contract_addresses([{"name": "daofund", "address": _address}])
 
     @external(readonly=True)
     def getDaofund(self) -> Address:
-        return self._daofund.get()
+        return self.get_contract_address("daofund")
 
     @external
     @only_admin
     def setBaln(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is EOA address. Should be a contract address.")
-        self._baln_score.set(_address)
+        self.set_contract_addresses([{"name": "baln", "address": _address}])
 
     @external(readonly=True)
     def getBaln(self) -> Address:
-        return self._baln_score.get()
+        return self.get_contract_address("baln")
 
     @external
     @only_admin
     def setDex(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is EOA address. Should be a contract address.")
-        self._dex_score.set(_address)
+        self._dex_score = _address
 
     @external(readonly=True)
     def getDex(self) -> Address:
-        return self._dex_score.get()
+        return self._dex_score
 
     @external(readonly=True)
     def getBalances(self) -> dict:
-        loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address("loans"), LoansInterface)
         assets = loans.getAssetTokens()
         balances = {}
         for symbol in assets:
@@ -392,7 +378,7 @@ class Dividends(IconScoreBase):
             self._dividends_percentage[category] = percent
             total_percentage += percent
 
-        if total_percentage != 10**18:
+        if total_percentage != 10 ** 18:
             revert(f"{TAG}: Total percentage doesn't sum up to 100 i.e. 10**18")
 
     @external(readonly=True)
@@ -446,17 +432,19 @@ class Dividends(IconScoreBase):
         for day in range(start, end):
             dividends = self._get_dividends_for_daofund(day)
             if dividends:
-                self._set_claimed(self._daofund.get(), day)
+                self._set_claimed(self.get_contract_address("daofund"), day)
             total_dividends = self._add_dividends(total_dividends, dividends)
 
         try:
             for token in self._accepted_tokens:
                 if total_dividends.get(str(token), 0) > 0:
                     if str(token) == str(ZERO_SCORE_ADDRESS):
-                        self._send_ICX(self._daofund.get(), total_dividends[str(token)], "Daofund dividends")
+                        self._send_ICX(self.get_contract_address("daofund"), total_dividends[str(token)],
+                                       "Daofund dividends")
                     else:
-                        self._send_token(self._daofund.get(), total_dividends[str(token)], token, "Daofund dividends")
-            self.Claimed(self._daofund.get(), start, end, str(total_dividends))
+                        self._send_token(self.get_contract_address("daofund"), total_dividends[str(token)], token,
+                                         "Daofund dividends")
+            self.Claimed(self.get_contract_address("daofund"), start, end, str(total_dividends))
         except BaseException as e:
             revert(f"Balanced Dividends: Error in transferring daofund dividends: Error {e}")
 
@@ -535,7 +523,7 @@ class Dividends(IconScoreBase):
         :type _data: bytes
         """
         if self.msg.sender not in self._accepted_tokens:
-            loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
+            loans = self.create_interface_score(self.get_contract_address("loans"), LoansInterface)
             available_tokens = loans.getAssetTokens()
             if str(self.msg.sender) in available_tokens.values():
                 self._accepted_tokens.put(self.msg.sender)
@@ -607,8 +595,8 @@ class Dividends(IconScoreBase):
         if self._is_claimed(_account, _day):
             return {}
 
-        baln_token_score = self.create_interface_score(self._baln_score.get(), BalnTokenInterface)
-        dex_score = self.create_interface_score(self._dex_score.get(), DexInterface)
+        baln_token_score = self.create_interface_score(self.get_contract_address("baln"), BalnTokenInterface)
+        dex_score = self.create_interface_score(self._dex_score, DexInterface)
 
         staked_baln = baln_token_score.stakedBalanceOfAt(_account, _day)
         total_staked_baln = baln_token_score.totalStakedBalanceOfAt(_day)
@@ -634,18 +622,18 @@ class Dividends(IconScoreBase):
         if my_total_baln_token > 0 and total_baln_token > 0:
             for token in self._accepted_tokens:
                 my_dividends[str(token)] = (my_total_baln_token * self._dividends_percentage[BALN_HOLDERS]
-                                            * self._daily_fees[_day][str(token)]) // (total_baln_token * 10**18)
+                                            * self._daily_fees[_day][str(token)]) // (total_baln_token * 10 ** 18)
 
         return my_dividends
 
     def _get_dividends_for_daofund(self, _day: int) -> dict:
-        if self._is_claimed(self._daofund.get(), _day):
+        if self._is_claimed(self.get_contract_address("daofund"), _day):
             return {}
 
         daofund_dividends = {}
         for token in self._accepted_tokens:
             daofund_dividends[str(token)] = (self._dividends_percentage[DAOFUND] * self._daily_fees[_day][str(token)]) \
-                                            // 10**18
+                                            // 10 ** 18
         return daofund_dividends
 
     def _add_dividends(self, a: dict, b: dict) -> dict:

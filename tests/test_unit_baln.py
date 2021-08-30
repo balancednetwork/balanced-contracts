@@ -22,7 +22,7 @@ class TestDividendsUnit(ScoreTestCase):
         self.dex_mock = Address.from_string(f"cx{'abcd' * 10}")
 
         current_time = int(time.time() * 10**6)
-        self.baln._dex_score.set(self.dex_mock)
+        self.baln.setDex(self.dex_mock)
         self.set_msg(self.test_account1)
         self.patch_internal_method(self.dex_mock, "getTimeOffset", lambda: current_time)
 
@@ -74,7 +74,7 @@ class TestDividendsUnit(ScoreTestCase):
         self.dex_mock = Address.from_string(f"cx{'abcd' * 10}")
 
         current_time = int(time.time() * 10**6)
-        self.baln._dex_score.set(self.dex_mock)
+        self.baln.setDex(self.dex_mock)
         self.set_msg(self.test_account1)
         self.patch_internal_method(self.dex_mock, "getTimeOffset", lambda: current_time)
 

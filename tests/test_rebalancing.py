@@ -90,7 +90,7 @@ class TestRebalancing(ScoreTestCase):
         self.set_msg(self.admin)
         address = Address.from_string(f"cx{'1010' * 10}")
         self.score.setBnusd(address)
-        self.assertEqual(address, self.score._bnUSD.get())
+        self.assertEqual(address, self.score.get_contract_address("bnusd"))
 
     def test_setLoans_not_admin(self):
         with self.assertRaises(SenderNotAuthorized) as err:
@@ -107,7 +107,7 @@ class TestRebalancing(ScoreTestCase):
         self.set_msg(self.admin)
         address = Address.from_string(f"cx{'1010' * 10}")
         self.score.setLoans(address)
-        self.assertEqual(address, self.score._loans.get())
+        self.assertEqual(address, self.score.get_contract_address("loans"))
 
     def test_setSicx_not_admin(self):
         with self.assertRaises(SenderNotAuthorized) as err:
@@ -117,7 +117,7 @@ class TestRebalancing(ScoreTestCase):
         self.set_msg(self.admin)
         address = Address.from_string(f"cx{'1010' * 10}")
         self.score.setSicx(address)
-        self.assertEqual(address, self.score._sicx.get())
+        self.assertEqual(address, self.score.get_contract_address("sicx"))
 
     def test_setSicx_not_contract(self):
         self.set_msg(self.admin)
@@ -134,7 +134,7 @@ class TestRebalancing(ScoreTestCase):
         self.set_msg(self.owner)
         address = Address.from_string(f"cx{'1010' * 10}")
         self.score.setGovernance(address)
-        self.assertEqual(address, self.score._governance.get())
+        self.assertEqual(address, self.score.get_contract_address("governance"))
 
     def test_setGovernance_not_contract(self):
         self.set_msg(self.owner)
@@ -151,7 +151,7 @@ class TestRebalancing(ScoreTestCase):
         self.set_msg(self.admin)
         address = Address.from_string(f"cx{'1010' * 10}")
         self.score.setDex(address)
-        self.assertEqual(address, self.score._dex.get())
+        self.assertEqual(address, self.score.get_contract_address("dex"))
 
     def test_setDex_not_contract(self):
         self.set_msg(self.admin)
@@ -224,14 +224,15 @@ class TestRebalancing(ScoreTestCase):
     def test_setMaxRetireAmount(self):
         governance = self._setup_governance()
         self.set_msg(governance)
-        self.score.setMaxRetireAmount(12)
-        self.assertEqual(12, self.score._max_retire.get())
+        self.score.setMaxRetireAmount(12, 24)
+        self.assertEqual(12, self.score._max_sicx_retire.get())
+        self.assertEqual(24, self.score._max_bnusd_retire.get())
 
     def test_getMaxRetireAmount(self):
         governance = self._setup_governance()
         self.set_msg(governance)
-        self.score.setMaxRetireAmount(12)
-        self.assertEqual(12, self.score.getMaxRetireAmount())
+        self.score.setMaxRetireAmount(12, 24)
+        self.assertDictEqual({'bnUSD': 24, 'sICX': 12}, self.score.getMaxRetireAmount())
 
     def test_getRebalancingStatus_true_case(self):
         bnusd_address = Address.from_string(f"cx{'7894' * 10}")
@@ -261,7 +262,7 @@ class TestRebalancing(ScoreTestCase):
                                           ).create_interface_score
         with mock.patch.object(self.score, "create_interface_score", wraps=patched_interface_fxn):
             response = self.score.getRebalancingStatus()
-            expected_list = [True, 1314213562373]
+            expected_list = [True, 1314213562373, False]
             self.assertListEqual(expected_list, response)
 
     def test_getRebalancingStatus_false_case(self):
@@ -292,7 +293,7 @@ class TestRebalancing(ScoreTestCase):
                                           ).create_interface_score
         with mock.patch.object(self.score, "create_interface_score", wraps=patched_interface_fxn):
             response = self.score.getRebalancingStatus()
-            expected_list = [False, 414213562373095048]
+            expected_list = [False, 414213562373095048, False]
             self.assertListEqual(expected_list, response)
 
     def test_rebalance(self):
@@ -307,7 +308,8 @@ class TestRebalancing(ScoreTestCase):
         self.score.setSicx(sicx_address)
         self.score.setBnusd(bnusd_address)
         self.score.setLoans(loans_address)
-        self.score._max_retire.set(1000*10**18)
+        self.score._max_sicx_retire.set(1000*10**18)
+        self.score._max_bnusd_retire.set(1000*10**18)
         governance = self._setup_governance()
         self.set_msg(governance)
         self.score.setSicxReceivable(12 * 10 ** 3)

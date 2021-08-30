@@ -14,6 +14,7 @@
 
 from iconservice import *
 from .utils.checks import *
+from .utils.contract_addresses import ContractAddresses
 
 TAG = 'DAOfund'
 
@@ -47,7 +48,7 @@ class LoansInterface(InterfaceScore):
         pass
 
 
-class DAOfund(IconScoreBase):
+class DAOfund(ContractAddresses):
 
     @eventlog(indexed=3)
     def Transfer(self, _from: Address, _to: Address, _value: int, _data: bytes):
@@ -65,26 +66,23 @@ class DAOfund(IconScoreBase):
     def InsufficientFunds(self, recipient: Address, symbol: str, note: str):
         pass
 
-    _GOVERNANCE = 'governance'
-    _ADMIN = 'admin'
-    _LOANS_SCORE = 'loans_score'
     _FUND = 'fund'
     _AWARDS = 'awards'
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
-        self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
-        self._admin = VarDB(self._ADMIN, db, value_type=Address)
-        self._loans_score = VarDB(self._LOANS_SCORE, db, value_type=Address)
         self._fund = DictDB(self._FUND, db, value_type=int)
         self._awards = DictDB(self._AWARDS, db, value_type=int, depth=2)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
-        self._governance.set(_governance)
+        self.set_contract_addresses([{"name": "governance", "address": _governance}])
 
     def on_update(self) -> None:
         super().on_update()
+        VarDB('governance', self.db, value_type=Address).remove()
+        VarDB('loans_score', self.db, value_type=Address).remove()
+        VarDB("admin", self.db, value_type=Address).remove()
 
     @external(readonly=True)
     def name(self) -> str:
@@ -95,35 +93,26 @@ class DAOfund(IconScoreBase):
     def setGovernance(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._governance.set(_address)
+        self.set_contract_addresses([{"name": "governance", "address": _address}])
 
     @external(readonly=True)
     def getGovernance(self) -> Address:
-        return self._governance.get()
-
-    @external
-    @only_governance
-    def setAdmin(self, _address: Address) -> None:
-        self._admin.set(_address)
-
-    @external(readonly=True)
-    def getAdmin(self) -> Address:
-        return self._admin.get()
+        return self.get_contract_address("governance")
 
     @external
     @only_admin
     def setLoans(self, _address: Address) -> None:
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._loans_score.set(_address)
+        self.set_contract_addresses([{"name": "loans", "address": _address}])
 
     @external(readonly=True)
     def getLoans(self) -> Address:
-        return self._loans_score.get()
+        return self.get_contract_address("loans")
 
     @external(readonly=True)
     def getBalances(self) -> dict:
-        loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address("loans"), LoansInterface)
         assets = loans.getAssetTokens()
         balances = {}
         for symbol in assets:
@@ -157,7 +146,7 @@ class DAOfund(IconScoreBase):
         may be claimed using this method.
         """
         disbursement = self._awards[self.msg.sender]
-        loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address("loans"), LoansInterface)
         assets = loans.getAssetTokens()
         for symbol in assets:
             amount = disbursement[symbol]
@@ -181,7 +170,7 @@ class DAOfund(IconScoreBase):
         :param _data: Unused, ignored.
         :type _data: bytes
         """
-        loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
+        loans = self.create_interface_score(self.get_contract_address("loans"), LoansInterface)
         assets = loans.getAssetTokens()
         address = str(self.msg.sender)
         for symbol in assets:
