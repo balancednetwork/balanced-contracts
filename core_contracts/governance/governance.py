@@ -147,8 +147,8 @@ class Governance(IconScoreBase):
             revert("Only owner or proposer may call this method.")
         if proposal.start_snapshot.get() <= self.getDay() and self.msg.sender != self.owner:
             revert("Only owner can cancel a vote that has started.")
-        if vote_index == 0:
-            revert(f'That is not a valid vote name.')
+        if vote_index < 1 or vote_index > ProposalDB.proposal_count(self.db):
+            revert(f"There is no proposal with index {vote_index}.")
         if proposal.status.get() != ProposalStatus.STATUS[ProposalStatus.ACTIVE]:
             revert("Balanced Governance: Proposal can be cancelled only from active status.")
 
