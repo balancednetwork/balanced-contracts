@@ -672,7 +672,9 @@ class DEX(IconScoreBase):
         self._balance[_id][_from] = self._balance[_id][_from] - _value
         self._balance[_id][_to] = self._balance[_id][_to] + _value
 
-        self._active_addresses[_id].add(_to)
+        if _value > 0:
+            self._active_addresses[_id].add(_to)
+
         if self._balance[_id][_from] == 0:
             self._active_addresses[_id].remove(_from)
 
