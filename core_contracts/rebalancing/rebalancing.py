@@ -57,6 +57,7 @@ class Rebalancing(IconScoreBase):
     _LOANS_ADDRESS = 'loans_address'
     _GOVERNANCE_ADDRESS = 'governance_address'
     _SICX_RECEIVABLE = 'sicx_receivable'
+    _SICX_THRESHOLD = 'sicx_threshold'
     _MAX_RETIRE = '_max_retire'
     _ADMIN = 'admin'
     _PRICE_THRESHOLD = '_price_threshold'
@@ -70,6 +71,7 @@ class Rebalancing(IconScoreBase):
         self._governance = VarDB(self._GOVERNANCE_ADDRESS, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._sicx_receivable = VarDB(self._SICX_RECEIVABLE, db, value_type=int)
+        self._sicx_threshold = VarDB(self._SICX_THRESHOLD, db, value_type=int)
         self._max_retire = VarDB(self._MAX_RETIRE, db, value_type=int)
         self._price_threshold = VarDB(self._PRICE_THRESHOLD, db, value_type=int)
 
@@ -79,6 +81,7 @@ class Rebalancing(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        self._sicx_receivable.remove()
 
     @external
     @only_admin
@@ -176,12 +179,13 @@ class Rebalancing(IconScoreBase):
 
     @external
     @only_governance
-    def setSicxReceivable(self, _value: int) -> None:
+    def setSicxThreshold(self, _value: int) -> None:
         """
         :param _value: sICX amount to set.
-        Sets the sICX amount to receive by rebalancing contract from the loans contract.
+        Sets the sICX threshold that needs to be crossed for rebalancing.
+        If the total tokens to retire is less than this threshold, then the retirement won't happen.
         """
-        self._sicx_receivable.set(_value)
+        self._sicx_threshold.set(_value)
 
     @external
     @only_governance
@@ -200,11 +204,11 @@ class Rebalancing(IconScoreBase):
         return self._max_retire.get()
 
     @external(readonly=True)
-    def getSicxReceivable(self) -> int:
+    def getSicxThreshold(self) -> int:
         """
-        Returns the sICX amount to receive by rebalancing contract.
+        Returns the sICX threshold for rebalancing.
         """
-        return self._sicx_receivable.get()
+        return self._sicx_threshold.get()
 
     @external(readonly=True)
     def getRebalancingStatus(self) -> list:
@@ -236,7 +240,7 @@ class Rebalancing(IconScoreBase):
         """
         loans = self.create_interface_score(self._loans.get(), LoansInterface)
         rebalance_needed, required_retire_amount = self.getRebalancingStatus()
-        sicx_threshold = self._sicx_receivable.get()
+        sicx_threshold = self._sicx_threshold.get()
         if rebalance_needed:
             if required_retire_amount > sicx_threshold:
                 loans.retireRedeem('bnUSD', self._max_retire.get())
