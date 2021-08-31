@@ -305,26 +305,25 @@ class Governance(IconScoreBase):
         return total_baln_token
 
     @external
-    def evaluateVote(self, name: str) -> None:
+    def evaluateVote(self, vote_index: int) -> None:
         """
         Evaluates a vote after the voting period is done. If the vote passed,
         any actions included in the proposal are executed. The vote definition fee
         is also refunded to the proposer if the vote passed.
         """
-        vote_index = ProposalDB.proposal_id(name, self.db)
-        result = self.checkVote(vote_index)
         proposal = ProposalDB(vote_index, self.db)
         end_snap = proposal.end_snapshot.get()
         actions = proposal.actions.get()
         majority = proposal.majority.get()
 
-        if vote_index == 0:
-            revert(f'That is not a valid vote name.')
+        if vote_index < 1 or vote_index > ProposalDB.proposal_count(self.db):
+            revert(f"There is no proposal with index {vote_index}.")
         if self.getDay() < end_snap:
             revert("Balanced Governance: Voting period has not ended.")
         if not proposal.active.get():
             revert("This proposal is not active.")
 
+        result = self.checkVote(vote_index)
         if result['for'] + result['against'] >= result['quorum']:
             if (EXA - majority) * result['for'] > majority * result['against']:
                 if actions != "{}":
