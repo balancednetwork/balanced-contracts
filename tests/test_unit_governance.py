@@ -246,8 +246,9 @@ class TestGovernanceUnit(ScoreTestCase):
             self.set_block(55, 0)
             self.governance.defineVote(name="Enable the dividends cancel this", description="Count pool BALN",
                                        vote_start=day + 1, snapshot=day, actions="{\"enable_dividends\": {}}")
+            vote_index = self.governance.getVoteIndex("Enable the dividends cancel this")
             try:
-                self.governance.cancelVote("Enable the dividends cancel this")
+                self.governance.cancelVote(vote_index)
             except IconScoreException:
                 self.fail("Fail to cancel the vote")
             self.assertEqual("Cancelled", self.governance.checkVote(2).get("status"))
@@ -313,7 +314,7 @@ class TestGovernanceUnit(ScoreTestCase):
             launch_time = self.governance._launch_time.get()
             new_day = launch_time + (DAY_ZERO + day + duration + 1) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
-            self.governance.evaluateVote("Test add data source")
+            self.governance.evaluateVote(1)
 
     def test_refund_vote_definition_fee(self):
         self.set_msg(self.test_account1)
