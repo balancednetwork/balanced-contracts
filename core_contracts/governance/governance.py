@@ -136,16 +136,17 @@ class Governance(IconScoreBase):
         return self._baln_vote_definition_criterion.get()
 
     @external
-    def cancelVote(self, name: str) -> None:
+    def cancelVote(self, vote_index: int) -> None:
         """
         Cancels a vote, in case a mistake was made in its definition.
         """
-        vote_index = ProposalDB.proposal_id(name, self.db)
         proposal = ProposalDB(vote_index, self.db)
         eligible_addresses = [proposal.proposer.get(), self.owner]
         
         if self.msg.sender not in eligible_addresses:
             revert("Only owner or proposer may call this method.")
+        if proposal.start_snapshot.get() <= self.getDay() and self.msg.sender != self.owner:
+            revert("Only owner can cancel a vote that has started.")
         if vote_index == 0:
             revert(f'That is not a valid vote name.')
         if proposal.status.get() != ProposalStatus.STATUS[ProposalStatus.ACTIVE]:
