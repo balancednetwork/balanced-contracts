@@ -468,9 +468,9 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def setRebalancingSicx(self, _value: int) -> None:
+    def setRebalancingSicxThreshold(self, _value: int) -> None:
         rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
-        rebalancing.setSicxReceivable(_value)
+        rebalancing.setSicxThreshold(_value)
 
     @external
     @only_owner
