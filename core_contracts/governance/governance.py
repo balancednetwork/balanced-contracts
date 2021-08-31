@@ -56,8 +56,7 @@ class Governance(IconScoreBase):
         return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
 
     @external(readonly=True)
-    def getVotersCount(self, name: str) -> dict:
-        vote_index = ProposalDB.proposal_id(name, self.db)
+    def getVotersCount(self, vote_index: int) -> dict:
         proposal = ProposalDB(var_key=vote_index, db=self.db)
         return {'for_voters': proposal.for_voters_count.get(), 'against_voters': proposal.against_voters_count.get()}
     
