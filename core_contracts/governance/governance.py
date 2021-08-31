@@ -548,8 +548,11 @@ class Governance(IconScoreBase):
     @only_owner
     def removeDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
         """
-        Add a new data source to receive BALN tokens. Starts with a default of
-        zero percentage of the distribution.
+        Removes a data source from the rewards.
+        :param _data_source_name: Name for the data source.
+        :type _data_source_name: str
+        :param _contract_address: Address of the data source.
+        :type _contract_address: :class:`iconservice.base.address.Address`
         """
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.removeDataSource(_data_source_name, _contract_address)
