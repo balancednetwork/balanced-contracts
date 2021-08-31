@@ -220,8 +220,10 @@ class Rewards(IconScoreBase):
         """
         if _name not in self._recipients:
             return
-        if not _address.is_contract:
-            revert(f'{TAG}: Data source must be a contract.')
+        day = self._get_day()
+        recipient_dist = self.recipientAt(day)
+        if recipient_dist[_name] != 0:
+            revert(f'{TAG}: Data source rewards percentage must be set to 0 before removing.')
         top = self._recipients.pop()
         if top != _name:
             for i in range(len(self._recipients)):
