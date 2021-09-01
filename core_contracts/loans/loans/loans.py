@@ -87,6 +87,7 @@ class Loans(IconScoreBase):
     _GLOBAL_INDEX = 'global_index'
     _GLOBAL_BATCH_INDEX = 'global_batch_index'
 
+    _MAX_RETIRE = '_max_retire'
     _REWARDS_DONE = 'rewards_done'
     _DIVIDENDS_DONE = 'dividends_done'
     _CURRENT_DAY = 'current_day'
@@ -131,6 +132,8 @@ class Loans(IconScoreBase):
         self._dividends_done = VarDB(self._DIVIDENDS_DONE, db, value_type=bool)
         self._current_day = VarDB(self._CURRENT_DAY, db, value_type=int)
         self._time_offset = VarDB(self._TIME_OFFSET, db, value_type=int)
+        self._max_retire = VarDB(self._MAX_RETIRE, db, value_type=int)
+
 
         self._mining_ratio = VarDB(self._MINING_RATIO, db, value_type=int)
         self._locking_ratio = VarDB(self._LOCKING_RATIO, db, value_type=int)
@@ -666,7 +669,7 @@ class Loans(IconScoreBase):
     @loans_on
     @external
     @only_rebalance
-    def retireRedeem(self, _symbol: str, _max_sicx_to_retire: int) -> None:
+    def retireRedeem(self, _symbol: str, _tokens_to_retire: int) -> None:
         """
         This function will  pay off debt from a batch of
         borrowers proportionately, returning a share of collateral from each
@@ -698,7 +701,7 @@ class Loans(IconScoreBase):
             node_id = borrowers.get_head_id()
         borrowers.serialize()
 
-        sicx_to_retire = min(_max_sicx_to_retire * POINTS, (self._max_retire_percent.get() * total_batch_debt * EXA) // (rate * POINTS))
+        sicx_to_retire = min(self._max_retire.get() * POINTS, _tokens_to_retire * POINTS, (self._max_retire_percent.get() * total_batch_debt * EXA) // (rate * POINTS))
 
 
         # if POINTS * _to_redeemed > self._max_retire_percent.get() * total_batch_debt:
@@ -953,6 +956,22 @@ class Loans(IconScoreBase):
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._rebalance.set(_address)
+
+    @external
+    @only_governance
+    def setMaxRetireAmount(self, _value: int) -> None:
+        """
+        :param _value: Maximum sICX amount to retire.
+        Sets the Maximum sICX amount to retire.
+        """
+        self._max_retire.set(_value)
+
+    @external(readonly=True)
+    def getMaxRetireAmount(self) -> int:
+        """
+        Returns the Maximum sICX amount to retire.
+        """
+        return self._max_retire.get()
 
     @external
     @only_admin
