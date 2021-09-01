@@ -6,8 +6,9 @@ from iconservice import Address, IconScoreException
 from tbears.libs.scoretest.score_test_case import ScoreTestCase
 
 from core_contracts.governance.governance import Governance
+from core_contracts.governance.utils.checks import SenderNotScoreOwnerError
 from core_contracts.governance.utils.consts import DAY_ZERO
-
+from iconservice.base.exception import InvalidParamsException
 
 class MockClass:
     def __init__(self, balanceOfAt=None, totalSupplyAt=None, totalBalnAt=None, totalStakedBalanceOfAt=None,
@@ -76,10 +77,10 @@ class TestGovernanceUnit(ScoreTestCase):
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             self.governance.defineVote(name="Just a demo", description='Testing description field', quorum=40,
                                        vote_start=day + 2, duration=2, snapshot=30,
-                                       actions="{\"enable_dividends\": {}}")
+                                       actions="{\"enableDividends\": {}}")
             expected = {'id': 1, 'name': 'Just a demo', 'proposer': self.test_account1,
                         'description': 'Testing description field', 'majority': 666666666666666667, 'vote snapshot': 30,
-                        'start day': day + 2, 'end day': day + 4, 'actions': "{\"enable_dividends\": {}}",
+                        'start day': day + 2, 'end day': day + 4, 'actions': "{\"enableDividends\": {}}",
                         'quorum': 400000000000000000, 'for': 0, 'against': 0, 'for_voter_count': 0,
                         'against_voter_count': 0, 'status': 'Pending'}
             self.assertEqual(expected, self.governance.checkVote(_vote_index=1))
@@ -90,9 +91,9 @@ class TestGovernanceUnit(ScoreTestCase):
         self.governance.addresses._dividends.set(dividends)
         self.patch_internal_method(dividends, "setDistributionActivationStatus", lambda x: x)
 
-        incorrect_actions = json.dumps({"enable_dividends": {"status": True}})
-        correct_actions = json.dumps({"enable_dividends": {}})
-        incorrect_json = "method: enable_dividends, params: {'status': True}"
+        incorrect_actions = json.dumps({"enableDividends": {"status": True}})
+        correct_actions = json.dumps({"enableDividends": {}})
+        incorrect_json = "method: enableDividends, params: {'status': True}"
 
         self.assertRaises(TypeError, self.governance._execute_vote_actions, incorrect_actions)
         try:
@@ -109,55 +110,55 @@ class TestGovernanceUnit(ScoreTestCase):
         with self.assertRaises(IconScoreException) as quorum:
             self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=0,
                                        vote_start=day + 2, duration=2,
-                                       snapshot=30, actions="{\"enable_dividends\": {}}")
+                                       snapshot=30, actions="{\"enableDividends\": {}}")
         self.assertEqual("Quorum must be greater than 0 and less than 100.", quorum.exception.message)
 
         with self.assertRaises(IconScoreException) as quorum2:
             self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=100,
                                        vote_start=day + 2, duration=2,
-                                       snapshot=30, actions="{\"enable_dividends\": {}}")
+                                       snapshot=30, actions="{\"enableDividends\": {}}")
         self.assertEqual("Quorum must be greater than 0 and less than 100.", quorum2.exception.message)
 
         with self.assertRaises(IconScoreException) as start_day:
             self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40,
                                        vote_start=day, duration=2,
-                                       snapshot=30, actions="{\"enable_dividends\": {}}")
+                                       snapshot=30, actions="{\"enableDividends\": {}}")
         self.assertEqual("Vote cannot start before the current time.", start_day.exception.message)
 
         with self.assertRaises(IconScoreException) as start_day2:
             self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40,
                                        vote_start=day - 1, duration=2,
-                                       snapshot=30, actions="{\"enable_dividends\": {}}")
+                                       snapshot=30, actions="{\"enableDividends\": {}}")
         self.assertEqual("Vote cannot start before the current time.", start_day2.exception.message)
 
         with self.assertRaises(IconScoreException) as snapshot:
             self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40,
                                        vote_start=day + 1, duration=2,
-                                       snapshot=day + 1, actions="{\"enable_dividends\": {}}")
+                                       snapshot=day + 1, actions="{\"enableDividends\": {}}")
         self.assertEqual("Snapshot reference index must be less than vote start.", snapshot.exception.message)
 
         with self.assertRaises(IconScoreException) as duration:
             self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40,
                                        vote_start=day + 1, duration=0,
-                                       snapshot=15, actions="{\"enable_dividends\": {}}")
+                                       snapshot=15, actions="{\"enableDividends\": {}}")
         self.assertEqual("Votes must have a minimum duration of 1 days.", duration.exception.message)
 
         with self.assertRaises(IconScoreException) as duplicate:
             self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40,
                                        vote_start=day + 1, duration=2,
-                                       snapshot=15, actions="{\"enable_dividends\": {}}")
+                                       snapshot=15, actions="{\"enableDividends\": {}}")
             self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40,
                                        vote_start=day + 1, duration=2,
-                                       snapshot=15, actions="{\"enable_dividends\": {}}")
+                                       snapshot=15, actions="{\"enableDividends\": {}}")
         self.assertEqual("Poll name Enable the dividends has already been used.", duplicate.exception.message)
 
         with self.assertRaises(IconScoreException) as max_actions:
             self.governance.defineVote(name="Enable the dividends max action", description='Testing description field',
                                        quorum=40, vote_start=day + 1, duration=2,
                                        snapshot=15,
-                                       actions="{\"enable_dividends\": {}, \"enable_dividends1\": {}, "
-                                               "\"enable_dividends2\": {}, \"enable_dividends3\": {}, "
-                                               "\"enable_dividends4\": {}, \"enable_dividends5\": {}}")
+                                       actions="{\"enableDividends\": {}, \"enableDividends1\": {}, "
+                                               "\"enableDividends2\": {}, \"enableDividends3\": {}, "
+                                               "\"enableDividends4\": {}, \"enableDividends5\": {}}")
         self.assertEqual("Balanced Governance: Only 5 actions are allowed", max_actions.exception.message)
 
     def test_vote_cycle_complete(self):
@@ -170,7 +171,7 @@ class TestGovernanceUnit(ScoreTestCase):
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             self.governance.defineVote(name="Enable the dividends", description="Count pool BALN", quorum=40,
                                        vote_start=day + 1, duration=2,
-                                       snapshot=15, actions="{\"enable_dividends\": {}}")
+                                       snapshot=15, actions="{\"enableDividends\": {}}")
             self.assertEqual("Pending", self.governance.checkVote(1).get("status"))
 
             with self.assertRaises(IconScoreException) as inactive_poll:
@@ -183,8 +184,7 @@ class TestGovernanceUnit(ScoreTestCase):
                 self.fail("Failed to execute activate poll method")
             self.assertEqual("Active", self.governance.checkVote(1).get("status"))
             launch_time = self.governance._launch_time.get()
-            from core_contracts.governance.utils.consts import DAY_ZERO
-            new_day = launch_time + (DAY_ZERO + day + 2) * 10 ** 6 * 60 * 60 * 24
+            new_day = launch_time + (day + 2) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.castVote(1, True)
 
@@ -192,7 +192,7 @@ class TestGovernanceUnit(ScoreTestCase):
             self.governance.defineVote(name="Enable the dividends cancel this", description="Count pool BALN",
                                        quorum=40,
                                        vote_start=day + 1, duration=2,
-                                       snapshot=15, actions="{\"enable_dividends\": {}}")
+                                       snapshot=15, actions="{\"enableDividends\": {}}")
             try:
                 self.governance.cancelVote("Enable the dividends cancel this")
             except IconScoreException:
@@ -204,13 +204,13 @@ class TestGovernanceUnit(ScoreTestCase):
         day = self.governance.getDay()
         self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40,
                                    vote_start=day + 1, duration=2,
-                                   snapshot=15, actions="{\"enable_dividends\": {}}")
+                                   snapshot=15, actions="{\"enableDividends\": {}}")
         self.governance.defineVote(name="Enable the dividends2", description='Testing description field', quorum=40,
                                    vote_start=day + 1, duration=2,
-                                   snapshot=15, actions="{\"enable_dividends\": {}}")
+                                   snapshot=15, actions="{\"enableDividends\": {}}")
         self.governance.defineVote(name="Enable the dividends3", description='Testing description field', quorum=40,
                                    vote_start=day + 1, duration=2,
-                                   snapshot=15, actions="{\"enable_dividends\": {}}")
+                                   snapshot=15, actions="{\"enableDividends\": {}}")
 
         self.assertEqual(3, self.governance.getProposalCount(), "Failed to create three proposals")
 
@@ -242,11 +242,11 @@ class TestGovernanceUnit(ScoreTestCase):
         mock_class = MockClass(balanceOfAt=1, totalSupplyAt=2, totalBalnAt=3, totalStakedBalanceOfAt=4,
                                stakedBalanceOfAt=5)
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
-            actions = {"addNewDataSource": {"_data_source_name": "test1", "_contract_address": "cx12333"},
-                       "updateDistPercent": {"_recipient_list": [{"recipient_name": "", "dist_percent": 12}]},
-                       "update_mining_ratio": {"_value": 20},
-                       "update_locking_ratio": {"_value": 10},
-                       "update_origination_fee": {"_fee": 1}
+            actions = {"addNewDataSource": {"_data_source_name": "test1", "_contract_address": f"cx{'37845'*8}"},
+                       "updateBalTokenDistPercentage": {"_recipient_list": [{"recipient_name": "", "dist_percent": 12}]},
+                       "setMiningRatio": {"_value": 20},
+                       "setLockingRatio": {"_value": 10},
+                       "setOriginationFee": {"_fee": 1}
                        }
             self.governance.defineVote(name="Test add data source", description="Count pool BALN", quorum=1,
                                        vote_start=day + 1, duration=1,
@@ -255,7 +255,7 @@ class TestGovernanceUnit(ScoreTestCase):
             self.governance.activateVote("Test add data source")
 
             launch_time = self.governance._launch_time.get()
-            new_day = launch_time + (DAY_ZERO + day + 1) * 10 ** 6 * 60 * 60 * 24
+            new_day = launch_time + (day + 1) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.castVote(1, True)
 
@@ -263,7 +263,7 @@ class TestGovernanceUnit(ScoreTestCase):
             new_day = launch_time + (DAY_ZERO + day + 4) * 10 ** 6 * 60 * 60 * 24
             self.set_block(55, new_day)
             self.governance.executeVoteAction(1)
-            expected = ['addNewDataSource(test1,cx12333)',
+            expected = ['addNewDataSource(test1,cx3784537845378453784537845378453784537845)',
                         "updateBalTokenDistPercentage([{'recipient_name': '', 'dist_percent': 12}])",
                         'setMiningRatio(20)', 'setLockingRatio(10)', 'setOriginationFee(1)']
             self.assertListEqual(expected, mock_class.callStack)
@@ -275,7 +275,7 @@ class TestGovernanceUnit(ScoreTestCase):
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             self.governance.defineVote(name="Just a demo", description='Testing description field', quorum=40,
                                        vote_start=day + 2, duration=2, snapshot=30,
-                                       actions="{\"enable_dividends\": {}}")
+                                       actions="{\"enableDividends\": {}}")
             self.governance.scoreUpdate_11()
             name = self.governance.checkVote(1).get("name")
             self.assertEqual(name, "BIP1: Activate network fee distribution")
@@ -286,3 +286,30 @@ class TestGovernanceUnit(ScoreTestCase):
         with mock.patch.object(self.governance, "create_interface_score", wraps=mock_class.patch_internal):
             vote = self.governance.myVotingWeight(self.test_account1, 1)
             self.assertEqual((2 * (1 * 3 // 2) + 5), vote)
+
+    def test_addDataSource(self):
+        with self.assertRaises(SenderNotScoreOwnerError) as err:
+            self.governance.addNewDataSource("source", "cx122233")
+        self.assertEqual(str(self.test_account1), str(err.exception))
+
+        self.set_msg(self.test_account1)
+        with self.assertRaises(InvalidParamsException) as err:
+            self.governance.addNewDataSource("source", "cx12223")
+        self.assertEqual("Invalid address", str(err.exception.message))
+
+        # testing address parameter given as string in addNewDataSource
+        mock_class = MockClass(balanceOfAt=1, totalSupplyAt=2, totalBalnAt=3, totalStakedBalanceOfAt=4,
+                               stakedBalanceOfAt=5)
+        with mock.patch.object(self.governance, "create_interface_score", wraps=mock_class.patch_internal):
+            self.governance.addNewDataSource("source", f"cx{'37845'*8}")
+
+        self.assertListEqual(['addNewDataSource(source,cx3784537845378453784537845378453784537845)'], mock_class.callStack)
+
+        # testing address parameter given as address in addNewDataSource
+        mock_class = MockClass(balanceOfAt=1, totalSupplyAt=2, totalBalnAt=3, totalStakedBalanceOfAt=4,
+                               stakedBalanceOfAt=5)
+        with mock.patch.object(self.governance, "create_interface_score", wraps=mock_class.patch_internal):
+            self.governance.addNewDataSource("source", Address.from_string(f"cx{'37845' * 8}"))
+
+        self.assertListEqual(['addNewDataSource(source,cx3784537845378453784537845378453784537845)'],
+                             mock_class.callStack)

@@ -38,6 +38,7 @@ class Governance(IconScoreBase):
 
     def on_install(self) -> None:
         super().on_install()
+        self._minimum_vote_duration.set(1)
         self._launched.set(False)
 
     def on_update(self) -> None:
@@ -591,6 +592,8 @@ class Governance(IconScoreBase):
         Add a new data source to receive BALN tokens. Starts with a default of
         zero percentage of the distribution.
         """
+        if type(_contract_address) != Address:
+            _contract_address = Address.from_string(_contract_address)
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.addNewDataSource(_data_source_name, _contract_address)
 
