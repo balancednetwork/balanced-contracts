@@ -677,8 +677,8 @@ class Loans(IconScoreBase):
 
         :param _symbol: retired token symbol.
         :type _symbol: str
-        :param _max_sicx_to_retire: Maximum sICX amount to retire.
-        :type _max_sicx_to_retire: int
+        :param _tokens_to_retire: Maximum sICX amount to retire.
+        :type _tokens_to_retire: int
         """
         asset = self._assets[_symbol]
         if not (asset and asset.is_active()) or asset.is_collateral():
