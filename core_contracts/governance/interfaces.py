@@ -50,10 +50,6 @@ class RebalancingInterface(InterfaceScore):
     def setBnusd(self, _address: Address) -> None:
         pass
 
-    @interface
-    def setMaxRetireAmount(self, _value: int) -> None:
-        pass
-
 
 # An interface to the Loans SCORE
 class LoansInterface(InterfaceScore):
@@ -104,6 +100,10 @@ class LoansInterface(InterfaceScore):
     def setRewards(self, _address: Address) -> None:
         pass
 
+    @interface
+    def setMaxRetireAmount(self, _value: int) -> None:
+        pass
+    
     @interface
     def setStaking(self, _address: Address) -> None:
         pass
