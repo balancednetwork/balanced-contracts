@@ -4,7 +4,7 @@ from .utils.checks import *
 TAG = 'Rebalancing'
 
 EXA = 10 ** 18
-data_for_loans = b'{"_asset": "bnUSD", "_amount": ""}'
+
 
 class sICXTokenInterface(InterfaceScore):
     @interface
@@ -46,7 +46,11 @@ class DexTokenInterface(InterfaceScore):
 
 class LoansInterface(InterfaceScore):
     @interface
-    def retireRedeem(self, _symbol: str, _tokens_to_retire: int) -> None:
+    def retireRedeem(self, _tokens_to_retire: int) -> None:
+        pass
+
+    @interface
+    def generateBnusd(self, _tokens_to_retire: int) -> None:
         pass
 
 
@@ -57,7 +61,6 @@ class Rebalancing(IconScoreBase):
     _LOANS_ADDRESS = 'loans_address'
     _GOVERNANCE_ADDRESS = 'governance_address'
     _SICX_RECEIVABLE = 'sicx_receivable'
-    _SICX_THRESHOLD = 'sicx_threshold'
     _ADMIN = 'admin'
     _PRICE_THRESHOLD = '_price_threshold'
 
@@ -189,11 +192,15 @@ class Rebalancing(IconScoreBase):
         pool_stats = dex_score.getPoolStats(2)
         dex_price = pool_stats['base'] * EXA // pool_stats['quote']
 
+        # direction = price > dex_price
+
         diff = (price - dex_price) * EXA // price
         min_diff = self._price_threshold.get()
         required_retire_amount = self._calculate_tokens_to_retire(price, pool_stats['base'], pool_stats['quote'])
-
-        return [diff > min_diff, required_retire_amount]
+        # if direction:
+        #     return [diff > min_diff, required_retire_amount]
+        # return [diff < -min_diff, required_retire_amount, "sICX"]
+        return [diff > min_diff, required_retire_amount, diff < -min_diff]
 
     @external
     def rebalance(self) -> None:
@@ -202,9 +209,15 @@ class Rebalancing(IconScoreBase):
            Rebalances only if the difference between the DEX price and oracle price is greater than the threshold.
         """
         loans = self.create_interface_score(self._loans.get(), LoansInterface)
-        rebalance_needed, required_retire_amount = self.getRebalancingStatus()
-        if rebalance_needed:
-            loans.retireRedeem('bnUSD', required_retire_amount)
+
+        rebalance_needed, required_retire_amount, reverse_rebalance = self.getRebalancingStatus()
+        if required_retire_amount > 0:
+            if rebalance_needed:
+                loans.retireRedeem(required_retire_amount)
+        else:
+            required_retire_amount = abs(required_retire_amount)
+            if reverse_rebalance:
+                loans.generateBnusd(required_retire_amount)
 
     @external
     def tokenFallback(self, _from: Address, value: int, _data: bytes) -> None:
