@@ -46,7 +46,7 @@ class DexTokenInterface(InterfaceScore):
 
 class LoansInterface(InterfaceScore):
     @interface
-    def retireRedeem(self, _symbol: str, _sicx_from_lenders: int) -> None:
+    def retireRedeem(self, _symbol: str, _tokens_to_retire: int) -> None:
         pass
 
 
@@ -58,7 +58,6 @@ class Rebalancing(IconScoreBase):
     _GOVERNANCE_ADDRESS = 'governance_address'
     _SICX_RECEIVABLE = 'sicx_receivable'
     _SICX_THRESHOLD = 'sicx_threshold'
-    _MAX_RETIRE = '_max_retire'
     _ADMIN = 'admin'
     _PRICE_THRESHOLD = '_price_threshold'
 
@@ -71,8 +70,6 @@ class Rebalancing(IconScoreBase):
         self._governance = VarDB(self._GOVERNANCE_ADDRESS, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._sicx_receivable = VarDB(self._SICX_RECEIVABLE, db, value_type=int)
-        self._sicx_threshold = VarDB(self._SICX_THRESHOLD, db, value_type=int)
-        self._max_retire = VarDB(self._MAX_RETIRE, db, value_type=int)
         self._price_threshold = VarDB(self._PRICE_THRESHOLD, db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
@@ -160,7 +157,6 @@ class Rebalancing(IconScoreBase):
         """
         return self._sqrt(price * base_supply * quote_supply // EXA) - base_supply
 
-
     @external
     @only_governance
     def setPriceDiffThreshold(self, _value: int) -> None:
@@ -176,39 +172,6 @@ class Rebalancing(IconScoreBase):
         Returns the threshold value set by Governance contract.
         """
         return self._price_threshold.get()
-
-    @external
-    @only_governance
-    def setSicxThreshold(self, _value: int) -> None:
-        """
-        :param _value: sICX amount to set.
-        Sets the sICX threshold that needs to be crossed for rebalancing.
-        If the total tokens to retire is less than this threshold, then the retirement won't happen.
-        """
-        self._sicx_threshold.set(_value)
-
-    @external
-    @only_governance
-    def setMaxRetireAmount(self, _value: int) -> None:
-        """
-        :param _value: Maximum sICX amount to retire.
-        Sets the Maximum sICX amount to retire.
-        """
-        self._max_retire.set(_value)
-
-    @external(readonly=True)
-    def getMaxRetireAmount(self) -> int:
-        """
-        Returns the Maximum sICX amount to retire.
-        """
-        return self._max_retire.get()
-
-    @external(readonly=True)
-    def getSicxThreshold(self) -> int:
-        """
-        Returns the sICX threshold for rebalancing.
-        """
-        return self._sicx_threshold.get()
 
     @external(readonly=True)
     def getRebalancingStatus(self) -> list:
@@ -240,10 +203,8 @@ class Rebalancing(IconScoreBase):
         """
         loans = self.create_interface_score(self._loans.get(), LoansInterface)
         rebalance_needed, required_retire_amount = self.getRebalancingStatus()
-        sicx_threshold = self._sicx_threshold.get()
         if rebalance_needed:
-            if required_retire_amount > sicx_threshold:
-                loans.retireRedeem('bnUSD', self._max_retire.get())
+            loans.retireRedeem('bnUSD', required_retire_amount)
 
     @external
     def tokenFallback(self, _from: Address, value: int, _data: bytes) -> None:
