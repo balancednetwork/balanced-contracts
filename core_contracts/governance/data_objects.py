@@ -42,10 +42,10 @@ class VoteActions(object):
             'setMaxRetirePercent': self._gov.setMaxRetirePercent,
             'setRebalancingSicx': self._gov.setRebalancingSicx,
             'setRebalancingThreshold': self._gov.setRebalancingThreshold,
-            # 'setVoteDuration': self._gov.setVoteDuration,
-            # 'setQuorum': self._gov.setQuorum,
-            # 'setVoteDefinitionFee': self.setVoteDefinitionFee,
-            # 'setBalnVoteDefinitionCriterion': self.setBalnVoteDefinitionCriterion,
+            'setVoteDuration': self._gov.setVoteDuration,
+            'setQuorum': self._gov.setQuorum,
+            'setVoteDefinitionFee': self.setVoteDefinitionFee,
+            'setBalnVoteDefinitionCriterion': self.setBalnVoteDefinitionCriterion,
             'setDividendsCategoryPercentage': self._gov.setDividendsCategoryPercentage,
             'daoDisburse': self._gov.daoDisburse
         }
