@@ -4,8 +4,6 @@ from .utils.checks import *
 TAG = 'Rebalancing'
 
 EXA = 10 ** 18
-# sICX token address in toToken
-data_bytes_sicx = b'{"method": "_swap", "params": {"toToken": "cx2609b924e33ef00b648a409245c7ea394c467824"}}'
 
 
 class sICXTokenInterface(InterfaceScore):
@@ -48,11 +46,11 @@ class DexTokenInterface(InterfaceScore):
 
 class LoansInterface(InterfaceScore):
     @interface
-    def retireRedeem(self, _symbol: str, _sicx_from_lenders: int) -> None:
+    def retireRedeem(self, _tokens_to_retire: int) -> None:
         pass
 
     @interface
-    def generateBnusd(self, _max_bnusd_to_retire: int) -> None:
+    def generateBnusd(self, _tokens_to_retire: int) -> None:
         pass
 
 
@@ -63,8 +61,6 @@ class Rebalancing(IconScoreBase):
     _LOANS_ADDRESS = 'loans_address'
     _GOVERNANCE_ADDRESS = 'governance_address'
     _SICX_RECEIVABLE = 'sicx_receivable'
-    _MAX_SICX_RETIRE = '_max_sicx_retire'
-    _MAX_BNUSD_RETIRE = '_max_bnusd_retire'
     _ADMIN = 'admin'
     _PRICE_THRESHOLD = '_price_threshold'
 
@@ -77,8 +73,6 @@ class Rebalancing(IconScoreBase):
         self._governance = VarDB(self._GOVERNANCE_ADDRESS, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._sicx_receivable = VarDB(self._SICX_RECEIVABLE, db, value_type=int)
-        self._max_bnusd_retire = VarDB(self._MAX_BNUSD_RETIRE, db, value_type=int)
-        self._max_sicx_retire = VarDB(self._MAX_SICX_RETIRE, db, value_type=int)
         self._price_threshold = VarDB(self._PRICE_THRESHOLD, db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
@@ -87,6 +81,7 @@ class Rebalancing(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        self._sicx_receivable.remove()
 
     @external
     @only_admin
@@ -181,41 +176,6 @@ class Rebalancing(IconScoreBase):
         """
         return self._price_threshold.get()
 
-    @external
-    @only_governance
-    def setSicxReceivable(self, _value: int) -> None:
-        """
-        :param _value: sICX amount to set.
-        Sets the sICX amount to receive by rebalancing contract from the loans contract.
-        """
-        self._sicx_receivable.set(_value)
-
-    @external
-    @only_governance
-    def setMaxRetireAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
-        """
-        :param _sicx_value: Maximum sICX amount to retire.
-        :param _bnusd_value: Maximum bnUSD amount to retire.
-        Sets the Maximum sICX amount and Maximum bnUSD amount to retire.
-        """
-        self._max_sicx_retire.set(_sicx_value)
-        self._max_bnusd_retire.set(_bnusd_value)
-
-
-    @external(readonly=True)
-    def getMaxRetireAmount(self) -> dict:
-        """
-        Returns the Maximum sICX amount and Maximum bnUSD amount to retire.
-        """
-        return {"sICX": self._max_sicx_retire.get(), "bnUSD": self._max_bnusd_retire.get()}
-
-    @external(readonly=True)
-    def getSicxReceivable(self) -> int:
-        """
-        Returns the sICX amount to receive by rebalancing contract.
-        """
-        return self._sicx_receivable.get()
-
     @external(readonly=True)
     def getRebalancingStatus(self) -> list:
         """
@@ -251,17 +211,13 @@ class Rebalancing(IconScoreBase):
         loans = self.create_interface_score(self._loans.get(), LoansInterface)
 
         rebalance_needed, required_retire_amount, reverse_rebalance = self.getRebalancingStatus()
-        sicx_threshold = self._sicx_receivable.get()
         if required_retire_amount > 0:
             if rebalance_needed:
-                if required_retire_amount > sicx_threshold:
-                    loans.retireRedeem('bnUSD', self._max_sicx_retire.get())
+                loans.retireRedeem(required_retire_amount)
         else:
             required_retire_amount = abs(required_retire_amount)
-            bnusd_threshold = 1000 * 10 ** 18
             if reverse_rebalance:
-                if required_retire_amount > bnusd_threshold:
-                    loans.generateBnusd(self._max_bnusd_retire.get())
+                loans.generateBnusd(required_retire_amount)
 
     @external
     def tokenFallback(self, _from: Address, value: int, _data: bytes) -> None:
