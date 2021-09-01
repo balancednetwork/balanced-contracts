@@ -27,14 +27,6 @@ class StakingInterface(InterfaceScore):
 
 class RebalancingInterface(InterfaceScore):
     @interface
-    def setSicxReceivable(self, _value: int) -> None:
-        pass
-
-    @interface
-    def setBnusdReceivable(self, _value: int) -> None:
-        pass
-
-    @interface
     def setPriceDiffThreshold(self, _value: int) -> None:
         pass
 
