@@ -255,36 +255,6 @@ class Loans(IconScoreBase):
         return debts
 
     @external(readonly=True)
-    def getMaxRetireAmount(self, _symbol: str) -> int:
-        """
-        The maximum amount allowed to be liquidated from a batch of borrowers
-        is 1% of their debt, to limit the impact on any single borrower.
-        The limit on the amount that can be retired is increased by the amount
-        of bad debt for the asset since all of that can be paid off at once.
-        :param _symbol: Symbol for the asset to be retired.
-        :type _symbol: str
-        :return: Maximum amount accepted by the _retire_asset method.
-        :rtype: int
-        """
-        asset = self._assets[_symbol]
-        batch_size = self._redeem_batch.get()
-        borrowers = asset.get_borrowers()
-        node_id = borrowers.get_head_id()
-        tail_id = borrowers.get_tail_id()
-        total_batch_debt: int = 0
-
-        for i in range(min(batch_size, len(borrowers))):
-            user_debt = borrowers.node_value(node_id)
-            total_batch_debt += user_debt
-            if tail_id != node_id:
-                node_id = borrowers.next(node_id)
-
-        bad_debt = asset.bad_debt.get()
-        max_retire_percent = self._max_retire_percent.get()
-        top = bad_debt * POINTS + total_batch_debt * max_retire_percent
-        return top // (POINTS - self._redemption_fee.get())
-
-    @external(readonly=True)
     def checkDeadMarkets(self) -> list:
         """
         Returns the symbols for all assets with dead_market status.
