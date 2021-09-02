@@ -58,13 +58,15 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setLoansDex',
                      {"_address": self.contracts['dex']})
 
-        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingSicxThreshold',
-                     {"_value": 1000 * 10 ** 18})
+        # self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingSicxThreshold',
+        #              {"_value": 1000 * 10 ** 18})
 
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingThreshold',
                      {"_value": 5 * 10 ** 17})
-        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingMaxSicxRetire',
-                     {"_value": 1000 * 10 ** 18})
+        # self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingMaxSicxRetire',
+        #              {"_value": 1000 * 10 ** 18})
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setTokensMaxRetireAmount',
+                     {"_sicx_value": 1000 * 10 ** 18, "_bnusd_value": 1000 * 10 ** 18})
 
     def test_rebalance(self):
         self.score_update("loans")
@@ -168,9 +170,8 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             sicx_after = self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['loans']})
             loans_sicx_after_rebalancing = int(sicx_after, 0)
 
-            _retire_amount = self.call_tx(self.contracts['rebalancing'], 'getMaxRetireAmount')
-            # max_retire_amount = int(_retire_amount['sICX'], 0)
-            max_retire_amount = int(_retire_amount, 0)
+            _retire_amount = self.call_tx(self.contracts['loans'], 'getMaxTokensRetireAmount')
+            max_retire_amount = int(_retire_amount['sICX'], 0)
             expected = (10 * total_batch_debt * 10**18) // (rate * 10000)
             retired_sicx = min(max_retire_amount*10000, expected)
 

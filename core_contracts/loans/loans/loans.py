@@ -85,6 +85,20 @@ class BnusdTokenInterface(InterfaceScore):
     def balanceOf(self, _owner: Address) -> int:
         pass
 
+class BnusdTokenInterface(InterfaceScore):
+    @interface
+    def transfer(self, _to: Address, _value: int, _data: bytes = None):
+        pass
+
+    @interface
+    def lastPriceInLoop(self) -> int:
+        pass
+
+    @interface
+    def balanceOf(self, _owner: Address) -> int:
+        pass
+
+
 class Loans(IconScoreBase):
     _LOANS_ON = 'loans_on'
     _GOVERNANCE = 'governance'
@@ -115,6 +129,9 @@ class Loans(IconScoreBase):
     _MIN_MINING_DEBT = 'min_mining_debt'
     _MAX_DEBTS_LIST_LENGTH = 'max_debts_list_length'
 
+    _MAX_SICX_RETIRE = '_max_sicx_retire'
+    _MAX_BNUSD_RETIRE = '_max_bnusd_retire'
+
     _REDEEM_BATCH_SIZE = 'redeem_batch_size'
     _MAX_RETIRE_PERCENT = 'max_retire_percent'
     _SICX_EXPECTED = 'sicx_expected'
@@ -134,6 +151,8 @@ class Loans(IconScoreBase):
         self._staking = VarDB(self._STAKING, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._snap_batch_size = VarDB(self._SNAP_BATCH_SIZE, db, value_type=int)
+        self._max_bnusd_retire = VarDB(self._MAX_BNUSD_RETIRE, db, value_type=int)
+        self._max_sicx_retire = VarDB(self._MAX_SICX_RETIRE, db, value_type=int)
         self._global_index = VarDB(self._GLOBAL_INDEX, db, value_type=int)
         self._global_batch_index = VarDB(self._GLOBAL_BATCH_INDEX, db, value_type=int)
 
@@ -459,6 +478,24 @@ class Loans(IconScoreBase):
         loop_value = self._positions._snapshot_db[-2].total_mining_debt.get()
         return EXA * loop_value // bnUSD_price
 
+    @external
+    @only_governance
+    def setMaxRetireAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
+        """
+        :param _sicx_value: Maximum sICX amount to retire.
+        :param _bnusd_value: Maximum bnUSD amount to retire.
+        Sets the Maximum sICX amount and Maximum bnUSD amount to retire.
+        """
+        self._max_sicx_retire.set(_sicx_value)
+        self._max_bnusd_retire.set(_bnusd_value)
+
+    @external(readonly=True)
+    def getMaxTokensRetireAmount(self) -> dict:
+        """
+        Returns the Maximum sICX amount and Maximum bnUSD amount to retire.
+        """
+        return {"sICX": self._max_sicx_retire.get(), "bnUSD": self._max_bnusd_retire.get()}
+
     @external(readonly=True)
     def getDataCount(self, _snapshot_id: int) -> int:
         """
@@ -673,16 +710,15 @@ class Loans(IconScoreBase):
     @loans_on
     @external
     @only_rebalance
-    def retireRedeem(self, _symbol: str, _max_sicx_to_retire: int) -> None:
+    def retireRedeem(self, _tokens_to_retire: int) -> None:
         """
         This function will  pay off debt from a batch of
         borrowers proportionately, returning a share of collateral from each
         position in the batch.
-        :param _symbol: retired token symbol.
-        :type _symbol: str
-        :param _max_sicx_to_retire: Maximum sICX amount to retire.
-        :type _max_sicx_to_retire: int
+        :param _tokens_to_retire: Maximum tokens amount to retire.
+        :type _tokens_to_retire: int
         """
+        _symbol = "bnUSD"
         asset = self._assets[_symbol]
         if not (asset and asset.is_active()) or asset.is_collateral():
             revert(f'{TAG}: {_symbol} is not an active, borrowable asset on Balanced.')
@@ -704,7 +740,8 @@ class Loans(IconScoreBase):
             node_id = borrowers.get_head_id()
         borrowers.serialize()
 
-        sicx_to_retire = min(_max_sicx_to_retire * POINTS, (self._max_retire_percent.get() * total_batch_debt * EXA)
+        sicx_to_retire = min(_tokens_to_retire * POINTS, self._max_sicx_retire.get() * POINTS,
+                             (self._max_retire_percent.get() * total_batch_debt * EXA)
                              // (POINTS * rate))
 
         # if POINTS * _to_redeemed > self._max_retire_percent.get() * total_batch_debt:
@@ -740,12 +777,12 @@ class Loans(IconScoreBase):
 
     @external
     @only_rebalance
-    def generateBnusd(self, _max_bnusd_to_retire: int) -> None:
+    def generateBnusd(self, _tokens_to_retire: int) -> None:
         """
         This function will  add off debt to a batch of
         borrowers proportionately along with their collateral.
-        :param _max_bnusd_to_retire: Max bnUSD token to retiire.
-        :type _max_bnusd_to_retire: int
+        :param _tokens_to_retire: Max bnUSD token to retire.
+        :type _tokens_to_retire: int
         """
         _symbol = "sICX"
         _from = self._rebalance.get()
@@ -768,7 +805,8 @@ class Loans(IconScoreBase):
             node_id = borrowers.get_head_id()
         borrowers.serialize()
 
-        bnusd_to_retire = min(_max_bnusd_to_retire * POINTS, (self._max_retire_percent.get() * total_batch_debt // POINTS))
+        bnusd_to_retire = min(_tokens_to_retire * POINTS, self._max_bnusd_retire.get() * POINTS,
+                              (self._max_retire_percent.get() * total_batch_debt // POINTS))
         if self._assets['bnUSD'].balanceOf(self.address) == 0:
             self._assets["bnUSD"].mint(self.address, bnusd_to_retire)
 
@@ -780,13 +818,13 @@ class Loans(IconScoreBase):
         self._sICX_received.set(0)
         self._sICX_expected.set(False)
 
-        remaining_bnUSD = bnusd_to_retire
+        remaining_sicx = received_sicx
         remaining_supply = total_batch_debt
         debt_added = {}
 
         for pos_id, user_debt in positions_dict.items():
-            debt_added[pos_id] = remaining_bnUSD * user_debt // remaining_supply
-            remaining_bnUSD -= debt_added[pos_id]
+            debt_added[pos_id] = remaining_sicx * user_debt // remaining_supply
+            remaining_sicx -= debt_added[pos_id]
             self._positions[pos_id]["bnUSD"] = user_debt + debt_added[pos_id]
 
             sicx_share = received_sicx * user_debt // remaining_supply
@@ -1169,7 +1207,8 @@ class Loans(IconScoreBase):
         pass
 
     @eventlog(indexed=3)
-    def AssetRetired(self, account: Address, symbol: str, amount: int, price: int, total_batch_debt: int, batch_dict: str):
+    def AssetRetired(self, account: Address, symbol: str, amount: int, price: int, total_batch_debt: int,
+                     batch_dict: str):
         pass
 
     @eventlog(indexed=3)
