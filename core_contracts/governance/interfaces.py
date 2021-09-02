@@ -235,7 +235,7 @@ class RewardsInterface(InterfaceScore):
         pass
 
     @interface
-    def removeDataSource(self, _name: str, _address: Address) -> None:
+    def removeDataSource(self, _name: str) -> None:
         pass
 
     @interface
