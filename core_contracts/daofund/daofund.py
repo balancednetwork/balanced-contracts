@@ -14,6 +14,7 @@
 
 from iconservice import *
 from .utils.checks import *
+from .utils.enumerable_set import *
 
 TAG = 'DAOfund'
 
@@ -38,6 +39,7 @@ class TokenInterface(InterfaceScore):
     @interface
     def symbol(self) -> str:
         pass
+
 
 # An interface tp the Loans SCORE to get the collateral token addresses.
 class LoansInterface(InterfaceScore):
@@ -81,7 +83,7 @@ class DAOfund(IconScoreBase):
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._loans_score = VarDB(self._LOANS_SCORE, db, value_type=Address)
         self._fund = DictDB(self._FUND, db, value_type=int)
-        self._symbol = ArrayDB(self._SYMBOL, db, value_type=str)
+        self._symbol = EnumerableSetDB(self._SYMBOL, db, value_type=str)
         self._awards = DictDB(self._AWARDS, db, value_type=int, depth=2)
 
     def on_install(self, _governance: Address) -> None:
@@ -128,10 +130,8 @@ class DAOfund(IconScoreBase):
 
     @external(readonly=True)
     def getBalances(self) -> dict:
-        loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
-        assets = loans.getAssetTokens()
         balances = {}
-        for symbol in self._symbol:
+        for symbol in self._symbol.range(0, len(self._symbol)):
             balances[symbol] = self._fund[symbol]
         balances['ICX'] = self._fund['ICX']
         return balances
@@ -196,7 +196,7 @@ class DAOfund(IconScoreBase):
         token_contract = self.create_interface_score(self.msg.sender, TokenInterface)
         symbol = token_contract.symbol()
         if symbol not in self._symbol:
-            self._symbol.put(symbol)
+            self._symbol.add(symbol)
         self._fund[symbol] += _value
 
     def _send_ICX(self, _to: Address, amount: int, msg: str) -> None:
