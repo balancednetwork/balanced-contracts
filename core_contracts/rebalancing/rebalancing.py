@@ -192,14 +192,9 @@ class Rebalancing(IconScoreBase):
         pool_stats = dex_score.getPoolStats(2)
         dex_price = pool_stats['base'] * EXA // pool_stats['quote']
 
-        # direction = price > dex_price
-
         diff = (price - dex_price) * EXA // price
         min_diff = self._price_threshold.get()
         required_retire_amount = self._calculate_tokens_to_retire(price, pool_stats['base'], pool_stats['quote'])
-        # if direction:
-        #     return [diff > min_diff, required_retire_amount]
-        # return [diff < -min_diff, required_retire_amount, "sICX"]
         return [diff > min_diff, required_retire_amount, diff < -min_diff]
 
     @external
