@@ -9,6 +9,7 @@ DAY_START = 61200 * 10**6  # 17:00 UTC
 MAJORITY = 666666666666666667
 BALNBNUSD_ID = 3
 BALNSICX_ID = 4
+POINTS = 10000
 
 CONTRACTS = ['loans', 'dex', 'staking', 'rewards', 'dividends', 'daofund',
              'reserve', 'sicx', 'bnUSD', 'baln', 'bwt']

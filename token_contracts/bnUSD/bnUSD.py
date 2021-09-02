@@ -63,10 +63,6 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
 
     def on_update(self) -> None:
         super().on_update()
-        old_div_address = Address.from_string('cx13f08df7106ae462c8358066e6d47bb68d995b6d')
-        new_div_address = Address.from_string('cx203d9cd2a669be67177e997b8948ce2c35caffae')
-        old_div_balance = self._balances[old_div_address]
-        self._transfer(old_div_address, new_div_address, old_div_balance, b'')
 
     @external(readonly=True)
     def getPeg(self) -> str:
@@ -143,6 +139,11 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
         oracle = self.create_interface_score(oracle_address, OracleInterface)
         priceData = oracle.get_reference_data(base, quote)
         return priceData['rate']
+
+    @external
+    @only_governance
+    def govTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = b'None') -> None:
+        self._transfer(_from, _to, _value, _data)
 
     def update_asset_value(self) -> None:
         """

@@ -44,8 +44,8 @@ class VoteActions(object):
             'setRebalancingThreshold': self._gov.setRebalancingThreshold,
             'setVoteDuration': self._gov.setVoteDuration,
             'setQuorum': self._gov.setQuorum,
-            'setVoteDefinitionFee': self.setVoteDefinitionFee,
-            'setBalnVoteDefinitionCriterion': self.setBalnVoteDefinitionCriterion,
+            'setVoteDefinitionFee': self._gov.setVoteDefinitionFee,
+            'setBalnVoteDefinitionCriterion': self._gov.setBalnVoteDefinitionCriterion,
             'setDividendsCategoryPercentage': self._gov.setDividendsCategoryPercentage,
             'daoDisburse': self._gov.daoDisburse
         }
@@ -176,6 +176,8 @@ class ProposalDB:
         self.against_voters_count = VarDB(self._key + "_against_voters_count", db, value_type=int)
         self.total_against_votes = VarDB(self._key + "_total_against_votes", db, value_type=int)
         self.status = VarDB(self._key + "_status", db, value_type=str)
+        self.fee = VarDB(self._key + "_fee", db, value_type=int)
+        self.fee_refunded = VarDB(self._key + "_fee_refunded", db, value_type=bool)
 
     @classmethod
     def proposal_id(cls, _proposal_name: str, db: IconScoreDatabase) -> int:
@@ -189,7 +191,7 @@ class ProposalDB:
 
     @classmethod
     def create_proposal(cls, name: str, description: str, proposer: Address, quorum: int, majority: int, snapshot: int, start: int,
-                        end: int, actions: str, db: IconScoreDatabase) -> 'ProposalDB':
+                        end: int, actions: str, fee: int, db: IconScoreDatabase) -> 'ProposalDB':
 
         vote_index = cls(0, db).proposals_count.get() + 1
         new_proposal = ProposalDB(vote_index, db)
@@ -205,7 +207,10 @@ class ProposalDB:
         new_proposal.actions.set(actions)
         new_proposal.name.set(name)
         new_proposal.description.set(description)
-        new_proposal.status.set(ProposalStatus.STATUS[ProposalStatus.PENDING])
+        new_proposal.status.set(ProposalStatus.STATUS[ProposalStatus.ACTIVE])
+        new_proposal.active.set(True)
+        new_proposal.fee.set(fee)
+        new_proposal.fee_refunded.set(False)
         return new_proposal
 
 
@@ -217,4 +222,5 @@ class ProposalStatus:
     SUCCEEDED = 4
     NO_QUORUM = 5
     EXECUTED = 6
-    STATUS = ["Pending", "Active", "Cancelled", "Defeated", "Succeeded", "No Quorum", "Executed"]
+    FAILED_EXECUTION = 7
+    STATUS = ["Pending", "Active", "Cancelled", "Defeated", "Succeeded", "No Quorum", "Executed", "Failed Execution"]

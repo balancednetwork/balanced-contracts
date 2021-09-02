@@ -95,8 +95,8 @@ class Asset(object):
         try:
             token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
             token.mintTo(_to, _amount, _data)
-        except BaseException as e:
-            revert(f'{TAG}: Trouble minting {self.symbol()} tokens to {_to}. Exception: {e}')
+        except Exception:
+            revert(f'{TAG}: Trouble minting {self.symbol()} tokens to {_to}.')
 
     def burn(self, _amount: int) -> None:
         """
@@ -106,8 +106,8 @@ class Asset(object):
             token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
             token.burn(_amount)
             self._burned.set(self._burned.get() + _amount)
-        except BaseException as e:
-            revert(f'{TAG}: Trouble burning {self.symbol()} tokens. Exception: {e}')
+        except Exception:
+            revert(f'{TAG}: Trouble burning {self.symbol()} tokens.')
 
     def burnFrom(self, _account: Address, _amount: int) -> None:
         """
@@ -117,8 +117,8 @@ class Asset(object):
             token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
             token.burnFrom(_account, _amount)
             self._burned.set(self._burned.get() + _amount)
-        except BaseException as e:
-            revert(f'{TAG}: Trouble burning {self.symbol()} tokens. Exception: {e}')
+        except Exception:
+            revert(f'{TAG}: Trouble burning {self.symbol()} tokens.')
 
     def priceInLoop(self) -> int:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
