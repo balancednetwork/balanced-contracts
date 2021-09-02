@@ -72,8 +72,9 @@ class Rewards(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self._data_source_db['sICX/bnUSD'].precomp.set(0)
-        self._data_source_db['sICX/bnUSD'].offset.set(0)
+        self._upate_addRecipientsToArrayDB()
+
+    def _upate_addRecipientsToArrayDB(self) -> None:
         for recipient in self._recipients:
             self._complete_recipient.put(recipient)
 
@@ -208,15 +209,13 @@ class Rewards(IconScoreBase):
 
     @external
     @only_governance
-    def removeDataSource(self, _name: str, _address: Address) -> None:
+    def removeDataSource(self, _name: str) -> None:
         """
         Sources for data on which to base incentive rewards are removed with this
         method.
 
         :param _name: Identifying name for the data source.
         :type _name: str
-        :param _address: Address of the data source.
-        :type _address: :class:`iconservice.base.address.Address`
         """
         if _name not in self._recipients:
             return
@@ -229,7 +228,7 @@ class Rewards(IconScoreBase):
             for i in range(len(self._recipients)):
                 if self._recipients[i] == _name:
                     self._recipients[i] = top
-        self._data_source_db.remove_source(_name, _address)
+        self._data_source_db.remove_source(_name)
 
     @external(readonly=True)
     def getDataSources(self) -> dict:
