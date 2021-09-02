@@ -65,7 +65,7 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
                      {"_value": 5 * 10 ** 17})
         # self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingMaxSicxRetire',
         #              {"_value": 1000 * 10 ** 18})
-        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setTokensMaxRetireAmount',
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setMaxRetireAmount',
                      {"_sicx_value": 1000 * 10 ** 18, "_bnusd_value": 1000 * 10 ** 18})
 
     def test_rebalance(self):
@@ -92,11 +92,11 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
 
         # testing the condition where user1 deposits collateral taking 10 bnUSD loan
         self.send_tx(self.user1, self.contracts['loans'], 1000 * 10 ** 18, 'depositAndBorrow',
-                     {'_asset': 'bnUSD', '_amount': 10 * 10 ** 18})
+                     {'_asset': 'bnUSD', '_amount': 50 * 10 ** 18})
         self.send_tx(self.user2, self.contracts['loans'], 2000 * 10 ** 18, 'depositAndBorrow',
                      {'_asset': 'bnUSD', '_amount': 200 * 10 ** 18})
         self.send_tx(self.user2, self.contracts['loans'], 0, 'returnAsset',
-                     {'_symbol': 'bnUSD', '_value': 200 * 10 ** 18})
+                     {'_symbol': 'bnUSD', '_value': 195 * 10 ** 18})
 
         for case in test_cases['stories']:
             print("############################################################################################")
@@ -138,10 +138,13 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             sum = 0
             for i in event:
                 res = (i["indexed"])
+                print(res)
                 for j in res:
-                    if "AssetRetired" in j:
+                    if "Rebalance" in j:
                         redeemed_bnusd = (i["data"][-1])
                         total_batch_debt = int((i["data"][-2]), 0)
+                        print(redeemed_bnusd)
+                        print(total_batch_debt)
                         redeemed_bnusd = redeemed_bnusd.split(',')
                         for x in redeemed_bnusd:
                             x = x.replace(' ', '')
@@ -173,7 +176,8 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             _retire_amount = self.call_tx(self.contracts['loans'], 'getMaxTokensRetireAmount')
             max_retire_amount = int(_retire_amount['sICX'], 0)
             expected = (10 * total_batch_debt * 10**18) // (rate * 10000)
-            retired_sicx = min(max_retire_amount*10000, expected)
+            retired_sicx = min(int(status[1], 0), max_retire_amount, expected)
+            print(int(status[1], 0), max_retire_amount, expected)
 
             if int(status[0], 0) == 1:
                 self.assertEqual((loans_sicx_before_rebalancing - retired_sicx), loans_sicx_after_rebalancing)
