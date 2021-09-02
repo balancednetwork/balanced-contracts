@@ -478,7 +478,7 @@ class Loans(IconScoreBase):
         self._max_bnusd_retire.set(_bnusd_value)
 
     @external(readonly=True)
-    def getMaxRetireAmount(self) -> dict:
+    def getMaxTokensRetireAmount(self) -> dict:
         """
         Returns the Maximum sICX amount and Maximum bnUSD amount to retire.
         """
