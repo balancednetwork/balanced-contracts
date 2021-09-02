@@ -204,60 +204,21 @@ class TestGovernanceUnit(ScoreTestCase):
             self.assertEqual(f'The reference snapshot must be in the range: [current_day ({day}), '
                              f'start_day - 1 ({day})].', snapshot_2.exception.message)
 
-            with self.assertRaises(IconScoreException) as quorum:
-                self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=0,
-                                           vote_start=day + 2, duration=2,
-                                           snapshot=30, actions="{\"enable_dividends\": {}}")
-            self.assertEqual("Quorum must be greater than 0 and less than 100.", quorum.exception.message)
-
-            with self.assertRaises(IconScoreException) as quorum2:
-                self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=100,
-                                           vote_start=day + 2, duration=2,
-                                           snapshot=30, actions="{\"enable_dividends\": {}}")
-            self.assertEqual("Quorum must be greater than 0 and less than 100.", quorum2.exception.message)
-
-            with self.assertRaises(IconScoreException) as start_day:
-                self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40,
-                                           vote_start=day, duration=2,
-                                           snapshot=30, actions="{\"enable_dividends\": {}}")
-            self.assertEqual("Vote cannot start before the current time.", start_day.exception.message)
-
-            with self.assertRaises(IconScoreException) as start_day2:
-                self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40,
-                                           vote_start=day - 1, duration=2,
-                                           snapshot=30, actions="{\"enable_dividends\": {}}")
-            self.assertEqual("Vote cannot start before the current time.", start_day2.exception.message)
-
-            with self.assertRaises(IconScoreException) as snapshot:
-                self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40,
-                                           vote_start=day + 1, duration=2,
-                                           snapshot=day + 1, actions="{\"enable_dividends\": {}}")
-            self.assertEqual("Snapshot reference index must be less than vote start.", snapshot.exception.message)
-
-            with self.assertRaises(IconScoreException) as duration:
-                self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40,
-                                           vote_start=day + 1, duration=0,
-                                           snapshot=15, actions="{\"enable_dividends\": {}}")
-            self.assertEqual("Votes must have a minimum duration of 1 days.", duration.exception.message)
-
-            # Duplicate use of poll name.
+            # Dublicate use of poll name.
             with self.assertRaises(IconScoreException) as duplicate:
-                self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40,
-                                           vote_start=day + 1, duration=2,
-                                           snapshot=15, actions="{\"enable_dividends\": {}}")
-                self.governance.defineVote(name="Enable the dividends", description='Testing description field', quorum=40,
-                                           vote_start=day + 1, duration=2,
-                                           snapshot=15, actions="{\"enable_dividends\": {}}")
-            self.assertEqual("Poll name Enable the dividends has already been used.", duplicate.exception.message)
+                self.governance.defineVote(name="Enable the dividendss", description='Testing description field', 
+                                           vote_start=day + 1, snapshot=day, actions="{\"enable_dividends\": {}}")
+                self.governance.defineVote(name="Enable the dividendss", description='Testing description field', 
+                                           vote_start=day + 1, snapshot=day, actions="{\"enable_dividends\": {}}")
+            self.assertEqual("Poll name Enable the dividendss has already been used.", duplicate.exception.message)
 
             # More actions then allowed.
             with self.assertRaises(IconScoreException) as max_actions:
-                self.governance.defineVote(name="Enable the dividends max action", description='Testing description field',
-                                           quorum=40, vote_start=day + 1, duration=2,
-                                           snapshot=15,
+                self.governance.defineVote(name="Enable the dividends max action", description='Testing description field', 
+                                           vote_start=day + 1, snapshot=day,
                                            actions="{\"enable_dividends\": {}, \"enable_dividends1\": {}, "
                                                    "\"enable_dividends2\": {}, \"enable_dividends3\": {}, "
-                                                   "\"enable_dividends4\": {}, \"enable_dividends5\": {}}")
+                                                   "\"enable_dividends4\": {}, \"enable_dividends5\": {}}")                                     
             self.assertEqual("Balanced Governance: Only 5 actions are allowed", max_actions.exception.message)
 
         # New mock class that does not fulfill baln staking criterion for voteDefinition.
@@ -357,11 +318,8 @@ class TestGovernanceUnit(ScoreTestCase):
                        "update_locking_ratio": {"_value": 10},
                        "update_origination_fee": {"_fee": 1}
                        }
-            self.governance.defineVote(name="Test add data source", description="Count pool BALN", quorum=1,
-                                       vote_start=day + 1, duration=1,
-                                       snapshot=15, actions=json.dumps(actions))
-
-            self.governance.activateVote("Test add data source")
+            self.governance.defineVote(name="Test add data source", description="Count pool BALN",
+                                       vote_start=day + 1, snapshot=day, actions=json.dumps(actions))
 
             launch_time = self.governance._launch_time.get()
             new_day = launch_time + (DAY_ZERO + day + 1) * 10 ** 6 * 60 * 60 * 24
@@ -408,11 +366,11 @@ class TestGovernanceUnit(ScoreTestCase):
     def test_score_update_11(self):
         self.set_msg(self.test_account1)
         day = self.governance.getDay()
-        mock_class = MockClass(balanceOfAt=1, totalSupplyAt=1, totalBalnAt=1, totalStakedBalanceOfAt=1)
+        self._set_governance_params()
+        mock_class = MockClass(balanceOfAt=1, totalSupplyAt=1, totalBalnAt=1, totalStakedBalanceOfAt=1, stakedBalanceOf=100, totalSupply=10000)
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
-            self.governance.defineVote(name="Just a demo", description='Testing description field', quorum=40,
-                                       vote_start=day + 2, duration=2, snapshot=30,
-                                       actions="{\"enable_dividends\": {}}")
+            self.governance.defineVote(name="Just a demo", description='Testing description field',
+                                       vote_start=day + 2, snapshot=day, actions="{\"enable_dividends\": {}}")
             self.governance.scoreUpdate_11()
             name = self.governance.checkVote(1).get("name")
             self.assertEqual(name, "BIP1: Activate network fee distribution")
