@@ -469,14 +469,17 @@ class TestGovernanceUnit(ScoreTestCase):
             self.set_block(55, new_day)
             self.governance.evaluateVote(5)
             action = self.governance.checkVote(5).get("actions")
-            expected = json.dumps({"addNewDataSource": {"_data_source_name": "IUSDC/bnUSD"}, "updateBalTokenDistPercentage": {
-                "_recipient_list": [{"recipient_name": "Loans", "dist_percent": 100000000000000000},
-                                    {"recipient_name": "sICX/ICX", "dist_percent": 70000000000000000},
-                                    {"recipient_name": "sICX/bnUSD", "dist_percent": 175000000000000000},
-                                    {"recipient_name": "BALN/bnUSD", "dist_percent": 175000000000000000},
-                                    {"recipient_name": "BALN/sICX", "dist_percent": 50000000000000000},
-                                    {"recipient_name": "IUSDC/bnUSD", "dist_percent": 5000000000000000},
-                                    {"recipient_name": "Worker Tokens", "dist_percent": 200000000000000000},
-                                    {"recipient_name": "Reserve Fund", "dist_percent": 25000000000000000},
-                                    {"recipient_name": "DAOfund", "dist_percent": 200000000000000000}]}})
+            expected = json.dumps({"addNewDataSource": {"_data_source_name": "IUSDC/bnUSD",
+                                                        "_contract_address": "cxa0af3165c08318e988cb30993b3048335b94af6c"},
+                                   "updateBalTokenDistPercentage": {
+                                       "_recipient_list": [
+                                           {"recipient_name": "Loans", "dist_percent": 100000000000000000},
+                                           {"recipient_name": "sICX/ICX", "dist_percent": 70000000000000000},
+                                           {"recipient_name": "sICX/bnUSD", "dist_percent": 175000000000000000},
+                                           {"recipient_name": "BALN/bnUSD", "dist_percent": 175000000000000000},
+                                           {"recipient_name": "BALN/sICX", "dist_percent": 50000000000000000},
+                                           {"recipient_name": "IUSDC/bnUSD", "dist_percent": 5000000000000000},
+                                           {"recipient_name": "Worker Tokens", "dist_percent": 200000000000000000},
+                                           {"recipient_name": "Reserve Fund", "dist_percent": 25000000000000000},
+                                           {"recipient_name": "DAOfund", "dist_percent": 200000000000000000}]}})
             self.assertEqual(expected, action)
