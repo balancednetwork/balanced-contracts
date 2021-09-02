@@ -91,7 +91,8 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def defineVote(self, name: str, description: str, quorum: int, vote_start: int, duration: int, snapshot: int, actions: str,
+    def defineVote(self, name: str, description: str, quorum: int, vote_start: int, duration: int, snapshot: int,
+                   actions: str,
                    majority: int = MAJORITY) -> None:
         """
         Names a new vote, defines quorum, and actions.
@@ -115,7 +116,8 @@ class Governance(IconScoreBase):
         if len(actions_dict) > self.maxActions():
             revert(f"Balanced Governance: Only {self.maxActions()} actions are allowed")
 
-        ProposalDB.create_proposal(name=name, description=description, proposer=self.msg.sender, quorum=quorum*EXA//100, majority=majority,
+        ProposalDB.create_proposal(name=name, description=description, proposer=self.msg.sender,
+                                   quorum=quorum * EXA // 100, majority=majority,
                                    snapshot=snapshot, start=vote_start, end=vote_start + duration, actions=actions,
                                    db=self.db)
 
@@ -421,7 +423,7 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def rebalancingSetBnusd(self,_address: Address) -> None:
+    def rebalancingSetBnusd(self, _address: Address) -> None:
         rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
         rebalancing.setBnusd(_address)
 
@@ -546,16 +548,14 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def removeDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
+    def removeDataSource(self, _data_source_name: str) -> None:
         """
         Removes a data source from the rewards.
         :param _data_source_name: Name for the data source.
         :type _data_source_name: str
-        :param _contract_address: Address of the data source.
-        :type _contract_address: :class:`iconservice.base.address.Address`
         """
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
-        rewards.removeDataSource(_data_source_name, _contract_address)
+        rewards.removeDataSource(_data_source_name)
 
     @external
     @only_owner
