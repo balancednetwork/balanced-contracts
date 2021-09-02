@@ -152,12 +152,14 @@ class DataSourceDB:
         source.day.set(self._rewards._get_day())
         source.contract_address.set(_address)
 
-    def remove_source(self, _name: str, _address: Address) -> None:
+    def remove_source(self, _name: str) -> None:
         source = self.__getitem__(_name)
-        source.name.set("")
-        source.day.set(0)
-        source.contract_address.set("")
+        source.name.remove()
+        source.day.remove()
+        source.contract_address.remove()
         top = self._names.pop()
+        if _name not in self._names:
+            return
         if top != _name:
             for i in range(len(self._names)):
                 if self._names[i] == _name:
