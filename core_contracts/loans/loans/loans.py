@@ -460,7 +460,7 @@ class Loans(IconScoreBase):
         self._max_bnusd_retire.set(_bnusd_value)
 
     @external(readonly=True)
-    def getMaxTokensRetireAmount(self) -> dict:
+    def getMaxRetireAmount(self) -> dict:
         """
         Returns the Maximum sICX amount and Maximum bnUSD amount to retire.
         """
@@ -766,8 +766,13 @@ class Loans(IconScoreBase):
 
         bnusd_to_sell = min(_tokens_to_retire, self._max_bnusd_retire.get(),
                             (self._max_retire_percent.get() * total_batch_debt // POINTS))
-        if self._assets['bnUSD'].balanceOf(self.address) == 0:
+
+        bnusd_in_contract = self._assets['bnUSD'].balanceOf(self.address)
+        if bnusd_in_contract == 0:
             self._assets["bnUSD"].mint(self.address, bnusd_to_sell)
+        else:
+            if bnusd_to_sell > bnusd_in_contract:
+                self._assets["bnUSD"].mint(self.address, bnusd_to_sell - bnusd_in_contract)
 
         bnusd_score = self.create_interface_score(self._assets['bnUSD'].get_address(), BnusdTokenInterface)
 
@@ -779,15 +784,16 @@ class Loans(IconScoreBase):
 
         remaining_sicx = received_sicx
         remaining_supply = total_batch_debt
+        remaining_bnusd = bnusd_to_sell
         debt_added = {}
 
         for pos_id, user_debt in positions_dict.items():
-            debt_added[pos_id] = remaining_sicx * user_debt // remaining_supply
-            remaining_sicx -= debt_added[pos_id]
+            debt_added[pos_id] = remaining_bnusd * user_debt // remaining_supply
+            remaining_bnusd -= debt_added[pos_id]
             self._positions[pos_id]["bnUSD"] = user_debt + debt_added[pos_id]
 
-            sicx_share = received_sicx * user_debt // remaining_supply
-            received_sicx -= sicx_share
+            sicx_share = remaining_sicx * user_debt // remaining_supply
+            remaining_sicx -= sicx_share
             self._positions[pos_id][_symbol] += sicx_share
 
             remaining_supply -= user_debt
