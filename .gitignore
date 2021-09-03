@@ -6,6 +6,7 @@ keystores/*
 # tbears test files
 .testscore/
 .teststatedb/
+tests/scores_address.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

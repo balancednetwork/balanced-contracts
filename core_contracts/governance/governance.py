@@ -28,9 +28,13 @@ class Governance(IconScoreBase):
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self.addresses = Addresses(db, self)
+        self.vote_execute = VoteActions(db, self)
         self._launch_day = VarDB('launch_day', db, int)
         self._launch_time = VarDB('launch_time', db, int)
         self._launched = VarDB('launched', db, bool)
+        self._rebalancing = VarDB('rebalancing', db, Address)
+        self._time_offset = VarDB('time_offset', db, value_type=int)
+        self._minimum_vote_duration = VarDB('min_duration', db, int)
 
     def on_install(self) -> None:
         super().on_install()
@@ -38,10 +42,282 @@ class Governance(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        self.scoreUpdate_12()
 
     @external(readonly=True)
     def name(self) -> str:
         return "Balanced Governance"
+
+    @external(readonly=True)
+    def getDay(self) -> int:
+        return (self.now() - self._time_offset.get()) // U_SECONDS_DAY
+
+    @external(readonly=True)
+    def getVotersCount(self, name: str) -> dict:
+        vote_index = ProposalDB.proposal_id(name, self.db)
+        proposal = ProposalDB(var_key=vote_index, db=self.db)
+        return {'for_voters': proposal.for_voters_count.get(), 'against_voters': proposal.against_voters_count.get()}
+
+    @external
+    @only_owner
+    def activateVote(self, name: str) -> None:
+        """
+        After defining a vote it will have to be activated.
+        """
+        vote_index = ProposalDB.proposal_id(name, self.db)
+        if vote_index == 0:
+            revert(f'That is not a valid vote name.')
+        proposal = ProposalDB(vote_index, self.db)
+        if proposal.status.get() != ProposalStatus.STATUS[ProposalStatus.PENDING]:
+            revert("Balanced Governance: A vote can be activated only from Pending status")
+        proposal.active.set(True)
+        proposal.status.set(ProposalStatus.STATUS[ProposalStatus.ACTIVE])
+
+    @external
+    @only_owner
+    def cancelVote(self, name: str) -> None:
+        """
+        Cancels a vote, in case a mistake was made in its definition.
+        """
+        vote_index = ProposalDB.proposal_id(name, self.db)
+        if vote_index == 0:
+            revert(f'That is not a valid vote name.')
+        proposal = ProposalDB(vote_index, self.db)
+        if proposal.status.get() != ProposalStatus.STATUS[ProposalStatus.PENDING]:
+            revert("Balanced Governance: Proposal can be cancelled only from pending status")
+        proposal.active.set(False)
+        proposal.status.set(ProposalStatus.STATUS[ProposalStatus.CANCELLED])
+
+    @external
+    @only_owner
+    def defineVote(self, name: str, description: str, quorum: int, vote_start: int, duration: int, snapshot: int,
+                   actions: str,
+                   majority: int = MAJORITY) -> None:
+        """
+        Names a new vote, defines quorum, and actions.
+        """
+        if len(description) > 500:
+            revert(f'Description must be less than or equal to 500 characters.')
+        if not 0 < quorum < 100:
+            revert(f'Quorum must be greater than 0 and less than 100.')
+        if vote_start <= self.getDay():
+            revert(f'Vote cannot start before the current time.')
+        if snapshot >= vote_start:
+            revert(f'Snapshot reference index must be less than vote start.')
+        min_duration = self._minimum_vote_duration.get()
+        if duration < min_duration:
+            revert(f'Votes must have a minimum duration of {min_duration} days.')
+        vote_index = ProposalDB.proposal_id(name, self.db)
+        if vote_index > 0:
+            revert(f'Poll name {name} has already been used.')
+
+        actions_dict = json_loads(actions)
+        if len(actions_dict) > self.maxActions():
+            revert(f"Balanced Governance: Only {self.maxActions()} actions are allowed")
+
+        ProposalDB.create_proposal(name=name, description=description, proposer=self.msg.sender,
+                                   quorum=quorum * EXA // 100, majority=majority,
+                                   snapshot=snapshot, start=vote_start, end=vote_start + duration, actions=actions,
+                                   db=self.db)
+
+    @external(readonly=True)
+    def maxActions(self) -> int:
+        return 5
+
+    @external(readonly=True)
+    def getProposalCount(self) -> int:
+        return ProposalDB.proposal_count(self.db)
+
+    @external(readonly=True)
+    def getProposals(self, batch_size: int = 20, offset: int = 1) -> list:
+        proposal_list = []
+        start = max(1, offset)
+        end = min(start + batch_size, self.getProposalCount())
+        for proposal_id in range(start, end + 1):
+            proposal = self.checkVote(proposal_id)
+            proposal_list.append(proposal)
+        return proposal_list
+
+    @external
+    def castVote(self, vote_index: int, vote: bool) -> None:
+        """
+        Casts a vote in the named poll.
+        """
+        proposal = ProposalDB(var_key=vote_index, db=self.db)
+        start_snap = proposal.start_snapshot.get()
+        end_snap = proposal.end_snapshot.get()
+        if vote_index <= 0 or not start_snap <= self.getDay() < end_snap or proposal.active.get() is False:
+            revert(f'That is not an active poll.')
+        sender = self.msg.sender
+        snapshot = proposal.vote_snapshot.get()
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        stake = baln.stakedBalanceOfAt(sender, snapshot)
+        dex_pool = self._get_pool_baln(sender, snapshot)
+        total_vote = stake + dex_pool
+        if total_vote == 0:
+            revert(f'Balanced tokens need to be staked or BALN liquidity provided to a DEX pool to cast the vote.')
+        prior_vote = (proposal.for_votes_of_user[sender], proposal.against_votes_of_user[sender])
+        total_for_votes = proposal.total_for_votes.get()
+        total_against_votes = proposal.total_against_votes.get()
+        total_for_voters_count = proposal.for_voters_count.get()
+        total_against_voters_count = proposal.against_voters_count.get()
+        if vote:
+            proposal.for_votes_of_user[sender] = total_vote
+            proposal.against_votes_of_user[sender] = 0
+            total_for = total_for_votes + total_vote - prior_vote[0]
+            total_against = total_against_votes - prior_vote[1]
+            if prior_vote[0] == 0 and prior_vote[1] == 0:
+                proposal.for_voters_count.set(total_for_voters_count + 1)
+            else:
+                if prior_vote[1]:
+                    proposal.against_voters_count.set(total_against_voters_count - 1)
+                    proposal.for_voters_count.set(total_for_voters_count + 1)
+        else:
+            proposal.for_votes_of_user[sender] = 0
+            proposal.against_votes_of_user[sender] = total_vote
+            total_for = total_for_votes - prior_vote[0]
+
+            total_against = total_against_votes + total_vote - prior_vote[1]
+            if prior_vote[0] == 0 and prior_vote[1] == 0:
+                proposal.against_voters_count.set(total_against_voters_count + 1)
+            else:
+                if prior_vote[0]:
+                    proposal.against_voters_count.set(total_against_voters_count + 1)
+                    proposal.for_voters_count.set(total_for_voters_count - 1)
+
+        proposal.total_for_votes.set(total_for)
+        proposal.total_against_votes.set(total_against)
+        self.VoteCast(proposal.name.get(), vote, sender, total_vote, total_for, total_against)
+
+    def _get_pool_baln(self, _account: Address, _day: int) -> int:
+
+        dex_score = self.create_interface_score(self.addresses['dex'], DexInterface)
+
+        my_baln_from_pools = 0
+        for pool_id in (BALNBNUSD_ID, BALNSICX_ID):
+            my_lp = dex_score.balanceOfAt(_account, pool_id, _day)
+            total_lp = dex_score.totalSupplyAt(pool_id, _day)
+            total_baln = dex_score.totalBalnAt(pool_id, _day)
+
+            equivalent_baln = 0
+            if my_lp > 0 and total_lp > 0 and total_baln > 0:
+                equivalent_baln = (my_lp * total_baln) // total_lp
+
+            my_baln_from_pools += equivalent_baln
+
+        my_total_baln_token = my_baln_from_pools
+        return my_total_baln_token
+
+    @external(readonly=True)
+    def totalBaln(self, _day: int) -> int:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        total_stake = baln.totalStakedBalanceOfAt(_day)
+        dex_score = self.create_interface_score(self.addresses['dex'], DexInterface)
+
+        total_baln_from_pools = 0
+        for pool_id in (BALNBNUSD_ID, BALNSICX_ID):
+            total_baln = dex_score.totalBalnAt(pool_id, _day)
+
+            total_baln_from_pools += total_baln
+
+        total_baln_token = total_baln_from_pools + total_stake
+        return total_baln_token
+
+    @external
+    def executeVoteAction(self, vote_index: int) -> None:
+        """
+        Executes the vote action if the vote has completed and passed.
+        """
+        result = self.checkVote(vote_index)
+        if result == {}:
+            revert(f'Provided vote index, {vote_index}, out of range.')
+        proposal = ProposalDB(vote_index, self.db)
+        end_snap = proposal.end_snapshot.get()
+
+        if self.getDay() < end_snap:
+            revert("Balanced Governance: Voting period has not ended")
+
+        if result['for'] + result['against'] >= result['quorum']:
+            majority = proposal.majority.get()
+            if (EXA - majority) * result['for'] > majority * result['against']:
+                try:
+                    self._execute_vote_actions(proposal.actions.get())
+                except BaseException as e:
+                    revert(f"Failed Execution of action. Reason: {e}")
+                proposal.status.set(ProposalStatus.STATUS[ProposalStatus.EXECUTED])
+            else:
+                proposal.status.set(ProposalStatus.STATUS[ProposalStatus.DEFEATED])
+        else:
+            proposal.status.set(ProposalStatus.STATUS[ProposalStatus.NO_QUORUM])
+        proposal.active.set(False)
+
+    def _execute_vote_actions(self, _vote_actions: str) -> None:
+        actions = json_loads(_vote_actions)
+        for action in actions:
+            self.vote_execute[action](**actions[action])
+
+    @external(readonly=True)
+    def getVoteIndex(self, _name: str) -> int:
+        return ProposalDB.proposal_id(_name, self.db)
+
+    @external(readonly=True)
+    def checkVote(self, _vote_index: int) -> dict:
+        if _vote_index < 1 or _vote_index > ProposalDB.proposal_count(self.db):
+            return {}
+        vote_data = ProposalDB(_vote_index, self.db)
+        try:
+            total_baln = self.totalBaln(vote_data.vote_snapshot.get())
+        except BaseException:
+            total_baln = 0
+        if total_baln == 0:
+            _for = 0
+            _against = 0
+        else:
+            total_voted = (vote_data.total_for_votes.get(), vote_data.total_against_votes.get())
+            _for = EXA * total_voted[0] // total_baln
+            _against = EXA * total_voted[1] // total_baln
+
+        vote_status = {'id': _vote_index,
+                       'name': vote_data.name.get(),
+                       'proposer': vote_data.proposer.get(),
+                       'description': vote_data.description.get(),
+                       'majority': vote_data.majority.get(),
+                       'vote snapshot': vote_data.vote_snapshot.get(),
+                       'start day': vote_data.start_snapshot.get(),
+                       'end day': vote_data.end_snapshot.get(),
+                       'actions': vote_data.actions.get(),
+                       'quorum': vote_data.quorum.get(),
+                       'for': _for,
+                       'against': _against,
+                       'for_voter_count': vote_data.for_voters_count.get(),
+                       'against_voter_count': vote_data.against_voters_count.get(),
+                       }
+        status = vote_data.status.get()
+        majority = vote_status['majority']
+        if status == ProposalStatus.STATUS[ProposalStatus.ACTIVE] and self.getDay() >= vote_status["end day"]:
+            if vote_status['for'] + vote_status['against'] < vote_status['quorum']:
+                vote_status['status'] = ProposalStatus.STATUS[ProposalStatus.NO_QUORUM]
+            elif (EXA - majority) * vote_status['for'] > majority * vote_status['against']:
+                vote_status['status'] = ProposalStatus.STATUS[ProposalStatus.SUCCEEDED]
+            else:
+                vote_status['status'] = ProposalStatus.STATUS[ProposalStatus.DEFEATED]
+        else:
+            vote_status['status'] = status
+
+        return vote_status
+
+    @external(readonly=True)
+    def getVotesOfUser(self, vote_index: int, user: Address) -> dict:
+        vote_data = ProposalDB(vote_index, self.db)
+        return {"for": vote_data.for_votes_of_user[user], "against": vote_data.against_votes_of_user[user]}
+
+    @external(readonly=True)
+    def myVotingWeight(self, _address: Address, _day: int) -> int:
+        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
+        stake = baln.stakedBalanceOfAt(_address, _day)
+        dex_pool = self._get_pool_baln(_address, _day)
+        total_vote = stake + dex_pool
+        return total_vote
 
     @external
     @only_owner
@@ -50,8 +326,7 @@ class Governance(IconScoreBase):
         Set parameters after deployment and before launch.
         Add Assets to Loans.
         """
-        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
-        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         self.addresses.setAdmins()
         self.addresses.setContractAddresses()
         addresses: dict = self.addresses.getAddresses()
@@ -66,9 +341,9 @@ class Governance(IconScoreBase):
         if self._launched.get():
             return
         self._launched.set(True)
-        loans = self.create_interface_score(self.addresses._loans.get(), LoansInterface)
-        dex = self.create_interface_score(self.addresses._dex.get(), DexInterface)
-        rewards = self.create_interface_score(self.addresses._rewards.get(), RewardsInterface)
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         offset = DAY_ZERO + self._launch_day.get()
         day = (self.now() - DAY_START) // U_SECONDS_DAY - offset
         self._set_launch_day(day)
@@ -103,7 +378,7 @@ class Governance(IconScoreBase):
         sICX = self.create_interface_score(sICX_address, AssetInterface)
         dex = self.create_interface_score(dex_address, DexInterface)
         price = bnUSD.priceInLoop()
-        amount = UNITS_PER_TOKEN * value // (price * 7)
+        amount = EXA * value // (price * 7)
         staking.icx(value // 7).stakeICX()
         loans.icx(self.icx.get_balance(self.address)).depositAndBorrow('bnUSD', amount)
         bnUSD_value = bnUSD.balanceOf(self.address)
@@ -154,6 +429,59 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def rebalancingSetBnusd(self, _address: Address) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setBnusd(_address)
+
+    @external
+    @only_owner
+    def rebalancingSetSicx(self, _address: Address) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setSicx(_address)
+
+    @external
+    @only_owner
+    def rebalancingSetDex(self, _address: Address) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setDex(_address)
+
+    @external
+    @only_owner
+    def rebalancingSetLoans(self, _address: Address) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setLoans(_address)
+
+    @external
+    @only_owner
+    def setLoansRebalance(self, _address: Address) -> None:
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setRebalance(_address)
+
+    @external
+    @only_owner
+    def setLoansDex(self, _address: Address) -> None:
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setDex(_address)
+
+    @external
+    @only_owner
+    def setRebalancing(self, _address: Address) -> None:
+        self._rebalancing.set(_address)
+
+    @external
+    @only_owner
+    def setRebalancingThreshold(self, _value: int) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setPriceDiffThreshold(_value)
+
+    @external
+    @only_owner
+    def setTokensMaxRetireAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
+        loans = self.create_interface_score(self.addresses["Loans"], LoansInterface)
+        loans.setMaxRetireAmount(_sicx_value, _bnusd_value)
+
+    @external
+    @only_owner
     def setAddresses(self, _addresses: BalancedAddresses) -> None:
         self.addresses.setAddresses(_addresses)
 
@@ -190,6 +518,22 @@ class Governance(IconScoreBase):
     @external(readonly=True)
     def getLaunchTime(self) -> int:
         return self._launch_time.get()
+
+    def enableDividends(self) -> None:
+        dividends = self.create_interface_score(self.addresses['dividends'], DividendsInterface)
+        dividends.setDistributionActivationStatus(True)
+
+    def setMiningRatio(self, _value: int):
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setMiningRatio(_value)
+
+    def setLockingRatio(self, _value: int):
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setLockingRatio(_value)
+
+    def setOriginationFee(self, _fee: int):
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setOriginationFee(_fee)
 
     @external
     @only_owner
@@ -274,8 +618,6 @@ class Governance(IconScoreBase):
         dex_address = self.addresses['dex']
         dex = self.create_interface_score(dex_address, DexInterface)
         dex.setMarketName(_id, _name)
-        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
-        rewards.addNewDataSource(_name, dex_address)
 
     @external
     @only_owner
@@ -347,7 +689,7 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def daoDisburse(self, _recipient: Address, _amounts: List[Disbursement]) -> bool:
+    def daoDisburse(self, _recipient: Address, _amounts: List[Disbursement]) -> None:
         dao = self.create_interface_score(self.addresses['daofund'], DAOfundInterface)
         dao.disburse(_recipient, _amounts)
 
@@ -409,6 +751,24 @@ class Governance(IconScoreBase):
         dex.addLpAddresses(_poolId, _addressList)
 
     @external
+    @only_owner
+    def setRedemptionFee(self, _fee: int) -> None:
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setRedemptionFee(_fee)
+
+    @external
+    @only_owner
+    def setMaxRetirePercent(self, _value: int) -> None:
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setMaxRetirePercent(_value)
+
+    @external
+    @only_owner
+    def setRedeemBatchSize(self, _value: int) -> None:
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setRedeemBatchSize(_value)
+
+    @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
         Used only to receive sICX for unstaking.
@@ -424,3 +784,23 @@ class Governance(IconScoreBase):
     @payable
     def fallback(self):
         pass
+
+    @eventlog(indexed=2)
+    def VoteCast(self, vote_name: str, vote: bool, voter: Address, stake: int, total_for: int, total_against: int):
+        pass
+
+    def scoreUpdate_11(self):
+        """
+        Rename the first vote to include the BIP numbering.
+        """
+        proposal = ProposalDB(var_key=1, db=self.db)
+        proposal.name.set("BIP1: Activate network fee distribution")
+
+    def scoreUpdate_12(self):
+        """
+        Correcting the vote actions defined for BIP3.
+        Actions as previously defined included method and params keys, but the
+        expected format is for the method name to be the key for each action.
+        """
+        proposal = ProposalDB(var_key=3, db=self.db)
+        proposal.actions.set('{"update_origination_fee": {"_fee": 115}}')
