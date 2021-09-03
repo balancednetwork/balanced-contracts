@@ -128,6 +128,18 @@ class LoansInterface(InterfaceScore):
     def setRedeemBatchSize(self, _value: int) -> None:
         pass
 
+    @interface
+    def setMiningRatio(self, _value) -> None:
+        pass
+
+    @interface
+    def setLockingRatio(self, _value) -> None:
+        pass
+
+    @interface
+    def setOriginationFee(self, _fee) -> None:
+        pass
+
 
 # An interface to the Loans SCORE
 class DexInterface(InterfaceScore):
@@ -314,6 +326,10 @@ class SetAddressesInterface(InterfaceScore):
 class BalancedInterface(InterfaceScore):
 
     @interface
+    def totalSupply(self) -> int:
+        pass
+
+    @interface
     def totalStakedBalance(self) -> int:
         pass
 
@@ -416,4 +432,10 @@ class BalancedWorkerTokenInterface(InterfaceScore):
 
     @interface
     def adminTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = None):
+        pass
+
+class BnUSDInterface(InterfaceScore):
+
+    @interface
+    def govTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = b'None') -> None:
         pass
