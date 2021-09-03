@@ -69,6 +69,24 @@ REVERSE_REBALANCING_STORIES = {
                 "amount": 200000 * ICX,
                 "rebalancing_status": 1,
             }
+        },
+        {
+            "description": "In this condition also rebalancing happens as dex price increases with more than 0.5% of "
+                           "oracle price.",
+            "actions": {
+                "method": "transfer",
+                "amount": 200 * ICX,
+                "rebalancing_status": 1,
+            }
+        },
+        {
+            "description": "In this condition also rebalancing happens as dex price increases with more than 0.5% of "
+                           "oracle price.",
+            "actions": {
+                "method": "transfer",
+                "amount": 2000 * ICX,
+                "rebalancing_status": 1,
+            }
         }
     ]
 }

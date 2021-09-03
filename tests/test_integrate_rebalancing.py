@@ -134,25 +134,13 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
 
             event = (rebabalce['eventLogs'])
             total_batch_debt = 0
-            redeemed_bnusd = ""
-            sum = 0
+            sicx_value = 0
             for i in event:
                 res = (i["indexed"])
-                print(res)
                 for j in res:
                     if "Rebalance" in j:
-                        redeemed_bnusd = (i["data"][-1])
                         total_batch_debt = int((i["data"][-2]), 0)
-                        print(redeemed_bnusd)
-                        print(total_batch_debt)
-                        redeemed_bnusd = redeemed_bnusd.split(',')
-                        for x in redeemed_bnusd:
-                            x = x.replace(' ', '')
-                            x = x.replace('}', '')
-                            x = x.replace('{', '')
-                            y = x.split(':')
-                            sum += int(y[-1])
-                        self.assertEqual((int(res[-1], 16)), sum, "The reduced value is not equal to the bnUSD burnt")
+                        sicx_value = (int(res[-1], 16))
 
             # account positions after rebalancing
             after = {}
@@ -173,11 +161,12 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             sicx_after = self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['loans']})
             loans_sicx_after_rebalancing = int(sicx_after, 0)
 
-            _retire_amount = self.call_tx(self.contracts['loans'], 'getMaxTokensRetireAmount')
+            _retire_amount = self.call_tx(self.contracts['loans'], 'getMaxRetireAmount')
             max_retire_amount = int(_retire_amount['sICX'], 0)
             expected = (10 * total_batch_debt * 10**18) // (rate * 10000)
             retired_sicx = min(int(status[1], 0), max_retire_amount, expected)
-            print(int(status[1], 0), max_retire_amount, expected)
+
+            self.assertEqual(sicx_value, retired_sicx, "The reduced value is not equal to the sicx sold")
 
             if int(status[0], 0) == 1:
                 self.assertEqual((loans_sicx_before_rebalancing - retired_sicx), loans_sicx_after_rebalancing)
