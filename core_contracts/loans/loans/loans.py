@@ -753,8 +753,13 @@ class Loans(IconScoreBase):
 
         bnusd_to_sell = min(_tokens_to_retire, self._max_bnusd_retire.get(),
                             (self._max_retire_percent.get() * total_batch_debt // POINTS))
-        if self._assets['bnUSD'].balanceOf(self.address) == 0:
+        
+        bnusd_in_contract = self._assets['bnUSD'].balanceOf(self.address)
+        if bnusd_in_contract == 0:
             self._assets["bnUSD"].mint(self.address, bnusd_to_sell)
+        else:
+            if bnusd_to_sell > bnusd_in_contract:
+                self._assets["bnUSD"].mint(self.address, bnusd_to_sell-bnusd_in_contract)
 
         bnusd_score = self.create_interface_score(self._assets['bnUSD'].get_address(), BnusdTokenInterface)
 
