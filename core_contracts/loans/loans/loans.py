@@ -771,15 +771,16 @@ class Loans(IconScoreBase):
 
         remaining_sicx = received_sicx
         remaining_supply = total_batch_debt
+        remaining_bnusd = bnusd_to_sell
         debt_added = {}
 
         for pos_id, user_debt in positions_dict.items():
-            debt_added[pos_id] = remaining_sicx * user_debt // remaining_supply
-            remaining_sicx -= debt_added[pos_id]
+            debt_added[pos_id] = remaining_bnusd * user_debt // remaining_supply
+            remaining_bnusd -= debt_added[pos_id]
             self._positions[pos_id]["bnUSD"] = user_debt + debt_added[pos_id]
 
-            sicx_share = received_sicx * user_debt // remaining_supply
-            received_sicx -= sicx_share
+            sicx_share = remaining_sicx * user_debt // remaining_supply
+            remaining_sicx -= sicx_share
             self._positions[pos_id][_symbol] += sicx_share
 
             remaining_supply -= user_debt
