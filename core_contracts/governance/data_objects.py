@@ -134,9 +134,8 @@ class Addresses(object):
             for method in ADDRESSES[contract]:
                 try:
                     set_methods[method](self[method])
-                except BaseException as e:
-                    revert(f'Problem setting {method} on {contract}. '
-                           f'Exception: {e}')
+                except Exception:
+                    revert(f'Problem setting {method} on {contract}.')
 
     def setAdmins(self) -> None:
         """
@@ -146,9 +145,9 @@ class Addresses(object):
             score = self._gov.create_interface_score(self[contract], SetAddressesInterface)
             try:
                 score.setAdmin(self[ADMIN_ADDRESSES[contract]])
-            except BaseException as e:
+            except Exception:
                 revert(f'Problem setting admin address to {ADMIN_ADDRESSES[contract]} '
-                       f'on {contract}. Exception: {e}')
+                       f'on {contract}.')
 
 
 class ProposalDB:

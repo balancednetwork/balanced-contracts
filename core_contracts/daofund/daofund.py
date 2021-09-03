@@ -203,9 +203,8 @@ class DAOfund(IconScoreBase):
         try:
             self.icx.transfer(_to, amount)
             self.FundTransfer(_to, amount, f'{msg} {amount} ICX sent to {_to}.')
-        except BaseException as e:
-            revert(f'{TAG}: {amount} ICX not sent to {_to}. '
-                   f'Exception: {e}')
+        except Exception:
+            revert(f'{TAG}: {amount} ICX not sent to {_to}.')
 
     def _send_token(self, _symbol: str, _token: Address, _to: Address,
                     _amount: int, msg: str) -> None:
@@ -226,9 +225,8 @@ class DAOfund(IconScoreBase):
             token_score = self.create_interface_score(_token, TokenInterface)
             token_score.transfer(_to, _amount)
             self.TokenTransfer(_to, _amount, f'{msg} {_amount} {_symbol} sent to {_to}.')
-        except BaseException as e:
-            revert(f'{TAG}: {_amount} {_symbol} not sent to {_to}. '
-                   f'Exception: {e}')
+        except Exception:
+            revert(f'{TAG}: {_amount} {_symbol} not sent to {_to}.')
 
     @payable
     def fallback(self):

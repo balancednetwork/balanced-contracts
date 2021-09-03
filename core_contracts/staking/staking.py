@@ -683,8 +683,8 @@ class Staking(IconScoreBase):
         Logger.debug(f'({_value}) tokens received from {_from}.', TAG)
         try:
             d = json_loads(_data.decode("utf-8"))
-        except BaseException as e:
-            revert(f'{TAG}: Invalid data: {_data}. Exception: {e}')
+        except Exception:
+            revert(f'{TAG}: Invalid data: {_data}.')
         else:
             if 'method' in d and d["method"] == "unstake":
                 if "user" in d:
@@ -757,9 +757,8 @@ class Staking(IconScoreBase):
         try:
             self.icx.transfer(_to, amount)
             self.FundTransfer(_to, amount, msg + f' {amount} ICX sent to {_to}.')
-        except BaseException as e:
-            revert(f'{TAG}: {amount} ICX not sent to {_to}. '
-                   f'Exception: {e}')
+        except Exception:
+            revert(f'{TAG}: {amount} ICX not sent to {_to}.')
 
     @payable
     def fallback(self):

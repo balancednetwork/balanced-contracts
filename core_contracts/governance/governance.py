@@ -330,7 +330,7 @@ class Governance(IconScoreBase):
                     try:
                         self._execute_vote_actions(actions)
                         proposal.status.set(ProposalStatus.STATUS[ProposalStatus.EXECUTED])
-                    except BaseException as e:
+                    except Exception:
                         proposal.status.set(ProposalStatus.STATUS[ProposalStatus.FAILED_EXECUTION])
                 else:
                     proposal.status.set(ProposalStatus.STATUS[ProposalStatus.SUCCEEDED])
@@ -363,7 +363,7 @@ class Governance(IconScoreBase):
         vote_data = ProposalDB(_vote_index, self.db)
         try:
             total_baln = self.totalBaln(vote_data.vote_snapshot.get())
-        except BaseException:
+        except Exception:
             total_baln = 0
         if total_baln == 0:
             _for = 0

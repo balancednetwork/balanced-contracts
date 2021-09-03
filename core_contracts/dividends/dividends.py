@@ -457,8 +457,8 @@ class Dividends(IconScoreBase):
                     else:
                         self._send_token(self._daofund.get(), total_dividends[str(token)], token, "Daofund dividends")
             self.Claimed(self._daofund.get(), start, end, str(total_dividends))
-        except BaseException as e:
-            revert(f"Balanced Dividends: Error in transferring daofund dividends: Error {e}")
+        except Exception:
+            revert(f"Balanced Dividends: Error in transferring daofund dividends.")
 
     @external
     def claim(self, _start: int = 0, _end: int = 0) -> None:
@@ -487,8 +487,8 @@ class Dividends(IconScoreBase):
                     else:
                         self._send_token(_account, total_dividends[str(token)], token, "User dividends")
             self.Claimed(_account, _start, _end, str(total_dividends))
-        except BaseException as e:
-            revert(f"Balanced Dividends: Error in claiming dividends. Error: {e}")
+        except Exception:
+            revert(f"Balanced Dividends: Error in claiming dividends.")
 
     def _send_ICX(self, _to: Address, amount: int, msg: str) -> None:
         """
@@ -503,9 +503,8 @@ class Dividends(IconScoreBase):
         try:
             self.icx.transfer(_to, amount)
             self.FundTransfer(_to, amount, msg + f' {amount} ICX sent to {_to}.')
-        except BaseException as e:
-            revert(f'{amount} ICX not sent to {_to}. '
-                   f'Exception: {e}')
+        except Exception:
+            revert(f'{amount} ICX not sent to {_to}.')
 
     def _send_token(self, _to: Address, _amount: int, _token: Address, _msg: str) -> None:
         """
@@ -519,9 +518,8 @@ class Dividends(IconScoreBase):
             token_score = self.create_interface_score(_token, IRC2Interface)
             token_score.transfer(_to, _amount)
             self.FundTransfer(_to, _amount, _msg + f" {_amount} token sent to {_to}")
-        except BaseException as e:
-            revert(f"{TAG}: {_amount} token not sent to {_to}. Token: {_token}"
-                   f"Reason: {e}")
+        except Exception:
+            revert(f"{TAG}: {_amount} token not sent to {_to}. Token: {_token}.")
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
