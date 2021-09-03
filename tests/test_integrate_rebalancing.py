@@ -1,3 +1,4 @@
+import re
 import subprocess
 
 from .test_integrate_base_rebalancing import BalancedTestBaseRebalancing
@@ -134,13 +135,24 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
 
             event = (rebabalce['eventLogs'])
             total_batch_debt = 0
-            sicx_value = 0
+            total_debt_sold = 0
+            total_collateral_sold = 0
             for i in event:
                 res = (i["indexed"])
                 for j in res:
                     if "Rebalance" in j:
-                        total_batch_debt = int((i["data"][-2]), 0)
-                        sicx_value = (int(res[-1], 16))
+                        total_batch_debt = int((i["data"][-1]), 0)
+                        redeemed_bnusd_dict = (i["data"][-2])
+                        redeemed_bnusd = str(redeemed_bnusd_dict).split('{')
+                        for x in redeemed_bnusd:
+                            if "debt" or "collateral" in x:
+                                try:
+                                    debt = int(re.search("debt':(.+?),", x).group(1))
+                                    collateral = int(re.search("collateral':(.+?)}", x).group(1))
+                                    total_debt_sold += debt
+                                    total_collateral_sold += collateral
+                                except AttributeError:
+                                    pass
 
             # account positions after rebalancing
             after = {}
@@ -166,7 +178,7 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             expected = (10 * total_batch_debt * 10**18) // (rate * 10000)
             retired_sicx = min(int(status[1], 0), max_retire_amount, expected)
 
-            self.assertEqual(sicx_value, retired_sicx, "The reduced value is not equal to the sicx sold")
+            self.assertEqual(abs(total_collateral_sold), retired_sicx, "The reduced value is not equal to the sicx sold")
 
             if int(status[0], 0) == 1:
                 self.assertEqual((loans_sicx_before_rebalancing - retired_sicx), loans_sicx_after_rebalancing)

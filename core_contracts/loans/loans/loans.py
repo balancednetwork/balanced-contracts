@@ -727,6 +727,7 @@ class Loans(IconScoreBase):
         remaining_supply = total_batch_debt
         remaining_value = _redeemed
         redeemed_dict = {}
+        change_in_pos_dict = {}
         for pos_id, user_debt in positions_dict.items():
             redeemed_dict[pos_id] = remaining_value * user_debt // remaining_supply
             remaining_value -= redeemed_dict[pos_id]
@@ -737,8 +738,10 @@ class Loans(IconScoreBase):
             self._positions[pos_id]['sICX'] -= sicx_share
 
             remaining_supply -= user_debt
-        self.Rebalance(self.msg.sender, _symbol, sicx_to_sell,
-                       total_batch_debt, str(redeemed_dict))
+            change_in_pos_dict[pos_id] = {"debt": -redeemed_dict[pos_id], "collateral": -sicx_share}
+
+        self.Rebalance(self.msg.sender, _symbol, str(change_in_pos_dict),
+                       total_batch_debt)
 
     @external
     @only_rebalance
@@ -766,13 +769,13 @@ class Loans(IconScoreBase):
 
         bnusd_to_sell = min(_tokens_to_retire, self._max_bnusd_retire.get(),
                             (self._max_retire_percent.get() * total_batch_debt // POINTS))
-
+        
         bnusd_in_contract = self._assets['bnUSD'].balanceOf(self.address)
         if bnusd_in_contract == 0:
             self._assets["bnUSD"].mint(self.address, bnusd_to_sell)
         else:
             if bnusd_to_sell > bnusd_in_contract:
-                self._assets["bnUSD"].mint(self.address, bnusd_to_sell - bnusd_in_contract)
+                self._assets["bnUSD"].mint(self.address, bnusd_to_sell-bnusd_in_contract)
 
         bnusd_score = self.create_interface_score(self._assets['bnUSD'].get_address(), BnusdTokenInterface)
 
@@ -785,8 +788,8 @@ class Loans(IconScoreBase):
         remaining_sicx = received_sicx
         remaining_supply = total_batch_debt
         remaining_bnusd = bnusd_to_sell
+        change_in_pos_dict ={}
         debt_added = {}
-
         for pos_id, user_debt in positions_dict.items():
             debt_added[pos_id] = remaining_bnusd * user_debt // remaining_supply
             remaining_bnusd -= debt_added[pos_id]
@@ -797,11 +800,12 @@ class Loans(IconScoreBase):
             self._positions[pos_id][_symbol] += sicx_share
 
             remaining_supply -= user_debt
+            change_in_pos_dict[str(pos_id)] = {"debt": debt_added[pos_id], "collateral": sicx_share}
 
         self._assets["bnUSD"].mint(self.address, bnusd_to_sell)
 
-        self.Rebalance(self.msg.sender, 'bnUSD', -bnusd_to_sell,
-                       total_batch_debt, str(debt_added))
+        self.Rebalance(self.msg.sender, 'bnUSD', str(change_in_pos_dict),
+                       total_batch_debt)
 
     def bd_redeem(self, _from: Address,
                   _asset: Asset,
@@ -1184,9 +1188,9 @@ class Loans(IconScoreBase):
     def FeePaid(self, symbol: str, amount: int, type: str):
         pass
 
-    @eventlog(indexed=3)
-    def Rebalance(self, account: Address, symbol: str, change_in_sicx: int,
-                  total_batch_debt: int, debt_dict: str):
+    @eventlog(indexed=2)
+    def Rebalance(self, account: Address, symbol: str, change_in_pos: str,
+                  total_batch_debt: int):
         pass
 
     @eventlog(indexed=2)

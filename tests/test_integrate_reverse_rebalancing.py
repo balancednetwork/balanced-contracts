@@ -1,3 +1,4 @@
+import re
 import subprocess
 
 from .test_integrate_base_rebalancing import BalancedTestBaseRebalancing
@@ -123,22 +124,24 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
 
             event = (rebabalce['eventLogs'])
             total_batch_debt = 0
-            redeemed_bnusd = ""
-            sum = 0
+            total_debt_added = 0
+            total_collateral_added = 0
             for i in event:
                 res = (i["indexed"])
                 for j in res:
                     if "Rebalance" in j:
-                        redeemed_bnusd = (i["data"][-1])
-                        total_batch_debt = int((i["data"][-2]), 0)
-                        redeemed_bnusd = redeemed_bnusd.split(',')
+                        redeemed_bnusd_dict = (i["data"][-2])
+                        total_batch_debt = int((i["data"][-1]), 0)
+                        redeemed_bnusd = str(redeemed_bnusd_dict).split('{')
                         for x in redeemed_bnusd:
-                            x = x.replace(' ', '')
-                            x = x.replace('}', '')
-                            x = x.replace('{', '')
-                            y = x.split(':')
-                            sum += int(y[-1])
-                        self.assertEqual(abs((int(res[-1], 16))), sum, "The added value is not equal to the bnUSD added")
+                            if "debt" or "collateral" in x:
+                                try:
+                                    debt = int(re.search("debt':(.+?),", x).group(1))
+                                    collateral = int(re.search("collateral':(.+?)}", x).group(1))
+                                    total_debt_added += debt
+                                    total_collateral_added += collateral
+                                except AttributeError:
+                                    pass
 
             # account positions after rebalancing
             after = {}
@@ -163,6 +166,8 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             max_retire_amount = int(_retire_amount['bnUSD'], 0)
             expected = (10 * total_batch_debt) // 10000
             generated_bnusd = min(abs(int(status[1], 0)), max_retire_amount, expected)
+
+            self.assertEqual(abs(total_debt_added), generated_bnusd, "The added value is not equal to the bnUSD added")
 
             if int(status[2], 0) == 1:
                 self.assertEqual(generated_bnusd, loans_bnusd_after_rebalancing)
