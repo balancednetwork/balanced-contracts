@@ -424,17 +424,17 @@ class Loans(IconScoreBase):
 
     @external
     @only_governance
-    def setMaxRetireAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
+    def setMaxSellAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
         """
-        :param _sicx_value: Maximum sICX amount to retire.
-        :param _bnusd_value: Maximum bnUSD amount to retire.
-        Sets the Maximum sICX amount and Maximum bnUSD amount to retire.
+        :param _sicx_value: Maximum sICX amount to sell.
+        :param _bnusd_value: Maximum bnUSD amount to sell.
+        Sets the Maximum sICX amount and Maximum bnUSD amount to sell.
         """
         self._max_sicx_sell.set(_sicx_value)
         self._max_bnusd_sell.set(_bnusd_value)
 
     @external(readonly=True)
-    def getMaxRetireAmount(self) -> dict:
+    def getMaxSellAmount(self) -> dict:
         """
         Returns the Maximum sICX amount and Maximum bnUSD amount to sell.
         """
