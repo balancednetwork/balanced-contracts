@@ -476,7 +476,7 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def setMaxRetireAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
+    def setMaxSellAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
         loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         loans.setMaxSellAmount(_sicx_value, _bnusd_value)
 
