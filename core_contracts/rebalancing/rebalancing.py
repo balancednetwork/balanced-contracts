@@ -46,11 +46,11 @@ class DexTokenInterface(InterfaceScore):
 
 class LoansInterface(InterfaceScore):
     @interface
-    def retireRedeem(self, _tokens_to_retire: int) -> None:
+    def retireRedeem(self, _total_tokens_required: int) -> None:
         pass
 
     @interface
-    def generateBnusd(self, _tokens_to_retire: int) -> None:
+    def generateBnusd(self, _total_tokens_required: int) -> None:
         pass
 
 
