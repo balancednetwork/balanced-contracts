@@ -25,7 +25,7 @@ MAX_DEBTS_LIST_LENGTH = 400
 SNAP_BATCH_SIZE = 50
 REDEEM_BATCH_SIZE = 50
 
-data_for_dex = b'{"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
+data_swap_sicx = b'{"method": "_swap", "params": {"toToken": "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"}}'
 
 data_swap_bnusd = b'{"method": "_swap", "params": {"toToken": "cx2609b924e33ef00b648a409245c7ea394c467824"}}'
 

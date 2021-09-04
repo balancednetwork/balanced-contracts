@@ -685,7 +685,7 @@ class Loans(IconScoreBase):
                            // (POINTS * rate))
 
         self._bnUSD_expected.set(True)
-        self._send_token('sICX', self._dex.get(), sicx_to_sell, "sICX swapped for bnUSD", data_for_dex)
+        self._send_token('sICX', self._dex.get(), sicx_to_sell, "sICX swapped for bnUSD", data_swap_sicx)
         bnusd_received = self._bnUSD_received.get()
         self._bnUSD_received.set(0)
         self._bnUSD_expected.set(False)
