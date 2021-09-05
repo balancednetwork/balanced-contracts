@@ -1034,6 +1034,11 @@ class Loans(IconScoreBase):
 
     @external
     @only_admin
+    def setRetirementBonus(self, _points: int) -> None:
+        self._retirement_bonus.set(_points)
+
+    @external
+    @only_admin
     def setLiquidationReward(self, _points: int) -> None:
         self._liquidation_reward.set(_points)
 

@@ -30,12 +30,24 @@ class VoteActions(object):
         self._db = db
         self._gov = gov
         self._actions = {
-            'enable_dividends': self._gov.enableDividends,
+            'enableDividends': self._gov.enableDividends,
             'addNewDataSource': self._gov.addNewDataSource,
-            'updateDistPercent': self._gov.updateBalTokenDistPercentage,
-            'update_mining_ratio': self._gov.setMiningRatio,
-            'update_locking_ratio': self._gov.setLockingRatio,
-            'update_origination_fee': self._gov.setOriginationFee
+            'updateBalTokenDistPercentage': self._gov.updateBalTokenDistPercentage,
+            'setMiningRatio': self._gov.setMiningRatio,
+            'setLockingRatio': self._gov.setLockingRatio,
+            'setOriginationFee': self._gov.setOriginationFee,
+            'setLiquidationRatio': self._gov.setLiquidationRatio,
+            'setRetirementBonus': self._gov.setRetirementBonus,
+            'setLiquidationReward': self._gov.setLiquidationReward,
+            'setMaxRetirePercent': self._gov.setMaxRetirePercent,
+            'setRebalancingSicx': self._gov.setRebalancingSicx,
+            'setRebalancingThreshold': self._gov.setRebalancingThreshold,
+            'setVoteDuration': self._gov.setVoteDuration,
+            'setQuorum': self._gov.setQuorum,
+            'setVoteDefinitionFee': self._gov.setVoteDefinitionFee,
+            'setBalnVoteDefinitionCriterion': self._gov.setBalnVoteDefinitionCriterion,
+            'setDividendsCategoryPercentage': self._gov.setDividendsCategoryPercentage,
+            'daoDisburse': self._gov.daoDisburse
         }
 
     def __getitem__(self, key: str):
@@ -122,9 +134,8 @@ class Addresses(object):
             for method in ADDRESSES[contract]:
                 try:
                     set_methods[method](self[method])
-                except BaseException as e:
-                    revert(f'Problem setting {method} on {contract}. '
-                           f'Exception: {e}')
+                except Exception:
+                    revert(f'Problem setting {method} on {contract}.')
 
     def setAdmins(self) -> None:
         """
@@ -134,9 +145,9 @@ class Addresses(object):
             score = self._gov.create_interface_score(self[contract], SetAddressesInterface)
             try:
                 score.setAdmin(self[ADMIN_ADDRESSES[contract]])
-            except BaseException as e:
+            except Exception:
                 revert(f'Problem setting admin address to {ADMIN_ADDRESSES[contract]} '
-                       f'on {contract}. Exception: {e}')
+                       f'on {contract}.')
 
 
 class ProposalDB:

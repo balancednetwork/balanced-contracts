@@ -144,8 +144,8 @@ class BalancedLumens(IRC2Mintable, IRC2Burnable):
             self._last_price.set(rate)
             self._price_update_time.set(self.now())
             self.OraclePrice(base + quote, self._oracle_name.get(), oracle_address, rate)
-        except BaseException as e:
-            revert(f'{base + quote}, {self._oracle_name.get()}, {oracle_address}, Exception: {e}')
+        except Exception:
+            revert(f'{base + quote}, {self._oracle_name.get()}, {oracle_address}.')
 
     # ------------------------------------------------------------------------------------------------------------------
     # EVENTS
