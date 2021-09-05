@@ -653,10 +653,10 @@ class Loans(IconScoreBase):
     @loans_on
     @external
     @only_rebalance
-    def retireRedeem(self, _total_tokens_required: int) -> None:
+    def raisePrice(self, _total_tokens_required: int) -> None:
         """
         This function will  pay off debt from a batch of
-        borrowers proportionately, returning a share of collateral from each
+        borrowers proportionately, selling a share of collateral from each
         position in the batch.
         :param _total_tokens_required: Maximum tokens amount required to balance the pool.
         :type _total_tokens_required: int
@@ -684,8 +684,10 @@ class Loans(IconScoreBase):
                            (self._max_retire_percent.get() * total_batch_debt * EXA)
                            // (POINTS * rate))
 
+        swap_data = b'{"method":"_swap","params":{"toToken":"' + str(self._assets['bnUSD'].get_address()).encode('utf-8') + b'"}}'
+
         self._bnUSD_expected.set(True)
-        self._send_token('sICX', self._dex.get(), sicx_to_sell, "sICX swapped for bnUSD", data_swap_sicx)
+        self._send_token('sICX', self._dex.get(), sicx_to_sell, "sICX swapped for bnUSD", swap_data)
         bnusd_received = self._bnUSD_received.get()
         self._bnUSD_received.set(0)
         self._bnUSD_expected.set(False)
@@ -693,20 +695,19 @@ class Loans(IconScoreBase):
 
         remaining_supply = total_batch_debt
         remaining_bnusd = bnusd_received
-        redeemed_dict = {}
         change_in_pos_dict = {}
 
         for pos_id, user_debt in positions_dict.items():
-            redeemed_dict[pos_id] = remaining_bnusd * user_debt // remaining_supply
-            remaining_bnusd -= redeemed_dict[pos_id]
-            self._positions[pos_id][_symbol] = user_debt - redeemed_dict[pos_id]
+            loan_share = remaining_bnusd * user_debt // remaining_supply
+            remaining_bnusd -= loan_share
+            self._positions[pos_id][_symbol] = user_debt - loan_share
 
             sicx_share = sicx_to_sell * user_debt // remaining_supply
             sicx_to_sell -= sicx_share
             self._positions[pos_id]['sICX'] -= sicx_share
 
             remaining_supply -= user_debt
-            change_in_pos_dict[pos_id] = {"d": -redeemed_dict[pos_id], "c": -sicx_share}
+            change_in_pos_dict[pos_id] = {"d": -loan_share, "c": -sicx_share}
 
         self.Rebalance(self.msg.sender, _symbol, str(change_in_pos_dict),
                        total_batch_debt)
@@ -714,7 +715,7 @@ class Loans(IconScoreBase):
     @loans_on
     @external
     @only_rebalance
-    def generateBnusd(self, _total_tokens_required: int) -> None:
+    def lowerPrice(self, _total_tokens_required: int) -> None:
         """
         This function will add debt to a batch of
         borrowers proportionately along with their collateral.
@@ -743,8 +744,10 @@ class Loans(IconScoreBase):
         self._bnUSD_received.set(0)
         self._bnUSD_expected.set(False)
 
+        swap_data = b'{"method":"_swap","params":{"toToken":"' + str(self._assets['sICX'].get_address()).encode('utf-8') + b'"}}'
+
         self._sICX_expected.set(True)
-        self._send_token('bnUSD', self._dex.get(), bnusd_to_sell, "bnUSD swapped for sICX", data_swap_bnusd)
+        self._send_token('bnUSD', self._dex.get(), bnusd_to_sell, "bnUSD swapped for sICX", swap_data)
         received_sicx = self._sICX_received.get()
         self._sICX_received.set(0)
         self._sICX_expected.set(False)
@@ -753,18 +756,17 @@ class Loans(IconScoreBase):
         remaining_supply = total_batch_debt
         remaining_bnusd = bnusd_to_sell
         change_in_pos_dict = {}
-        debt_added = {}
         for pos_id, user_debt in positions_dict.items():
-            debt_added[pos_id] = remaining_bnusd * user_debt // remaining_supply
-            remaining_bnusd -= debt_added[pos_id]
-            self._positions[pos_id]["bnUSD"] = user_debt + debt_added[pos_id]
+            loan_share = remaining_bnusd * user_debt // remaining_supply
+            remaining_bnusd -= loan_share
+            self._positions[pos_id]["bnUSD"] = user_debt + loan_share
 
             sicx_share = remaining_sicx * user_debt // remaining_supply
             remaining_sicx -= sicx_share
             self._positions[pos_id][_symbol] += sicx_share
 
             remaining_supply -= user_debt
-            change_in_pos_dict[str(pos_id)] = {"d": debt_added[pos_id], "c": sicx_share}
+            change_in_pos_dict[str(pos_id)] = {"d": loan_share, "c": sicx_share}
 
         self.Rebalance(self.msg.sender, 'bnUSD', str(change_in_pos_dict),
                        total_batch_debt)
