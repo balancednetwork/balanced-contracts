@@ -137,7 +137,7 @@ class LoansInterface(InterfaceScore):
         pass
 
     @interface
-    def setMaxRetireAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
+    def setMaxSellAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
         pass
 
 
