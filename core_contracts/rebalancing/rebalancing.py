@@ -46,11 +46,11 @@ class DexTokenInterface(InterfaceScore):
 
 class LoansInterface(InterfaceScore):
     @interface
-    def retireRedeem(self, _total_tokens_required: int) -> None:
+    def raisePrice(self, _total_tokens_required: int) -> None:
         pass
 
     @interface
-    def generateBnusd(self, _total_tokens_required: int) -> None:
+    def lowerPrice(self, _total_tokens_required: int) -> None:
         pass
 
 
@@ -206,14 +206,14 @@ class Rebalancing(IconScoreBase):
         """
         loans = self.create_interface_score(self._loans.get(), LoansInterface)
 
-        rebalance_needed, token_amount, reverse_rebalance = self.getRebalancingStatus()
+        higher, token_amount, lower = self.getRebalancingStatus()
         if token_amount > 0:
-            if rebalance_needed:
-                loans.retireRedeem(token_amount)
+            if higher:
+                loans.raisePrice(token_amount)
         else:
             token_amount = abs(token_amount)
-            if reverse_rebalance:
-                loans.generateBnusd(token_amount)
+            if lower:
+                loans.lowerPrice(token_amount)
 
     @external
     def tokenFallback(self, _from: Address, value: int, _data: bytes) -> None:
