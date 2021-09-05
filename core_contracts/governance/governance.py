@@ -695,6 +695,17 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def removeDataSource(self, _data_source_name: str) -> None:
+        """
+        Removes a data source from the rewards.
+        :param _data_source_name: Name for the data source.
+        :type _data_source_name: str
+        """
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
+        rewards.removeDataSource(_data_source_name)
+
+    @external
+    @only_owner
     def updateBalTokenDistPercentage(self, _recipient_list: List[DistPercentDict]) -> None:
         """
         Assign percentages for distribution to the data sources. Must sum to 100%.
@@ -707,7 +718,6 @@ class Governance(IconScoreBase):
     def bonusDist(self, _addresses: List[Address], _amounts: List[int]) -> None:
         """
         Method to enable distribution of bonus BALN.
-
         :param _addresses: List of recipient addresses.
         :type _addresses: List[:class:`iconservice.base.address.Address`]
         :param _amounts: List of BALN amounts to send.
@@ -740,7 +750,6 @@ class Governance(IconScoreBase):
         """
         :param _id: Pool ID to map to the name
         :param _name: Name to associate
-
         Links a pool ID to a name, so users can look up platform-defined
         markets more easily.
         """
@@ -753,7 +762,6 @@ class Governance(IconScoreBase):
     def delegate(self, _delegations: List[PrepDelegations]):
         """
         Sets the delegation preference for the sICX held on the Loans contract.
-
         :param _delegations: List of dictionaries with two keys, Address and percent.
         :type _delegations: List[PrepDelegations]
         """

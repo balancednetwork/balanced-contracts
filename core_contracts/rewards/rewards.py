@@ -47,6 +47,9 @@ class Rewards(IconScoreBase):
         self._batch_size = VarDB('batch_size', db, value_type=int)
         self._baln_holdings = DictDB('baln_holdings', db, value_type=int)
         self._recipient_split = DictDB('recipient_split', db, value_type=int)
+        self._snapshot_recipient = DictDB('snapshot_recipient', db, value_type=int, depth=3)
+        self._complete_recipient = ArrayDB('complete_recipient', db, value_type= str)
+        self._total_snapshots = DictDB("total_snapshots", db, value_type=int)
         self._recipients = ArrayDB('recipients', db, value_type=str)
         self._platform_recipients = {'Worker Tokens': self._bwt_address,
                                      'Reserve Fund': self._reserve_fund,
@@ -69,8 +72,11 @@ class Rewards(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self._data_source_db['sICX/bnUSD'].precomp.set(0)
-        self._data_source_db['sICX/bnUSD'].offset.set(0)
+        self._upate_addRecipientsToArrayDB()
+
+    def _upate_addRecipientsToArrayDB(self) -> None:
+        for recipient in self._recipients:
+            self._complete_recipient.put(recipient)
 
     @external
     @only_governance
@@ -134,8 +140,8 @@ class Rewards(IconScoreBase):
                 revert(f'{TAG}: Recipient {name} does not exist.')
 
             percent = recipient['dist_percent']
-            self._recipient_split[name] = percent
-
+            # self._recipient_split[name] = percent
+            self._update_recipient_snapshot(name, percent)
             source = self._data_source_db[name]
             if source.get_data()['dist_percent'] == 0:
                 source.set_day(day)
@@ -173,7 +179,8 @@ class Rewards(IconScoreBase):
         :return: dict of recipient {names: percent}
         :rtype dict
         """
-        return {recipient: self._recipient_split[recipient] for recipient in self._recipients}
+        day = self._get_day()
+        return self.recipientAt(day)
 
     @external
     @only_governance
@@ -195,8 +202,33 @@ class Rewards(IconScoreBase):
         if not _address.is_contract:
             revert(f'{TAG}: Data source must be a contract.')
         self._recipients.put(_name)
-        self._recipient_split[_name] = 0
+        self._complete_recipient.put(_name)
+        # self._recipient_split[_name] = 0
+        # self._update_recipient_snapshot(_name, 0)
         self._data_source_db.new_source(_name, _address)
+
+    @external
+    @only_governance
+    def removeDataSource(self, _name: str) -> None:
+        """
+        Sources for data on which to base incentive rewards are removed with this
+        method.
+
+        :param _name: Identifying name for the data source.
+        :type _name: str
+        """
+        if _name not in self._recipients:
+            return
+        day = self._get_day()
+        recipient_dist = self.recipientAt(day)
+        if recipient_dist[_name] != 0:
+            revert(f'{TAG}: Data source rewards percentage must be set to 0 before removing.')
+        top = self._recipients.pop()
+        if top != _name:
+            for i in range(len(self._recipients)):
+                if self._recipients[i] == _name:
+                    self._recipients[i] = top
+        self._data_source_db.remove_source(_name)
 
     @external(readonly=True)
     def getDataSources(self) -> dict:
@@ -211,6 +243,18 @@ class Rewards(IconScoreBase):
         source = self._data_source_db[_name]
         return source.get_data()
 
+    def _update_recipient_snapshot(self, _recipient: str, _percent: int) -> None:
+        currentDay = self._get_day()
+        total_snapshots_taken = self._total_snapshots[_recipient]
+
+        if total_snapshots_taken > 0 and self._snapshot_recipient[_recipient][total_snapshots_taken - 1]["ids"] == currentDay:
+            self._snapshot_recipient[_recipient][total_snapshots_taken - 1]["amount"] = _percent
+
+        else:
+            self._snapshot_recipient[_recipient][total_snapshots_taken]["ids"] = currentDay
+            self._snapshot_recipient[_recipient][total_snapshots_taken]["amount"] = _percent
+            self._total_snapshots[_recipient] = total_snapshots_taken + 1
+
     @external
     def distribute(self) -> bool:
         platform_day = self._platform_day.get()
@@ -223,8 +267,9 @@ class Rewards(IconScoreBase):
                 self._total_dist.set(distribution)
                 shares = EXA
                 remaining = distribution
-                for name in self._recipients:
-                    split = self._recipient_split[name]
+                recipient_dist = self.recipientAt(day)
+                for name in recipient_dist.keys():
+                    split = recipient_dist[name]
                     share = remaining * split // shares
                     if name in self._data_source_db:
                         self._data_source_db[name].total_dist[platform_day] = share
@@ -234,7 +279,7 @@ class Rewards(IconScoreBase):
                     shares -= split
                     if shares == 0:
                         break
-                self._total_dist.set(remaining) # remaining will be == 0 at this point.
+                self._total_dist.set(remaining)  # remaining will be == 0 at this point.
                 self._platform_day.set(platform_day + 1)
                 return False
         batch_size = self._batch_size.get()
@@ -244,6 +289,42 @@ class Rewards(IconScoreBase):
                 source._distribute(batch_size)
                 return False
         return True
+
+    @external(readonly=True)
+    def recipientAt(self, _day: int) -> dict:
+        if _day < 0:
+            revert(f"{TAG}: day:{_day} must be equal to or greater then Zero")
+        dict_distribution = {}
+        for _recipient in self._complete_recipient:
+            total_snapshots_taken = self._total_snapshots[_recipient]
+            if total_snapshots_taken == 0:
+                dict_distribution[_recipient] = self._recipient_split[_recipient]
+                continue
+
+            if self._snapshot_recipient[_recipient][total_snapshots_taken - 1]["ids"] <= _day:
+                dict_distribution[_recipient] = self._snapshot_recipient[_recipient][total_snapshots_taken - 1]["amount"]
+                continue
+
+            if self._snapshot_recipient[_recipient][0]["ids"] > _day:
+                dict_distribution[_recipient] = self._recipient_split[_recipient]
+                continue
+
+            low = 0
+            high = total_snapshots_taken - 1
+            while high > low:
+                mid = high - (high - low) // 2
+                mid_value = self._snapshot_recipient[_recipient][mid]
+                if mid_value["ids"] == _day:
+                    dict_distribution[_recipient] =  mid_value["amount"]
+                    continue
+                elif mid_value["ids"] < _day:
+                    low = mid
+                else:
+                    high = mid - 1
+
+            dict_distribution[_recipient] = self._snapshot_recipient[_recipient][low]["amount"]
+        dict_distribution = {k: v for k, v in dict_distribution.items() if v != 0}
+        return dict_distribution
 
     @external
     def claimRewards(self) -> None:

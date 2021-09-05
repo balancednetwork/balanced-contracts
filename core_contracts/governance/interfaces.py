@@ -260,6 +260,10 @@ class RewardsInterface(InterfaceScore):
         pass
 
     @interface
+    def removeDataSource(self, _name: str) -> None:
+        pass
+
+    @interface
     def updateBalTokenDistPercentage(self, _recipient_list: List[DistPercentDict]) -> None:
         pass
 
