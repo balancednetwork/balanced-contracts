@@ -14,6 +14,7 @@
 
 from iconservice import *
 from .utils.checks import *
+from .utils.enumerable_set import *
 
 TAG = 'DAOfund'
 
@@ -33,6 +34,10 @@ class TokenInterface(InterfaceScore):
 
     @interface
     def transfer(self, _to: Address, _value: int, _data: bytes = None):
+        pass
+
+    @interface
+    def symbol(self) -> str:
         pass
 
 
@@ -68,6 +73,7 @@ class DAOfund(IconScoreBase):
     _GOVERNANCE = 'governance'
     _ADMIN = 'admin'
     _LOANS_SCORE = 'loans_score'
+    _SYMBOL = "symbol"
     _FUND = 'fund'
     _AWARDS = 'awards'
 
@@ -77,6 +83,7 @@ class DAOfund(IconScoreBase):
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._loans_score = VarDB(self._LOANS_SCORE, db, value_type=Address)
         self._fund = DictDB(self._FUND, db, value_type=int)
+        self._symbol = EnumerableSetDB(self._SYMBOL, db, value_type=str)
         self._awards = DictDB(self._AWARDS, db, value_type=int, depth=2)
 
     def on_install(self, _governance: Address) -> None:
@@ -85,6 +92,13 @@ class DAOfund(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        self._add_symbol_to_setdb()
+
+    def _add_symbol_to_setdb(self) -> None:
+        loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
+        assets = loans.getAssetTokens()
+        for symbol in assets:
+            self._symbol.add(symbol)
 
     @external(readonly=True)
     def name(self) -> str:
@@ -123,10 +137,8 @@ class DAOfund(IconScoreBase):
 
     @external(readonly=True)
     def getBalances(self) -> dict:
-        loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
-        assets = loans.getAssetTokens()
         balances = {}
-        for symbol in assets:
+        for symbol in self._symbol.range(0, len(self._symbol)):
             balances[symbol] = self._fund[symbol]
         balances['ICX'] = self._fund['ICX']
         return balances
@@ -188,7 +200,11 @@ class DAOfund(IconScoreBase):
             if assets[symbol] == address:
                 self._fund[symbol] += _value
                 return
-        revert(f'{TAG}: The DAOfund can only accept tokens that are among the Balanced Assets.')
+        token_contract = self.create_interface_score(self.msg.sender, TokenInterface)
+        symbol = token_contract.symbol()
+        if symbol not in self._symbol:
+            self._symbol.add(symbol)
+        self._fund[symbol] += _value
 
     def _send_ICX(self, _to: Address, amount: int, msg: str) -> None:
         """
