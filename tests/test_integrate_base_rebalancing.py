@@ -113,7 +113,7 @@ class BalancedTestUtils(IconIntegrateTestBase):
         return response
 
     def send_tx(self, from_: KeyWallet, to: str, value: int = 0, method: str = None, params: dict = None) -> dict:
-        print(f"------------Calling {method}, with params={params} to {to} contract----------")
+        print(f"------------Calling {method}----------")
         signed_transaction = self.build_tx(from_, to, value, method, params)
         tx_result = self.process_transaction(signed_transaction, self.icon_service, self.tx_result_wait)
         self.assertTrue('status' in tx_result)
@@ -145,7 +145,7 @@ class BalancedTestUtils(IconIntegrateTestBase):
             params=params
         ).build()
         response = self.process_call(call, self.icon_service)
-        print(f"-----Reading method={method}, with params={params} on the {to} contract------")
+        print(f"-----Reading method={method}------")
         print(f"-------------------The output is: : {response}")
         return response
 
@@ -153,12 +153,10 @@ class BalancedTestUtils(IconIntegrateTestBase):
 class BalancedTestBaseRebalancing(BalancedTestUtils):
     CORE_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../core_contracts"))
     TOKEN_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../token_contracts"))
-    BALANCER_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../core_contracts"))
 
 
-    CORE_CONTRACTS = ["loans", "staking", "dividends", "reserve", "daofund", "rewards", "dex", "governance", "oracle"]
+    CORE_CONTRACTS = ["loans", "staking", "dividends", "reserve", "daofund", "rewards", "dex", "governance", "oracle", "rebalancing"]
     TOKEN_CONTRACTS = ["sicx", "bnUSD", "baln", "bwt"]
-    BALANCER_CONTRACT = ["rebalancing"]
     CONTRACTS = CORE_CONTRACTS + TOKEN_CONTRACTS
 
     def setUp(self):
@@ -205,12 +203,12 @@ class BalancedTestBaseRebalancing(BalancedTestUtils):
 
     def _deploy_all(self):
         governance = "governance"
-        core_contracts = ["daofund", "dex", "dividends", "loans", "reserve", "rewards"]
+        core_contracts = ["daofund", "dex", "dividends", "loans", "reserve", "rewards", "rebalancing"]
         external_contracts = ["oracle", "staking"]
         token_contracts = ["baln", "bnUSD", "bwt"]
         governed_contracts = core_contracts + token_contracts
         sicx = "sicx"
-        rebalancing = "rebalancing"
+        # rebalancing = "rebalancing"
         all_contracts = governed_contracts + external_contracts
 
         governance_deploy_tx = self.deploy_tx(
@@ -254,14 +252,6 @@ class BalancedTestBaseRebalancing(BalancedTestUtils):
                              f"Failure: {tx_result['failure']}" if tx_result['status'] == 0 else "")
             self.contracts[all_contracts[idx]] = tx_result[SCORE_ADDRESS]
 
-        rebalancer_deploy_tx = self.deploy_tx(
-            from_=self.btest_wallet,
-            to=self.contracts.get(rebalancing, SCORE_INSTALL_ADDRESS),
-            content=os.path.abspath(os.path.join(self.BALANCER_CONTRACTS_PATH, rebalancing)),
-            params={'_governance': self.contracts[governance]}
-        )
-        self.contracts[rebalancing] = rebalancer_deploy_tx[SCORE_ADDRESS]
-
         sicx_deploy_tx = self.deploy_tx(
             from_=self.staking_wallet,
             to=self.contracts.get(sicx, SCORE_INSTALL_ADDRESS),
@@ -278,6 +268,7 @@ class BalancedTestBaseRebalancing(BalancedTestUtils):
         print("-------------------------------Configuring balanced----------------------------------------------------")
         config = self.CONTRACTS.copy()
         config.remove('governance')
+        config.remove('rebalancing')
         addresses = {contract: self.contracts[contract] for contract in config}
 
         txs = [self.build_tx(self.btest_wallet, to=self.contracts['governance'],
@@ -328,12 +319,12 @@ class BalancedTestBaseRebalancing(BalancedTestUtils):
     def get_sicx_address(self) -> str:
         return self.contracts['sicx']
 
-    def test_update(self):
-        loans = "loans"
+    def score_update(self, _score: str):
+        score = _score
         loans_deploy_tx = self.deploy_tx(
             from_=self.btest_wallet,
-            to=self.contracts.get(loans, self.contracts['loans']),
-            content=os.path.abspath(os.path.join(self.CORE_CONTRACTS_PATH, loans)),
+            to=self.contracts.get(score, self.contracts[score]),
+            content=os.path.abspath(os.path.join(self.CORE_CONTRACTS_PATH, score)),
             params={}
         )
-        self.contracts[loans] = loans_deploy_tx[SCORE_ADDRESS]
+        self.contracts[score] = loans_deploy_tx[SCORE_ADDRESS]

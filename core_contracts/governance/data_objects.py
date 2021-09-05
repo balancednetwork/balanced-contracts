@@ -32,7 +32,10 @@ class VoteActions(object):
         self._actions = {
             'enable_dividends': self._gov.enableDividends,
             'addNewDataSource': self._gov.addNewDataSource,
-            'updateDistPercent': self._gov.updateBalTokenDistPercentage
+            'updateDistPercent': self._gov.updateBalTokenDistPercentage,
+            'update_mining_ratio': self._gov.setMiningRatio,
+            'update_locking_ratio': self._gov.setLockingRatio,
+            'update_origination_fee': self._gov.setOriginationFee
         }
 
     def __getitem__(self, key: str):
@@ -202,5 +205,4 @@ class ProposalStatus:
     SUCCEEDED = 4
     NO_QUORUM = 5
     EXECUTED = 6
-    FAILED_EXECUTION = 7
-    STATUS = ["Pending", "Active", "Cancelled", "Defeated", "Succeeded", "No Quorum", "Executed", "Failed Execution"]
+    STATUS = ["Pending", "Active", "Cancelled", "Defeated", "Succeeded", "No Quorum", "Executed"]
