@@ -61,7 +61,7 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
 
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setRebalancingThreshold',
                      {"_value": 5 * 10 ** 17})
-        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setMaxRetireAmount',
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, 'setMaxSellAmount',
                      {"_sicx_value": 1000 * 10 ** 18, "_bnusd_value": 1000 * 10 ** 18})
 
     def test_reverse_rebalance(self):
@@ -96,6 +96,10 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
 
             before_bnusd = self.call_tx(self.contracts['bnUSD'], 'balanceOf', {"_owner": self.contracts['loans']})
             loans_bnusd_before_rebalancing = int(before_bnusd, 0)
+            self.assertEqual(0, loans_bnusd_before_rebalancing, "Loans cannot have bnUSD")
+
+            before_sicx = self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['loans']})
+            loans_sicx_before_rebalancing = int(before_sicx, 0)
 
             self.call_tx(self.contracts['dex'], 'getPoolStats', {"_id": 2})
 
@@ -134,9 +138,9 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
                         total_batch_debt = int((i["data"][-1]), 0)
                         redeemed_bnusd = str(redeemed_bnusd_dict).split('{')
                         for x in redeemed_bnusd:
-                            if "debt" and "collateral" in x:
-                                debt = int(re.search("debt':(.+?),", x).group(1))
-                                collateral = int(re.search("collateral':(.+?)}", x).group(1))
+                            if "d" and "c" in x:
+                                debt = int(re.search("d':(.+?),", x).group(1))
+                                collateral = int(re.search("c':(.+?)}", x).group(1))
                                 total_debt_added += debt
                                 total_collateral_added += collateral
 
@@ -158,8 +162,12 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
 
             bnusd_after = self.call_tx(self.contracts['bnUSD'], 'balanceOf', {"_owner": self.contracts['loans']})
             loans_bnusd_after_rebalancing = int(bnusd_after, 0)
+            self.assertEqual(0, loans_bnusd_after_rebalancing, "Loans cannot have bnUSD")
 
-            _retire_amount = self.call_tx(self.contracts['loans'], 'getMaxRetireAmount')
+            after_sicx = self.call_tx(self.contracts['sicx'], 'balanceOf', {"_owner": self.contracts['loans']})
+            loans_sicx_after_rebalancing = int(after_sicx, 0)
+
+            _retire_amount = self.call_tx(self.contracts['loans'], 'getMaxSellAmount')
             max_retire_amount = int(_retire_amount['bnUSD'], 0)
             expected = (10 * total_batch_debt) // 10000
             generated_bnusd = min(abs(int(status[1], 0)), max_retire_amount, expected)
@@ -167,7 +175,9 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
             self.assertEqual(abs(total_debt_added), generated_bnusd, "The added value is not equal to the bnUSD added")
 
             if int(status[2], 0) == 1:
-                self.assertEqual(generated_bnusd, loans_bnusd_after_rebalancing)
+                self.assertEqual(loans_sicx_before_rebalancing + abs(total_collateral_added), loans_sicx_after_rebalancing,
+                                 "The added value is not equal to the sicx added")
+
 
             self.call_tx(self.contracts['rebalancing'], 'getRebalancingStatus', {})
 
