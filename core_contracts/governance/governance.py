@@ -81,7 +81,7 @@ class Governance(IconScoreBase):
     @only_owner
     def setQuorum(self, quorum: int) -> None:
         """
-        Sets the percentage of the total eligible baln which must participate in a vote 
+        Sets the percentage of the total eligible baln which must participate in a vote
         for a vote to be valid.
 
         :param quorum: percentage of the total eligible baln required for a vote to be valid
@@ -566,15 +566,15 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def setRebalancingSicx(self, _value: int) -> None:
-        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
-        rebalancing.setSicxReceivable(_value)
-
-    @external
-    @only_owner
     def setRebalancingThreshold(self, _value: int) -> None:
         rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
         rebalancing.setPriceDiffThreshold(_value)
+
+    @external
+    @only_owner
+    def setMaxSellAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setMaxSellAmount(_sicx_value, _bnusd_value)
 
     @external
     @only_owner

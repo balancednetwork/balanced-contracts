@@ -27,10 +27,6 @@ class StakingInterface(InterfaceScore):
 
 class RebalancingInterface(InterfaceScore):
     @interface
-    def setSicxReceivable(self, _value: int) -> None:
-        pass
-
-    @interface
     def setPriceDiffThreshold(self, _value: int) -> None:
         pass
 
@@ -152,6 +148,10 @@ class LoansInterface(InterfaceScore):
     def setLiquidationReward(self, _points: int):
         pass
 
+    @interface
+    def setMaxSellAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
+        pass
+
 
 # An interface to the Loans SCORE
 class DexInterface(InterfaceScore):
@@ -226,22 +226,6 @@ class DexInterface(InterfaceScore):
 
     @interface
     def totalBalnAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
-        pass
-
-    @interface
-    def setPoolLpFee(self, _value: int) -> None:
-        pass
-
-    @interface
-    def setPoolBalnFee(self, _value: int) -> None:
-        pass
-
-    @interface
-    def setIcxConversionFee(self, _value: int) -> None:
-        pass
-
-    @interface
-    def setIcxBalnFee(self, _value: int) -> None:
         pass
 
 
