@@ -181,6 +181,25 @@ class Loans(IconScoreBase):
     def on_update(self) -> None:
         super().on_update()
 
+    @external
+    @only_owner
+    def setNextNode(self, _node_id: int) -> None:
+        self._positions.next_node.set(_node_id)
+
+    @external(readonly=True)
+    def getNextNode(self) -> int:
+        return self._positions.next_node.get()
+
+    @external(readonly=True)
+    def getNonzeroNode(self, _id: int) -> dict:
+        nonzero = self._positions.get_nonzero()
+        return {"next": nonzero.get_next_ro(_id), "prev": nonzero.get_prev_ro(_id)}
+
+    @external(readonly=True)
+    def getMetaData(self) -> str:
+        nonzero = self._positions.get_nonzero()
+        return nonzero.get_metadata()
+
     @external(readonly=True)
     def name(self) -> str:
         return "Balanced Loans"
@@ -517,8 +536,8 @@ class Loans(IconScoreBase):
             return
         try:
             d = json_loads(_data.decode("utf-8"))
-        except BaseException as e:
-            revert(f'{TAG}: Invalid data: {_data}, returning tokens. Exception: {e}')
+        except Exception:
+            revert(f'{TAG}: Invalid data: {_data}, returning tokens.')
         if set(d.keys()) == {"_asset", "_amount"}:
             self.depositAndBorrow(d['_asset'], d['_amount'], _from, _value)
         else:
@@ -967,9 +986,8 @@ class Loans(IconScoreBase):
             token_score = self.create_interface_score(address, TokenInterface)
             token_score.transfer(_to, _amount, _data)
             self.TokenTransfer(_to, _amount, f'{msg} {_amount} {_token} sent to {_to}.')
-        except BaseException as e:
-            revert(f'{TAG}: {_amount} {_token} not sent to {_to}. '
-                   f'Exception: {e}')
+        except Exception:
+            revert(f'{TAG}: {_amount} {_token} not sent to {_to}. ')
 
     def fallback(self):
         pass
@@ -1056,6 +1074,11 @@ class Loans(IconScoreBase):
     @only_admin
     def setRedemptionFee(self, _fee: int) -> None:
         self._redemption_fee.set(_fee)
+
+    @external
+    @only_admin
+    def setRetirementBonus(self, _points: int) -> None:
+        self._retirement_bonus.set(_points)
 
     @external
     @only_admin

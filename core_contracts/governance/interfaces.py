@@ -125,15 +125,27 @@ class LoansInterface(InterfaceScore):
         pass
 
     @interface
-    def setMiningRatio(self, _value) -> None:
+    def setMiningRatio(self, _value: int) -> None:
         pass
 
     @interface
-    def setLockingRatio(self, _value) -> None:
+    def setLockingRatio(self, _value: int) -> None:
         pass
 
     @interface
-    def setOriginationFee(self, _fee) -> None:
+    def setOriginationFee(self, _fee: int) -> None:
+        pass
+
+    @interface
+    def setLiquidationRatio(self, _ratio: int) -> None:
+        pass
+
+    @interface
+    def setRetirementBonus(self, _points: int):
+        pass
+
+    @interface
+    def setLiquidationReward(self, _points: int):
         pass
 
     @interface
@@ -263,6 +275,9 @@ class DividendsInterface(InterfaceScore):
     def setDistributionActivationStatus(self, _status: bool) -> None:
         pass
 
+    def setDividendsCategoryPercentage(self, _dist_list: List[DistPercentDict]) -> None:
+        pass
+
 
 # An interface to call the setAddress methods on each SCORE.
 class SetAddressesInterface(InterfaceScore):
@@ -321,6 +336,10 @@ class SetAddressesInterface(InterfaceScore):
 
 
 class BalancedInterface(InterfaceScore):
+
+    @interface
+    def totalSupply(self) -> int:
+        pass
 
     @interface
     def totalStakedBalance(self) -> int:
@@ -425,4 +444,10 @@ class BalancedWorkerTokenInterface(InterfaceScore):
 
     @interface
     def adminTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = None):
+        pass
+
+class BnUSDInterface(InterfaceScore):
+
+    @interface
+    def govTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = b'None') -> None:
         pass

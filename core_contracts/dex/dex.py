@@ -419,6 +419,42 @@ class DEX(IconScoreBase):
 
     @only_governance
     @external
+    def setPoolLpFee(self, _value: int) -> None:
+        """
+        :params _value: value of pool lp fee
+        Set the value of pool lp fee
+        """
+        self._pool_lp_fee.set(_value)
+
+    @only_governance
+    @external
+    def setPoolBalnFee(self, _value: int) -> None:
+        """
+        :params _value: value of pool baln fee
+        Set the value of pool baln fee
+        """
+        self._pool_baln_fee.set(_value)
+
+    @only_governance
+    @external
+    def setIcxConversionFee(self, _value: int) -> None:
+        """
+        :params _value: value of icx conversion fee
+        Set the value of icx conversion fee
+        """
+        self._icx_conversion_fee.set(_value)
+
+    @only_governance
+    @external
+    def setIcxBalnFee(self, _value: int) -> None:
+        """
+        :params _value: value of icx baln fee
+        Set the value of icx baln fee
+        """
+        self._icx_baln_fee.set(_value)
+
+    @only_governance
+    @external
     def setMarketName(self, _id: int, _name: str) -> None:
         """
         :param _id: Pool ID to map to the name
@@ -666,15 +702,17 @@ class DEX(IconScoreBase):
         if self._balance[_id][_from] < _value:
             revert(f"{TAG}: Out of balance.")
         
-        if _id < 5:
+        if _id < FIRST_NON_BALANCED_POOL:
             revert(f"{TAG}: untransferrable token id")
 
         self._balance[_id][_from] = self._balance[_id][_from] - _value
         self._balance[_id][_to] = self._balance[_id][_to] + _value
 
-        self._active_addresses[_id].add(_to)
+        if _value > 0:
+            self._active_addresses[_id].add(_to)
+
         if self._balance[_id][_from] == 0:
-            self._active_addresses[_id].discard(_from)
+            self._active_addresses[_id].remove(_from)
 
         self.TransferSingle(self.msg.sender, _from, _to, _id, _value)
 
@@ -1716,7 +1754,9 @@ class DEX(IconScoreBase):
         self._balance[_id][_owner] += liquidity
         self._total[_id] += liquidity
 
-        self._withdraw_lock[_id][self.msg.sender] = self.now()
+        # Only add withdraw locks to Balanced pools
+        if _id < FIRST_NON_BALANCED_POOL:
+            self._withdraw_lock[_id][self.msg.sender] = self.now()
 
         self.Add(_id, _owner, liquidity, base_to_commit, quote_to_commit)
 
@@ -1726,7 +1766,10 @@ class DEX(IconScoreBase):
         user_quote_holdings = self._balance[_id][self.msg.sender] \
                               * self._pool_total[_id][_quoteToken] // self.totalSupply(_id)
 
-        self._revert_below_minimum(user_quote_holdings, _quoteToken)
+        # Only add restrictions to Balanced pools
+        if _id < FIRST_NON_BALANCED_POOL:
+            self._revert_below_minimum(user_quote_holdings, _quoteToken)
+        
         self._active_addresses[_id].add(self.msg.sender)
 
         self._update_account_snapshot(_owner, _id)

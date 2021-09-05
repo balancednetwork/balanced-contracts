@@ -63,10 +63,6 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
 
     def on_update(self) -> None:
         super().on_update()
-        old_div_address = Address.from_string('cx13f08df7106ae462c8358066e6d47bb68d995b6d')
-        new_div_address = Address.from_string('cx203d9cd2a669be67177e997b8948ce2c35caffae')
-        old_div_balance = self._balances[old_div_address]
-        self._transfer(old_div_address, new_div_address, old_div_balance, b'')
 
     @external(readonly=True)
     def getPeg(self) -> str:
@@ -144,6 +140,11 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
         priceData = oracle.get_reference_data(base, quote)
         return priceData['rate']
 
+    @external
+    @only_governance
+    def govTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = b'None') -> None:
+        self._transfer(_from, _to, _value, _data)
+
     def update_asset_value(self) -> None:
         """
         Calls the oracle method for the asset and updates the asset
@@ -158,8 +159,8 @@ class BalancedDollar(IRC2Mintable, IRC2Burnable):
             self._last_price.set(priceData['rate'])
             self._price_update_time.set(self.now())
             self.OraclePrice(base + quote, self._oracle_name.get(), oracle_address, priceData['rate'])
-        except BaseException as e:
-            revert(f'{base + quote}, {self._oracle_name.get()}, {oracle_address}, Exception: {e}')
+        except Exception:
+            revert(f'{base + quote}, {self._oracle_name.get()}, {oracle_address}.')
 
     # ------------------------------------------------------------------------------------------------------------------
     # EVENTS
