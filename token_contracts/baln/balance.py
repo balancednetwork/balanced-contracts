@@ -261,8 +261,8 @@ class BalancedToken(IRC2):
             self._last_price.set(priceData['rate'] * price // EXA)
             self._price_update_time.set(self.now())
             self.OraclePrice(base + quote, self._oracle_name.get(), dex_score, price)
-        except BaseException as e:
-            revert(f'{base + quote}, {self._oracle_name.get()}, {dex_score}, Exception: {e}')
+        except Exception:
+            revert(f'{base + quote}, {self._oracle_name.get()}, {dex_score}.')
 
     @external(readonly=True)
     def detailsBalanceOf(self, _owner: Address) -> dict:

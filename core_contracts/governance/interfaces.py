@@ -27,10 +27,6 @@ class StakingInterface(InterfaceScore):
 
 class RebalancingInterface(InterfaceScore):
     @interface
-    def setSicxReceivable(self, _value: int) -> None:
-        pass
-
-    @interface
     def setPriceDiffThreshold(self, _value: int) -> None:
         pass
 
@@ -129,15 +125,31 @@ class LoansInterface(InterfaceScore):
         pass
 
     @interface
-    def setMiningRatio(self, _value) -> None:
+    def setMiningRatio(self, _value: int) -> None:
         pass
 
     @interface
-    def setLockingRatio(self, _value) -> None:
+    def setLockingRatio(self, _value: int) -> None:
         pass
 
     @interface
-    def setOriginationFee(self, _fee) -> None:
+    def setOriginationFee(self, _fee: int) -> None:
+        pass
+
+    @interface
+    def setLiquidationRatio(self, _ratio: int) -> None:
+        pass
+
+    @interface
+    def setRetirementBonus(self, _points: int):
+        pass
+
+    @interface
+    def setLiquidationReward(self, _points: int):
+        pass
+
+    @interface
+    def setMaxSellAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
         pass
 
 
@@ -216,6 +228,7 @@ class DexInterface(InterfaceScore):
     def totalBalnAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
         pass
 
+
 # An interface to the Rewards SCORE
 class RewardsInterface(InterfaceScore):
     @interface
@@ -264,6 +277,9 @@ class DividendsInterface(InterfaceScore):
 
     @interface
     def setDistributionActivationStatus(self, _status: bool) -> None:
+        pass
+
+    def setDividendsCategoryPercentage(self, _dist_list: List[DistPercentDict]) -> None:
         pass
 
 

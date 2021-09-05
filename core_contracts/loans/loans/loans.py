@@ -103,6 +103,9 @@ class Loans(IconScoreBase):
     _MIN_MINING_DEBT = 'min_mining_debt'
     _MAX_DEBTS_LIST_LENGTH = 'max_debts_list_length'
 
+    _MAX_SICX_SELL = '_max_sicx_sell'
+    _MAX_BNUSD_SELL = '_max_bnusd_sell'
+
     _REDEEM_BATCH_SIZE = 'redeem_batch_size'
     _MAX_RETIRE_PERCENT = 'max_retire_percent'
     _SICX_EXPECTED = 'sicx_expected'
@@ -122,6 +125,8 @@ class Loans(IconScoreBase):
         self._staking = VarDB(self._STAKING, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._snap_batch_size = VarDB(self._SNAP_BATCH_SIZE, db, value_type=int)
+        self._max_bnusd_sell = VarDB(self._MAX_BNUSD_SELL, db, value_type=int)
+        self._max_sicx_sell = VarDB(self._MAX_SICX_SELL, db, value_type=int)
         self._global_index = VarDB(self._GLOBAL_INDEX, db, value_type=int)
         self._global_batch_index = VarDB(self._GLOBAL_BATCH_INDEX, db, value_type=int)
 
@@ -227,7 +232,6 @@ class Loans(IconScoreBase):
     def delegate(self, _delegations: List[PrepDelegations]):
         """
         Sets the delegation preference for the sICX held on the contract.
-
         :param _delegations: List of dictionaries with two keys, Address and percent.
         :type _delegations: List[PrepDelegations]
         """
@@ -254,37 +258,6 @@ class Loans(IconScoreBase):
             snapshot = self._positions._snapshot_db[_day]
             debts[address] = snapshot.pos_state[pos_id]['total_debt']
         return debts
-
-    @external(readonly=True)
-    def getMaxRetireAmount(self, _symbol: str) -> int:
-        """
-        The maximum amount allowed to be liquidated from a batch of borrowers
-        is 1% of their debt, to limit the impact on any single borrower.
-        The limit on the amount that can be retired is increased by the amount
-        of bad debt for the asset since all of that can be paid off at once.
-
-        :param _symbol: Symbol for the asset to be retired.
-        :type _symbol: str
-        :return: Maximum amount accepted by the _retire_asset method.
-        :rtype: int
-        """
-        asset = self._assets[_symbol]
-        batch_size = self._redeem_batch.get()
-        borrowers = asset.get_borrowers()
-        node_id = borrowers.get_head_id()
-        tail_id = borrowers.get_tail_id()
-        total_batch_debt: int = 0
-
-        for i in range(min(batch_size, len(borrowers))):
-            user_debt = borrowers.node_value(node_id)
-            total_batch_debt += user_debt
-            if tail_id != node_id:
-                node_id = borrowers.next(node_id)
-
-        bad_debt = asset.bad_debt.get()
-        max_retire_percent = self._max_retire_percent.get()
-        top = bad_debt * POINTS + total_batch_debt * max_retire_percent
-        return top // (POINTS - self._redemption_fee.get())
 
     @external(readonly=True)
     def checkDeadMarkets(self) -> list:
@@ -468,6 +441,24 @@ class Loans(IconScoreBase):
         loop_value = self._positions._snapshot_db[-2].total_mining_debt.get()
         return EXA * loop_value // bnUSD_price
 
+    @external
+    @only_governance
+    def setMaxSellAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
+        """
+        :param _sicx_value: Maximum sICX amount to sell.
+        :param _bnusd_value: Maximum bnUSD amount to sell.
+        Sets the Maximum sICX amount and Maximum bnUSD amount to sell.
+        """
+        self._max_sicx_sell.set(_sicx_value)
+        self._max_bnusd_sell.set(_bnusd_value)
+
+    @external(readonly=True)
+    def getMaxSellAmount(self) -> dict:
+        """
+        Returns the Maximum sICX amount and Maximum bnUSD amount to sell.
+        """
+        return {"sICX": self._max_sicx_sell.get(), "bnUSD": self._max_bnusd_sell.get()}
+
     @external(readonly=True)
     def getDataCount(self, _snapshot_id: int) -> int:
         """
@@ -525,7 +516,6 @@ class Loans(IconScoreBase):
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
         Directs incoming tokens to deposit collateral or return an asset.
-
         :param _from: Address of the token sender.
         :type _from: :class:`iconservice.base.address.Address`
         :param _value: Number of tokens sent.
@@ -564,7 +554,6 @@ class Loans(IconScoreBase):
         If the optional parameters of _asset and _amount are present a loan of
         _amount of _asset will be returned to the originating address if
         there is sufficient collateral present.
-
         :param _from: Sender address if sICX is received.
         :type _from: :class:`iconservice.base.address.Address`
         :param _value: Amount of sICX received.
@@ -607,7 +596,6 @@ class Loans(IconScoreBase):
          Returned assets come back to Balanced through this method.
          This will pay off bad debt in exchange for
         collateral from the liquidation pool.
-
         :param _symbol: retired token symbol.
         :type _symbol: str
         :param _value: Number of tokens sent.
@@ -639,7 +627,6 @@ class Loans(IconScoreBase):
     def returnAsset(self, _symbol: str, _value: int, _repay: bool = True) -> None:
         """
         A borrower will use this method to pay off their loan.
-
         :param _symbol: retired token symbol.
         :type _symbol: str
         :param _value: Number of tokens sent.
@@ -685,24 +672,20 @@ class Loans(IconScoreBase):
     @loans_on
     @external
     @only_rebalance
-    def retireRedeem(self, _symbol: str, _sicx_from_lenders: int) -> None:
+    def raisePrice(self, _total_tokens_required: int) -> None:
         """
         This function will  pay off debt from a batch of
-        borrowers proportionately, returning a share of collateral from each
+        borrowers proportionately, selling a share of collateral from each
         position in the batch.
-
-        :param _symbol: retired token symbol.
-        :type _symbol: str
-        :param _sicx_from_lenders: Total sICX token as a share of collateral.
-        :type _sicx_from_lenders: int
+        :param _total_tokens_required: Maximum tokens amount required to balance the pool.
+        :type _total_tokens_required: int
         """
+        _symbol = "bnUSD"
         asset = self._assets[_symbol]
-        if not (asset and asset.is_active()) or asset.is_collateral():
-            revert(f'{TAG}: {_symbol} is not an active, borrowable asset on Balanced.')
 
         dex_score = self.create_interface_score(self._dex.get(), DexTokenInterface)
         rate = dex_score.getSicxBnusdPrice()
-        _to_redeemed = rate * _sicx_from_lenders // EXA
+
         batch_size = self._redeem_batch.get()
         borrowers = asset.get_borrowers()
         node_id = borrowers.get_head_id()
@@ -716,35 +699,96 @@ class Loans(IconScoreBase):
             node_id = borrowers.get_head_id()
         borrowers.serialize()
 
-        if POINTS * _to_redeemed > self._max_retire_percent.get() * total_batch_debt:
-            return
-        sicx_address = self._assets["sICX"].get_address()
-        sicx = self.create_interface_score(sicx_address, TokenInterface)
+        sicx_to_sell = min(_total_tokens_required, self._max_sicx_sell.get(),
+                           (self._max_retire_percent.get() * total_batch_debt * EXA)
+                           // (POINTS * rate))
+
+        swap_data = b'{"method":"_swap","params":{"toToken":"' + str(asset.get_address()).encode('utf-8') + b'"}}'
 
         self._bnUSD_expected.set(True)
-        sicx.transfer(self._dex.get(), _sicx_from_lenders, data_for_dex)
-        _redeemed = self._bnUSD_received.get()
+        self._send_token('sICX', self._dex.get(), sicx_to_sell, "sICX swapped for bnUSD", swap_data)
+        bnusd_received = self._bnUSD_received.get()
         self._bnUSD_received.set(0)
         self._bnUSD_expected.set(False)
+        asset.burnFrom(self.address, bnusd_received)
 
-        asset.burnFrom(self.address, _redeemed)
-        remaining_sicx = _sicx_from_lenders
         remaining_supply = total_batch_debt
-        remaining_value = _redeemed
-        redeemed_dict = {}
-        for pos_id, user_debt in positions_dict.items():
-            redeemed_dict[pos_id] = remaining_value * user_debt // remaining_supply
-            remaining_value -= redeemed_dict[pos_id]
-            self._positions[pos_id][_symbol] = user_debt - redeemed_dict[pos_id]
+        remaining_bnusd = bnusd_received
+        change_in_pos_dict = {}
 
-            sicx_share = remaining_sicx * user_debt // remaining_supply
-            remaining_sicx -= sicx_share
+        for pos_id, user_debt in positions_dict.items():
+            loan_share = remaining_bnusd * user_debt // remaining_supply
+            remaining_bnusd -= loan_share
+            self._positions[pos_id][_symbol] = user_debt - loan_share
+
+            sicx_share = sicx_to_sell * user_debt // remaining_supply
+            sicx_to_sell -= sicx_share
             self._positions[pos_id]['sICX'] -= sicx_share
 
             remaining_supply -= user_debt
-        price = asset.priceInLoop()
-        self.AssetRetired(self.msg.sender, _symbol, _redeemed, price, _redeemed,
-                          total_batch_debt, str(redeemed_dict))
+            change_in_pos_dict[pos_id] = {"d": -loan_share, "c": -sicx_share}
+
+        self.Rebalance(self.msg.sender, _symbol, str(change_in_pos_dict),
+                       total_batch_debt)
+
+    @loans_on
+    @external
+    @only_rebalance
+    def lowerPrice(self, _total_tokens_required: int) -> None:
+        """
+        This function will add debt to a batch of
+        borrowers proportionately along with their collateral.
+        :param _total_tokens_required: Maximum tokens amount required to balance the pool.
+        :type _total_tokens_required: int
+        """
+        _symbol = "sICX"
+        batch_size = self._redeem_batch.get()
+        borrowers = self._assets['bnUSD'].get_borrowers()
+        node_id = borrowers.get_head_id()
+        total_batch_debt: int = 0
+        positions_dict = {}
+        for _ in range(min(batch_size, len(borrowers))):
+            user_debt = borrowers.node_value(node_id)
+            positions_dict[node_id] = user_debt
+            total_batch_debt += user_debt
+            borrowers.move_head_to_tail()
+            node_id = borrowers.get_head_id()
+        borrowers.serialize()
+
+        bnusd_to_sell = min(_total_tokens_required, self._max_bnusd_sell.get(),
+                            (self._max_retire_percent.get() * total_batch_debt // POINTS))
+
+        self._bnUSD_expected.set(True)
+        self._assets["bnUSD"].mint(self.address, bnusd_to_sell)
+        self._bnUSD_received.set(0)
+        self._bnUSD_expected.set(False)
+
+        swap_data = b'{"method":"_swap","params":{"toToken":"' + str(self._assets['sICX'].get_address()).encode('utf-8') + b'"}}'
+
+        self._sICX_expected.set(True)
+        self._send_token('bnUSD', self._dex.get(), bnusd_to_sell, "bnUSD swapped for sICX", swap_data)
+        received_sicx = self._sICX_received.get()
+        self._sICX_received.set(0)
+        self._sICX_expected.set(False)
+
+        remaining_sicx = received_sicx
+        remaining_supply = total_batch_debt
+        remaining_bnusd = bnusd_to_sell
+        change_in_pos_dict = {}
+        for pos_id, user_debt in positions_dict.items():
+            loan_share = remaining_bnusd * user_debt // remaining_supply
+            remaining_bnusd -= loan_share
+            self._positions[pos_id]["bnUSD"] = user_debt + loan_share
+
+            sicx_share = remaining_sicx * user_debt // remaining_supply
+            remaining_sicx -= sicx_share
+            self._positions[pos_id][_symbol] += sicx_share
+
+            remaining_supply -= user_debt
+            change_in_pos_dict[str(pos_id)] = {"d": loan_share, "c": sicx_share}
+
+        self.Rebalance(self.msg.sender, 'bnUSD', str(change_in_pos_dict),
+                       total_batch_debt)
 
     def bd_redeem(self, _from: Address,
                   _asset: Asset,
@@ -752,14 +796,12 @@ class Loans(IconScoreBase):
         """
         Returns the amount of the bad debt paid off in sICX coming from both
         the liquidation pool for the asset or the ReserveFund SCORE.
-
         :param _from: Address of the token sender.
         :type _from: :class:`iconservice.base.address.Address`
         :param _asset: Balanced Asset that is being redeemed.
         :type _asset: :class:`loans.assets.Asset`
         :param _bd_value: Amount of bad debt to redeem.
         :type _bd_value: int
-
         :return: Amount of sICX supplied from reserve.
         :rtype: int
         """
@@ -792,7 +834,6 @@ class Loans(IconScoreBase):
     def _originate_loan(self, _asset: str, _amount: int, _from: Address) -> None:
         """
         Originate a loan of an asset if there is sufficient collateral.
-
         :param _asset: Symbol of the asset.
         :type _asset: str
         :param _amount: Number of tokens sent.
@@ -851,7 +892,6 @@ class Loans(IconScoreBase):
     def withdrawCollateral(self, _value: int) -> None:
         """
         Withdraw sICX collateral up to the collateral locking ratio.
-
         :param _value: Amount of sICX to withdraw.
         :type _value: int
         """
@@ -883,7 +923,6 @@ class Loans(IconScoreBase):
     def liquidate(self, _owner: Address) -> None:
         """
         Liquidate collateral if the position is below the liquidation threshold.
-
         :param _owner: Address of position to update.
         :type _owner: :class:`iconservice.base.address.Address`
         """
@@ -926,7 +965,7 @@ class Loans(IconScoreBase):
         for symbol in self._assets.slist:
             self._assets[symbol].is_dead()
 
-    def _send_token(self, _token: str, _to: Address, _amount: int, msg: str) -> None:
+    def _send_token(self, _token: str, _to: Address, _amount: int, msg: str, _data: bytes = None) -> None:
         """
         Sends IRC2 token to an address.
         :param _token: Token symbol.
@@ -937,11 +976,15 @@ class Loans(IconScoreBase):
         :type _amount: int
         :param msg: Message for the event log.
         :type msg: str
+        :param _data: data to sent through token transfer.
+        :type _data: bytes
         """
+        if _data is None:
+            _data = b'None'
         address = self._assets[_token].get_address()
         try:
             token_score = self.create_interface_score(address, TokenInterface)
-            token_score.transfer(_to, _amount)
+            token_score.transfer(_to, _amount, _data)
             self.TokenTransfer(_to, _amount, f'{msg} {_amount} {_token} sent to {_to}.')
         except Exception:
             revert(f'{TAG}: {_amount} {_token} not sent to {_to}. ')
@@ -1034,6 +1077,11 @@ class Loans(IconScoreBase):
 
     @external
     @only_admin
+    def setRetirementBonus(self, _points: int) -> None:
+        self._retirement_bonus.set(_points)
+
+    @external
+    @only_admin
     def setLiquidationReward(self, _points: int) -> None:
         self._liquidation_reward.set(_points)
 
@@ -1120,11 +1168,6 @@ class Loans(IconScoreBase):
         pass
 
     @eventlog(indexed=3)
-    def AssetRetired(self, account: Address, symbol: str, amount: int, price: int,
-                     redeemed_from_batch: int, total_batch_debt: int, batch_dict: str):
-        pass
-
-    @eventlog(indexed=3)
     def BadDebtRetired(self, account: Address, symbol: str, amount: int, sicx_received: int):
         pass
 
@@ -1134,6 +1177,11 @@ class Loans(IconScoreBase):
 
     @eventlog(indexed=3)
     def FeePaid(self, symbol: str, amount: int, type: str):
+        pass
+
+    @eventlog(indexed=2)
+    def Rebalance(self, account: Address, symbol: str, change_in_pos: str,
+                  total_batch_debt: int):
         pass
 
     @eventlog(indexed=2)

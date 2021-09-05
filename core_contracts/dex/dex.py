@@ -419,6 +419,42 @@ class DEX(IconScoreBase):
 
     @only_governance
     @external
+    def setPoolLpFee(self, _value: int) -> None:
+        """
+        :params _value: value of pool lp fee
+        Set the value of pool lp fee
+        """
+        self._pool_lp_fee.set(_value)
+
+    @only_governance
+    @external
+    def setPoolBalnFee(self, _value: int) -> None:
+        """
+        :params _value: value of pool baln fee
+        Set the value of pool baln fee
+        """
+        self._pool_baln_fee.set(_value)
+
+    @only_governance
+    @external
+    def setIcxConversionFee(self, _value: int) -> None:
+        """
+        :params _value: value of icx conversion fee
+        Set the value of icx conversion fee
+        """
+        self._icx_conversion_fee.set(_value)
+
+    @only_governance
+    @external
+    def setIcxBalnFee(self, _value: int) -> None:
+        """
+        :params _value: value of icx baln fee
+        Set the value of icx baln fee
+        """
+        self._icx_baln_fee.set(_value)
+
+    @only_governance
+    @external
     def setMarketName(self, _id: int, _name: str) -> None:
         """
         :param _id: Pool ID to map to the name
