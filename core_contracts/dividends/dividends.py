@@ -369,6 +369,8 @@ class Dividends(IconScoreBase):
         if _category in self._dividends_categories:
             revert(f"{TAG}: {_category} is already added")
         self._dividends_categories.put(_category)
+        if _category not in self._complete_dividends_categories:
+            self._complete_dividends_categories.put(_category)
 
     @external
     @only_admin
