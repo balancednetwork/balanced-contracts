@@ -684,7 +684,7 @@ class Loans(IconScoreBase):
                            (self._max_retire_percent.get() * total_batch_debt * EXA)
                            // (POINTS * rate))
 
-        swap_data = b'{"method":"_swap","params":{"toToken":"' + str(self._assets['bnUSD'].get_address()).encode('utf-8') + b'"}}'
+        swap_data = b'{"method":"_swap","params":{"toToken":"' + str(asset.get_address()).encode('utf-8') + b'"}}'
 
         self._bnUSD_expected.set(True)
         self._send_token('sICX', self._dex.get(), sicx_to_sell, "sICX swapped for bnUSD", swap_data)
