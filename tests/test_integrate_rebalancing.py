@@ -145,14 +145,11 @@ class BalancedTestLiquidation(BalancedTestBaseRebalancing):
                         redeemed_bnusd_dict = (i["data"][-2])
                         redeemed_bnusd = str(redeemed_bnusd_dict).split('{')
                         for x in redeemed_bnusd:
-                            if "debt" or "collateral" in x:
-                                try:
+                            if "debt" and "collateral" in x:
                                     debt = int(re.search("debt':(.+?),", x).group(1))
                                     collateral = int(re.search("collateral':(.+?)}", x).group(1))
                                     total_debt_sold += debt
                                     total_collateral_sold += collateral
-                                except AttributeError:
-                                    pass
 
             # account positions after rebalancing
             after = {}
