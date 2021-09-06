@@ -647,19 +647,19 @@ class Governance(IconScoreBase):
         dividends = self.create_interface_score(self.addresses['dividends'], DividendsInterface)
         dividends.setDividendsCategoryPercentage(_dist_list)
 
-    def setPoolLpFee(self, _value: int):
+    def setPoolLpFee(self, _value: int) -> None:
         dex = self.create_interface_score(self.addresses['dex'], DexInterface)
         dex.setPoolLpFee(_value)
 
-    def setPoolBalnFee(self, _value: int):
+    def setPoolBalnFee(self, _value: int) -> None:
         dex = self.create_interface_score(self.addresses['dex'], DexInterface)
         dex.setPoolBalnFee(_value)
 
-    def setIcxConversionFee(self, _value: int):
+    def setIcxConversionFee(self, _value: int) -> None:
         dex = self.create_interface_score(self.addresses['dex'], DexInterface)
         dex.setIcxConversionFee(_value)
 
-    def setIcxBalnFee(self, _value: int):
+    def setIcxBalnFee(self, _value: int) -> None:
         dex = self.create_interface_score(self.addresses['dex'], DexInterface)
         dex.setIcxBalnFee(_value)
 
