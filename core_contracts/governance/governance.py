@@ -684,14 +684,13 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    @address_wrapper
-    def addNewDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
+    def addNewDataSource(self, _data_source_name: str, _contract_address: str) -> None:
         """
         Add a new data source to receive BALN tokens. Starts with a default of
         zero percentage of the distribution.
         """
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
-        rewards.addNewDataSource(_data_source_name, _contract_address)
+        rewards.addNewDataSource(_data_source_name, Address.from_string(_contract_address))
 
     @external
     @only_owner
