@@ -45,7 +45,6 @@ class Governance(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self.scoreUpdate_14()
 
     @external(readonly=True)
     def name(self) -> str:
@@ -951,21 +950,21 @@ class Governance(IconScoreBase):
         self._bnusd_vote_definition_fee.set(100 * EXA)
         self._quorum.set(20)
 
+    @external
+    @only_owner
     def scoreUpdate_14(self):
         """
-        Changing action keys to method names
+        Update actions of BIP5.
         """
         proposal = ProposalDB(var_key=5, db=self.db)
-        RECIPIENTS = [{'recipient_name': 'Loans', 'dist_percent': 10 * 10 ** 16},
-                      {'recipient_name': 'sICX/ICX', 'dist_percent': 7 * 10 ** 16},
-                      {'recipient_name': 'sICX/bnUSD', 'dist_percent': 175 * 10 ** 15},
-                      {'recipient_name': 'BALN/bnUSD', 'dist_percent': 175 * 10 ** 15},
-                      {'recipient_name': 'BALN/sICX', 'dist_percent': 5 * 10 ** 16},
-                      {'recipient_name': 'IUSDC/bnUSD', 'dist_percent': 5 * 10 ** 15},
-                      {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10 ** 16},
-                      {'recipient_name': 'Reserve Fund', 'dist_percent': 25 * 10 ** 15},
-                      {'recipient_name': 'DAOfund', 'dist_percent': 20 * 10 ** 16}]
-        _actions = json_dumps({"addNewDataSource": {"_data_source_name": "IUSDC/bnUSD",
-                                                    "_contract_address": "cxa0af3165c08318e988cb30993b3048335b94af6c"},
-                               "updateBalTokenDistPercentage": {"_recipient_list": RECIPIENTS}})
+        _actions = '{"addNewDataSource": {"_data_source_name": "IUSDC/bnUSD", "_contract_address": ' \
+                   '"cxa0af3165c08318e988cb30993b3048335b94af6c"}, "updateBalTokenDistPercentage": {' \
+                   '"_recipient_list": [{"recipient_name": "Loans", "dist_percent": 100000000000000000}, ' \
+                   '{"recipient_name": "sICX/ICX", "dist_percent": 70000000000000000}, {"recipient_name": ' \
+                   '"sICX/bnUSD", "dist_percent": 175000000000000000}, {"recipient_name": "BALN/bnUSD", ' \
+                   '"dist_percent": 175000000000000000}, {"recipient_name": "BALN/sICX", "dist_percent": ' \
+                   '50000000000000000}, {"recipient_name": "IUSDC/bnUSD", "dist_percent": 5000000000000000}, ' \
+                   '{"recipient_name": "Worker Tokens", "dist_percent": 200000000000000000}, {"recipient_name": ' \
+                   '"Reserve Fund", "dist_percent": 25000000000000000}, {"recipient_name": "DAOfund", "dist_percent": ' \
+                   '200000000000000000}]}}'
         proposal.actions.set(_actions)

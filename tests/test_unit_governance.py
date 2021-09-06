@@ -70,6 +70,7 @@ class MockClass:
 class TestGovernanceUnit(ScoreTestCase):
     def setUp(self):
         super().setUp()
+        self.maxDiff = None
         self.mock_score = Address.from_string(f"cx{'1234' * 10}")
         self.governance = self.get_score_instance(Governance, self.test_account1)
         self.test_account3 = Address.from_string(f"hx{'12345' * 8}")
