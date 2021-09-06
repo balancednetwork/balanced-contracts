@@ -378,7 +378,6 @@ class Dividends(IconScoreBase):
         currentDay = self.getDay()
         if _category not in self._dividends_categories:
             revert(f"{TAG}: {_category} not found in the list of dividends categories")
-        # if self._dividends_percentage[_category] != 0:
         dividends_dist = self.dividendsAt(currentDay)
         if dividends_dist[_category] != 0:
             revert(f"{TAG}: Please make the category percentage to 0 before removing")
@@ -387,7 +386,6 @@ class Dividends(IconScoreBase):
     @external(readonly=True)
     def getDividendsPercentage(self) -> dict:
         currentDay = self.getDay()
-        # return {item: self._dividends_percentage[item] for item in self._dividends_categories}
         return self.dividendsAt(currentDay)
 
     @external
@@ -401,7 +399,6 @@ class Dividends(IconScoreBase):
             percent = dist_percent["dist_percent"]
             if category not in self._dividends_categories:
                 revert(f"{TAG}: {category} is not a valid dividends category")
-            # self._dividends_percentage[category] = percent
             self._update_dividends_snapshot(category, percent)
             total_percentage += percent
 
