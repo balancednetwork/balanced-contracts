@@ -1,6 +1,6 @@
 from .utils.consts import *
 from .interfaces import *
-
+from .governance import *
 
 # TypedDict for disbursement specs
 class Disbursement(TypedDict):
@@ -46,8 +46,7 @@ class VoteActions(object):
             'setQuorum': self._gov.setQuorum,
             'setVoteDefinitionFee': self._gov.setVoteDefinitionFee,
             'setBalnVoteDefinitionCriterion': self._gov.setBalnVoteDefinitionCriterion,
-            'setDividendsCategoryPercentage': self._gov.setDividendsCategoryPercentage,
-            'daoDisburse': self._gov.daoDisburse
+            'setDividendsCategoryPercentage': self._gov.setDividendsCategoryPercentage
         }
 
     def __getitem__(self, key: str):
