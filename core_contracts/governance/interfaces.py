@@ -160,15 +160,19 @@ class DexInterface(InterfaceScore):
             _withdraw_unused: bool = True):
         pass
 
+    @interface
     def setPoolLpFee(self, _value: int) -> None:
         pass
 
+    @interface
     def setPoolBalnFee(self, _value: int) -> None:
         pass
 
+    @interface
     def setIcxBalnFee(self, _value: int) -> None:
         pass
 
+    @interface
     def setIcxConversionFee(self, _value: int) -> None:
         pass
 
