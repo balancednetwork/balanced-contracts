@@ -1,6 +1,5 @@
 from .utils.consts import *
 from .interfaces import *
-from .governance import *
 
 # TypedDict for disbursement specs
 class Disbursement(TypedDict):
