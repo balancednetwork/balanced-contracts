@@ -92,9 +92,10 @@ class DAOfund(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self._add_symbol_to_setdb()
 
-    def _add_symbol_to_setdb(self) -> None:
+    @external
+    @only_owner
+    def addSymbolToSetdb(self) -> None:
         loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
         assets = loans.getAssetTokens()
         for symbol in assets:
