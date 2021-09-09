@@ -30,7 +30,7 @@ def only_governance(func):
 
     @wraps(func)
     def __wrapper(self: object, *args, **kwargs):
-        if self.msg.sender != self._governance.get():
+        if self.msg.sender != self.get_contract_address("governance"):
             raise SenderNotGovernance(self.msg.sender)
 
         return func(self, *args, **kwargs)

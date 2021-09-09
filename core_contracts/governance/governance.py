@@ -498,7 +498,7 @@ class Governance(ContractAddresses):
         for contract in ADMIN_ADDRESSES:
             score = self.create_interface_score(self.get_contract_address(contract), SetAddressesInterface)
             try:
-                score.set_admin(self.address if ADMIN_ADDRESSES[contract] == "governance"
+                score.setAdmin(self.address if ADMIN_ADDRESSES[contract] == "governance"
                                 else self.get_contract_address(ADMIN_ADDRESSES[contract]))
 
             except BaseException as e:
@@ -522,6 +522,8 @@ class Governance(ContractAddresses):
         param = [{"name": k, "address": v} for k, v in _address.items()]
 
         for contract, contract_address in _address.items():
+            if contract in ("oracle", "sicx", "staking"):
+                continue
             score = self.create_interface_score(contract_address, SetAddressesInterface)
             try:
                 score.set_contract_addresses(
