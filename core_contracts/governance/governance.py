@@ -522,6 +522,7 @@ class Governance(ContractAddresses):
         param = [{"name": k, "address": v} for k, v in _address.items()]
 
         for contract, contract_address in _address.items():
+            # REMOVING CALLS TO SCORES WHERE GOVERNANCE HAS NO POWER
             if contract in ("oracle", "sicx", "staking"):
                 continue
             score = self.create_interface_score(contract_address, SetAddressesInterface)
