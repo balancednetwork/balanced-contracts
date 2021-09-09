@@ -507,17 +507,26 @@ class Governance(ContractAddresses):
 
     @external
     @only_owner
-    def setContractAddresses(self) -> None:
+    def setContractAddresses(self, score_name: str = None) -> None:
         """
-        Set the addresses in each SCORE for the other SCOREs. Which addresses
-        are set in which SCOREs is specified in the consts.py file.
+        Set the addresses in each SCORE for the other SCOREs.
+
+        :param score_name: If passed, only the name provided will be pushed to associated contract
+                    else all addresses will be pushed
         """
-        all_contract_addresses = self.get_all_contract_addresses()
-        param = [{"name": k, "address": v} for k, v in all_contract_addresses.items()]
-        for contract, contract_address in all_contract_addresses.items():
+
+        if score_name:
+            _address = {score_name: self.get_contract_address(score_name)}
+        else:
+            _address = self.get_all_contract_addresses()
+        param = [{"name": k, "address": v} for k, v in _address.items()]
+
+        for contract, contract_address in _address.items():
             score = self.create_interface_score(contract_address, SetAddressesInterface)
             try:
-                score.set_contract_addresses(param)
+                score.set_contract_addresses(
+                    [i for i in param if i[0] != contract]
+                )
             except BaseException as e:
                 revert(f'Problem setting address to {contract}.'
                        f'Exception: {e}')
