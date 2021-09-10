@@ -123,6 +123,10 @@ class Staking(IconScoreBase):
     def UnstakeAmountTransfer(self, receiver: Address, amount: int):
         pass
 
+    @eventlog(indexed=2)
+    def IscoreClaimed(self, block_height: int, rewards: int):
+        pass
+
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self._sICX_supply = VarDB(self._SICX_SUPPLY, db, value_type=int)
@@ -567,6 +571,8 @@ class Staking(IconScoreBase):
         iscore_details_dict = self._system.queryIScore(self.address)
         if iscore_details_dict['estimatedICX'] != 0:
             self._system.claimIScore()
+            current_block = self._system.getPRepTerm()["blockHeight"]
+            self.IscoreClaimed(current_block, iscore_details_dict['estimatedICX'])
             self._distributing.set(True)
 
     def _stake(self, _stake_value: int) -> None:
