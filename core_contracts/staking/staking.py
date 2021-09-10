@@ -572,7 +572,7 @@ class Staking(IconScoreBase):
         if iscore_details_dict['estimatedICX'] != 0:
             self._system.claimIScore()
             current_block = self._system.getPRepTerm()["blockHeight"]
-            self.IscoreClaimed(current_block, iscore_details_dict['estimatedICX'])
+            self.IscoreClaimed(current_block, int(iscore_details_dict['estimatedICX'], 0))
             self._distributing.set(True)
 
     def _stake(self, _stake_value: int) -> None:
