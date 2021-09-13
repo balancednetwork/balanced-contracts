@@ -503,6 +503,10 @@ class Staking(IconScoreBase):
     def claimableICX(self, _address: Address) -> int:
         return self._icx_payable[_address]
 
+    @external(readonly=True)
+    def totalClaimableIcx(self) -> int:
+        return self._icx_to_claim.get()
+
     def _checkForBalance(self) -> None:
         """
         Checks the balance of the score
