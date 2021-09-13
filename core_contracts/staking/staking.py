@@ -509,7 +509,8 @@ class Staking(IconScoreBase):
 
     def _checkForBalance(self) -> None:
         """
-        Checks the balance of the score
+        Checks the balance of the score and if there are free ICX in the contract
+        linked list of the user is updated and the ICX will be ready to claim.
          """
         balance = self.icx.get_balance(self.address) - self._daily_reward.get() - self._icx_to_claim.get()
         if balance <= 0:
@@ -601,8 +602,7 @@ class Staking(IconScoreBase):
         Deducts the sICX amount from the sender
         and adds the sICX amount to the receiver
         and if the receiver is new to the staking
-        contract the receiver replicates the sender's
-        delegation preferences.
+        contract the receiver delegation preferences will be evenly distributed to the top preps.
         :params _from : Address that transfers the sICX token.
         :params _to : Address that receives the sICX token.
         :params _value : Amount of token to be transferred.
@@ -731,6 +731,7 @@ class Staking(IconScoreBase):
         unstaking request to the linked list.
         :params _to : Address that is making unstaking request.
         :params _value : Amount of sICX to be burned.
+        :params _sender_address: Address where user wants to receive their ICX.
         """
         self.get_sICX_score().burn(_value)
         amount_to_unstake = (_value * self._rate.get()) // DENOMINATOR
