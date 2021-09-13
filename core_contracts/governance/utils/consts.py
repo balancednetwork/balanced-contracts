@@ -12,7 +12,7 @@ BALNSICX_ID = 4
 POINTS = 10000
 
 CONTRACTS = ['loans', 'dex', 'staking', 'rewards', 'dividends', 'daofund',
-             'reserve', 'sicx', 'bnUSD', 'baln', 'bwt']
+             'reserve', 'sicx', 'bnUSD', 'baln', 'bwt', 'router']
 
 ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve'],
              'dex': ['rewards', 'dividends', 'staking', 'sicx', 'bnUSD', 'baln'],
@@ -22,7 +22,8 @@ ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve'],
              'reserve': ['loans', 'baln', 'sicx'],
              'bnUSD': ['oracle'],
              'baln': ['dividends', 'oracle', 'dex', 'bnUSD'],
-             'bwt': ['baln']}
+             'bwt': ['baln'],
+             'router': ['dex', 'sicx', 'staking']}
 
 ADMIN_ADDRESSES = {'loans': 'governance',
                    'dex': 'governance',
@@ -32,7 +33,8 @@ ADMIN_ADDRESSES = {'loans': 'governance',
                    'reserve': 'governance',
                    'bnUSD': 'loans',
                    'baln': 'rewards',
-                   'bwt': 'governance'}
+                   'bwt': 'governance',
+                   'router': 'governance'}
 
 #-------------------------------------------------------------------------------
 # REWARDS LAUNCH CONFIG

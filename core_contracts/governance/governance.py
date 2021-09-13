@@ -904,6 +904,11 @@ class Governance(IconScoreBase):
         loans.setRedeemBatchSize(_value)
 
     @external
+    @only_owner
+    def setAddressesOnContract(self, _contract: str) -> None:
+        address = self.addresses.setAddress(_contract)
+
+    @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
         """
         Used only to receive sICX for unstaking.
