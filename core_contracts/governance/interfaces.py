@@ -354,6 +354,10 @@ class SetAddressesInterface(InterfaceScore):
     def setBwt(self, _address: Address) -> None:
         pass
 
+    @interface
+    def setRouter(self, _address: Address) -> None:
+        pass
+
 
 class BalancedInterface(InterfaceScore):
 
@@ -470,4 +474,22 @@ class BnUSDInterface(InterfaceScore):
 
     @interface
     def govTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = b'None') -> None:
+        pass
+
+# An interface to the Router SCORE
+class RouterInterface(InterfaceScore):
+    @interface
+    def setDex(self, _address: Address):
+        pass
+
+    @interface
+    def setAdmin(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setStaking(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setSicx(self, _address: Address) -> None:
         pass

@@ -21,6 +21,7 @@ class BalancedAddresses(TypedDict):
     bnUSD: Address
     baln: Address
     bwt: Address
+    router: Address
 
 
 class VoteActions(object):
@@ -72,6 +73,7 @@ class Addresses(object):
         self._bnUSD = VarDB('bnUSD', db, Address)
         self._baln = VarDB('baln', db, Address)
         self._bwt = VarDB('bwt', db, Address)
+        self._router = VarDB('router', db, Address)
 
     def __getitem__(self, key: str) -> Address:
         if key == 'governance':
@@ -96,7 +98,8 @@ class Addresses(object):
                           'sicx': self._sicx.set,
                           'bnUSD': self._bnUSD.set,
                           'baln': self._baln.set,
-                          'bwt': self._bwt.set}
+                          'bwt': self._bwt.set,
+                          'router': self._router.set}
         for key, value in addresses.items():
             set_func[key](value)
 
@@ -113,8 +116,31 @@ class Addresses(object):
                 'sicx': self._sicx.get(),
                 'bnUSD': self._bnUSD.get(),
                 'baln': self._baln.get(),
-                'bwt': self._bwt.get()
+                'bwt': self._bwt.get(),
+                'router': self._router.get()
                }
+
+
+    def setAddress(self, contract: str) -> None:
+
+        if contract not in ADDRESSES:
+            revert(f"{contract} is not defined in the address list")
+
+        score = self._gov.create_interface_score(self[contract], SetAddressesInterface)
+        set_methods = {'admin': score.setAdmin, 'loans': score.setLoans,
+        'staking': score.setStaking, 'rewards': score.setRewards,
+        'reserve': score.setReserve, 'dividends': score.setDividends,
+        'daofund': score.setDaofund, 'oracle': score.setOracle,
+        'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
+        'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
+        'router': score.setRouter}
+
+        for address in ADDRESSES[contract]:
+            try:
+                set_methods[address](self[address])
+            except Exception:
+                revert(f'Problem setting {address} on {contract}')
+
 
     def setContractAddresses(self) -> None:
         """
@@ -128,7 +154,8 @@ class Addresses(object):
                            'reserve': score.setReserve, 'dividends': score.setDividends,
                            'daofund': score.setDaofund, 'oracle': score.setOracle,
                            'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
-                           'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex}
+                           'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
+                           'router': score.setRouter}
             for method in ADDRESSES[contract]:
                 try:
                     set_methods[method](self[method])
