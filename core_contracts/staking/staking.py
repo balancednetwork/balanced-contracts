@@ -479,15 +479,17 @@ class Staking(IconScoreBase):
 
     def _check_for_iscore(self) -> None:
         """
-        Claim iscore once a day.
+        Checks if the previously claimed IScore is already staked.
         """
-        next_prep_term: int = self._system.getIISSInfo()["nextPRepTerm"]
-        if next_prep_term > self._block_height_day.get() + 43200:
-            self._block_height_day.set(next_prep_term)
+        if not self._distributing.get():
             self._claim_iscore()
 
     @external
     def claimUnstakedICX(self, _to: Address = None) -> None:
+        """
+        Transfers the claimable ICX to the user.
+        :params _to: Wallet address where ICX is to be transferred.
+        """
         if _to is None:
             _to = self.msg.sender
         if self._icx_payable[_to] > 0:
@@ -503,9 +505,7 @@ class Staking(IconScoreBase):
 
     def _checkForBalance(self) -> None:
         """
-        Checks the balance of the score and transfer the
-         unstaked amount to the address and removing the
-         data from linked list one at a transaction.
+        Checks the balance of the score
          """
         balance = self.icx.get_balance(self.address) - self._daily_reward.get() - self._icx_to_claim.get()
         if balance <= 0:
@@ -566,7 +566,7 @@ class Staking(IconScoreBase):
 
     def _claim_iscore(self) -> None:
         """
-        Claims the iScore and distributes it to the top 100 prep addresses.
+        Claims the IScore.
          """
         iscore_details_dict = self._system.queryIScore(self.address)
         if iscore_details_dict['estimatedICX'] != 0:
