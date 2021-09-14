@@ -972,3 +972,11 @@ class Governance(IconScoreBase):
                    '"Reserve Fund", "dist_percent": 25000000000000000}, {"recipient_name": "DAOfund", "dist_percent": ' \
                    '200000000000000000}]}}'
         proposal.actions.set(_actions)
+
+    @external
+    @only_owner
+    def setRouter(self, _router: Address):
+        """
+        Introduces the transaction router SCORE
+        """
+        self.addresses._router = _router
