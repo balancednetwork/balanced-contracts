@@ -169,10 +169,10 @@ class DAOfund(IconScoreBase):
         :type _amounts: List[dict]
         """
         for asset in _amounts:
-            if self._fund[asset['address']] < asset['amount']:
+            if self._fund[str(asset['address'])] < asset['amount']:
                 revert(f'{TAG}: Insufficient balance of asset {asset["symbol"]} in DAOfund.')
             self._awards[_recipient][asset['symbol']] += asset['amount']
-            self._fund[asset['address']] -= asset['amount']
+            self._fund[str(asset['address'])] -= asset['amount']
         return True
 
     @external
