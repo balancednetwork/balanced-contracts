@@ -14,6 +14,7 @@
 
 from iconservice import *
 from .utils.checks import *
+from .utils.consts import *
 from .utils.enumerable_set import *
 
 TAG = 'DAOfund'
@@ -74,6 +75,7 @@ class DAOfund(IconScoreBase):
     _ADMIN = 'admin'
     _LOANS_SCORE = 'loans_score'
     _SYMBOL = "symbol"
+    _ADDRESS = "address"
     _FUND = 'fund'
     _AWARDS = 'awards'
 
@@ -84,6 +86,7 @@ class DAOfund(IconScoreBase):
         self._loans_score = VarDB(self._LOANS_SCORE, db, value_type=Address)
         self._fund = DictDB(self._FUND, db, value_type=int)
         self._symbol = EnumerableSetDB(self._SYMBOL, db, value_type=str)
+        self._address = EnumerableSetDB(self._ADDRESS, db, value_type=str)
         self._awards = DictDB(self._AWARDS, db, value_type=int, depth=2)
 
     def on_install(self, _governance: Address) -> None:
@@ -100,6 +103,15 @@ class DAOfund(IconScoreBase):
         assets = loans.getAssetTokens()
         for symbol in assets:
             self._symbol.add(symbol)
+
+    @external
+    @only_owner
+    def addAddressToSetdb(self) -> None:
+        for symbol in self._symbol.range(0, len(self._address)):
+            address = ADDRESS_DICT[symbol]
+            self._address.add(address)
+            self._fund[address] = self._fund[symbol]
+            self._fund[symbol] = 0
 
     @external(readonly=True)
     def name(self) -> str:
@@ -139,8 +151,8 @@ class DAOfund(IconScoreBase):
     @external(readonly=True)
     def getBalances(self) -> dict:
         balances = {}
-        for symbol in self._symbol.range(0, len(self._symbol)):
-            balances[symbol] = self._fund[symbol]
+        for address in self._address.range(0, len(self._address)):
+            balances[address] = self._fund[address]
         balances['ICX'] = self._fund['ICX']
         return balances
 
@@ -157,10 +169,10 @@ class DAOfund(IconScoreBase):
         :type _amounts: List[dict]
         """
         for asset in _amounts:
-            if self._fund[asset['symbol']] < asset['amount']:
+            if self._fund[asset['address']] < asset['amount']:
                 revert(f'{TAG}: Insufficient balance of asset {asset["symbol"]} in DAOfund.')
             self._awards[_recipient][asset['symbol']] += asset['amount']
-            self._fund[asset['symbol']] -= asset['amount']
+            self._fund[asset['address']] -= asset['amount']
         return True
 
     @external
@@ -199,13 +211,11 @@ class DAOfund(IconScoreBase):
         address = str(self.msg.sender)
         for symbol in assets:
             if assets[symbol] == address:
-                self._fund[symbol] += _value
+                self._fund[address] += _value
                 return
-        token_contract = self.create_interface_score(self.msg.sender, TokenInterface)
-        symbol = token_contract.symbol()
-        if symbol not in self._symbol:
-            self._symbol.add(symbol)
-        self._fund[symbol] += _value
+        if address not in self._address:
+            self._symbol.add(address)
+        self._fund[address] += _value
 
     def _send_ICX(self, _to: Address, amount: int, msg: str) -> None:
         """
