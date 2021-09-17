@@ -208,7 +208,7 @@ class DAOfund(IconScoreBase):
         """
         address = str(self.msg.sender)
         if address not in self._address:
-            self._symbol.add(address)
+            self._address.add(address)
         self._fund[address] += _value
 
     def _send_ICX(self, _to: Address, amount: int, msg: str) -> None:
