@@ -177,6 +177,9 @@ class Router(IconScoreBase):
     @payable
     @external
     def route(self, _path: List[Address], _minReceive: int = 0):
+        if len(_path) > self._JAECHANG_LIMIT:
+            revert(f"Passed max swaps of {self._JAECHANG_LIMIT}")
+
         self._route(self.msg.sender, None, _path, _minReceive)
 
     @payable
