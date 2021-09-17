@@ -107,7 +107,7 @@ class DAOfund(IconScoreBase):
     @external
     @only_owner
     def addAddressToSetdb(self) -> None:
-        for symbol in self._symbol.range(0, len(self._address)):
+        for symbol in self._symbol.range(0, len(self._symbol)):
             address = ADDRESS_DICT[symbol]
             self._address.add(address)
             self._fund[address] = self._fund[symbol]
@@ -206,13 +206,7 @@ class DAOfund(IconScoreBase):
         :param _data: Unused, ignored.
         :type _data: bytes
         """
-        loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
-        assets = loans.getAssetTokens()
         address = str(self.msg.sender)
-        for symbol in assets:
-            if assets[symbol] == address:
-                self._fund[address] += _value
-                return
         if address not in self._address:
             self._symbol.add(address)
         self._fund[address] += _value
