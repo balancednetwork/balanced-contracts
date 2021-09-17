@@ -979,4 +979,4 @@ class Governance(IconScoreBase):
         """
         Introduces the transaction router SCORE
         """
-        self.addresses._router = _router
+        self.addresses._router.set(_router)
