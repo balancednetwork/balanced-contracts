@@ -576,8 +576,7 @@ class Staking(IconScoreBase):
         iscore_details_dict = self._system.queryIScore(self.address)
         if iscore_details_dict['estimatedICX'] != 0:
             self._system.claimIScore()
-            current_block = self._system.getPRepTerm()["blockHeight"]
-            self.IscoreClaimed(current_block, iscore_details_dict['estimatedICX'])
+            self.IscoreClaimed(self.block_height, iscore_details_dict['estimatedICX'])
             self._distributing.set(True)
 
     def _stake(self, _stake_value: int) -> None:
@@ -722,7 +721,10 @@ class Staking(IconScoreBase):
                 value_in_icx += dust
                 self._prep_delegations[prep_str] += dust
             delegation_list.append({"address": prep, "value": value_in_icx})
-        self._system.setDelegation(delegation_list)
+        try:
+            self._system.setDelegation(delegation_list)
+        except Exception:
+            revert(f'{TAG}: Trying to delegate in the network {delegation_list}.')
 
     def _unstake(self, _to: Address, _value: int, _sender_address: Address = None) -> None:
         """
