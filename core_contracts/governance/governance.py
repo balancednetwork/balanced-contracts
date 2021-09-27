@@ -45,7 +45,6 @@ class Governance(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self.BIP7_fixes_update()
 
     @external(readonly=True)
     def name(self) -> str:
@@ -982,8 +981,11 @@ class Governance(IconScoreBase):
         """
         self.addresses._router.set(_router)
 
+    @external
+    @only_owner
     def BIP7_fixes_update(self):
         proposal = ProposalDB(var_key=8, db=self.db)
+        proposal.active.set(True)
         proposal.status.set('Succeeded')
 
         _action = '{"setRebalancingThreshold":{"_value":30000000000000000}}'
