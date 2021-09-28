@@ -386,6 +386,7 @@ class Governance(IconScoreBase):
                        'against': _against,
                        'for_voter_count': vote_data.for_voters_count.get(),
                        'against_voter_count': vote_data.against_voters_count.get(),
+                       'fee_refund_status': vote_data.fee_refunded.get()
                        }
         status = vote_data.status.get()
         majority = vote_status['majority']
