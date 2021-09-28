@@ -59,6 +59,15 @@ class Governance(IconScoreBase):
         proposal = ProposalDB(var_key=vote_index, db=self.db)
         return {'for_voters': proposal.for_voters_count.get(), 'against_voters': proposal.against_voters_count.get()}
 
+    @external(readonly=True)
+    def getContractAddress(self, contract: str) -> Address:
+        """
+        Gets the address of any contract controlled by this governance contract.
+
+        :param contract: name of the contract you want the address for
+        """
+        return self.addresses[contract]
+
     @external
     @only_owner
     def setVoteDuration(self, duration: int) -> None:
