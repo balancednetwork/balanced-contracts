@@ -136,11 +136,12 @@ class FeeHandler(IconScoreBase):
         # Set the block for this fee processing event.
         self._last_fee_processing_block[self.msg.sender] = self.block_height
 
-    def _createDataFieldRouter(self, _path: list) -> bytes:
+    def _createDataFieldRouter(self, _receiver: Address, _path: list) -> bytes:
         data = {
         'method': "_swap",
         'params': {
-            'path': _path
+            'path': _path,
+            'receiver': str(_receiver)
             }
         }
         data = json_dumps(data).encode()
@@ -190,7 +191,7 @@ class FeeHandler(IconScoreBase):
         token.transfer(_to, _amount, _data)
 
 # TODO
-# Implement receiver/destination in exchange method in dex contract.
+# Implement receiver/destination in exchange method in dex contract.  -> Done.
 # Implement receiver/destination in _route method in router contract.
 # Direct origination fees to this contract.
 # Direct swapfees to this contract.
