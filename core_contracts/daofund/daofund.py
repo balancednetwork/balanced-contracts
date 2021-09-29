@@ -24,7 +24,6 @@ TAG = 'DAOfund'
 class Disbursement(TypedDict):
     address: Address
     amount: int
-    symbol: str
 
 
 # An interface of token to get balances.
