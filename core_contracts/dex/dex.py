@@ -41,6 +41,12 @@ class stakingInterface(InterfaceScore):
         pass
 
 
+class GovernanceInterface(InterfaceScore):
+    @interface
+    def getContractAddress(self, contract: str) -> Address:
+        pass
+
+
 class DEX(IconScoreBase):
     _ACCOUNT_BALANCE_SNAPSHOT = 'account_balance_snapshot'
     _TOTAL_SUPPLY_SNAPSHOT = 'total_supply_snapshot'
@@ -1083,10 +1089,10 @@ class DEX(IconScoreBase):
         to_token_score = self.create_interface_score(_toToken, TokenInterface)
         to_token_score.transfer(_receiver, send_amt)
 
-        # Send the dividends share to the dividends SCORE
+        # Send the platform fees to the feehandler SCORE
         from_token_score = self.create_interface_score(
             _fromToken, TokenInterface)
-        from_token_score.transfer(self._dividends.get(), baln_fees)
+        from_token_score.transfer(self._getContractAddress("feehandler"), baln_fees)
 
         # Broadcast pool ending price
         ending_price = self.getPrice(_id)
@@ -1212,8 +1218,8 @@ class DEX(IconScoreBase):
                   baln_fees, self._icx_queue_total.get(), 
                   0, self._get_sicx_rate(), effective_fill_price)
 
-        # Settle fees to dividends and ICX converted to the sender
-        sicx_score.transfer(self._dividends.get(), baln_fees)
+        # Send fees to feehandler and ICX converted to the sender
+        sicx_score.transfer(self._getContractAddress("feehandler"), baln_fees)
         self.icx.transfer(_sender, order_icx_value)
 
     def _get_unit_value(self, _token_address: Address):
@@ -1827,3 +1833,12 @@ class DEX(IconScoreBase):
         for _address in _addresses:
             if self.balanceOf(_address, _poolId) > 0:
                 self._active_addresses[_poolId].add(_address)
+
+    def _getContractAddress(self, _contract: str) -> Address:
+        """
+        Gets a contract address registered in the governance score.
+
+        :param _contract: name of the contract as specified in the governance contract.
+        """
+        gov = self.create_interface_score(self._governance.get(), GovernanceInterface)
+        return gov.getContractAddress(_contract)
