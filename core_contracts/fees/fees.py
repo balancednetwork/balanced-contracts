@@ -127,7 +127,8 @@ class FeeHandler(IconScoreBase):
             if path:
                 # Use router.
                 self._transferToken(self.msg.sender, self._getContractAddress("router"), 
-                                    self._getTokenBalance(self.msg.sender), self._createDataFieldRouter(path))
+                                    self._getTokenBalance(self.msg.sender), 
+                                    self._createDataFieldRouter(self._getContractAddress("dividends"), path))
             else:
                 # Use dex.
                 self._transferToken(self.msg.sender, self._getContractAddress("dex"), self._getTokenBalance(self.msg.sender), 
