@@ -66,6 +66,9 @@ class MockClass:
     def updateBalTokenDistPercentage(self, a):
         self.callStack.append(f"updateBalTokenDistPercentage({a})")
 
+    def disburse(self, recipients, amount):
+        pass
+
 
 class TestGovernanceUnit(ScoreTestCase):
     def setUp(self):
@@ -484,3 +487,23 @@ class TestGovernanceUnit(ScoreTestCase):
                                            {"recipient_name": "Reserve Fund", "dist_percent": 25000000000000000},
                                            {"recipient_name": "DAOfund", "dist_percent": 200000000000000000}]}})
             self.assertEqual(expected, action)
+
+    def test_dao_disburse(self):
+        _recepient = 'cx3784537845378453784537845378453784537845'
+        _amount = [{'address': 'cx3784537845378453784537845378453784537845', 'amount': 10 * 10 ** 18, 'symbol': 'sicx'},
+                   {'address': 'cx3784537845378453784537845378453784537845', 'amount': 10 * 10 ** 18,
+                    'symbol': 'bnUSD'},
+                   {'address': 'cx3784537845378453784537845378453784537845', 'amount': 10 * 10 ** 18, 'symbol': 'BALN'},
+                   {'address': 'cx3784537845378453784537845378453784537845', 'amount': 10 * 10 ** 18, 'symbol': 'OMM'}]
+        with self.assertRaises(IconScoreException) as err:
+            self.governance.daoDisburse(_recepient, _amount)
+        self.assertEqual('Cannot disburse more than 3 assets at a time.', err.exception.message)
+
+        mock_class = MockClass(balanceOfAt=1, totalSupplyAt=1, totalBalnAt=1, totalStakedBalanceOfAt=1, totalSupply=1,
+                               stakedBalanceOf=1, stakedBalanceOfAt=1)
+        with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
+            _recepient = 'cx3784537845378453784537845378453784537845'
+            _amount = [{'address': 'cx3784537845378453784537845378453784537845', 'amount': 10*10**18, 'symbol': 'sicx'},
+                       {'address': 'cx3784537845378453784537845378453784537845', 'amount': 10*10**18, 'symbol': 'bnUSD'},
+                       {'address': 'cx3784537845378453784537845378453784537845', 'amount': 10*10**18, 'symbol': 'BALN'}]
+            self.governance.daoDisburse(_recepient, _amount)

@@ -3,7 +3,7 @@ from .interfaces import *
 
 # TypedDict for disbursement specs
 class Disbursement(TypedDict):
-    address: Address
+    address: str
     amount: int
     symbol: str
 
@@ -46,7 +46,8 @@ class VoteActions(object):
             'setQuorum': self._gov.setQuorum,
             'setVoteDefinitionFee': self._gov.setVoteDefinitionFee,
             'setBalnVoteDefinitionCriterion': self._gov.setBalnVoteDefinitionCriterion,
-            'setDividendsCategoryPercentage': self._gov.setDividendsCategoryPercentage
+            'setDividendsCategoryPercentage': self._gov.setDividendsCategoryPercentage,
+            'daoDisburse': self._gov.daoDisburse
         }
 
     def __getitem__(self, key: str):
