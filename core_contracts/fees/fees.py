@@ -193,9 +193,10 @@ class FeeHandler(IconScoreBase):
 
 # TODO
 # Implement receiver/destination in exchange method in dex contract.  -> Done.
-# Implement receiver/destination in _route method in router contract.
-# Direct origination fees to this contract.
-# Direct swapfees to this contract.
+# Implement receiver/destination in _route method in router contract. -> Done.
+# Direct origination fees to this contract.                           -> Done.
+# Direct swapfees to this contract.                                   -> Done.
+# Register feehandler score in governance contract.
 # Unit tests for all methods.
 # Add Admin functionality?
-# Make RouteDB. Cant use dumps with list of addresses.
+# (Make RouteDB. Cant use dumps with list of addresses.) ?
