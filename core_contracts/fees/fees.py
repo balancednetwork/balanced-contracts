@@ -130,17 +130,17 @@ class FeeHandler(IconScoreBase):
                                     self._getTokenBalance(self.msg.sender), self._createDataFieldRouter(path))
             else:
                 # Use dex.
-                self._transferToken(self.msg.sender, self._getContractAddress("dex"),
-                                    self._getTokenBalance(self.msg.sender), self._createDataFieldDex(self._getContractAddress("dividends")))
+                self._transferToken(self.msg.sender, self._getContractAddress("dex"), self._getTokenBalance(self.msg.sender), 
+                                    self._createDataFieldDex(self._getContractAddress("dividends")))
 
         # Set the block for this fee processing event.
         self._last_fee_processing_block[self.msg.sender] = self.block_height
 
-    def _createDataFieldRouter(self, _path: list[Address]) -> bytes:
+    def _createDataFieldRouter(self, _path: list) -> bytes:
         data = {
         'method': "_swap",
         'params': {
-            '_': _path
+            'path': _path
             }
         }
         data = json_dumps(data).encode()
@@ -150,7 +150,7 @@ class FeeHandler(IconScoreBase):
         data = {
             'method': "_swap",
             'params': {
-                'receiver': _receiver
+                'receiver': str(_receiver)
             }   
         }
         data = json_dumps(data).encode()
@@ -196,3 +196,4 @@ class FeeHandler(IconScoreBase):
 # Direct swapfees to this contract.
 # Unit tests for all methods.
 # Add Admin functionality?
+# Make RouteDB. Cant use dumps with list of addresses.
