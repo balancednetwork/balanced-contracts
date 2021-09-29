@@ -667,8 +667,13 @@ class DEX(IconScoreBase):
                 if minimum_receive < 0:
                     revert(f"{TAG}: Must specify a positive number for minimum to receive")
 
+            if "receiver" in unpacked_data["params"]:
+                receiver = Address.from_string(unpacked_data["params"]["receiver"])
+            else:
+                receiver = _from
+
             self.exchange(_fromToken, Address.from_string(
-                unpacked_data["params"]["toToken"]), _from, _from, _value, minimum_receive)
+                unpacked_data["params"]["toToken"]), _from, receiver, _value, minimum_receive)
 
         else:
             revert(f"{TAG}: Fallback directly not allowed.")
