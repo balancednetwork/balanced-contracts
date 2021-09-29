@@ -170,8 +170,8 @@ class DAOfund(IconScoreBase):
         """
         for asset in _amounts:
             if self._fund[str(asset['address'])] < asset['amount']:
-                revert(f'{TAG}: Insufficient balance of asset {asset["symbol"]} in DAOfund.')
-            self._awards[_recipient][asset['symbol']] += asset['amount']
+                revert(f'{TAG}: Insufficient balance of asset {asset["address"]} in DAOfund.')
+            self._awards[_recipient][asset['address']] += asset['amount']
             self._fund[str(asset['address'])] -= asset['amount']
         return True
 
@@ -185,9 +185,9 @@ class DAOfund(IconScoreBase):
         loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
         assets = loans.getAssetTokens()
         for symbol in assets:
-            amount = disbursement[symbol]
+            amount = disbursement[Address.from_string(assets[symbol])]
             if amount > 0:
-                disbursement[symbol] = 0
+                disbursement[Address.from_string(assets[symbol])] = 0
                 self._send_token(symbol, Address.from_string(assets[symbol]), self.msg.sender,
                                  amount, 'Balanced DAOfund disbursement')
         amount = disbursement['ICX']

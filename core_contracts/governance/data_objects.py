@@ -5,7 +5,6 @@ from .interfaces import *
 class Disbursement(TypedDict):
     address: str
     amount: int
-    symbol: str
 
 
 class BalancedAddresses(TypedDict):
