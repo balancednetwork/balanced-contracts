@@ -827,16 +827,10 @@ class Governance(IconScoreBase):
         if len(_amounts) > 3:
             revert(f"Cannot disburse more than 3 assets at a time.")
         _recipient = Address.from_string(_recipient)
-
         for disbursement in _amounts:
             disbursement['address'] = Address.from_string(disbursement['address'])
         dao = self.create_interface_score(self.addresses['daofund'], DAOfundInterface)
         dao.disburse(_recipient, _amounts)
-
-    @external
-    @only_owner
-    def daoDistribute(self, _recipient: str, _amounts: List[Disbursement]) -> None:
-        self.daoDisburse(_recipient, _amounts)
 
     @external
     @only_owner
