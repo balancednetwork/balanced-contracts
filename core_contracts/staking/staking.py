@@ -721,10 +721,7 @@ class Staking(IconScoreBase):
                 value_in_icx += dust
                 self._prep_delegations[prep_str] += dust
             delegation_list.append({"address": prep, "value": value_in_icx})
-        try:
-            self._system.setDelegation(delegation_list)
-        except Exception:
-            revert(f'{TAG}: Trying to delegate in the network {delegation_list}.')
+        self._system.setDelegation(delegation_list)
 
     def _unstake(self, _to: Address, _value: int, _sender_address: Address = None) -> None:
         """
