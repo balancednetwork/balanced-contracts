@@ -298,6 +298,9 @@ class DividendsInterface(InterfaceScore):
     def setDividendsCategoryPercentage(self, _dist_list: List[DistPercentDict]) -> None:
         pass
 
+    @interface
+    def addAcceptedTokens(self, _token: Address) -> None:
+        pass
 
 # An interface to call the setAddress methods on each SCORE.
 class SetAddressesInterface(InterfaceScore):
