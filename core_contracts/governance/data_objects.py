@@ -46,7 +46,8 @@ class VoteActions(object):
             'setVoteDefinitionFee': self._gov.setVoteDefinitionFee,
             'setBalnVoteDefinitionCriterion': self._gov.setBalnVoteDefinitionCriterion,
             'setDividendsCategoryPercentage': self._gov.setDividendsCategoryPercentage,
-            'daoDisburse': self._gov.daoDisburse
+            'daoDisburse': self._gov.daoDisburse,
+            'addAcceptedTokens': self._gov.addAcceptedTokens
         }
 
     def __getitem__(self, key: str):

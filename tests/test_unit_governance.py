@@ -69,6 +69,9 @@ class MockClass:
     def disburse(self, recipients, amount):
         pass
 
+    def addAcceptedTokens(self, _token):
+        pass
+
 
 class TestGovernanceUnit(ScoreTestCase):
     def setUp(self):
@@ -506,3 +509,10 @@ class TestGovernanceUnit(ScoreTestCase):
                        {'address': 'cx3784537845378453784537845378453784537845', 'amount': 10*10**18},
                        {'address': 'cx3784537845378453784537845378453784537845', 'amount': 10*10**18}]
             self.governance.daoDisburse(_recepient, _amount)
+
+    def test_addAcceptedTokens(self):
+        mock_class = MockClass(balanceOfAt=1, totalSupplyAt=1, totalBalnAt=1, totalStakedBalanceOfAt=1, totalSupply=1,
+                               stakedBalanceOf=1, stakedBalanceOfAt=1)
+        with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
+            _token = 'cx3784537845378453784537845378453784537845'
+            self.governance.addAcceptedTokens(_token)

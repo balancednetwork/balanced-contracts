@@ -832,6 +832,11 @@ class Governance(IconScoreBase):
         dao = self.create_interface_score(self.addresses['daofund'], DAOfundInterface)
         dao.disburse(_recipient, _amounts)
 
+    def addAcceptedTokens(self, _token: str):
+        _token = Address.from_string(_token)
+        dividends = self.create_interface_score(self.addresses['dividends'], DividendsInterface)
+        dividends.addAcceptedTokens(_token)
+
     @external
     @only_owner
     def setAssetOracle(self, _symbol: str, _address: Address) -> None:
