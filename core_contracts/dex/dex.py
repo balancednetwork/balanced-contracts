@@ -263,6 +263,12 @@ class DEX(IconScoreBase):
         self._current_day.set(1)
         self._named_markets[self._SICXICX_MARKET_NAME] = self._SICXICX_POOL_ID
         self._markets_to_names[self._SICXICX_POOL_ID] = self._SICXICX_MARKET_NAME
+    
+    def _is_locking_pool(self, _id: int) -> bool:
+        if _id < FIRST_NON_BALANCED_POOL or _id == 10:
+            return True
+        else:
+            return False
 
     def on_update(self) -> None:
         super().on_update()
@@ -702,7 +708,7 @@ class DEX(IconScoreBase):
         if self._balance[_id][_from] < _value:
             revert(f"{TAG}: Out of balance.")
         
-        if _id < FIRST_NON_BALANCED_POOL:
+        if self._is_locking_pool(_id < FIRST_NON_BALANCED_POOL):
             revert(f"{TAG}: untransferrable token id")
 
         self._balance[_id][_from] = self._balance[_id][_from] - _value
@@ -1755,7 +1761,7 @@ class DEX(IconScoreBase):
         self._total[_id] += liquidity
 
         # Only add withdraw locks to Balanced pools
-        if _id < FIRST_NON_BALANCED_POOL:
+        if self._is_locking_pool(_id):
             self._withdraw_lock[_id][self.msg.sender] = self.now()
 
         self.Add(_id, _owner, liquidity, base_to_commit, quote_to_commit)
@@ -1767,7 +1773,7 @@ class DEX(IconScoreBase):
                               * self._pool_total[_id][_quoteToken] // self.totalSupply(_id)
 
         # Only add restrictions to Balanced pools
-        if _id < FIRST_NON_BALANCED_POOL:
+        if self._is_locking_pool(_id):
             self._revert_below_minimum(user_quote_holdings, _quoteToken)
         
         self._active_addresses[_id].add(self.msg.sender)
