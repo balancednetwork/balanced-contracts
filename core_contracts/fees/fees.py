@@ -48,7 +48,7 @@ class FeeHandler(IconScoreBase):
     @only_governance
     def setRoute(self, _fromToken: Address, _toToken: Address, _path: str):
         """
-        Register a route to use when converting token A to token B.
+        Sets a route to use when converting token A to token B.
 
         :param _from: The address of the token A
         :param _to: The address of token B
@@ -59,20 +59,36 @@ class FeeHandler(IconScoreBase):
                        
         """
         self._routes[_fromToken][_toToken] = _path
+
+    @external
+    @only_governance
+    def deleteRoute(self, _fromToken: Address, _toToken: Address):
+        """
+        Deletes the current route used when converting token A to token B.
+
+        :param _from: The address of the token A
+        :param _to: The address of token B         
+        """
+        del self._routes[_fromToken][_toToken]
     
     @external(readonly=True)
     def getRoute(self, _fromToken: Address, _toToken: Address) -> dict:
         """
-        Get current the route used for converting token A to token B.
+        Gets the current route used for converting token A to token B.
 
         :param _from: Address of the token A
         :param _to: Address of token B
         """
+        path = self._routes[_fromToken][_toToken]
+        if not path:
+            return {}
+
         route = {
             "fromToken": _fromToken,
             "toToken": _toToken,
-            "path": json_loads(self._routes[_fromToken][_toToken])
+            "path": json_loads(path)
         }
+        
         return route
 
     @external
@@ -123,7 +139,13 @@ class FeeHandler(IconScoreBase):
         
         # Else convert to baln and forward to dividends.
         else:
-            path = json_loads(self._routes[self.msg.sender][self._getContractAddress("baln")])
+
+            try:
+                # Raises JSONDecodeError if trying to decode empty string ("").
+                path = json_loads(self._routes[self.msg.sender][self._getContractAddress("baln")])
+            except:
+                path = []
+                
             if path:
                 # Use router.
                 self._transferToken(self.msg.sender, self._getContractAddress("router"), 
@@ -138,6 +160,12 @@ class FeeHandler(IconScoreBase):
         self._last_fee_processing_block[self.msg.sender] = self.block_height
 
     def _createDataFieldRouter(self, _receiver: Address, _path: list) -> bytes:
+        """
+        Constructs the data to pass to the router contract when making a swap.
+
+        :param _receiver: Address to receive the funds when all swaps have completed
+        :param _path: Path to use for the swap. List of addresses in string format
+        """
         data = {
         'method': "_swap",
         'params': {
@@ -149,6 +177,11 @@ class FeeHandler(IconScoreBase):
         return data
 
     def _createDataFieldDex(self, _receiver: Address) -> bytes:
+        """
+        Constructs the data to pass to the dex contract when making a swap.
+
+        :param _receiver: Address to receive the funds when all swaps have completed
+        """
         data = {
             'method': "_swap",
             'params': {
@@ -162,7 +195,7 @@ class FeeHandler(IconScoreBase):
         """
         Gets a contract address registered in the governance score.
 
-        :param _contract: name of the contract as specified in the governance contract.
+        :param _contract: name of the contract as specified in the governance contract
         """
         gov = self.create_interface_score(self._governance.get(), GovernanceInterface)
         return gov.getContractAddress(_contract)
