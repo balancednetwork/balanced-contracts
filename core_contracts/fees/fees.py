@@ -21,21 +21,48 @@ class FeeHandler(IconScoreBase):
     def on_install(self) -> None:
         super().on_install()
 
-        # Set initial accepted tokens (Baln, bnusd, sicx).
+        # Set initial accepted tokens main net.
         accepted_dividend_tokens = [
-            Address.from_string("cxf61cd5a45dc9f91c15aa65831a30a90d59a09619"),
-            Address.from_string("cx88fd7df7ddff82f7cc735c871dc519838cb235bb"),
-            Address.from_string("cx2609b924e33ef00b648a409245c7ea394c467824")
+            Address.from_string(BALN),
+            Address.from_string(BNUSD),
+            Address.from_string(SICX)
         ]
 
         for token in accepted_dividend_tokens:
             self._accepted_dividend_tokens.put(token)
 
-        # Set governanace.
+        # Set governanace main net.
         self._governance.set(Address.from_string("cx44250a12074799e26fdeee75648ae47e2cc84219"))
 
-        # Set inital routes.
-        #TODO
+        # Set inital routes main net.
+        initial_routes = [
+            {
+                'from': Address.from_string(IUSDC),
+                'to': Address.from_string(BALN),
+                'path': f'[{BNUSD}, {BALN}]'
+            },
+            {
+                'from': Address.from_string(OMM),
+                'to': Address.from_string(BALN),
+                'path': f'[{SICX}, {BALN}]'
+            },
+            {
+                'from': Address.from_string(USDS),
+                'to': Address.from_string(BALN),
+                'path': f'[{BNUSD}, {BALN}]'
+            },
+            {
+                'from': Address.from_string(OMM),
+                'to': Address.from_string(BALN),
+                'path': f'[{SICX}, {BALN}]'
+            }
+        ]
+
+        for route in initial_routes:
+            _from = route['from']
+            _to = route['to']
+            _path = route['path']
+            self._routes[_from][_to] = _path
 
     def on_update(self) -> None:
         super().on_update()
@@ -52,7 +79,7 @@ class FeeHandler(IconScoreBase):
 
         :param _from: The address of the token A
         :param _to: The address of token B
-        :param _path: The route to take when converting token A to token B.
+        :param _path: The path to take when converting token A to token B.
                        Token A is omitted from this route. Assuming token C and D are 
                        needed for the convertion, the route is specified in the following format:
                        '[<address_token_c>, <address_token_d>, <address_token_b>]'
