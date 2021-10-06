@@ -33,7 +33,7 @@ class FeeHandler(IconScoreBase):
         for token in accepted_dividend_tokens:
             self._accepted_dividend_tokens.put(token)
 
-        # Set inital routes on main net.
+        # Set initial routes on main net.
         initial_routes = [
             {
                 'from': Address.from_string(IUSDC),
