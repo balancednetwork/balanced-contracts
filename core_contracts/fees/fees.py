@@ -72,6 +72,35 @@ class FeeHandler(IconScoreBase):
 
     @external
     @only_governance
+    def setAcceptedDividendTokens(self, _tokens: list[Address]) -> None:
+        """
+        Specifies which tokens that does not need converting before they are sent to
+        the dividends contract.
+
+        :param _tokens: list of token addresses
+        """
+        if len(_tokens) > 10:
+            revert("There can be a maximum of 10 accepted dividend tokens.")
+
+        # Remove all previous tokens.
+        while self._accepted_dividend_tokens:
+            self._accepted_dividend_tokens.pop()
+
+        # Add tokens.
+        for token in _tokens:
+            self._accepted_dividend_tokens.put(token)
+
+    @external(readonly=True)
+    def getAcceptedDividendTokens(self) -> list[Address]:
+        """
+        Gets all accepted dividend tokens.
+
+        :param _tokens: list of token addresses
+        """
+        return [token for token in self._accepted_dividend_tokens]
+
+    @external
+    @only_governance
     def setRoute(self, _fromToken: Address, _toToken: Address, _path: str):
         """
         Sets a route to use when converting token A to token B.
