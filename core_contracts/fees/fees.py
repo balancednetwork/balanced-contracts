@@ -18,10 +18,12 @@ class FeeHandler(IconScoreBase):
         self._routes = DictDB("routes", db, str, depth=2)
         self._governance = VarDB("governance", db, Address)
 
-    def on_install(self) -> None:
+    def on_install(self, _governance: Address) -> None:
         super().on_install()
+        self._governance.set(_governance)
+        self._fee_processing_interval.set(1800)        
 
-        # Set initial accepted tokens main net.
+        # Set initial accepted tokens on main net.
         accepted_dividend_tokens = [
             Address.from_string(BALN),
             Address.from_string(BNUSD),
@@ -31,10 +33,7 @@ class FeeHandler(IconScoreBase):
         for token in accepted_dividend_tokens:
             self._accepted_dividend_tokens.put(token)
 
-        # Set governanace main net.
-        self._governance.set(Address.from_string("cx44250a12074799e26fdeee75648ae47e2cc84219"))
-
-        # Set inital routes main net.
+        # Set inital routes on main net.
         initial_routes = [
             {
                 'from': Address.from_string(IUSDC),
@@ -52,7 +51,7 @@ class FeeHandler(IconScoreBase):
                 'path': f'[{BNUSD}, {BALN}]'
             },
             {
-                'from': Address.from_string(OMM),
+                'from': Address.from_string(CFT),
                 'to': Address.from_string(BALN),
                 'path': f'[{SICX}, {BALN}]'
             }
@@ -77,13 +76,12 @@ class FeeHandler(IconScoreBase):
         """
         Sets a route to use when converting token A to token B.
 
-        :param _from: The address of the token A
-        :param _to: The address of token B
+        :param _fromToken: The address of the token A
+        :param _toToken: The address of token B
         :param _path: The path to take when converting token A to token B.
-                       Token A is omitted from this route. Assuming token C and D are 
-                       needed for the convertion, the route is specified in the following format:
-                       '[<address_token_c>, <address_token_d>, <address_token_b>]'
-                       
+                      Token A is omitted from this path. E.g. assuming token C and D are 
+                      needed for the convertion, the route is specified in the following format:
+                      '[<address_token_c>, <address_token_d>, <address_token_b>]'.
         """
         self._routes[_fromToken][_toToken] = _path
 
@@ -91,20 +89,20 @@ class FeeHandler(IconScoreBase):
     @only_governance
     def deleteRoute(self, _fromToken: Address, _toToken: Address):
         """
-        Deletes the current route used when converting token A to token B.
+        Deletes the route used when converting token A to token B.
 
-        :param _from: The address of the token A
-        :param _to: The address of token B         
+        :param _fromToken: The address of the token A
+        :param _toToken: The address of token B         
         """
         del self._routes[_fromToken][_toToken]
     
     @external(readonly=True)
     def getRoute(self, _fromToken: Address, _toToken: Address) -> dict:
         """
-        Gets the current route used for converting token A to token B.
+        Gets the route used for converting token A to token B.
 
-        :param _from: Address of the token A
-        :param _to: Address of token B
+        :param _fromToken: Address of the token A
+        :param _toToken: Address of token B
         """
         path = self._routes[_fromToken][_toToken]
         if not path:
@@ -146,7 +144,7 @@ class FeeHandler(IconScoreBase):
         are processed and forwarded to it's intended destination.
 
         :param _from: Token origination address
-        :param _value: Number of tokens sent
+        :param _value: Number of tokens received
         :param _data: Unused, ignored
         """
 
@@ -160,15 +158,14 @@ class FeeHandler(IconScoreBase):
         else:
             self._last_txhash.set(self.tx.hash)
 
-        # If token baln, sicx or bnUSD -> forward to dividends contract.
+        # If token is accepted dividend token -> forward to dividends contract.
         if self.msg.sender in self._accepted_dividend_tokens:
             self._transferToken(self.msg.sender, self._getContractAddress("dividends"), self._getTokenBalance(self.msg.sender))
         
-        # Else convert to baln and forward to dividends.
+        # Else convert to baln and forward to dividends contract.
         else:
-
             try:
-                # Raises JSONDecodeError if trying to decode empty string ("").
+                # Raises JSONDecodeError if trying to decode an empty string.
                 path = json_loads(self._routes[self.msg.sender][self._getContractAddress("baln")])
             except:
                 path = []
@@ -222,16 +219,16 @@ class FeeHandler(IconScoreBase):
         """
         Gets a contract address registered in the governance score.
 
-        :param _contract: name of the contract as specified in the governance contract
+        :param _contract: Name of the contract as specified in the governance contract
         """
         gov = self.create_interface_score(self._governance.get(), GovernanceInterface)
         return gov.getContractAddress(_contract)
 
     def _timeForFeeProcessing(self, _token: Address) -> bool:
         """
-        Check if it's time to process all accumulated fees for specified token.
+        Check if it's time to process all accumulated fees for the specified token.
 
-        :param _token: token address
+        :param _token: Token address
         """
         last_conversion = self._last_fee_processing_block[_token]
         target_block = last_conversion + self._fee_processing_interval.get()
