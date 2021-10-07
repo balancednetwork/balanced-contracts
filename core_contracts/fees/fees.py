@@ -24,9 +24,13 @@ class FeeHandler(IconScoreBase):
         # Need to execute @only_governance methods. 
         self._governance.set(self.address)
 
-        self.setFeeProcessingInterval(1800)        
+        # Minimum of 60 min between conversions.
+        self.setFeeProcessingInterval(1800)
+
+        # Tokens that should not be converted.
         self.setAcceptedDividendTokens(ACCEPTED_DIVIDEND_TOKENS_MAIN_NET)
 
+        # Routes to use for conversions.
         for route in INITIAL_ROUTES_MAIN_NET:
             self.setRoute(*route)
 
@@ -252,7 +256,6 @@ class FeeHandler(IconScoreBase):
 # Implement receiver/destination in _route method in router contract. -> Done.
 # Direct origination fees to this contract.                           -> Done.
 # Direct swapfees to this contract.                                   -> Done.
-# Register feehandler score in governance contract.
-# Unit tests for all methods.
+# Register feehandler score in governance contract.                   -> Done but not comitted.
+# Unit tests for all methods.                                         -> In progress.
 # Add Admin functionality?
-# (Make RouteDB. Cant use dumps with list of addresses.) ?
