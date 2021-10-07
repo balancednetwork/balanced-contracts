@@ -8,7 +8,8 @@ class TestGovernanceUnit(ScoreTestCase):
     def setUp(self):
         super().setUp()
         self.mock_score = Address.from_string(f"cx{'1234' * 10}")
-        self.fee_handler = self.get_score_instance(FeeHandler, self.test_account1)
+        self.fee_handler = self.get_score_instance(FeeHandler, self.test_account1, 
+                                                   on_install_params={"_governance": self.test_account1})
         self.test_account3 = Address.from_string(f"hx{'12345' * 8}")
         self.test_account4 = Address.from_string(f"hx{'1231' * 10}")
         self.test_account5 = Address.from_string(f"hx{'1234' * 10}")
@@ -18,9 +19,30 @@ class TestGovernanceUnit(ScoreTestCase):
             self.test_account5: 10 ** 21
         }
         self.initialize_accounts(account_info)
-        self.fee_handler._governance.set(self.test_account1)
+        #self.fee_handler._governance.set(self.test_account1)
 
 
+    def test_setgetAcceptedDividendsTokens(self):
+        self.set_msg(self.test_account1)
+
+        # Set accepted dividend tokens and test result.
+        dividend_tokens = [
+            Address.from_string("cxf61cd5a45dc9f91c15aa65831a30a90d59a09619"),
+            Address.from_string("cx88fd7df7ddff82f7cc735c871dc519838cb235bb"),
+            Address.from_string("cx2609b924e33ef00b648a409245c7ea394c467824")
+        ]
+        self.fee_handler.setAcceptedDividendTokens(dividend_tokens)
+        self.assertListEqual(self.fee_handler.getAcceptedDividendTokens(), dividend_tokens)
+
+        # Set new accepted dividend tokens and test result.
+        dividend_tokens = [
+            Address.from_string("cx421cd5a45dc9f91c15aa65831a30a90d59a09619"),
+            Address.from_string("cx53fd7df7ddff82f7cc735c871dc519838cb235bb"),
+            Address.from_string("cx2409b924e33ef00b648a409245c7ea394c467824")
+        ]
+        self.fee_handler.setAcceptedDividendTokens(dividend_tokens)
+        self.assertListEqual(self.fee_handler.getAcceptedDividendTokens(), dividend_tokens)
+        
     def test_setgetdeleteRoute(self):
 
         # Initial settings.
@@ -59,7 +81,7 @@ class TestGovernanceUnit(ScoreTestCase):
         block_interval = 100
 
         # Test setter and getter.
-        self.assertFalse(self.fee_handler._fee_processing_interval.get())
+        #self.assertFalse(self.fee_handler._fee_processing_interval.get())
         self.fee_handler.setFeeProcessingInterval(block_interval)
         self.assertEqual(self.fee_handler.getFeeProcessingInterval(), block_interval)
 
