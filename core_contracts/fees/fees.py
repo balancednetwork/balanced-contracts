@@ -20,48 +20,18 @@ class FeeHandler(IconScoreBase):
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
+        
+        # Need to execute @only_governance methods. 
+        self._governance.set(self.address)
+
+        self.setFeeProcessingInterval(1800)        
+        self.setAcceptedDividendTokens(ACCEPTED_DIVIDEND_TOKENS_MAIN_NET)
+
+        for route in INITIAL_ROUTES_MAIN_NET:
+            self.setRoute(*route)
+
+        # Set real governance.
         self._governance.set(_governance)
-        self._fee_processing_interval.set(1800)        
-
-        # Set initial accepted tokens on main net.
-        accepted_dividend_tokens = [
-            Address.from_string(BALN),
-            Address.from_string(BNUSD),
-            Address.from_string(SICX)
-        ]
-
-        for token in accepted_dividend_tokens:
-            self._accepted_dividend_tokens.put(token)
-
-        # Set initial routes on main net.
-        initial_routes = [
-            {
-                'from': Address.from_string(IUSDC),
-                'to': Address.from_string(BALN),
-                'path': f'[{BNUSD}, {BALN}]'
-            },
-            {
-                'from': Address.from_string(OMM),
-                'to': Address.from_string(BALN),
-                'path': f'[{SICX}, {BALN}]'
-            },
-            {
-                'from': Address.from_string(USDS),
-                'to': Address.from_string(BALN),
-                'path': f'[{BNUSD}, {BALN}]'
-            },
-            {
-                'from': Address.from_string(CFT),
-                'to': Address.from_string(BALN),
-                'path': f'[{SICX}, {BALN}]'
-            }
-        ]
-
-        for route in initial_routes:
-            _from = route['from']
-            _to = route['to']
-            _path = route['path']
-            self._routes[_from][_to] = _path
 
     def on_update(self) -> None:
         super().on_update()
@@ -72,7 +42,7 @@ class FeeHandler(IconScoreBase):
 
     @external
     @only_governance
-    def setAcceptedDividendTokens(self, _tokens: list[Address]) -> None:
+    def setAcceptedDividendTokens(self, _tokens: List[Address]) -> None:
         """
         Specifies which tokens that does not need converting before they are sent to
         the dividends contract.
@@ -91,7 +61,7 @@ class FeeHandler(IconScoreBase):
             self._accepted_dividend_tokens.put(token)
 
     @external(readonly=True)
-    def getAcceptedDividendTokens(self) -> list[Address]:
+    def getAcceptedDividendTokens(self) -> list:
         """
         Gets all accepted dividend tokens.
 
@@ -101,7 +71,7 @@ class FeeHandler(IconScoreBase):
 
     @external
     @only_governance
-    def setRoute(self, _fromToken: Address, _toToken: Address, _path: str):
+    def setRoute(self, _fromToken: Address, _toToken: Address, _path: List[Address]) -> None:
         """
         Sets a route to use when converting token A to token B.
 
@@ -110,13 +80,13 @@ class FeeHandler(IconScoreBase):
         :param _path: The path to take when converting token A to token B.
                       Token A is omitted from this path. E.g. assuming token C and D are 
                       needed for the convertion, the route is specified in the following format:
-                      '[<address_token_c>, <address_token_d>, <address_token_b>]'.
+                      [<address_token_c>, <address_token_d>, <address_token_b>].
         """
-        self._routes[_fromToken][_toToken] = _path
+        self._routes[_fromToken][_toToken] = json_dumps(_path)
 
     @external
     @only_governance
-    def deleteRoute(self, _fromToken: Address, _toToken: Address):
+    def deleteRoute(self, _fromToken: Address, _toToken: Address) -> None:
         """
         Deletes the route used when converting token A to token B.
 
