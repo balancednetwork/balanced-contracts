@@ -22,7 +22,7 @@ class FeeHandler(IconScoreBase):
         super().on_install()
         
         # Need to execute @only_governance methods. 
-        self._governance.set(self.address)
+        self._governance.set(self.msg.sender)
 
         # Minimum of 60 min between conversions.
         self.setFeeProcessingInterval(1800)
@@ -86,6 +86,7 @@ class FeeHandler(IconScoreBase):
                       needed for the convertion, the route is specified in the following format:
                       [<address_token_c>, <address_token_d>, <address_token_b>].
         """
+        _path = [str(address) for address in _path]
         self._routes[_fromToken][_toToken] = json_dumps(_path)
 
     @external
