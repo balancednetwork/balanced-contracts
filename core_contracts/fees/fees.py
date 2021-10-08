@@ -31,6 +31,8 @@ class FeeHandler(IconScoreBase):
         self.setAcceptedDividendTokens(ACCEPTED_DIVIDEND_TOKENS_MAIN_NET)
 
         # Routes to use for conversions.
+        # Breaks unit tests for some reason, but appear to work.
+        # Test on testnet.
         for route in INITIAL_ROUTES_MAIN_NET:
             self.setRoute(*route)
 
