@@ -182,7 +182,7 @@ class FeeHandler(IconScoreBase):
             else:
                 # Use dex.
                 self._transferToken(self.msg.sender, self._getContractAddress("dex"), self._getTokenBalance(self.msg.sender), 
-                                    self._createDataFieldDex(self._getContractAddress("dividends")))
+                                    self._createDataFieldDex(self._getContractAddress("baln"), self._getContractAddress("dividends")))
 
         # Set the block for this fee processing event.
         self._last_fee_processing_block[self.msg.sender] = self.block_height
@@ -204,7 +204,7 @@ class FeeHandler(IconScoreBase):
         data = json_dumps(data).encode()
         return data
 
-    def _createDataFieldDex(self, _receiver: Address) -> bytes:
+    def _createDataFieldDex(self, _toToken: Address, _receiver: Address) -> bytes:
         """
         Constructs the data to pass to the dex contract when making a swap.
 
@@ -213,6 +213,7 @@ class FeeHandler(IconScoreBase):
         data = {
             'method': "_swap",
             'params': {
+                'toToken': str(_toToken),
                 'receiver': str(_receiver)
             }   
         }
