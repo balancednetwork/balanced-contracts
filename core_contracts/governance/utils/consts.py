@@ -12,7 +12,7 @@ BALNSICX_ID = 4
 POINTS = 10000
 
 CONTRACTS = ['loans', 'dex', 'staking', 'rewards', 'dividends', 'daofund',
-             'reserve', 'sicx', 'bnUSD', 'baln', 'bwt', 'router']
+             'reserve', 'sicx', 'bnUSD', 'baln', 'bwt', 'router', 'feehandler']
 
 ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve'],
              'dex': ['rewards', 'dividends', 'staking', 'sicx', 'bnUSD', 'baln'],
@@ -23,7 +23,8 @@ ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve'],
              'bnUSD': ['oracle'],
              'baln': ['dividends', 'oracle', 'dex', 'bnUSD'],
              'bwt': ['baln'],
-             'router': ['dex', 'sicx', 'staking']}
+             'router': ['dex', 'sicx', 'staking'],
+             'feehandler': []}
 
 ADMIN_ADDRESSES = {'loans': 'governance',
                    'dex': 'governance',
