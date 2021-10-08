@@ -22,6 +22,7 @@ class BalancedAddresses(TypedDict):
     baln: Address
     bwt: Address
     router: Address
+    feehandler: Address
 
 
 class VoteActions(object):
@@ -74,6 +75,7 @@ class Addresses(object):
         self._baln = VarDB('baln', db, Address)
         self._bwt = VarDB('bwt', db, Address)
         self._router = VarDB('router', db, Address)
+        self._feehandler = VarDB('feehandler', db, Address)
 
     def __getitem__(self, key: str) -> Address:
         if key == 'governance':
@@ -85,7 +87,7 @@ class Addresses(object):
 
     def setAddresses(self, addresses: BalancedAddresses) -> None:
         """
-        Takes a TypedDict with 11 addresses and sets them.
+        Takes a TypedDict with 14 addresses and sets them.
         """
         set_func: dict = {'loans': self._loans.set,
                           'dex': self._dex.set,
@@ -99,7 +101,8 @@ class Addresses(object):
                           'bnUSD': self._bnUSD.set,
                           'baln': self._baln.set,
                           'bwt': self._bwt.set,
-                          'router': self._router.set}
+                          'router': self._router.set,
+                          'feehandler': self._feehandler.set}
         for key, value in addresses.items():
             set_func[key](value)
 
@@ -117,7 +120,8 @@ class Addresses(object):
                 'bnUSD': self._bnUSD.get(),
                 'baln': self._baln.get(),
                 'bwt': self._bwt.get(),
-                'router': self._router.get()
+                'router': self._router.get(),
+                'feehandler': self._feehandler.get()
                }
 
 
