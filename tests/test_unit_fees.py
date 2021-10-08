@@ -42,15 +42,19 @@ class TestGovernanceUnit(ScoreTestCase):
         ]
         self.fee_handler.setAcceptedDividendTokens(dividend_tokens)
         self.assertListEqual(self.fee_handler.getAcceptedDividendTokens(), dividend_tokens)
-        
+
     def test_setgetdeleteRoute(self):
 
         # Initial settings.
         self.set_msg(self.test_account1)
         fromToken = Address.from_string("cxf61cd5a45dc9f91c15aa65831a30a90d59a09619")
         toToken = Address.from_string("cx88fd7df7ddff82f7cc735c871dc519838cb235bb")
-        path = '["cx2609b924e33ef00b648a409245c7ea394c467824", "cx88fd7df7ddff82f7cc735c871dc519838cb235bb"]'
-
+        
+        path = [
+            Address.from_string("cx2609b924e33ef00b648a409245c7ea394c467824"), 
+            Address.from_string("cx88fd7df7ddff82f7cc735c871dc519838cb235bb")
+        ]
+          
         # Test db before setRoute.
         self.assertFalse(self.fee_handler.getRoute(fromToken, toToken))
         self.assertFalse(self.fee_handler._routes[fromToken][toToken])
@@ -100,11 +104,12 @@ class TestGovernanceUnit(ScoreTestCase):
         self.assertEqual(result, expected_result)
         
     def test_createDataFieldDex(self):
-        result = self.fee_handler._createDataFieldDex(self.test_account4)
+        result = self.fee_handler._createDataFieldDex(self.test_account3, self.test_account4)
         expected_result = json.dumps(
             {
             'method': "_swap",
             'params': {
+                'toToken' : str(self.test_account3),
                 'receiver': str(self.test_account4)
             }   
         }
@@ -131,25 +136,3 @@ class TestGovernanceUnit(ScoreTestCase):
         self.set_block(200)
         self.assertTrue(self.fee_handler._timeForFeeProcessing(token))
 
-    #def test_tokenFallback(self):
-#
-    #    # Mock parameters for tokenFallback function.
-    #    token_sender = self.test_account3
-    #    value = 1000
-    #    data = b"None"
-#
-    #    # Settings.
-    #    self.set_tx(_hash=b"mock_hash")
-    #    self.set_block(100)
-    #    self.set_msg(sender=self.test_account4)
-    #    self.fee_handler._last_fee_processing_block[token_sender] = 50
-    #    self.fee_handler._fee_processing_interval.set(100)
-    #    #self.fee_handler._last_txhash.set("mock_hash")
-#
-    #    for i in range(10):
-    #        print("")
-    #    print(self.fee_handler.tx.hash == self.fee_handler._last_txhash.get())
-#
-    #    # First incomming token transfer to fee contract in this tx.
-    #    self.fee_handler.tokenFallback(token_sender, value, data)
-    #    print(self.fee_handler._last_txhash.get())
