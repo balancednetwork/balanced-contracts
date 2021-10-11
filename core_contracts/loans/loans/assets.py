@@ -13,9 +13,11 @@
 # limitations under the License.
 
 from ..scorelib.linked_list import *
+from .loans import OracleInterface
 
 TAG = 'BalancedLoansAssets'
 ASSET_DB_PREFIX = b'asset'
+
 
 # An interface of token to distribute daily rewards
 class TokenInterface(InterfaceScore):
@@ -45,14 +47,6 @@ class TokenInterface(InterfaceScore):
 
     @interface
     def burnFrom(self, _account: Address, _amount: int) -> None:
-        pass
-
-    @interface
-    def priceInLoop(self) -> int:
-        pass
-
-    @interface
-    def lastPriceInLoop(self) -> int:
         pass
 
 
@@ -120,13 +114,17 @@ class Asset(object):
         except Exception:
             revert(f'{TAG}: Trouble burning {self.symbol()} tokens.')
 
-    def priceInLoop(self) -> int:
+    def priceInUSD(self) -> int:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
-        return token.priceInLoop()
+        token_symbol = token.symbol()
+        oracle = self._loans.create_interface_score(self._loans.getOracle(), OracleInterface)
+        return oracle.priceInUSD(token_symbol)
 
-    def lastPriceInLoop(self) -> int:
+    def lastPriceInUSD(self) -> int:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
-        return token.lastPriceInLoop()
+        token_symbol = token.symbol()
+        oracle = self._loans.create_interface_score(self._loans.getOracle(), OracleInterface)
+        return oracle.lastPriceInUSD(token_symbol)
 
     def get_address(self) -> Address:
         return self.asset_address.get()
@@ -150,7 +148,7 @@ class Asset(object):
             return False
         bad_debt = self.bad_debt.get()
         outstanding = self.totalSupply() - bad_debt
-        pool_value = self.liquidation_pool.get() * self.priceInLoop() // self._loans._assets['sICX'].priceInLoop()
+        pool_value = self.liquidation_pool.get() * self.priceInUSD() // self._loans._assets['sICX'].priceInUSD()
         net_bad_debt = bad_debt - pool_value
         dead = net_bad_debt > outstanding / 2
         if dead != self.dead_market.get():
@@ -239,7 +237,7 @@ class AssetsDB:
         assets = {}
         for symbol in self.aalist:
             asset = self.__getitem__(symbol)
-            assets[symbol] = asset.lastPriceInLoop()
+            assets[symbol] = asset.lastPriceInUSD()
         return assets
 
     def add_asset(self, _address: Address, is_active: bool = True, is_collateral: bool = False) -> None:

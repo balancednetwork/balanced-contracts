@@ -6,13 +6,15 @@ TAG = 'Rebalancing'
 EXA = 10 ** 18
 
 
+class OracleInterface(InterfaceScore):
+    @interface
+    def priceInUSD(self, _asset: str) -> int:
+        pass
+
+
 class sICXTokenInterface(InterfaceScore):
     @interface
     def transfer(self, _to: Address, _value: int, _data: bytes = None):
-        pass
-
-    @interface
-    def lastPriceInLoop(self) -> int:
         pass
 
     @interface
@@ -23,10 +25,6 @@ class sICXTokenInterface(InterfaceScore):
 class BnusdTokenInterface(InterfaceScore):
     @interface
     def transfer(self, _to: Address, _value: int, _data: bytes = None):
-        pass
-
-    @interface
-    def lastPriceInLoop(self) -> int:
         pass
 
     @interface
@@ -60,6 +58,7 @@ class Rebalancing(IconScoreBase):
     _DEX_ADDRESS = 'dex_address'
     _LOANS_ADDRESS = 'loans_address'
     _GOVERNANCE_ADDRESS = 'governance_address'
+    _ORACLE = "oracle"
     _SICX_RECEIVABLE = 'sicx_receivable'
     _ADMIN = 'admin'
     _PRICE_THRESHOLD = '_price_threshold'
@@ -72,6 +71,7 @@ class Rebalancing(IconScoreBase):
         self._loans = VarDB(self._LOANS_ADDRESS, db, value_type=Address)
         self._governance = VarDB(self._GOVERNANCE_ADDRESS, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
+        self._oracle = VarDB(self._ORACLE, db, value_type=Address)
         self._sicx_receivable = VarDB(self._SICX_RECEIVABLE, db, value_type=int)
         self._price_threshold = VarDB(self._PRICE_THRESHOLD, db, value_type=int)
 
@@ -93,6 +93,24 @@ class Rebalancing(IconScoreBase):
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._bnUSD.set(_address)
+
+    @external
+    @only_admin
+    def setOracle(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new oracle contract address.
+        """
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
+        self._oracle.set(_address)
+
+    @external(readonly=True)
+    def getOracle(self) -> Address:
+        """
+        Returns Oracle address.
+        """
+        return self._oracle.get()
 
     @external
     @only_admin
@@ -186,11 +204,12 @@ class Rebalancing(IconScoreBase):
         last element of the list is True, it's the reverse rebalancing .
         The second element of the list specifies the amount of tokens required to balance the pool.
         """
-        bnusd_score = self.create_interface_score(self._bnUSD.get(), BnusdTokenInterface)
         dex_score = self.create_interface_score(self._dex.get(), DexTokenInterface)
-        sicx_score = self.create_interface_score(self._sicx.get(), sICXTokenInterface)
 
-        price = bnusd_score.lastPriceInLoop() * EXA // sicx_score.lastPriceInLoop()
+        oracle = self.create_interface_score(self.getOracle(), OracleInterface)
+        bnusd_rate = oracle.priceInUSD("bnusd")
+        sicx_rate = oracle.priceInUSD("sICX")
+        price = bnusd_rate * EXA // sicx_rate
         pool_stats = dex_score.getPoolStats(2)
         dex_price = pool_stats['base'] * EXA // pool_stats['quote']
 

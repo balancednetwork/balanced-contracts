@@ -473,8 +473,9 @@ class Governance(IconScoreBase):
         bnUSD = self.create_interface_score(bnUSD_address, AssetInterface)
         sICX = self.create_interface_score(sICX_address, AssetInterface)
         dex = self.create_interface_score(dex_address, DexInterface)
-        price = bnUSD.priceInLoop()
-        amount = EXA * value // (price * 7)
+        oracle = self.create_interface_score(self.addresses["oracle"], OracleInterface)
+        # todo: BIGYA RECHECK
+        amount = EXA * value // ((1 / oracle.priceInUSD("ICX")) * 7)
         staking.icx(value // 7).stakeICX()
         loans.icx(self.icx.get_balance(self.address)).depositAndBorrow('bnUSD', amount)
         bnUSD_value = bnUSD.balanceOf(self.address)
@@ -795,12 +796,6 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def balanceSetOracleName(self, _name: str) -> None:
-        baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
-        baln.setOracleName(_name)
-
-    @external
-    @only_owner
     def balanceSetMinInterval(self, _interval: int) -> None:
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         baln.setMinInterval(_interval)
@@ -831,57 +826,6 @@ class Governance(IconScoreBase):
             disbursement['address'] = Address.from_string(disbursement['address'])
         dao = self.create_interface_score(self.addresses['daofund'], DAOfundInterface)
         dao.disburse(_recipient, _amounts)
-
-    @external
-    @only_owner
-    def setAssetOracle(self, _symbol: str, _address: Address) -> None:
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
-        asset_addresses = loans.getAssetTokens()
-        if _symbol not in asset_addresses:
-            revert(f'{_symbol} is not a supported asset in Balanced.')
-        token = asset_addresses[_symbol]
-        asset = self.create_interface_score(Address.from_string(token), AssetInterface)
-        asset.setOracle(_address)
-
-    @external
-    @only_owner
-    def setAssetOracleName(self, _symbol: str, _name: str) -> None:
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
-        asset_addresses = loans.getAssetTokens()
-        if _symbol not in asset_addresses:
-            revert(f'{_symbol} is not a supported asset in Balanced.')
-        token = asset_addresses[_symbol]
-        asset = self.create_interface_score(Address.from_string(token), AssetInterface)
-        asset.setOracleName(_name)
-
-    @external
-    @only_owner
-    def setAssetMinInterval(self, _symbol: str, _interval: int) -> None:
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
-        asset_addresses = loans.getAssetTokens()
-        if _symbol not in asset_addresses:
-            revert(f'{_symbol} is not a supported asset in Balanced.')
-        token = asset_addresses[_symbol]
-        asset = self.create_interface_score(Address.from_string(token), AssetInterface)
-        asset.setMinInterval(_interval)
-
-    @external
-    @only_owner
-    def bnUSDSetOracle(self, _address: Address) -> None:
-        bnUSD = self.create_interface_score(self.addresses['bnUSD'], AssetInterface)
-        bnUSD.setOracle(_address)
-
-    @external
-    @only_owner
-    def bnUSDSetOracleName(self, _name: str) -> None:
-        bnUSD = self.create_interface_score(self.addresses['bnUSD'], AssetInterface)
-        bnUSD.setOracleName(_name)
-
-    @external
-    @only_owner
-    def bnUSDSetMinInterval(self, _interval: int) -> None:
-        bnUSD = self.create_interface_score(self.addresses['bnUSD'], AssetInterface)
-        bnUSD.setMinInterval(_interval)
 
     @external
     @only_owner

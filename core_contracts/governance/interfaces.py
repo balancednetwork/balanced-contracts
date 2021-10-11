@@ -299,6 +299,13 @@ class DividendsInterface(InterfaceScore):
         pass
 
 
+class OracleInterface(InterfaceScore):
+
+    @interface
+    def priceInUSD(self, _asset: str) -> int:
+        pass
+
+
 # An interface to call the setAddress methods on each SCORE.
 class SetAddressesInterface(InterfaceScore):
 
@@ -402,14 +409,6 @@ class BalancedInterface(InterfaceScore):
         pass
 
     @interface
-    def setOracle(self, _address: Address) -> None:
-        pass
-
-    @interface
-    def setOracleName(self, _name: str) -> None:
-        pass
-
-    @interface
     def toggleStakingEnabled(self) -> None:
         pass
 
@@ -444,23 +443,7 @@ class AssetInterface(InterfaceScore):
         pass
 
     @interface
-    def setOracleName(self, _name: str) -> None:
-        pass
-
-    @interface
-    def setOracle(self, _address: Address) -> None:
-        pass
-
-    @interface
-    def setMinInterval(self, _interval: int) -> None:
-        pass
-
-    @interface
     def setAdmin(self, _admin: Address) -> None:
-        pass
-
-    @interface
-    def priceInLoop(self) -> int:
         pass
 
 
@@ -470,11 +453,13 @@ class BalancedWorkerTokenInterface(InterfaceScore):
     def adminTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = None):
         pass
 
+
 class BnUSDInterface(InterfaceScore):
 
     @interface
     def govTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = b'None') -> None:
         pass
+
 
 # An interface to the Router SCORE
 class RouterInterface(InterfaceScore):

@@ -17,13 +17,6 @@ from .utils.checks import *
 from .utils.consts import *
 
 
-# An interface to the Band Price Oracle
-class OracleInterface(InterfaceScore):
-    @interface
-    def get_reference_data(self, _base: str, _quote: str) -> dict:
-        pass
-
-
 # An interface to the Balanced DEX
 class DexInterface(InterfaceScore):
     @interface
@@ -55,10 +48,6 @@ class TotalStakedBalnTokenSnapshots(TypedDict):
 
 
 class BalancedToken(IRC2):
-    _PRICE_UPDATE_TIME = "price_update_time"
-    _LAST_PRICE = "last_price"
-    _MIN_INTERVAL = "min_interval"
-
     _EVEN_DAY_STAKE_CHANGES = "even_day_stake_changes"
     _ODD_DAY_STAKE_CHANGES = "odd_day_stake_changes"
 
@@ -79,8 +68,6 @@ class BalancedToken(IRC2):
 
     _DEX_SCORE = "dex_score"
     _BNUSD_SCORE = "bnUSD_score"
-    _ORACLE = "oracle"
-    _ORACLE_NAME = "oracle_name"
 
     _TIME_OFFSET = "time_offset"
     _STAKE_SNAPSHOTS = "stake_snapshots"
@@ -95,11 +82,6 @@ class BalancedToken(IRC2):
         self._dex_score = VarDB(self._DEX_SCORE, db, value_type=Address)
         self._bnusd_score = VarDB(self._BNUSD_SCORE, db, value_type=Address)
         self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
-        self._oracle = VarDB(self._ORACLE, db, value_type=Address)
-        self._oracle_name = VarDB(self._ORACLE_NAME, db, value_type=str)
-        self._price_update_time = VarDB(self._PRICE_UPDATE_TIME, db, value_type=int)
-        self._last_price = VarDB(self._LAST_PRICE, db, value_type=int)
-        self._min_interval = VarDB(self._MIN_INTERVAL, db, value_type=int)
 
         self._even_day_stake_changes = ArrayDB(self._EVEN_DAY_STAKE_CHANGES, db, value_type=Address)
         self._odd_day_stake_changes = ArrayDB(self._ODD_DAY_STAKE_CHANGES, db, value_type=Address)
@@ -141,9 +123,6 @@ class BalancedToken(IRC2):
         self._index_stake_address_changes.set(0)
         self._stake_update_db.set(0)
         self._stake_address_update_db.set(0)
-        self._oracle_name.set(DEFAULT_ORACLE_NAME)
-        self._last_price.set(INITIAL_PRICE_ESTIMATE)
-        self._min_interval.set(MIN_UPDATE_TIME)
         self._minimum_stake.set(MINIMUM_STAKE)
         self._unstaking_period.set(DEFAULT_UNSTAKING_PERIOD)
 
@@ -151,6 +130,18 @@ class BalancedToken(IRC2):
         super().on_update()
         self.setTimeOffset()
         self._enable_snapshots.set(False)
+
+        _ORACLE = "oracle"
+        _ORACLE_NAME = "oracle_name"
+        _LAST_PRICE = "last_price"
+        _MIN_INTERVAL = "min_interval"
+        _PRICE_UPDATE_TIME = "price_update_time"
+
+        VarDB(_ORACLE, self.db, value_type=Address).remove()
+        VarDB(_ORACLE_NAME, self.db, value_type=str).remove()
+        VarDB(_PRICE_UPDATE_TIME, self.db, value_type=int).remove()
+        VarDB(_LAST_PRICE, self.db, value_type=int).remove()
+        VarDB(_MIN_INTERVAL, self.db, value_type=int).remove()
 
     @external(readonly=True)
     def getPeg(self) -> str:
@@ -167,30 +158,12 @@ class BalancedToken(IRC2):
 
     @external
     @only_governance
-    def setOracle(self, _address: Address) -> None:
-        self._oracle.set(_address)
-
-    @external(readonly=True)
-    def getOracle(self) -> dict:
-        return self._oracle.get()
-
-    @external
-    @only_governance
     def setDex(self, _address: Address) -> None:
         self._dex_score.set(_address)
 
     @external(readonly=True)
     def getDex(self) -> dict:
         return self._dex_score.get()
-
-    @external
-    @only_governance
-    def setOracleName(self, _name: str) -> None:
-        self._oracle_name.set(_name)
-
-    @external(readonly=True)
-    def getOracleName(self) -> dict:
-        return self._oracle_name.get()
 
     @external
     @only_owner
@@ -210,59 +183,6 @@ class BalancedToken(IRC2):
         :param _admin: The authorized admin address.
         """
         return self._admin.set(_admin)
-
-    @external
-    @only_governance
-    def setMinInterval(self, _interval: int) -> None:
-        self._min_interval.set(_interval)
-
-    @external(readonly=True)
-    def getMinInterval(self) -> int:
-        return self._min_interval.get()
-
-    @external
-    def priceInLoop(self) -> int:
-        """
-        Returns the price of the asset in loop. Makes a call to the oracle if
-        the last recorded price is not recent enough.
-        """
-        if self.now() - self._price_update_time.get() > self._min_interval.get():
-            self.update_asset_value()
-        return self._last_price.get()
-
-    @external(readonly=True)
-    def lastPriceInLoop(self) -> int:
-        """
-        Returns the latest price of the asset in loop.
-        """
-        dex_score = self._dex_score.get()
-        oracle_address = self._oracle.get()
-        dex = self.create_interface_score(dex_score, DexInterface)
-        oracle = self.create_interface_score(oracle_address, OracleInterface)
-        price = dex.getBalnPrice()
-        priceData = oracle.get_reference_data('USD', 'ICX')
-
-        return priceData['rate'] * price // EXA
-
-    def update_asset_value(self) -> None:
-        """
-        Calls the oracle method for the asset and updates the asset
-        value in loop.
-        """
-        base = "BALN"
-        quote = "bnUSD"
-        dex_score = self._dex_score.get()
-        oracle_address = self._oracle.get()
-        try:
-            dex = self.create_interface_score(dex_score, DexInterface)
-            oracle = self.create_interface_score(oracle_address, OracleInterface)
-            price = dex.getBalnPrice()
-            priceData = oracle.get_reference_data('USD', 'ICX')
-            self._last_price.set(priceData['rate'] * price // EXA)
-            self._price_update_time.set(self.now())
-            self.OraclePrice(base + quote, self._oracle_name.get(), dex_score, price)
-        except Exception:
-            revert(f'{base + quote}, {self._oracle_name.get()}, {dex_score}.')
 
     @external(readonly=True)
     def detailsBalanceOf(self, _owner: Address) -> dict:
@@ -633,7 +553,7 @@ class BalancedToken(IRC2):
         low = 0
         high = total_snapshots_taken - 1
         while high > low:
-            mid = high - (high - low)//2
+            mid = high - (high - low) // 2
             mid_value = self._stake_snapshots[_account][mid]
             if mid_value[IDS] == _day:
                 return mid_value[AMOUNT]
@@ -664,7 +584,7 @@ class BalancedToken(IRC2):
         low = 0
         high = total_snapshots_taken - 1
         while high > low:
-            mid = high - (high-low)//2
+            mid = high - (high - low) // 2
             mid_value = self._total_staked_snapshot[mid]
             if mid_value[IDS] == _day:
                 return mid_value[AMOUNT]
@@ -707,11 +627,3 @@ class BalancedToken(IRC2):
 
             else:
                 pass
-
-    # --------------------------------------------------------------------------
-    # EVENTS
-    # --------------------------------------------------------------------------
-
-    @eventlog(indexed=3)
-    def OraclePrice(self, market: str, oracle_name: str, oracle_address: Address, price: int):
-        pass

@@ -121,9 +121,9 @@ class Position(object):
 
     def _collateral_value(self, _day: int = -1) -> int:
         """
-        Returns the value of the collateral in loop.
+        Returns the value of the collateral in USD.
 
-        :return: Value of position collateral in loop.
+        :return: Value of position collateral in USD.
         :rtype: int
         """
         _id = self.get_snapshot_id(_day)
@@ -134,18 +134,19 @@ class Position(object):
             asset = self.asset_db[symbol]
             amount = self.assets[_id][symbol]
             if _day == -1 or _day == self._loans.getDay():
-                price = asset.priceInLoop()
+                price = asset.priceInUSD()
             else:
+                #todo: BIGYA Loop or USD
                 price = self.snaps_db[_day].prices[symbol]
             value += amount * price // EXA
         return value
 
     def total_debt(self, _day: int = -1, _readonly: bool = False) -> int:
         """
-        Returns the total value of all outstanding debt in loop. Only valid
+        Returns the total value of all outstanding debt in USD. Only valid
         for updated positions.
 
-        :return: Value of all outstanding debt in loop.
+        :return: Value of all outstanding debt in USD.
         :rtype: int
         """
         _id = self.get_snapshot_id(_day)
@@ -157,10 +158,11 @@ class Position(object):
             if amount > 0:
                 if _day == -1 or _day == self._loans.getDay():
                     if _readonly:
-                        price = self.asset_db[symbol].lastPriceInLoop()
+                        price = self.asset_db[symbol].lastPriceInUSD()
                     else:
-                        price = self.asset_db[symbol].priceInLoop()
+                        price = self.asset_db[symbol].priceInUSD()
                 else:
+                    #todo: BIGYA loop or usd
                     price = self.snaps_db[_day].prices[symbol]
                 asset_value += (price * amount) // EXA
         return asset_value
@@ -192,9 +194,9 @@ class Position(object):
         if ratio > self._loans._mining_ratio.get() * EXA // POINTS:
             if _day == -1 or _day == self._loans.getDay():
                 if _readonly:
-                    price = self.asset_db["bnUSD"].lastPriceInLoop()
+                    price = self.asset_db["bnUSD"].lastPriceInUSD()
                 else:
-                    price = self.asset_db["bnUSD"].priceInLoop()
+                    price = self.asset_db["bnUSD"].priceInUSD()
             else:
                 price = self.snaps_db[_day].prices["bnUSD"]
 
@@ -366,7 +368,7 @@ class PositionsDB:
         assets = self._loans._assets
         for symbol in assets.slist:
             if assets[symbol].is_active():
-                snapshot.prices[symbol] = assets[symbol].priceInLoop()
+                snapshot.prices[symbol] = assets[symbol].priceInUSD()
         snapshot.snap_time.set(self._loans.now())
         self._loans.Snapshot(self._loans.getDay())
         self._snapshot_db.start_new_snapshot()

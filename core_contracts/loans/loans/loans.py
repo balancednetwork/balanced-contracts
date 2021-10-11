@@ -24,6 +24,17 @@ class PrepDelegations(TypedDict):
     _votes_in_per: int
 
 
+class OracleInterface(InterfaceScore):
+
+    @interface
+    def priceInUSD(self, _asset: str) -> int:
+        pass
+
+    @interface
+    def lastPriceInUSD(self, _asset: str) -> int:
+        pass
+
+
 # An interface to the Emergency Reserve Fund
 class ReserveFund(InterfaceScore):
     @interface
@@ -83,6 +94,7 @@ class Loans(IconScoreBase):
     _REWARDS = 'rewards'
     _STAKING = 'staking'
     _ADMIN = 'admin'
+    _ORACLE = "oracle"
     _SNAP_BATCH_SIZE = 'snap_batch_size'
     _GLOBAL_INDEX = 'global_index'
     _GLOBAL_BATCH_INDEX = 'global_batch_index'
@@ -123,6 +135,7 @@ class Loans(IconScoreBase):
         self._reserve = VarDB(self._RESERVE, db, value_type=Address)
         self._rewards = VarDB(self._REWARDS, db, value_type=Address)
         self._staking = VarDB(self._STAKING, db, value_type=Address)
+        self._oracle = VarDB(self._ORACLE, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._snap_batch_size = VarDB(self._SNAP_BATCH_SIZE, db, value_type=int)
         self._max_bnusd_sell = VarDB(self._MAX_BNUSD_SELL, db, value_type=int)
@@ -184,7 +197,18 @@ class Loans(IconScoreBase):
     @external
     @only_owner
     def setNextNode(self, _node_id: int) -> None:
-        self._positions.next_node.set(_node_id)
+        self._positions.next_node.set(_node_id) @ external
+
+    @external
+    @only_owner
+    def setOracle(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert("Address needs to be contract address.")
+        self._oracle.set(_address)
+
+    @external(readonly=True)
+    def getOracle(self) -> Address:
+        return self._oracle.get()
 
     @external(readonly=True)
     def getNextNode(self) -> int:
@@ -334,7 +358,7 @@ class Loans(IconScoreBase):
             asset = self._assets[symbol]
             if asset.is_collateral() and asset.is_active():
                 held = asset.balanceOf(self.address)
-                price = asset.lastPriceInLoop()
+                price = asset.lastPriceInUSD()
                 total_collateral += held * price
         return total_collateral // EXA
 
@@ -438,6 +462,7 @@ class Loans(IconScoreBase):
         Returns the total bnUSD value of loans mining BALN for APY calculation.
         """
         bnUSD_price = self._positions._snapshot_db[-2].prices['bnUSD']
+        # todo: BIGYA loop value being used here
         loop_value = self._positions._snapshot_db[-2].total_mining_debt.get()
         return EXA * loop_value // bnUSD_price
 
@@ -538,10 +563,11 @@ class Loans(IconScoreBase):
             d = json_loads(_data.decode("utf-8"))
         except Exception:
             revert(f'{TAG}: Invalid data: {_data}, returning tokens.')
-        if set(d.keys()) == {"_asset", "_amount"}:
-            self.depositAndBorrow(d['_asset'], d['_amount'], _from, _value)
         else:
-            revert(f'{TAG}: Invalid parameters.')
+            if set(d.keys()) == {"_asset", "_amount"}:
+                self.depositAndBorrow(d['_asset'], d['_amount'], _from, _value)
+            else:
+                revert(f'{TAG}: Invalid parameters.')
 
     @loans_on
     @payable
@@ -763,7 +789,8 @@ class Loans(IconScoreBase):
         self._bnUSD_received.set(0)
         self._bnUSD_expected.set(False)
 
-        swap_data = b'{"method":"_swap","params":{"toToken":"' + str(self._assets['sICX'].get_address()).encode('utf-8') + b'"}}'
+        swap_data = b'{"method":"_swap","params":{"toToken":"' + str(self._assets['sICX'].get_address()).encode(
+            'utf-8') + b'"}}'
 
         self._sICX_expected.set(True)
         self._send_token('bnUSD', self._dex.get(), bnusd_to_sell, "bnUSD swapped for sICX", swap_data)
@@ -805,8 +832,8 @@ class Loans(IconScoreBase):
         :return: Amount of sICX supplied from reserve.
         :rtype: int
         """
-        _price = _asset.priceInLoop()
-        _sicx_rate = self._assets['sICX'].priceInLoop()
+        _price = _asset.priceInUSD()
+        _sicx_rate = self._assets['sICX'].priceInUSD()
         reserve_address = self._reserve.get()
         in_pool = _asset.liquidation_pool.get()
         bad_debt = _asset.bad_debt.get() - _bd_value
@@ -855,13 +882,14 @@ class Loans(IconScoreBase):
         collateral = pos._collateral_value()
         max_debt_value = POINTS * collateral // self._locking_ratio.get()
         fee = self._origination_fee.get() * _amount // POINTS
-        new_debt_value = self._assets[_asset].priceInLoop() * (_amount + fee) // EXA
+        new_debt_value = self._assets[_asset].priceInUSD() * (_amount + fee) // EXA
 
         # Check for loan minimum
         pos_id = pos.id.get()
         if pos[_asset] == 0:
             loan_minimum = self._new_loan_minimum.get()
-            dollar_value = new_debt_value * EXA // self._assets['bnUSD'].priceInLoop()
+            #TODO: BIGYA ENSURE NOT DOLLAR
+            dollar_value = new_debt_value * EXA // self._assets['bnUSD'].priceInUSD()
             if dollar_value < loan_minimum:
                 revert(f'{TAG}: The initial loan of any asset must have a minimum value '
                        f'of {loan_minimum / EXA} dollars.')
@@ -908,7 +936,7 @@ class Loans(IconScoreBase):
             revert(f'{TAG}: Position holds less collateral than the requested withdrawal.')
         asset_value = pos.total_debt()  # Value in ICX
         remaining_sicx = pos['sICX'] - _value
-        remaining_coll = remaining_sicx * self._assets['sICX'].priceInLoop() // EXA
+        remaining_coll = remaining_sicx * self._assets['sICX'].priceInUSD() // EXA
         locking_value = self._locking_ratio.get() * asset_value // POINTS
         if remaining_coll < locking_value:
             revert(f'{TAG}: Requested withdrawal is more than available collateral. '
@@ -944,7 +972,7 @@ class Loans(IconScoreBase):
                 if not is_collateral and active and debt > 0:
                     bad_debt = asset.bad_debt.get()
                     asset.bad_debt.set(bad_debt + debt)
-                    symbol_debt = debt * asset.priceInLoop() // EXA
+                    symbol_debt = debt * asset.priceInUSD() // EXA
                     share = for_pool * symbol_debt // total_debt
                     total_debt -= symbol_debt
                     for_pool -= share  # The share of the collateral for that asset.

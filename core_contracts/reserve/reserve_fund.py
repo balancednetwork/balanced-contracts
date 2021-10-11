@@ -18,6 +18,12 @@ from .utils.checks import *
 TAG = 'BalancedReserveFund'
 
 
+class OracleInterface(InterfaceScore):
+    @interface
+    def priceInUSD(self, _asset: str) -> int:
+        pass
+
+
 # An interface of token
 class TokenInterface(InterfaceScore):
     @interface
@@ -30,10 +36,6 @@ class TokenInterface(InterfaceScore):
 
     @interface
     def balanceOf(self) -> int:
-        pass
-
-    @interface
-    def priceInLoop(self) -> int:
         pass
 
 
@@ -69,11 +71,13 @@ class ReserveFund(IconScoreBase):
     _SICX_TOKEN = 'sicx_token'
     _BALN = 'baln'
     _SICX = 'sicx'
+    _ORACLE = 'oracle'
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self._governance = VarDB(self._GOVERNANCE, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
+        self._oracle = VarDB(self._ORACLE, db, value_type=Address)
         self._loans_score = VarDB(self._LOANS_SCORE, db, value_type=Address)
         self._baln_token = VarDB(self._BALN_TOKEN, db, value_type=Address)
         self._sicx_token = VarDB(self._SICX_TOKEN, db, value_type=Address)
@@ -97,6 +101,17 @@ class ReserveFund(IconScoreBase):
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._governance.set(_address)
+
+    @external
+    @only_governance
+    def setOracle(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
+        self._oracle.set(_address)
+
+    @external(readonly=True)
+    def getOracle(self):
+        return self._oracle.get()
 
     @external(readonly=True)
     def getGovernance(self) -> Address:
@@ -158,6 +173,12 @@ class ReserveFund(IconScoreBase):
 
     @external
     def redeem(self, _to: Address, _amount: int, _sicx_rate: int) -> int:
+        """"
+
+        :param _to: Address to send _amount of sICX
+        :param _amount: Amount of sICX to redeem
+        :param _sicx_rate: sICX rate in USD
+        """
         if self.msg.sender != self._loans_score.get():
             revert(f'{TAG}: The redeem method can only be called by the Loans SCORE.')
         sicx = self._sicx.get()
@@ -165,14 +186,16 @@ class ReserveFund(IconScoreBase):
             sicx_to_send = _amount
         else:
             sicx_to_send = sicx
-            baln_address = self._baln_token.get()
-            baln = self.create_interface_score(baln_address, TokenInterface)
-            baln_rate = baln.priceInLoop()
+
+            oracle = self.create_interface_score(self.getOracle(), OracleInterface)
+            baln_rate = oracle.priceInUSD("baln")
             baln_to_send = (_amount - sicx) * _sicx_rate // baln_rate
             baln_remaining = self._baln.get() - baln_to_send
             if baln_remaining < 0:  # Revert in case where there is not enough BALN.
                 revert(f'{TAG}: Unable to process request at this time.')
             self._baln.set(baln_remaining)
+
+            baln_address = self._baln_token.get()
             self._send_token(baln_address, _to, baln_to_send, 'Redeemed:')
         self._sicx.set(sicx - sicx_to_send)
         if sicx_to_send > 0:
