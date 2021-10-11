@@ -1006,3 +1006,11 @@ class Governance(IconScoreBase):
         proposal = ProposalDB(var_key=9, db=self.db)
         _action = '{"setRebalancingThreshold":{"_value":25000000000000000}}'
         proposal.actions.set(_action)
+
+    @external
+    @only_owner
+    def BIP8_execution_fixes(self):
+        proposal = ProposalDB(var_key=9, db=self.db)
+        proposal.status.set('Executed')
+
+        self.setRebalancingThreshold(25000000000000000)
