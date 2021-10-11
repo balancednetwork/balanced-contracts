@@ -832,6 +832,8 @@ class Governance(IconScoreBase):
         dao = self.create_interface_score(self.addresses['daofund'], DAOfundInterface)
         dao.disburse(_recipient, _amounts)
 
+    @external
+    @only_owner
     def addAcceptedTokens(self, _token: str):
         _token = Address.from_string(_token)
         dividends = self.create_interface_score(self.addresses['dividends'], DividendsInterface)
