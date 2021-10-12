@@ -1,7 +1,6 @@
 from iconservice import *
 from .interfaces import *
 from .utils.checks import *
-from .utils.constants import *
 
 
 TAG = 'FeeHandler'
