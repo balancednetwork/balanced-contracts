@@ -20,23 +20,6 @@ class FeeHandler(IconScoreBase):
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
-        
-        # Need to execute @only_governance methods. 
-        self._governance.set(self.msg.sender)
-
-        # Minimum of 60 min between conversions.
-        self.setFeeProcessingInterval(1800)
-
-        # Tokens that should not be converted.
-        self.setAcceptedDividendTokens(ACCEPTED_DIVIDEND_TOKENS_MAIN_NET)
-
-        # Routes to use for conversions.
-        # Breaks unit tests for some reason, but appears to work.
-        # Test on testnet.
-        for route in INITIAL_ROUTES_MAIN_NET:
-            self.setRoute(*route)
-
-        # Set real governance.
         self._governance.set(_governance)
 
     def on_update(self) -> None:
@@ -47,7 +30,7 @@ class FeeHandler(IconScoreBase):
         return f"Balanced {TAG}"
 
     @external
-    @only_governance
+    @only_owner
     def setAcceptedDividendTokens(self, _tokens: List[Address]) -> None:
         """
         Specifies which tokens that does not need converting before they are sent to
@@ -74,7 +57,7 @@ class FeeHandler(IconScoreBase):
         return [token for token in self._accepted_dividend_tokens]
 
     @external
-    @only_governance
+    @only_owner
     def setRoute(self, _fromToken: Address, _toToken: Address, _path: List[Address]) -> None:
         """
         Sets a route to use when converting from token A to token B.
@@ -90,7 +73,7 @@ class FeeHandler(IconScoreBase):
         self._routes[_fromToken][_toToken] = json_dumps(_path)
 
     @external
-    @only_governance
+    @only_owner
     def deleteRoute(self, _fromToken: Address, _toToken: Address) -> None:
         """
         Deletes the route used when converting from token A to token B.
@@ -121,7 +104,7 @@ class FeeHandler(IconScoreBase):
         return route
 
     @external
-    @only_governance
+    @only_owner
     def setFeeProcessingInterval(self, _interval: int) -> None:
         """
         Sets the number of blocks that must occur before a particular
