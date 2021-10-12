@@ -85,7 +85,7 @@ class TestGovernanceUnit(ScoreTestCase):
         block_interval = 100
 
         # Test setter and getter.
-        #self.assertFalse(self.fee_handler._fee_processing_interval.get())
+        self.assertFalse(self.fee_handler._fee_processing_interval.get())
         self.fee_handler.setFeeProcessingInterval(block_interval)
         self.assertEqual(self.fee_handler.getFeeProcessingInterval(), block_interval)
 
@@ -135,4 +135,3 @@ class TestGovernanceUnit(ScoreTestCase):
         # event was at block 100.
         self.set_block(200)
         self.assertTrue(self.fee_handler._timeForFeeProcessing(token))
-
