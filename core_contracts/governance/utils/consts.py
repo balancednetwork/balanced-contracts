@@ -23,7 +23,8 @@ ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve'],
              'bnUSD': ['oracle'],
              'baln': ['dividends', 'oracle', 'dex', 'bnUSD'],
              'bwt': ['baln'],
-             'router': ['dex', 'sicx', 'staking']}
+             'router': ['dex', 'sicx', 'staking'],
+             'stakedLp': ['dex', 'rewards']}
 
 ADMIN_ADDRESSES = {'loans': 'governance',
                    'dex': 'governance',
@@ -34,7 +35,8 @@ ADMIN_ADDRESSES = {'loans': 'governance',
                    'bnUSD': 'loans',
                    'baln': 'rewards',
                    'bwt': 'governance',
-                   'router': 'governance'}
+                   'router': 'governance',
+                   'stakedLp': 'governance'}
 
 #-------------------------------------------------------------------------------
 # REWARDS LAUNCH CONFIG

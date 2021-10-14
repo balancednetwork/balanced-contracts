@@ -16,6 +16,23 @@ TAG = 'Balanced DEX'
 
 
 # An interface to the Rewards SCORE
+class RewardsDataEntry(TypedDict):
+    _user: Address
+    _balance: int
+
+class BatchRewardsData(TypedDict):
+    _name: str
+    _totalSupply: int
+    _data: List[RewardsDataEntry]
+
+
+class RewardsData(TypedDict):
+    _user: Address
+    _name: str
+    _balance: int
+    _totalSupply: int
+
+
 class Rewards(InterfaceScore):
     @interface
     def distribute(self) -> bool:
@@ -24,6 +41,11 @@ class Rewards(InterfaceScore):
     @interface
     def addNewDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
         pass
+
+    @interface
+    def updateBatchRewardsData(self, _rewardsData: BatchRewardsData) -> None:
+        pass
+
 
 
 # An interface to the Dividends SCORE
@@ -249,6 +271,8 @@ class DEX(IconScoreBase):
         # Cache of token precisions, filled on first call of `deposit`
         self._token_precisions = DictDB('token_precisions', db, value_type=int)
 
+        self._continuous_rewards_day = VarDB('continuous_rewards_day', db, value_type=int)
+
     def on_install(self, _governance: Address) -> None:
         super().on_install()
         self._governance.set(_governance)
@@ -263,6 +287,7 @@ class DEX(IconScoreBase):
         self._current_day.set(1)
         self._named_markets[self._SICXICX_MARKET_NAME] = self._SICXICX_POOL_ID
         self._markets_to_names[self._SICXICX_POOL_ID] = self._SICXICX_MARKET_NAME
+        self._continuous_rewards_day.set(0)
 
     def on_update(self) -> None:
         super().on_update()
@@ -521,6 +546,22 @@ class DEX(IconScoreBase):
         """
         return self._time_offset.get()
 
+    @external
+    @only_governance
+    def setContinuousRewardsDay(self, _continuous_rewards_day: int) -> None:
+        """
+        :param _continuous_rewards_day: is day that continuous rewards are eanbled.
+        """
+        self._continuous_rewards_day.set(_continuous_rewards_day)
+
+    @external(readonly=True)
+    def getContinuousRewardsDay(self) -> int:
+        """
+        Returns the day that continuous rewards are enabled.
+        """
+        return self._continuous_rewards_day.get()
+
+
     @payable
     @dex_on
     def fallback(self):
@@ -552,6 +593,7 @@ class DEX(IconScoreBase):
 
         order_id = self._icx_queue_order_id[self.msg.sender]
         order_value = self.msg.value
+        old_order_value = 0
 
         # write withdrawal lock
         self._withdraw_lock[self._SICXICX_POOL_ID][self.msg.sender] = self.now()
@@ -559,13 +601,16 @@ class DEX(IconScoreBase):
         if order_id:
             # TODO: Modify instead of cancel/replace, after debugging scorelib
             node = self._icx_queue._get_node(order_id)
-            order_value += node.get_value1()
+            old_order_value = node.get_value1()
+            order_value += old_order_value
             self._icx_queue.remove(order_id)
 
         order_id = self._icx_queue.append(order_value, self.msg.sender)
         self._icx_queue_order_id[self.msg.sender] = order_id
 
-        current_icx_total = self._icx_queue_total.get() + self.msg.value
+        old_icx_total = self._icx_queue_total.get()
+
+        current_icx_total = old_icx_total + self.msg.value
         self._icx_queue_total.set(current_icx_total)
 
         # Revert orders below the minimum amount
@@ -574,6 +619,16 @@ class DEX(IconScoreBase):
 
         self._update_account_snapshot(self.msg.sender, self._SICXICX_POOL_ID)
         self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
+
+
+        batch_rewards_data = {}
+        rewards_entry = {"_user": self.msg.sender, "_balance": old_order_value}
+        batch_rewards_data["_name"] = "sICX/ICX"
+        batch_rewards_data["_totalSupply"] = old_icx_total
+        batch_rewards_data["_data"] = [rewards_entry]
+
+        rewards = self.create_interface_score(self._rewards.get(), Rewards)
+        rewards.updateBatchRewardsData(batch_rewards_data)
 
     @dex_on
     @external
@@ -598,7 +653,9 @@ class DEX(IconScoreBase):
         order = self._icx_queue._get_node(order_id)
         withdraw_amount = order.get_value1()
 
-        current_icx_total = self._icx_queue_total.get() - withdraw_amount
+        old_icx_total = self._icx_queue_total.get()
+
+        current_icx_total = old_icx_total - withdraw_amount
         self._icx_queue_total.set(current_icx_total)
 
         self._icx_queue.remove(order_id)
@@ -610,6 +667,16 @@ class DEX(IconScoreBase):
 
         self._update_account_snapshot(self.msg.sender, self._SICXICX_POOL_ID)
         self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
+        
+        batch_rewards_data = {}
+        rewards_entry = {"_user": self.msg.sender, "_balance": withdraw_amount}
+        batch_rewards_data["_name"] = "sICX/ICX"
+        batch_rewards_data["_totalSupply"] = old_icx_total
+        batch_rewards_data["_data"] = [rewards_entry]
+
+        rewards = self.create_interface_score(self._rewards.get(), Rewards)
+        rewards.updateBatchRewardsData(batch_rewards_data)
+
 
     @dex_on
     @external
@@ -702,7 +769,7 @@ class DEX(IconScoreBase):
         if self._balance[_id][_from] < _value:
             revert(f"{TAG}: Out of balance.")
         
-        if _id < FIRST_NON_BALANCED_POOL:
+        if _id < FIRST_NON_BALANCED_POOL and self._continuous_rewards_day.get() > self._current_day.get():
             revert(f"{TAG}: untransferrable token id")
 
         self._balance[_id][_from] = self._balance[_id][_from] - _value
@@ -937,6 +1004,10 @@ class DEX(IconScoreBase):
         if not order_id:
             return 0
         return self._icx_queue._get_node(order_id).get_value1()
+    
+    @external(readonly=True)
+    def getPoolName(self, _id: int) -> str:
+        return self._markets_to_names[_id] if _id in self._markets_to_names else None
 
     @external(readonly=True)
     def getPoolStats(self, _id: int) -> dict:

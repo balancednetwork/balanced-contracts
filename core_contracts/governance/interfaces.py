@@ -358,6 +358,10 @@ class SetAddressesInterface(InterfaceScore):
     def setRouter(self, _address: Address) -> None:
         pass
 
+    @interface
+    def setStakedLp(self, _address: Address) -> None:
+        pass
+
 
 class BalancedInterface(InterfaceScore):
 
@@ -492,4 +496,18 @@ class RouterInterface(InterfaceScore):
 
     @interface
     def setSicx(self, _address: Address) -> None:
+        pass
+
+# An interface to the Router SCORE
+class StakedLpInterface(InterfaceScore):
+    @interface
+    def setDex(self, _address: Address):
+        pass
+
+    @interface
+    def setAdmin(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setRewards(self, _address: Address) -> None:
         pass
