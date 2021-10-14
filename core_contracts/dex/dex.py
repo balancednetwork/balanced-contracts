@@ -521,6 +521,16 @@ class DEX(IconScoreBase):
         """
         return self._time_offset.get()
 
+    def is_locking_pool(self, id: int) -> bool:
+        """
+        Internal function, mapped to mainnet pool IDs. Will be deprecated upon the release
+        of continuous rewards.
+        """
+        if id < FIRST_NON_BALANCED_POOL or id == USDS_BNUSD_ID or id == IUSDT_BNUSD_ID:
+            return True
+        else:
+            return False
+
     @payable
     @dex_on
     def fallback(self):
@@ -702,7 +712,7 @@ class DEX(IconScoreBase):
         if self._balance[_id][_from] < _value:
             revert(f"{TAG}: Out of balance.")
         
-        if _id < FIRST_NON_BALANCED_POOL:
+        if self.is_locking_pool(_id):
             revert(f"{TAG}: untransferrable token id")
 
         self._balance[_id][_from] = self._balance[_id][_from] - _value
@@ -1755,7 +1765,7 @@ class DEX(IconScoreBase):
         self._total[_id] += liquidity
 
         # Only add withdraw locks to Balanced pools
-        if _id < FIRST_NON_BALANCED_POOL:
+        if self.is_locking_pool(_id):
             self._withdraw_lock[_id][self.msg.sender] = self.now()
 
         self.Add(_id, _owner, liquidity, base_to_commit, quote_to_commit)
@@ -1767,7 +1777,7 @@ class DEX(IconScoreBase):
                               * self._pool_total[_id][_quoteToken] // self.totalSupply(_id)
 
         # Only add restrictions to Balanced pools
-        if _id < FIRST_NON_BALANCED_POOL:
+        if self.is_locking_pool(_id):
             self._revert_below_minimum(user_quote_holdings, _quoteToken)
         
         self._active_addresses[_id].add(self.msg.sender)
