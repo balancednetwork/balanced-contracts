@@ -23,23 +23,9 @@ class PrepDelegations(TypedDict):
     _address: Address
     _votes_in_per: int
 
-
-class RewardsData(TypedDict):
-    _user: Address
-    _name: str
-    _balance: int
-    _totalSupply: int
-
-
 class RewardsDataEntry(TypedDict):
     _user: Address
     _balance: int
-
-
-class BatchRewardsData(TypedDict):
-    _name: str
-    _totalSupply: int
-    _data: List[RewardsDataEntry]
 
 
 # An interface to the Emergency Reserve Fund
@@ -67,12 +53,13 @@ class Rewards(InterfaceScore):
         pass
 
     @interface
-    def updateRewardsData(self, _rewardsData: List[RewardsData]) -> None:
+    def updateRewardsData(self, _name: str, _totalSupply: int, _user: Address, _balance: int) -> None:
         pass
 
     @interface
-    def updateBatchRewardsData(self, _rewardsData: BatchRewardsData) -> None:
+    def updateBatchRewardsData(self, _name: str, _totalSupply: int, _data: List[RewardsDataEntry]) -> None:
         pass
+
 
 
 # An interface to the Dividends SCORE
@@ -432,6 +419,19 @@ class Loans(IconScoreBase):
         Gets total outstanding debt for mining rewards calculation.
         """
         return self._positions._snapshot_db[_snapshot_id].total_mining_debt.get()
+    
+    @external(readonly=True)
+    def getBalanceAndSupply(self, _name: str, _owner: Address) -> dict:
+        if _name == "Loans":
+            asset = self._assets['bnUSD']
+            rewardsData = {
+                "_balance": asset.balanceOf(_owner),
+                "_totalSupply": asset.totalSupply()
+            }
+            return rewardsData
+        else:
+            revert(f"{TAG}: Unsupported data source name")
+
 
     @external(readonly=True)
     def getBnusdValue(self, _name: str) -> int:
@@ -628,8 +628,7 @@ class Loans(IconScoreBase):
         if self._positions._exists(_from) and _repay:
             day, new_day = self.checkForNewDay()
             self.checkDistributions(day, new_day)
-            reward_info = [{"_user": _from, "_name": "Loans", "_balance": user_balance,
-                                            "_totalSupply": asset.totalSupply()}]
+            old_supply = asset.totalSupply()
             pos = self._positions.get_pos(_from)
             if _value > pos[_symbol]:
                 revert(f'{TAG}: Repaid amount is greater than the amount in the position of {_from}')
@@ -650,7 +649,7 @@ class Loans(IconScoreBase):
                         self._positions.remove_nonzero(pos_id)
                 else:
                     rewards = self.create_interface_score(self._rewards.get(), Rewards)
-                    rewards.updateRewardsData(reward_info)
+                    rewards.updateRewardsData("Loans", old_supply, _from, user_balance)
                 self.LoanRepaid(_from, _symbol, repaid,
                                 f'Loan of {repaid} {_symbol} repaid to Balanced.')
                 asset.is_dead()
@@ -726,8 +725,7 @@ class Loans(IconScoreBase):
 
         if self.getDay() >= self._continuous_reward_day.get():
             rewards = self.create_interface_score(self._rewards.get(), Rewards)
-            rewards.updateBatchRewardsData({"_name": "Loans", "_totalSupply": asset.totalSupply(),
-                                            "_data": rewards_batch_list})
+            rewards.updateBatchRewardsData("Loans",asset.totalSupply(), rewards_batch_list)
         self.Rebalance(self.msg.sender, _symbol, str(change_in_pos_dict),
                        total_batch_debt)
 
@@ -797,8 +795,7 @@ class Loans(IconScoreBase):
 
         if self.getDay() >= self._continuous_reward_day.get():
             rewards = self.create_interface_score(self._rewards.get(), Rewards)
-            rewards.updateBatchRewardsData({"_name": "Loans", "_totalSupply": self._assets['bnUSD'].totalSupply(),
-                                            "_data": rewards_batch_list})
+            rewards.updateBatchRewardsData("Loans",asset.totalSupply(), rewards_batch_list)
         self.Rebalance(self.msg.sender, 'bnUSD', str(change_in_pos_dict),
                        total_batch_debt)
 
@@ -893,8 +890,7 @@ class Loans(IconScoreBase):
                 self._positions.add_nonzero(pos_id)
         else:
             rewards = self.create_interface_score(self._rewards.get(), Rewards)
-            rewards.updateRewardsData([{"_user": _from, "_name": "Loans", "_balance": asset.balanceOf(_from),
-                                        "_totalSupply": asset.totalSupply()}])
+            rewards.updateRewardsData("Loans", asset.totalSupply(), _from, asset.balanceOf(_from))
         new_debt = _amount + fee
         pos[_asset] = pos[_asset] + new_debt
         self.OriginateLoan(_from, _asset, _amount,
@@ -966,9 +962,7 @@ class Loans(IconScoreBase):
                 if not is_collateral and active and debt > 0:
                     if not check_day:
                         rewards = self.create_interface_score(self._rewards.get(), Rewards)
-                        rewards.updateRewardsData(
-                            [{"_user": _owner, "_name": "Loans", "_balance": asset.balanceOf(_owner),
-                              "_totalSupply": asset.totalSupply()}])
+                        rewards.updateRewardsData("Loans", asset.totalSupply(), _owner, asset.balanceOf(_owner))
                     bad_debt = asset.bad_debt.get()
                     asset.bad_debt.set(bad_debt + debt)
                     symbol_debt = debt * asset.priceInLoop() // EXA

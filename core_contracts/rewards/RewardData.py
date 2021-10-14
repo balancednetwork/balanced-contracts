@@ -37,6 +37,25 @@ class DataSourceInterface(InterfaceScore):
     def getBalnPrice(self) -> int:
         pass
 
+    @interface
+    def getBalanceAndSupply(self, _name: str, _owner: Address) -> dict:
+        pass
+
+class RewardsDataEntry(TypedDict):
+    _user: Address
+    _balance: int
+
+class BatchRewardsData(TypedDict):
+    _name: str
+    _totalSupply: int
+    _data: List[RewardsDataEntry]
+
+class RewardsData(TypedDict):
+    _user: Address
+    _name: str
+    _balance: int
+    _totalSupply: int
+
 
 class DataSource(object):
 
@@ -50,6 +69,110 @@ class DataSource(object):
         self.total_value = DictDB('total_value', db, value_type=int)
         self.total_dist = DictDB('total_dist', db, value_type=int)
         self.dist_percent = VarDB('dist_percent', db, value_type=int)
+
+        # map: address -> user weight
+        # user weight is defined as user supply * emission
+        # Upon claim, a user conults many data sources to get their rewards
+        self.user_weight = DictDB('user_weight', db, value_type=int)
+
+        # Timestamp the rewards were last updated
+        self.last_update_time_us = VarDB('last_update_us', db, value_type=int)
+
+        # Running total reward weight
+        # Reward weight is supply * emission
+        self.total_weight = VarDB('running_total', db, value_type=int)
+
+        # Current total supply, the total quantity of asset against which
+        # rewards are assessed
+        self.total_supply = VarDB('total_supply', db, value_type=int)
+    
+    def load_current_supply(self, _owner: Address) -> dict:
+        data_source = self._rewards.create_interface_score(self.contract_address.get(), DataSourceInterface)
+        return data_source.getBalanceAndSupply(self.name.get(), _owner)
+    
+    def _compute_total_weight(self, previous_total_weight: int, emission: int, total_supply: int, last_update_time: int, current_time: int) -> int:
+        # Return if there is no supply to emit based on or no emission
+        if emission == 0 or total_supply == 0:
+            return 0
+        
+        time_delta = current_time - last_update_time
+
+        # We may decide to increase the max time delta to drop writes
+        if time_delta == 0:
+            return 0
+        
+        weight_delta = (emission * time_delta * EXA) // (DAY_IN_MICROSECONDS * total_supply)
+        new_total_weight = previous_total_weight + weight_delta
+
+        return new_total_weight
+
+    def _update_total_weight(self, current_time: int, total_supply: int) -> int:
+        previous_running_total = self.total_weight.get()
+        last_update_timestamp = self.last_update_time_us.get()
+
+        # Special case for the day1s
+        if last_update_timestamp == 0:
+            last_update_timestamp = current_time
+            self.last_update_time_us.set(current_time)
+
+        reward_day = self.day.get()
+
+        # If the current time is equal to the last update time, don't emit any new rewards
+        if current_time == last_update_timestamp:
+            return previous_running_total
+        
+        # Emit rewards based on the time delta * reward rate
+        emission = self.total_dist[reward_day]
+        new_total = self._compute_total_weight(previous_running_total, emission, total_supply, last_update_timestamp, current_time)
+
+        # Debug code, remove before a live launch
+        if new_total < previous_running_total:
+            revert(f"Reward computation error, new_weight={new_total}, old_weight={previous_running_total}, emission={emission}")
+        
+        # Write new total weight to disk if it has changed
+        if new_total > previous_running_total:
+            self.total_weight.set(new_total)
+            self.last_update_time_us.set(current_time)
+        
+        return new_total
+    
+    def _compute_user_rewards(self, prev_user_balance: int, total_weight: int, user_weight: int) -> int:
+        # User rewards = weight change * last known balance
+        delta_weight = total_weight - user_weight
+        return delta_weight * prev_user_balance
+    
+    def compute_single_user_data(self, current_time, prev_total_supply: int, user: Address, prev_balance: int) -> int:
+        current_user_weight = self.user_weight[user]
+        # Then, check the current weight of the pool, updating if necessary via the helper function
+        total_weight = self._compute_total_weight(self.total_weight.get(), self.total_dist[self.day.get()], prev_total_supply, self.last_update_time_us.get(), current_time)
+
+        accrued_rewards = 0
+
+        # If the user's current weight is less than the total, update their weight and issue rewards
+        if current_user_weight < total_weight:
+            # Don't do unnecessary writes - only reward the user if their previous balance was nonzero
+            if prev_balance > 0:
+                accrued_rewards = self._compute_user_rewards(prev_balance, total_weight, current_user_weight) // EXA
+
+        return accrued_rewards
+
+    def update_single_user_data(self, current_time: int, prev_total_supply: int, user: Address, prev_balance: int) -> int:
+        # First, get the current user's weight
+        current_user_weight = self.user_weight[user]
+        # Then, check the current weight of the pool, updating if necessary via the helper function
+        total_weight = self._update_total_weight(current_time, prev_total_supply)
+
+        accrued_rewards = 0
+
+        # If the user's current weight is less than the total, update their weight and issue rewards
+        if current_user_weight < total_weight:
+            # Don't do unnecessary writes - only reward the user if their previous balance was nonzero
+            if prev_balance > 0:
+                accrued_rewards = self._compute_user_rewards(prev_balance, total_weight, current_user_weight) // EXA
+            # Update the user's weight to the current total weight regardless of reward
+            self.user_weight[user] = total_weight
+        
+        return accrued_rewards
 
     def _distribute(self, batch_size: int) -> None:
         """
