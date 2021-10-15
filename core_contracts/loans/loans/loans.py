@@ -103,9 +103,6 @@ class Loans(IconScoreBase):
     _MIN_MINING_DEBT = 'min_mining_debt'
     _MAX_DEBTS_LIST_LENGTH = 'max_debts_list_length'
 
-    _MAX_SICX_SELL = '_max_sicx_sell'
-    _MAX_BNUSD_SELL = '_max_bnusd_sell'
-
     _REDEEM_BATCH_SIZE = 'redeem_batch_size'
     _MAX_RETIRE_PERCENT = 'max_retire_percent'
     _SICX_EXPECTED = 'sicx_expected'
@@ -125,8 +122,6 @@ class Loans(IconScoreBase):
         self._staking = VarDB(self._STAKING, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._snap_batch_size = VarDB(self._SNAP_BATCH_SIZE, db, value_type=int)
-        self._max_bnusd_sell = VarDB(self._MAX_BNUSD_SELL, db, value_type=int)
-        self._max_sicx_sell = VarDB(self._MAX_SICX_SELL, db, value_type=int)
         self._global_index = VarDB(self._GLOBAL_INDEX, db, value_type=int)
         self._global_batch_index = VarDB(self._GLOBAL_BATCH_INDEX, db, value_type=int)
 
@@ -441,24 +436,6 @@ class Loans(IconScoreBase):
         loop_value = self._positions._snapshot_db[-2].total_mining_debt.get()
         return EXA * loop_value // bnUSD_price
 
-    @external
-    @only_governance
-    def setMaxSellAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
-        """
-        :param _sicx_value: Maximum sICX amount to sell.
-        :param _bnusd_value: Maximum bnUSD amount to sell.
-        Sets the Maximum sICX amount and Maximum bnUSD amount to sell.
-        """
-        self._max_sicx_sell.set(_sicx_value)
-        self._max_bnusd_sell.set(_bnusd_value)
-
-    @external(readonly=True)
-    def getMaxSellAmount(self) -> dict:
-        """
-        Returns the Maximum sICX amount and Maximum bnUSD amount to sell.
-        """
-        return {"sICX": self._max_sicx_sell.get(), "bnUSD": self._max_bnusd_sell.get()}
-
     @external(readonly=True)
     def getDataCount(self, _snapshot_id: int) -> int:
         """
@@ -699,7 +676,7 @@ class Loans(IconScoreBase):
             node_id = borrowers.get_head_id()
         borrowers.serialize()
 
-        sicx_to_sell = min(_total_tokens_required, self._max_sicx_sell.get(),
+        sicx_to_sell = min(_total_tokens_required,
                            (self._max_retire_percent.get() * total_batch_debt * EXA)
                            // (POINTS * rate))
 
@@ -755,7 +732,7 @@ class Loans(IconScoreBase):
             node_id = borrowers.get_head_id()
         borrowers.serialize()
 
-        bnusd_to_sell = min(_total_tokens_required, self._max_bnusd_sell.get(),
+        bnusd_to_sell = min(_total_tokens_required,
                             (self._max_retire_percent.get() * total_batch_debt // POINTS))
 
         self._bnUSD_expected.set(True)
