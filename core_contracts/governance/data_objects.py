@@ -21,6 +21,7 @@ class BalancedAddresses(TypedDict):
     baln: Address
     bwt: Address
     router: Address
+    rebalancing: Address
 
 
 class VoteActions(object):
@@ -75,6 +76,7 @@ class Addresses(object):
         self._baln = VarDB('baln', db, Address)
         self._bwt = VarDB('bwt', db, Address)
         self._router = VarDB('router', db, Address)
+        self._rebalancing = VarDB('rebalancing', db, Address)
 
     def __getitem__(self, key: str) -> Address:
         if key == 'governance':
@@ -100,7 +102,8 @@ class Addresses(object):
                           'bnUSD': self._bnUSD.set,
                           'baln': self._baln.set,
                           'bwt': self._bwt.set,
-                          'router': self._router.set}
+                          'router': self._router.set,
+                          'rebalancing': self._rebalancing.set}
         for key, value in addresses.items():
             set_func[key](value)
 
@@ -118,7 +121,8 @@ class Addresses(object):
                 'bnUSD': self._bnUSD.get(),
                 'baln': self._baln.get(),
                 'bwt': self._bwt.get(),
-                'router': self._router.get()
+                'router': self._router.get(),
+                'rebalancing': self._rebalancing.get()
                }
 
 
@@ -134,7 +138,7 @@ class Addresses(object):
         'daofund': score.setDaofund, 'oracle': score.setOracle,
         'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
         'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
-        'router': score.setRouter}
+        'router': score.setRouter, 'rebalancing': score.setRebalancing}
 
         for address in ADDRESSES[contract]:
             try:
@@ -156,7 +160,7 @@ class Addresses(object):
                            'daofund': score.setDaofund, 'oracle': score.setOracle,
                            'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
                            'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
-                           'router': score.setRouter}
+                           'router': score.setRouter, 'rebalancing': score.setRebalancing}
             for method in ADDRESSES[contract]:
                 try:
                     set_methods[method](self[method])

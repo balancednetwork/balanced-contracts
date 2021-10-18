@@ -177,6 +177,8 @@ class Loans(IconScoreBase):
         self._redeem_batch.set(REDEEM_BATCH_SIZE)
         self._max_retire_percent.set(MAX_RETIRE_PERCENT)
         self._max_debts_list_length.set(MAX_DEBTS_LIST_LENGTH)
+        self._max_sicx_sell.set(1000 * EXA)
+        self._max_sicx_sell.set(1000 * EXA)
 
     def on_update(self) -> None:
         super().on_update()
@@ -1002,6 +1004,13 @@ class Loans(IconScoreBase):
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._governance.set(_address)
+
+    @external
+    @only_admin
+    def setRebalancing(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
+        self._rebalance.set(_address)
 
     @external
     @only_admin

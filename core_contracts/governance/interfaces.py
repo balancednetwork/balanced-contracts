@@ -45,6 +45,10 @@ class RebalancingInterface(InterfaceScore):
     @interface
     def setBnusd(self, _address: Address) -> None:
         pass
+    
+    @interface
+    def setAdmin(self, _address: Address) -> None:
+        pass
 
 
 # An interface to the Loans SCORE
@@ -360,6 +364,11 @@ class SetAddressesInterface(InterfaceScore):
     @interface
     def setRouter(self, _address: Address) -> None:
         pass
+
+    @interface
+    def setRebalancing(self, _address: Address) -> None:
+        pass
+
 
 
 class BalancedInterface(InterfaceScore):

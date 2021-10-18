@@ -14,7 +14,7 @@ POINTS = 10000
 CONTRACTS = ['loans', 'dex', 'staking', 'rewards', 'dividends', 'daofund',
              'reserve', 'sicx', 'bnUSD', 'baln', 'bwt', 'router']
 
-ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve'],
+ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve', 'rebalancing', 'dex'],
              'dex': ['rewards', 'dividends', 'staking', 'sicx', 'bnUSD', 'baln'],
              'rewards': ['reserve', 'baln', 'bwt', 'daofund'],
              'dividends': ['loans', 'daofund', 'dex', 'baln'],
@@ -23,7 +23,8 @@ ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve'],
              'bnUSD': ['oracle'],
              'baln': ['dividends', 'oracle', 'dex', 'bnUSD'],
              'bwt': ['baln'],
-             'router': ['dex', 'sicx', 'staking']}
+             'router': ['dex', 'sicx', 'staking'],
+             'rebalancing': ['dex', 'sicx', 'bnUSD', 'loans']}
 
 ADMIN_ADDRESSES = {'loans': 'governance',
                    'dex': 'governance',

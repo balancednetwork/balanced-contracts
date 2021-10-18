@@ -83,6 +83,17 @@ class Rebalancing(IconScoreBase):
         super().on_update()
         self._sicx_receivable.remove()
 
+    @only_admin
+    @external
+    def setbnUSD(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new bnUSD contract address. Should be called before dex use.
+        """
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
+        self._bnUSD.set(_address)
+
     @external
     @only_admin
     def setBnusd(self, _address: Address) -> None:
@@ -126,6 +137,16 @@ class Rebalancing(IconScoreBase):
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._governance.set(_address)
+
+    @external
+    @only_owner
+    def setAdmin(self, _address: Address) -> None:
+        """
+        :param _address: new admin address.
+        """
+        self._admin.set(_address)
+
+
 
     @external
     @only_admin
