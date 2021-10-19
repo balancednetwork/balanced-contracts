@@ -91,9 +91,11 @@ class TestGovernanceUnit(ScoreTestCase):
         self.baln = Address.from_string(f"cx{'12345' * 8}")
         self.dex = Address.from_string(f"cx{'15785' * 8}")
         self.bnusd = Address.from_string(f"cx{'13343' * 8}")
+        self.rebalancing = Address.from_string(f"cx{'99999' * 8}")
         self.governance.addresses._baln.set(self.baln)
         self.governance.addresses._dex.set(self.dex)
         self.governance.addresses._bnUSD.set(self.bnusd)
+        self.governance.addresses._rebalancing.set(self.rebalancing)
 
     def test_set_vote_duration(self):
         self.set_msg(self.test_account1)
@@ -511,8 +513,13 @@ class TestGovernanceUnit(ScoreTestCase):
             self.governance.daoDisburse(_recepient, _amount)
 
     def test_addAcceptedTokens(self):
+        self.set_msg(self.test_account1)
         mock_class = MockClass(balanceOfAt=1, totalSupplyAt=1, totalBalnAt=1, totalStakedBalanceOfAt=1, totalSupply=1,
                                stakedBalanceOf=1, stakedBalanceOfAt=1)
         with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
             _token = 'cx3784537845378453784537845378453784537845'
             self.governance.addAcceptedTokens(_token)
+
+    def test_getAddresses(self):
+        addresses = self.governance.getAddresses()
+        self.assertEqual('cx9999999999999999999999999999999999999999', str(addresses['rebalancing']))
