@@ -156,7 +156,7 @@ class Governance(IconScoreBase):
 
     @external
     def defineVote(self, name: str, description: str, vote_start: int,
-                   snapshot: int, actions: str = "{}") -> None:
+                   snapshot: int, actions: str = "[]") -> None:
         """
         Defines a new vote and which actions are to be executed if it is successful.
 
@@ -164,8 +164,8 @@ class Governance(IconScoreBase):
         :param description: description of the vote
         :param vote_start: day to start the vote
         :param snapshot: which day to use for the baln stake snapshot
-        :param actions: json string on the form: {'<action_1>': {<kwargs for action_1>},
-                                                  '<action_2>': {<kwargs_for_action_2>},..}
+        :param actions: json string on the form: [{'<action_1>': {<kwargs for action_1>}},
+                                                  {'<action_2>': {<kwargs_for_action_2>}}, {..}]
         """
         if len(description) > 500:
             revert(f'Description must be less than or equal to 500 characters.')
@@ -325,7 +325,7 @@ class Governance(IconScoreBase):
         result = self.checkVote(vote_index)
         if result['for'] + result['against'] >= result['quorum']:
             if (EXA - majority) * result['for'] > majority * result['against']:
-                if actions != "{}":
+                if actions != "[]":
                     try:
                         self._execute_vote_actions(actions)
                         proposal.status.set(ProposalStatus.STATUS[ProposalStatus.EXECUTED])
@@ -341,9 +341,10 @@ class Governance(IconScoreBase):
         proposal.active.set(False)
 
     def _execute_vote_actions(self, _vote_actions: str) -> None:
-        actions = json_loads(_vote_actions)
-        for action in actions:
-            self.vote_execute[action](**actions[action])
+        actions_list = json_loads(_vote_actions)
+        for actions in actions_list:
+            for action in actions:
+                self.vote_execute[action](**actions[action])
 
     def _refund_vote_definition_fee(self, proposal: ProposalDB) -> None:
         if not proposal.fee_refunded.get():

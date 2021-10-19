@@ -39,7 +39,6 @@ class VoteActions(object):
             'setRetirementBonus': self._gov.setRetirementBonus,
             'setLiquidationReward': self._gov.setLiquidationReward,
             'setMaxRetirePercent': self._gov.setMaxRetirePercent,
-            'setMaxSellAmount': self._gov.setMaxSellAmount,
             'setRebalancingThreshold': self._gov.setRebalancingThreshold,
             'setVoteDuration': self._gov.setVoteDuration,
             'setQuorum': self._gov.setQuorum,
