@@ -164,8 +164,8 @@ class Governance(IconScoreBase):
         :param description: description of the vote
         :param vote_start: day to start the vote
         :param snapshot: which day to use for the baln stake snapshot
-        :param actions: json string on the form: [{'<action_1>': {<kwargs for action_1>}},
-                                                  {'<action_2>': {<kwargs_for_action_2>}}, {..}]
+        :param actions: json string on the form: [['<action_1>', {<kwargs for action_1>}],
+                                                  ['<action_2>', {<kwargs_for_action_2>}], [..]]
         """
         if len(description) > 500:
             revert(f'Description must be less than or equal to 500 characters.')
@@ -190,8 +190,8 @@ class Governance(IconScoreBase):
         bnusd = self.create_interface_score(self.addresses['bnUSD'], BnUSDInterface)
         bnusd.govTransfer(self.msg.sender, self.addresses['daofund'], self._bnusd_vote_definition_fee.get())
 
-        actions_dict = json_loads(actions)
-        if len(actions_dict) > self.maxActions():
+        actions_list = json_loads(actions)
+        if len(actions_list) > self.maxActions():
             revert(f"Balanced Governance: Only {self.maxActions()} actions are allowed")
 
         ProposalDB.create_proposal(name=name, description=description, proposer=self.msg.sender,
@@ -341,10 +341,9 @@ class Governance(IconScoreBase):
         proposal.active.set(False)
 
     def _execute_vote_actions(self, _vote_actions: str) -> None:
-        actions_list = json_loads(_vote_actions)
-        for actions in actions_list:
-            for action in actions:
-                self.vote_execute[action](**actions[action])
+        actions = json_loads(_vote_actions)
+        for action in actions:
+            self.vote_execute[action[0]](**action[1])
 
     def _refund_vote_definition_fee(self, proposal: ProposalDB) -> None:
         if not proposal.fee_refunded.get():
