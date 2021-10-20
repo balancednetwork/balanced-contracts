@@ -28,7 +28,7 @@ class VoteActions(object):
     def __init__(self, db: IconScoreDatabase, gov: IconScoreBase) -> None:
         self._db = db
         self._gov = gov
-        self._actions = [{
+        self._actions = {
             'enableDividends': self._gov.enableDividends,
             'addNewDataSource': self._gov.addNewDataSource,
             'updateBalTokenDistPercentage': self._gov.updateBalTokenDistPercentage,
@@ -47,7 +47,7 @@ class VoteActions(object):
             'setDividendsCategoryPercentage': self._gov.setDividendsCategoryPercentage,
             'daoDisburse': self._gov.daoDisburse,
             'addAcceptedTokens': self._gov.addAcceptedTokens
-        }]
+        }
 
     def __getitem__(self, key: str):
         return self._actions[key]
