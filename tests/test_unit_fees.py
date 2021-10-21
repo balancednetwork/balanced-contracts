@@ -90,7 +90,11 @@ class TestGovernanceUnit(ScoreTestCase):
         self.assertEqual(self.fee_handler.getFeeProcessingInterval(), block_interval)
 
     def test_createDataFieldRouter(self):
-        path = ["cx88fd7df7ddff82f7cc735c871dc519838cb235bb", "cx2609b924e33ef00b648a409245c7ea394c467824"]
+        path = [
+            "cx88fd7df7ddff82f7cc735c871dc519838cb235bb", 
+            "cx2609b924e33ef00b648a409245c7ea394c467824", 
+            "cx4569b924e33ef00b648a409245c7ea394c467824"
+        ]
         result = self.fee_handler._createDataFieldRouter(self.test_account3, path)
         expected_result = json.dumps(
             {

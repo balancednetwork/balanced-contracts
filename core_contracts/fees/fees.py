@@ -176,14 +176,24 @@ class FeeHandler(IconScoreBase):
         :param _receiver: Address to receive the funds when all swaps have completed.
         :param _path: Path to use for the swap. List of addresses in string format.
         """
-        data = {
-        'method': "_swap",
-        'params': {
-            'path': _path,
-            'receiver': str(_receiver)
-            }
-        }
-        data = json_dumps(data).encode()
+
+        # Convert the path to a bytestring.
+        temp = []
+        length = len(_path)
+        counter = 0
+        for address in _path:
+            if counter != length - 1:
+                temp.append(b'"' + address.encode() + b'", ')
+            else:
+                temp.append(b'"' + address.encode() + b'"')
+            counter += 1
+        path = b'[' + b''.join(temp) + b']'
+
+        # Construct data as a bytestring and return it.
+        data = (
+            b'{"method": "_swap", "params": {"path": ' + path +
+            b', "receiver": "' + str(_receiver).encode() + b'"}}'
+        )
         return data
 
     def _createDataFieldDex(self, _toToken: Address, _receiver: Address) -> bytes:
@@ -193,15 +203,12 @@ class FeeHandler(IconScoreBase):
         :param _toToken: Token to swap to.
         :param _receiver: Address to receive the funds when all swaps have completed.
         """
-        data = {
-            'method': "_swap",
-            'params': {
-                'toToken': str(_toToken),
-                'receiver': str(_receiver)
-            }   
-        }
-        data = json_dumps(data).encode()
+        data = (
+            b'{"method": "_swap", "params": {"toToken": "' + str(_toToken).encode() +
+            b'", "receiver": "' + str(_receiver).encode() + b'"}}'
+        )
         return data
+       
 
     def _getContractAddress(self, _contract: str) -> Address:
         """
