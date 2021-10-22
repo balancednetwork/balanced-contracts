@@ -352,7 +352,10 @@ class Governance(IconScoreBase):
     def _execute_vote_actions(self, _vote_actions: str) -> None:
         actions = json_loads(_vote_actions)
         for action in actions:
-            self.vote_execute[action[0]](**action[1])
+            if type(action) == list:
+                self.vote_execute[action[0]](**action[1])
+            elif type(action) == dict:
+                self.vote_execute[action](**actions[action])
 
     def _refund_vote_definition_fee(self, proposal: ProposalDB) -> None:
         if not proposal.fee_refunded.get():
@@ -712,6 +715,12 @@ class Governance(IconScoreBase):
         """
         Assign percentages for distribution to the data sources. Must sum to 100%.
         """
+        self.internal_updateBalTokenDistPercentage(_recipient_list)
+
+    def internal_updateBalTokenDistPercentage(self, _recipient_list: List[DistPercentDict]) -> None:
+        """
+        Assign percentages for distribution to the data sources. Must sum to 100%.
+        """
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.updateBalTokenDistPercentage(_recipient_list)
 
@@ -1019,3 +1028,10 @@ class Governance(IconScoreBase):
         proposal.status.set('Executed')
 
         self.setRebalancingThreshold(25000000000000000)
+
+    @external
+    @only_owner
+    def vote_index12_actions_fixes(self):
+        proposal = ProposalDB(var_key=12, db=self.db)
+        proposal.active.set(True)
+        proposal.status.set('Succeeded')

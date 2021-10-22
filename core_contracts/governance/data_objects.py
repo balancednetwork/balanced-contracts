@@ -32,7 +32,7 @@ class VoteActions(object):
         self._actions = {
             'enableDividends': self._gov.enableDividends,
             'addNewDataSource': self._gov.addNewDataSource,
-            'updateBalTokenDistPercentage': self._gov.updateBalTokenDistPercentage,
+            'updateBalTokenDistPercentage': self._gov.internal_updateBalTokenDistPercentage,
             'setMiningRatio': self._gov.setMiningRatio,
             'setLockingRatio': self._gov.setLockingRatio,
             'setOriginationFee': self._gov.setOriginationFee,
