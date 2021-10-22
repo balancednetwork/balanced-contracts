@@ -15,7 +15,7 @@ CONTRACTS = ['loans', 'dex', 'staking', 'rewards', 'dividends', 'daofund',
              'reserve', 'sicx', 'bnUSD', 'baln', 'bwt', 'router', 'feehandler']
 
 ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve'],
-             'dex': ['rewards', 'dividends', 'staking', 'sicx', 'bnUSD', 'baln'],
+             'dex': ['rewards', 'dividends', 'staking', 'sicx', 'bnUSD', 'baln', 'feehandler'],
              'rewards': ['reserve', 'baln', 'bwt', 'daofund'],
              'dividends': ['loans', 'daofund', 'dex', 'baln'],
              'daofund': ['loans'],

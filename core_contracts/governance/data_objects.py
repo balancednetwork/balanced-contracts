@@ -137,7 +137,7 @@ class Addresses(object):
         'daofund': score.setDaofund, 'oracle': score.setOracle,
         'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
         'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
-        'router': score.setRouter}
+        'router': score.setRouter, 'feehandler': score.setFeehandler}
 
         for address in ADDRESSES[contract]:
             try:
@@ -159,7 +159,7 @@ class Addresses(object):
                            'daofund': score.setDaofund, 'oracle': score.setOracle,
                            'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
                            'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
-                           'router': score.setRouter}
+                           'router': score.setRouter, 'feehandler': score.setFeehandler}
             for method in ADDRESSES[contract]:
                 try:
                     set_methods[method](self[method])
