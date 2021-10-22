@@ -24,10 +24,23 @@ class PrepDelegations(TypedDict):
     _votes_in_per: int
 
 
+class RewardsData(TypedDict):
+    _user: Address
+    _name: str
+    _balance: int
+    _totalSupply: int
+
+
 # An interface to the Emergency Reserve Fund
 class ReserveFund(InterfaceScore):
     @interface
     def redeem(self, _to: Address, _amount: int, _sicx_rate: int) -> int:
+        pass
+
+
+class Rewards(InterfaceScore):
+    @interface
+    def updateRewardsData(self, _rewardsData: List[RewardsData]) -> None:
         pass
 
 
@@ -176,25 +189,6 @@ class Loans(IconScoreBase):
     def on_update(self) -> None:
         super().on_update()
 
-    @external
-    @only_owner
-    def setNextNode(self, _node_id: int) -> None:
-        self._positions.next_node.set(_node_id)
-
-    @external(readonly=True)
-    def getNextNode(self) -> int:
-        return self._positions.next_node.get()
-
-    @external(readonly=True)
-    def getNonzeroNode(self, _id: int) -> dict:
-        nonzero = self._positions.get_nonzero()
-        return {"next": nonzero.get_next_ro(_id), "prev": nonzero.get_prev_ro(_id)}
-
-    @external(readonly=True)
-    def getMetaData(self) -> str:
-        nonzero = self._positions.get_nonzero()
-        return nonzero.get_metadata()
-
     @external(readonly=True)
     def name(self) -> str:
         return "Balanced Loans"
@@ -205,7 +199,6 @@ class Loans(IconScoreBase):
         self._loans_on.set(True)
         self.ContractActive("Loans", "Active")
         self._current_day.set(self.getDay())
-        self._positions._snapshot_db.start_new_snapshot()
 
     @external
     @only_governance
@@ -239,22 +232,6 @@ class Loans(IconScoreBase):
                 "Dividends": self._dividends_done.get()}
 
     @external(readonly=True)
-    def getDebts(self, _address_list: List[str], _day: int) -> dict:
-        """
-        Returns the debt held by each address in the list.
-        """
-        max_length = self._max_debts_list_length.get()
-        if len(_address_list) > max_length:
-            revert(f'{TAG}: Address list is longer than the maximum '
-                   f'allowable length ({max_length}).')
-        debts = {}
-        for address in _address_list:
-            pos_id = self._positions.get_id_for(Address.from_string(address))
-            snapshot = self._positions._snapshot_db[_day]
-            debts[address] = snapshot.pos_state[pos_id]['total_debt']
-        return debts
-
-    @external(readonly=True)
     def checkDeadMarkets(self) -> list:
         """
         Returns the symbols for all assets with dead_market status.
@@ -264,19 +241,6 @@ class Loans(IconScoreBase):
             for symbol in self._assets.aalist
             if self._assets[symbol].dead_market.get()
         ]
-
-    @external(readonly=True)
-    def getNonzeroPositionCount(self) -> int:
-        """
-        Returns the total number of nonzero positions.
-        """
-        pos = self._positions
-        snap = pos._snapshot_db[-1]
-        nonzero = len(pos.get_nonzero()) + len(snap.get_add_nonzero()) - len(snap.get_remove_nonzero())
-        if snap.snap_day.get() > 1:
-            last_snap = pos._snapshot_db[-2]
-            nonzero += len(last_snap.get_add_nonzero()) - len(last_snap.get_remove_nonzero())
-        return nonzero
 
     @external(readonly=True)
     def getPositionStanding(self, _address: Address, _snapshot: int = -1) -> dict:
@@ -369,14 +333,6 @@ class Loans(IconScoreBase):
         return len(self._positions)
 
     @external(readonly=True)
-    def hasDebt(self, _owner: Address) -> bool:
-        """
-        Returns whether the address holds a debt position.
-        """
-        pos = self._positions.get_pos(_owner)
-        return pos.has_debt()
-
-    @external(readonly=True)
     def getSnapshot(self, _snap_id: int = -1) -> dict:
         """
         Returns a summary of the snapshot for the system. Returns an empty dict
@@ -407,26 +363,6 @@ class Loans(IconScoreBase):
         asset._active.set(value)
         self.AssetActive(_symbol, "Active" if value else "Inactive")
 
-    @external
-    def precompute(self, _snapshot_id: int, batch_size: int) -> bool:
-        """
-        prepares the position data snapshot to send to the rewards SCORE.
-        """
-        if self.msg.sender != self._rewards.get():
-            revert(f'{TAG}: The precompute method may only be invoked by the rewards SCORE.')
-        self.checkForNewDay()  # Only does something if it is internal on a DEX tx.
-        # Iterate through all positions in the snapshot to bring them up to date.
-        if self._positions._calculate_snapshot(_snapshot_id, batch_size):
-            return Complete.DONE
-        return Complete.NOT_DONE
-
-    @external(readonly=True)
-    def getTotalValue(self, _name: str, _snapshot_id: int) -> int:
-        """
-        Gets total outstanding debt for mining rewards calculation.
-        """
-        return self._positions._snapshot_db[_snapshot_id].total_mining_debt.get()
-
     @external(readonly=True)
     def getBnusdValue(self, _name: str) -> int:
         """
@@ -435,58 +371,6 @@ class Loans(IconScoreBase):
         bnUSD_price = self._positions._snapshot_db[-2].prices['bnUSD']
         loop_value = self._positions._snapshot_db[-2].total_mining_debt.get()
         return EXA * loop_value // bnUSD_price
-
-    @external(readonly=True)
-    def getDataCount(self, _snapshot_id: int) -> int:
-        """
-        Returns the number of records in the snapshot.
-        """
-        return len(self._positions._snapshot_db[_snapshot_id].mining)
-
-    @external(readonly=True)
-    def getDataBatch(self, _name: str, _snapshot_id: int,
-                     _limit: int, _offset: int = 0) -> dict:
-        """
-        Read position data batch.
-        """
-        batch = {}
-        snapshot = self._positions._snapshot_db[_snapshot_id]
-        total_mining = len(snapshot.mining)
-        start = max(0, min(_offset, total_mining))
-        end = min(_offset + _limit, total_mining)
-        for i in range(start, end):
-            pos_id = snapshot.mining[i]
-            pos = self._positions[pos_id]
-            batch[str(pos.address.get())] = snapshot.pos_state[pos_id]['total_debt']
-        return batch
-
-    @loans_on
-    @external
-    def checkForNewDay(self) -> (int, bool):
-        day = self.getDay()
-        new_day: bool = False
-        if day > self._current_day.get():
-            new_day = True
-            self._current_day.set(day)
-            self._positions._take_snapshot()
-            self.check_dead_markets()
-        return day, new_day
-
-    @loans_on
-    @external
-    def checkDistributions(self, _day: int, _new_day: bool) -> None:
-        rewards_done: bool = self._rewards_done.get()
-        dividends_done: bool = self._dividends_done.get()
-
-        if _new_day and rewards_done and dividends_done:
-            self._rewards_done.set(False)
-            self._dividends_done.set(False)
-        elif not dividends_done:
-            dividends = self.create_interface_score(self._dividends.get(), Dividends)
-            self._dividends_done.set(dividends.distribute())
-        elif not rewards_done:
-            rewards = self.create_interface_score(self._rewards.get(), Rewards)
-            self._rewards_done.set(rewards.distribute())
 
     @loans_on
     @external
@@ -556,8 +440,7 @@ class Loans(IconScoreBase):
                 self._sICX_expected.set(False)
             else:
                 _value = 0
-        day, new_day = self.checkForNewDay()
-        self.checkDistributions(day, new_day)
+        self.check_dead_markets()
         pos = self._positions.get_pos(_from)
         if _value > 0:
             pos['sICX'] = pos['sICX'] + _value
@@ -588,8 +471,7 @@ class Loans(IconScoreBase):
             revert(f'{TAG}: Insufficient balance.')
         bad_debt = asset.bad_debt.get()
         if bad_debt > 0:
-            day, new_day = self.checkForNewDay()
-            self.checkDistributions(day, new_day)
+            self.check_dead_markets()
             bd_value = min(bad_debt, _value)
             asset.burnFrom(_from, bd_value)
             sicx = self.bd_redeem(_from, asset, bd_value)
@@ -620,8 +502,7 @@ class Loans(IconScoreBase):
         if asset.balanceOf(_from) < _value:
             revert(f'{TAG}: Insufficient balance.')
         if self._positions._exists(_from) and _repay:
-            day, new_day = self.checkForNewDay()
-            self.checkDistributions(day, new_day)
+            self.check_dead_markets()
             pos = self._positions.get_pos(_from)
             if _value > pos[_symbol]:
                 revert(f'{TAG}: Repaid amount is greater than the amount in the position of {_from}')
@@ -634,9 +515,6 @@ class Loans(IconScoreBase):
                 else:
                     repaid = borrowed
                     del pos[_symbol]
-                    pos_id = pos.id.get()
-                    if not pos.has_debt():
-                        self._positions.remove_nonzero(pos_id)
                 asset.burnFrom(_from, repaid)
                 self.LoanRepaid(_from, _symbol, repaid,
                                 f'Loan of {repaid} {_symbol} repaid to Balanced.')
@@ -740,7 +618,8 @@ class Loans(IconScoreBase):
         self._bnUSD_received.set(0)
         self._bnUSD_expected.set(False)
 
-        swap_data = b'{"method":"_swap","params":{"toToken":"' + str(self._assets['sICX'].get_address()).encode('utf-8') + b'"}}'
+        swap_data = b'{"method":"_swap","params":{"toToken":"' + str(self._assets['sICX'].get_address()).encode(
+            'utf-8') + b'"}}'
 
         self._sICX_expected.set(True)
         self._send_token('bnUSD', self._dex.get(), bnusd_to_sell, "bnUSD swapped for sICX", swap_data)
@@ -852,8 +731,6 @@ class Loans(IconScoreBase):
                    f' given an existing loan value of {total_debt / EXA}.')
 
         # Originate loan
-        if total_debt == 0:
-            self._positions.add_nonzero(pos_id)
         new_debt = _amount + fee
         pos[_asset] = pos[_asset] + new_debt
         self.OriginateLoan(_from, _asset, _amount,
@@ -877,8 +754,7 @@ class Loans(IconScoreBase):
         _from = self.msg.sender
         if not self._positions._exists(_from):
             revert(f'{TAG}: This address does not have a position on Balanced.')
-        day, new_day = self.checkForNewDay()
-        self.checkDistributions(day, new_day)
+        self.check_dead_markets()
         pos = self._positions.get_pos(_from)
 
         if pos['sICX'] < _value:
@@ -906,7 +782,7 @@ class Loans(IconScoreBase):
         if not self._positions._exists(_owner):
             revert(f'{TAG}: This address does not have a position on Balanced.')
         pos = self._positions.get_pos(_owner)
-        _standing = pos.update_standing()
+        _standing = pos.get_standing()["standing"]
         if _standing == Standing.LIQUIDATE:
             pos_id = pos.id.get()
             collateral = pos['sICX']
@@ -931,7 +807,6 @@ class Loans(IconScoreBase):
             pos['sICX'] = 0
             self._send_token('sICX', self.msg.sender, reward, "Liquidation reward of")
             self.check_dead_markets()
-            self._positions.remove_nonzero(pos_id)
             self.Liquidate(_owner, collateral, f'{collateral} liquidated from {_owner}')
 
     def check_dead_markets(self) -> None:
