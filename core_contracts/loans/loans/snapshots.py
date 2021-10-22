@@ -136,12 +136,3 @@ class SnapshotDB:
             return -1
         else:
             return self._indexes[low - 1]
-
-    # def start_new_snapshot(self) -> None:
-    #     _day: int = self._loans.getDay()
-    #     if len(self._indexes) == 0 or _day > self._indexes[-1]:  # Ensures that the sequence in
-    #         self._indexes.put(_day)                              # _indexes is monotonically increasing.
-    #         snapshot = self._get_snapshot(_day, _day)
-    #         snapshot.snap_day.set(_day)
-    #     else:
-    #         revert(f'{TAG}: New snapshot called for a day less than the previous snapshot.')
