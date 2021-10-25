@@ -37,13 +37,6 @@ class ReserveFund(InterfaceScore):
     def redeem(self, _to: Address, _amount: int, _sicx_rate: int) -> int:
         pass
 
-
-class Rewards(InterfaceScore):
-    @interface
-    def updateRewardsData(self, _rewardsData: List[RewardsData]) -> None:
-        pass
-
-
 # An interface to the Staking Management SCORE
 class Staking(InterfaceScore):
     @interface
@@ -61,6 +54,9 @@ class Rewards(InterfaceScore):
     def distribute(self) -> bool:
         pass
 
+    @interface
+    def updateRewardsData(self, _rewardsData: List[RewardsData]) -> None:
+        pass
 
 # An interface to the Dividends SCORE
 class Dividends(InterfaceScore):
@@ -499,7 +495,8 @@ class Loans(IconScoreBase):
         asset = self._assets[_symbol]
         if not (asset and asset.is_active()) or asset.is_collateral():
             revert(f'{TAG}: {_symbol} is not an active, borrowable asset on Balanced.')
-        if asset.balanceOf(_from) < _value:
+        user_balance = asset.balanceOf(_from)
+        if user_balance < _value:
             revert(f'{TAG}: Insufficient balance.')
         if self._positions._exists(_from) and _repay:
             self.check_dead_markets()
@@ -515,6 +512,9 @@ class Loans(IconScoreBase):
                 else:
                     repaid = borrowed
                     del pos[_symbol]
+                rewards = self.create_interface_score(self._rewards.get(), Rewards)
+                rewards.updateRewardsData({"_user": _from}, {"_name": "Loans"}, {"_balance":user_balance},
+                                          {"_totalSupply":asset.totalSupply()})
                 asset.burnFrom(_from, repaid)
                 self.LoanRepaid(_from, _symbol, repaid,
                                 f'Loan of {repaid} {_symbol} repaid to Balanced.')
@@ -736,9 +736,11 @@ class Loans(IconScoreBase):
         self.OriginateLoan(_from, _asset, _amount,
                            f'Loan of {_amount} {_asset} from Balanced.')
         self._assets[_asset].mint(_from, _amount)
-
         # Pay fee
         self._assets[_asset].mint(self._dividends.get(), fee)
+        rewards = self.create_interface_score(self._rewards.get(), Rewards)
+        rewards.updateRewardsData({"_user": _from}, {"_name": "Loans"}, {"_balance": asset.balanceOf(_from)},
+                                  {"_totalSupply": asset.totalSupply()})
         self.FeePaid(_asset, fee, "origination")
 
     @loans_on
@@ -807,6 +809,9 @@ class Loans(IconScoreBase):
             pos['sICX'] = 0
             self._send_token('sICX', self.msg.sender, reward, "Liquidation reward of")
             self.check_dead_markets()
+            rewards = self.create_interface_score(self._rewards.get(), Rewards)
+            rewards.updateRewardsData({"_user": _owner}, {"_name": "Loans"}, {"_balance": asset.balanceOf(_owner)},
+                                      {"_totalSupply": asset.totalSupply()})
             self.Liquidate(_owner, collateral, f'{collateral} liquidated from {_owner}')
 
     def check_dead_markets(self) -> None:
