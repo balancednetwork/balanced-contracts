@@ -1033,5 +1033,4 @@ class Governance(IconScoreBase):
     @only_owner
     def vote_index12_actions_fixes(self):
         proposal = ProposalDB(var_key=12, db=self.db)
-        proposal.active.set(True)
-        proposal.status.set('Succeeded')
+        proposal.status.set('Executed')
