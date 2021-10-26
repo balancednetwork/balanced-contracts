@@ -165,7 +165,7 @@ class Governance(IconScoreBase):
 
     @external
     def defineVote(self, name: str, description: str, vote_start: int,
-                   snapshot: int, actions: str = "{}") -> None:
+                   snapshot: int, actions: str = "[]") -> None:
         """
         Defines a new vote and which actions are to be executed if it is successful.
 
@@ -173,8 +173,8 @@ class Governance(IconScoreBase):
         :param description: description of the vote
         :param vote_start: day to start the vote
         :param snapshot: which day to use for the baln stake snapshot
-        :param actions: json string on the form: {'<action_1>': {<kwargs for action_1>},
-                                                  '<action_2>': {<kwargs_for_action_2>},..}
+        :param actions: json string on the form: [['<action_1>', {<kwargs for action_1>}],
+                                                  ['<action_2>', {<kwargs_for_action_2>}], [..]]
         """
         if len(description) > 500:
             revert(f'Description must be less than or equal to 500 characters.')
@@ -199,8 +199,8 @@ class Governance(IconScoreBase):
         bnusd = self.create_interface_score(self.addresses['bnUSD'], BnUSDInterface)
         bnusd.govTransfer(self.msg.sender, self.addresses['daofund'], self._bnusd_vote_definition_fee.get())
 
-        actions_dict = json_loads(actions)
-        if len(actions_dict) > self.maxActions():
+        actions_list = json_loads(actions)
+        if len(actions_list) > self.maxActions():
             revert(f"Balanced Governance: Only {self.maxActions()} actions are allowed")
 
         ProposalDB.create_proposal(name=name, description=description, proposer=self.msg.sender,
@@ -334,7 +334,7 @@ class Governance(IconScoreBase):
         result = self.checkVote(vote_index)
         if result['for'] + result['against'] >= result['quorum']:
             if (EXA - majority) * result['for'] > majority * result['against']:
-                if actions != "{}":
+                if actions != "[]":
                     try:
                         self._execute_vote_actions(actions)
                         proposal.status.set(ProposalStatus.STATUS[ProposalStatus.EXECUTED])
@@ -352,7 +352,7 @@ class Governance(IconScoreBase):
     def _execute_vote_actions(self, _vote_actions: str) -> None:
         actions = json_loads(_vote_actions)
         for action in actions:
-            self.vote_execute[action](**actions[action])
+            self.vote_execute[action[0]](**action[1])
 
     def _refund_vote_definition_fee(self, proposal: ProposalDB) -> None:
         if not proposal.fee_refunded.get():
@@ -395,6 +395,7 @@ class Governance(IconScoreBase):
                        'against': _against,
                        'for_voter_count': vote_data.for_voters_count.get(),
                        'against_voter_count': vote_data.against_voters_count.get(),
+                       'fee_refund_status': vote_data.fee_refunded.get()
                        }
         status = vote_data.status.get()
         majority = vote_status['majority']
@@ -577,12 +578,6 @@ class Governance(IconScoreBase):
     def setRebalancingThreshold(self, _value: int) -> None:
         rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
         rebalancing.setPriceDiffThreshold(_value)
-
-    @external
-    @only_owner
-    def setMaxSellAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
-        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
-        loans.setMaxSellAmount(_sicx_value, _bnusd_value)
 
     @external
     @only_owner
@@ -831,11 +826,21 @@ class Governance(IconScoreBase):
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         baln.setUnstakingPeriod(_time)
 
-    @external
-    @only_owner
-    def daoDisburse(self, _recipient: Address, _amounts: List[Disbursement]) -> None:
+    def daoDisburse(self, _recipient: str, _amounts: List[Disbursement]):
+        if len(_amounts) > 3:
+            revert(f"Cannot disburse more than 3 assets at a time.")
+        _recipient = Address.from_string(_recipient)
+        for disbursement in _amounts:
+            disbursement['address'] = Address.from_string(disbursement['address'])
         dao = self.create_interface_score(self.addresses['daofund'], DAOfundInterface)
         dao.disburse(_recipient, _amounts)
+
+    @external
+    @only_owner
+    def addAcceptedTokens(self, _token: str):
+        _token = Address.from_string(_token)
+        dividends = self.create_interface_score(self.addresses['dividends'], DividendsInterface)
+        dividends.addAcceptedTokens(_token)
 
     @external
     @only_owner
@@ -989,3 +994,28 @@ class Governance(IconScoreBase):
         Introduces the transaction router SCORE
         """
         self.addresses._router.set(_router)
+
+    @external
+    @only_owner
+    def BIP7_fixes_update(self):
+        proposal = ProposalDB(var_key=8, db=self.db)
+        proposal.active.set(True)
+        proposal.status.set('Succeeded')
+
+        _action = '{"setRebalancingThreshold":{"_value":30000000000000000}}'
+        proposal.actions.set(_action)
+
+    @external
+    @only_owner
+    def BIP8_fixes_update(self):
+        proposal = ProposalDB(var_key=9, db=self.db)
+        _action = '{"setRebalancingThreshold":{"_value":25000000000000000}}'
+        proposal.actions.set(_action)
+
+    @external
+    @only_owner
+    def BIP8_execution_fixes(self):
+        proposal = ProposalDB(var_key=9, db=self.db)
+        proposal.status.set('Executed')
+
+        self.setRebalancingThreshold(25000000000000000)

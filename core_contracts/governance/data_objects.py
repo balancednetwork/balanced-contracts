@@ -3,9 +3,8 @@ from .interfaces import *
 
 # TypedDict for disbursement specs
 class Disbursement(TypedDict):
-    address: Address
+    address: str
     amount: int
-    symbol: str
 
 
 class BalancedAddresses(TypedDict):
@@ -41,13 +40,14 @@ class VoteActions(object):
             'setRetirementBonus': self._gov.setRetirementBonus,
             'setLiquidationReward': self._gov.setLiquidationReward,
             'setMaxRetirePercent': self._gov.setMaxRetirePercent,
-            'setMaxSellAmount': self._gov.setMaxSellAmount,
             'setRebalancingThreshold': self._gov.setRebalancingThreshold,
             'setVoteDuration': self._gov.setVoteDuration,
             'setQuorum': self._gov.setQuorum,
             'setVoteDefinitionFee': self._gov.setVoteDefinitionFee,
             'setBalnVoteDefinitionCriterion': self._gov.setBalnVoteDefinitionCriterion,
-            'setDividendsCategoryPercentage': self._gov.setDividendsCategoryPercentage
+            'setDividendsCategoryPercentage': self._gov.setDividendsCategoryPercentage,
+            'daoDisburse': self._gov.daoDisburse,
+            'addAcceptedTokens': self._gov.addAcceptedTokens
         }
 
     def __getitem__(self, key: str):
@@ -74,6 +74,7 @@ class Addresses(object):
         self._bnUSD = VarDB('bnUSD', db, Address)
         self._baln = VarDB('baln', db, Address)
         self._bwt = VarDB('bwt', db, Address)
+        self._rebalancing = VarDB('rebalancing', db, Address)
         self._router = VarDB('router', db, Address)
         self._feehandler = VarDB('feehandler', db, Address)
 
@@ -101,6 +102,7 @@ class Addresses(object):
                           'bnUSD': self._bnUSD.set,
                           'baln': self._baln.set,
                           'bwt': self._bwt.set,
+                          'rebalancing': self._rebalancing.set,
                           'router': self._router.set,
                           'feehandler': self._feehandler.set}
         for key, value in addresses.items():
@@ -120,6 +122,7 @@ class Addresses(object):
                 'bnUSD': self._bnUSD.get(),
                 'baln': self._baln.get(),
                 'bwt': self._bwt.get(),
+                'rebalancing': self._rebalancing.get(),
                 'router': self._router.get(),
                 'feehandler': self._feehandler.get()
                }
@@ -137,7 +140,8 @@ class Addresses(object):
         'daofund': score.setDaofund, 'oracle': score.setOracle,
         'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
         'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
-        'router': score.setRouter, 'feehandler': score.setFeehandler}
+        'router': score.setRouter, 'rebalancing': score.setRebalancing,
+        'feehandler': score.setFeehandler}
 
         for address in ADDRESSES[contract]:
             try:
@@ -159,7 +163,8 @@ class Addresses(object):
                            'daofund': score.setDaofund, 'oracle': score.setOracle,
                            'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
                            'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
-                           'router': score.setRouter, 'feehandler': score.setFeehandler}
+                           'router': score.setRouter, 'rebalancing': score.setRebalancing,
+                           'feehandler': score.setFeehandler}
             for method in ADDRESSES[contract]:
                 try:
                     set_methods[method](self[method])
