@@ -21,6 +21,7 @@ class BalancedAddresses(TypedDict):
     baln: Address
     bwt: Address
     router: Address
+    feehandler: Address
 
 
 class VoteActions(object):
@@ -75,6 +76,7 @@ class Addresses(object):
         self._bwt = VarDB('bwt', db, Address)
         self._rebalancing = VarDB('rebalancing', db, Address)
         self._router = VarDB('router', db, Address)
+        self._feehandler = VarDB('feehandler', db, Address)
 
     def __getitem__(self, key: str) -> Address:
         if key == 'governance':
@@ -86,7 +88,7 @@ class Addresses(object):
 
     def setAddresses(self, addresses: BalancedAddresses) -> None:
         """
-        Takes a TypedDict with 11 addresses and sets them.
+        Takes a TypedDict with 14 addresses and sets them.
         """
         set_func: dict = {'loans': self._loans.set,
                           'dex': self._dex.set,
@@ -101,7 +103,8 @@ class Addresses(object):
                           'baln': self._baln.set,
                           'bwt': self._bwt.set,
                           'rebalancing': self._rebalancing.set,
-                          'router': self._router.set}
+                          'router': self._router.set,
+                          'feehandler': self._feehandler.set}
         for key, value in addresses.items():
             set_func[key](value)
 
@@ -120,7 +123,8 @@ class Addresses(object):
                 'baln': self._baln.get(),
                 'bwt': self._bwt.get(),
                 'rebalancing': self._rebalancing.get(),
-                'router': self._router.get()
+                'router': self._router.get(),
+                'feehandler': self._feehandler.get()
                }
 
 
@@ -136,7 +140,8 @@ class Addresses(object):
         'daofund': score.setDaofund, 'oracle': score.setOracle,
         'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
         'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
-        'router': score.setRouter, 'rebalancing': score.setRebalancing}
+        'router': score.setRouter, 'rebalancing': score.setRebalancing,
+        'feehandler': score.setFeehandler}
 
         for address in ADDRESSES[contract]:
             try:
@@ -158,7 +163,8 @@ class Addresses(object):
                            'daofund': score.setDaofund, 'oracle': score.setOracle,
                            'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
                            'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
-                           'router': score.setRouter, 'rebalancing': score.setRebalancing}
+                           'router': score.setRouter, 'rebalancing': score.setRebalancing,
+                           'feehandler': score.setFeehandler}
             for method in ADDRESSES[contract]:
                 try:
                     set_methods[method](self[method])

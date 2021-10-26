@@ -225,6 +225,11 @@ class Router(IconScoreBase):
 
                 if minimum_receive < 0:
                     revert(f"{TAG}: Must specify a positive number for minimum to receive")
+            
+            if "receiver" in unpacked_data["params"]:
+                receiver = Address.from_string(unpacked_data["params"]["receiver"])
+            else:
+                receiver = _from
 
             if len(unpacked_data["params"]["path"]) > self._JAECHANG_LIMIT:
                 revert(f"Passed max swaps of {self._JAECHANG_LIMIT}")
@@ -237,7 +242,7 @@ class Router(IconScoreBase):
                 else:
                     path.append(None)
 
-            self._route(_from, _fromToken, path, minimum_receive)
+            self._route(receiver, _fromToken, path, minimum_receive)
 
         else:
             revert(f"{TAG}: Fallback directly not allowed.")
