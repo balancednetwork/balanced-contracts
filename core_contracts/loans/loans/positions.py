@@ -35,7 +35,6 @@ class Position(object):
 
         self.snaps = ArrayDB('snaps', db, int)
         self.assets = DictDB('assets', db, int, depth=2)
-        self._snapshot_db = SnapshotDB(db, loans)
 
     def __getitem__(self, _symbol: str) -> int:
         if _symbol in self.asset_db.slist:
@@ -177,8 +176,6 @@ class Position(object):
         if _id == -1 or _day > self._loans.getDay():
             return {}
         assets = {}
-        if _id == self.snaps[-1]:
-            _id = self._loans.getDay()
         for asset in self.asset_db.slist:
             if asset in self.assets[_id]:
                 amount = self.assets[_id][asset]
@@ -260,8 +257,8 @@ class PositionsDB:
         _id = self._id_factory.get_uid()
         self.addressID[_address] = _id
         now = self._loans.now()
-        snap_id = self._loans.getDay()
         _new_pos = self.__getitem__(_id)
+        snap_id = _new_pos.snaps[-1]
         _new_pos.id.set(_id)
         _new_pos.created.set(now)
         _new_pos.address.set(_address)
