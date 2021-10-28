@@ -512,10 +512,10 @@ class Loans(IconScoreBase):
                 else:
                     repaid = borrowed
                     del pos[_symbol]
+                asset.burnFrom(_from, repaid)
                 rewards = self.create_interface_score(self._rewards.get(), Rewards)
                 rewards.updateRewardsData({"_user": _from}, {"_name": "Loans"}, {"_balance":user_balance},
                                           {"_totalSupply":asset.totalSupply()})
-                asset.burnFrom(_from, repaid)
                 self.LoanRepaid(_from, _symbol, repaid,
                                 f'Loan of {repaid} {_symbol} repaid to Balanced.')
                 asset.is_dead()
