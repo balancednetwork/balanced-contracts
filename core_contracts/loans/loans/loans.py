@@ -514,8 +514,8 @@ class Loans(IconScoreBase):
                     del pos[_symbol]
                 asset.burnFrom(_from, repaid)
                 rewards = self.create_interface_score(self._rewards.get(), Rewards)
-                rewards.updateRewardsData({"_user": _from}, {"_name": "Loans"}, {"_balance":user_balance},
-                                          {"_totalSupply":asset.totalSupply()})
+                rewards.updateRewardsData([{"_user": _from, "_name": "Loans", "_balance": user_balance,
+                                          "_totalSupply": asset.totalSupply()}])
                 self.LoanRepaid(_from, _symbol, repaid,
                                 f'Loan of {repaid} {_symbol} repaid to Balanced.')
                 asset.is_dead()
@@ -739,8 +739,8 @@ class Loans(IconScoreBase):
         # Pay fee
         self._assets[_asset].mint(self._dividends.get(), fee)
         rewards = self.create_interface_score(self._rewards.get(), Rewards)
-        rewards.updateRewardsData({"_user": _from}, {"_name": "Loans"}, {"_balance": asset.balanceOf(_from)},
-                                  {"_totalSupply": asset.totalSupply()})
+        rewards.updateRewardsData([{"_user": _from, "_name": "Loans", "_balance": asset.balanceOf(_from),
+                                  "_totalSupply": asset.totalSupply()}])
         self.FeePaid(_asset, fee, "origination")
 
     @loans_on
@@ -805,13 +805,13 @@ class Loans(IconScoreBase):
                     for_pool -= share  # The share of the collateral for that asset.
                     pool = asset.liquidation_pool.get()
                     asset.liquidation_pool.set(pool + share)
+                    rewards = self.create_interface_score(self._rewards.get(), Rewards)
+                    rewards.updateRewardsData([{"_user": _owner, "_name": "Loans", "_balance": asset.balanceOf(_owner),
+                                                "_totalSupply": asset.totalSupply()}])
                     del pos[symbol]
             pos['sICX'] = 0
             self._send_token('sICX', self.msg.sender, reward, "Liquidation reward of")
             self.check_dead_markets()
-            rewards = self.create_interface_score(self._rewards.get(), Rewards)
-            rewards.updateRewardsData({"_user": _owner}, {"_name": "Loans"}, {"_balance": asset.balanceOf(_owner)},
-                                      {"_totalSupply": asset.totalSupply()})
             self.Liquidate(_owner, collateral, f'{collateral} liquidated from {_owner}')
 
     def check_dead_markets(self) -> None:
