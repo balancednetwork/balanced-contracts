@@ -53,6 +53,7 @@ class DEX(IconScoreBase):
     _DIVIDENDS_ADDRESS = 'dividends_address'
     _REWARDS_ADDRESS = 'rewards_address'
     _GOVERNANCE_ADDRESS = 'governance_address'
+    _FEEHANDLER_ADDRESS = 'feehandler_address'
     _NAMED_MARKETS = 'named_markets'
     _ADMIN = 'admin'
     _DEX_ON = 'dex_on'
@@ -160,6 +161,8 @@ class DEX(IconScoreBase):
             self._bnUSD_ADDRESS, db, value_type=Address)
         self._baln = VarDB(
             self._BALN_ADDRESS, db, value_type=Address)
+        self._feehandler = VarDB(
+            self._FEEHANDLER_ADDRESS, db, value_type=Address)
 
         # DEX Activation (can be set by governance only)
         self._dex_on = VarDB(self._DEX_ON, db, value_type=bool)
@@ -417,6 +420,22 @@ class DEX(IconScoreBase):
         """
         return self._baln.get()
 
+    @only_admin
+    @external
+    def setFeehandler(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new fee handler contract address.
+        """
+        self._feehandler.set(_address)
+
+    @external(readonly=True)
+    def getFeehandler(self) -> Address:
+        """
+        Gets the address of the fee handler contract.
+        """
+        return self._feehandler.get()
+
     @only_governance
     @external
     def setPoolLpFee(self, _value: int) -> None:
@@ -520,6 +539,16 @@ class DEX(IconScoreBase):
         Returns current us timestamp offset.
         """
         return self._time_offset.get()
+
+    def is_locking_pool(self, id: int) -> bool:
+        """
+        Internal function, mapped to mainnet pool IDs. Will be deprecated upon the release
+        of continuous rewards.
+        """
+        if id < FIRST_NON_BALANCED_POOL or id == USDS_BNUSD_ID or id == IUSDT_BNUSD_ID:
+            return True
+        else:
+            return False
 
     @payable
     @dex_on
@@ -667,8 +696,13 @@ class DEX(IconScoreBase):
                 if minimum_receive < 0:
                     revert(f"{TAG}: Must specify a positive number for minimum to receive")
 
+            if "receiver" in unpacked_data["params"]:
+                receiver = Address.from_string(unpacked_data["params"]["receiver"])
+            else:
+                receiver = _from
+
             self.exchange(_fromToken, Address.from_string(
-                unpacked_data["params"]["toToken"]), _from, _from, _value, minimum_receive)
+                unpacked_data["params"]["toToken"]), _from, receiver, _value, minimum_receive)
 
         else:
             revert(f"{TAG}: Fallback directly not allowed.")
@@ -702,7 +736,7 @@ class DEX(IconScoreBase):
         if self._balance[_id][_from] < _value:
             revert(f"{TAG}: Out of balance.")
         
-        if _id < FIRST_NON_BALANCED_POOL:
+        if self.is_locking_pool(_id):
             revert(f"{TAG}: untransferrable token id")
 
         self._balance[_id][_from] = self._balance[_id][_from] - _value
@@ -1078,10 +1112,10 @@ class DEX(IconScoreBase):
         to_token_score = self.create_interface_score(_toToken, TokenInterface)
         to_token_score.transfer(_receiver, send_amt)
 
-        # Send the dividends share to the dividends SCORE
+        # Send the platform fees to the feehandler SCORE
         from_token_score = self.create_interface_score(
             _fromToken, TokenInterface)
-        from_token_score.transfer(self._dividends.get(), baln_fees)
+        from_token_score.transfer(self._feehandler.get(), baln_fees)
 
         # Broadcast pool ending price
         ending_price = self.getPrice(_id)
@@ -1207,8 +1241,8 @@ class DEX(IconScoreBase):
                   baln_fees, self._icx_queue_total.get(), 
                   0, self._get_sicx_rate(), effective_fill_price)
 
-        # Settle fees to dividends and ICX converted to the sender
-        sicx_score.transfer(self._dividends.get(), baln_fees)
+        # Send fees to feehandler and ICX converted to the sender
+        sicx_score.transfer(self._feehandler.get(), baln_fees)
         self.icx.transfer(_sender, order_icx_value)
 
     def _get_unit_value(self, _token_address: Address):
@@ -1755,7 +1789,7 @@ class DEX(IconScoreBase):
         self._total[_id] += liquidity
 
         # Only add withdraw locks to Balanced pools
-        if _id < FIRST_NON_BALANCED_POOL:
+        if self.is_locking_pool(_id):
             self._withdraw_lock[_id][self.msg.sender] = self.now()
 
         self.Add(_id, _owner, liquidity, base_to_commit, quote_to_commit)
@@ -1767,7 +1801,7 @@ class DEX(IconScoreBase):
                               * self._pool_total[_id][_quoteToken] // self.totalSupply(_id)
 
         # Only add restrictions to Balanced pools
-        if _id < FIRST_NON_BALANCED_POOL:
+        if self.is_locking_pool(_id):
             self._revert_below_minimum(user_quote_holdings, _quoteToken)
         
         self._active_addresses[_id].add(self.msg.sender)

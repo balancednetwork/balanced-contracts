@@ -12,10 +12,10 @@ BALNSICX_ID = 4
 POINTS = 10000
 
 CONTRACTS = ['loans', 'dex', 'staking', 'rewards', 'dividends', 'daofund',
-             'reserve', 'sicx', 'bnUSD', 'baln', 'bwt', 'router']
+             'reserve', 'sicx', 'bnUSD', 'baln', 'bwt', 'router', 'feehandler']
 
 ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve', 'rebalancing', 'dex'],
-             'dex': ['rewards', 'dividends', 'staking', 'sicx', 'bnUSD', 'baln'],
+             'dex': ['rewards', 'dividends', 'staking', 'sicx', 'bnUSD', 'baln', 'feehandler'],
              'rewards': ['reserve', 'baln', 'bwt', 'daofund'],
              'dividends': ['loans', 'daofund', 'dex', 'baln'],
              'daofund': ['loans'],
@@ -24,7 +24,8 @@ ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve', 'rebalancin
              'baln': ['dividends', 'oracle', 'dex', 'bnUSD'],
              'bwt': ['baln'],
              'router': ['dex', 'sicx', 'staking'],
-             'rebalancing': ['dex', 'sicx', 'bnUSD', 'loans']}
+             'rebalancing': ['dex', 'sicx', 'bnUSD', 'loans'],
+             'feehandler': []}
 
 ADMIN_ADDRESSES = {'loans': 'governance',
                    'dex': 'governance',

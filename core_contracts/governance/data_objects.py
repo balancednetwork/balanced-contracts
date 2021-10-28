@@ -22,6 +22,7 @@ class BalancedAddresses(TypedDict):
     bwt: Address
     router: Address
     rebalancing: Address
+    feehandler: Address
 
 
 class VoteActions(object):
@@ -32,7 +33,7 @@ class VoteActions(object):
         self._actions = {
             'enableDividends': self._gov.enableDividends,
             'addNewDataSource': self._gov.addNewDataSource,
-            'updateBalTokenDistPercentage': self._gov.updateBalTokenDistPercentage,
+            'updateBalTokenDistPercentage': self._gov.internal_updateBalTokenDistPercentage,
             'setMiningRatio': self._gov.setMiningRatio,
             'setLockingRatio': self._gov.setLockingRatio,
             'setOriginationFee': self._gov.setOriginationFee,
@@ -40,7 +41,6 @@ class VoteActions(object):
             'setRetirementBonus': self._gov.setRetirementBonus,
             'setLiquidationReward': self._gov.setLiquidationReward,
             'setMaxRetirePercent': self._gov.setMaxRetirePercent,
-            'setMaxSellAmount': self._gov.setMaxSellAmount,
             'setRebalancingThreshold': self._gov.setRebalancingThreshold,
             'setVoteDuration': self._gov.setVoteDuration,
             'setQuorum': self._gov.setQuorum,
@@ -75,8 +75,10 @@ class Addresses(object):
         self._bnUSD = VarDB('bnUSD', db, Address)
         self._baln = VarDB('baln', db, Address)
         self._bwt = VarDB('bwt', db, Address)
+        self._rebalancing = VarDB('rebalancing', db, Address)
         self._router = VarDB('router', db, Address)
         self._rebalancing = VarDB('rebalancing', db, Address)
+        self._feehandler = VarDB('feehandler', db, Address)
 
     def __getitem__(self, key: str) -> Address:
         if key == 'governance':
@@ -88,7 +90,7 @@ class Addresses(object):
 
     def setAddresses(self, addresses: BalancedAddresses) -> None:
         """
-        Takes a TypedDict with 11 addresses and sets them.
+        Takes a TypedDict with 14 addresses and sets them.
         """
         set_func: dict = {'loans': self._loans.set,
                           'dex': self._dex.set,
@@ -102,8 +104,9 @@ class Addresses(object):
                           'bnUSD': self._bnUSD.set,
                           'baln': self._baln.set,
                           'bwt': self._bwt.set,
+                          'rebalancing': self._rebalancing.set,
                           'router': self._router.set,
-                          'rebalancing': self._rebalancing.set}
+                          'feehandler': self._feehandler.set}
         for key, value in addresses.items():
             set_func[key](value)
 
@@ -121,8 +124,9 @@ class Addresses(object):
                 'bnUSD': self._bnUSD.get(),
                 'baln': self._baln.get(),
                 'bwt': self._bwt.get(),
+                'rebalancing': self._rebalancing.get(),
                 'router': self._router.get(),
-                'rebalancing': self._rebalancing.get()
+                'feehandler': self._feehandler.get()
                }
 
 
@@ -138,7 +142,8 @@ class Addresses(object):
         'daofund': score.setDaofund, 'oracle': score.setOracle,
         'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
         'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
-        'router': score.setRouter, 'rebalancing': score.setRebalancing}
+        'router': score.setRouter, 'rebalancing': score.setRebalancing,
+        'feehandler': score.setFeehandler}
 
         for address in ADDRESSES[contract]:
             try:
@@ -160,7 +165,8 @@ class Addresses(object):
                            'daofund': score.setDaofund, 'oracle': score.setOracle,
                            'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
                            'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
-                           'router': score.setRouter, 'rebalancing': score.setRebalancing}
+                           'router': score.setRouter, 'rebalancing': score.setRebalancing,
+                           'feehandler': score.setFeehandler}
             for method in ADDRESSES[contract]:
                 try:
                     set_methods[method](self[method])
