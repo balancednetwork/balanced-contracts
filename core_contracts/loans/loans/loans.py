@@ -31,11 +31,23 @@ class RewardsData(TypedDict):
     _totalSupply: int
 
 
+class RewardsDataEntry(TypedDict):
+    _user: Address
+    _balance: int
+
+
+class BatchRewardsData(TypedDict):
+    _name: str
+    _totalSupply: int
+    _data: List[RewardsDataEntry]
+
+
 # An interface to the Emergency Reserve Fund
 class ReserveFund(InterfaceScore):
     @interface
     def redeem(self, _to: Address, _amount: int, _sicx_rate: int) -> int:
         pass
+
 
 # An interface to the Staking Management SCORE
 class Staking(InterfaceScore):
@@ -57,6 +69,11 @@ class Rewards(InterfaceScore):
     @interface
     def updateRewardsData(self, _rewardsData: List[RewardsData]) -> None:
         pass
+
+    @interface
+    def updateBatchRewardsData(self, _rewardsData: BatchRewardsData) -> None:
+        pass
+
 
 # An interface to the Dividends SCORE
 class Dividends(InterfaceScore):
@@ -515,7 +532,7 @@ class Loans(IconScoreBase):
                 asset.burnFrom(_from, repaid)
                 rewards = self.create_interface_score(self._rewards.get(), Rewards)
                 rewards.updateRewardsData([{"_user": _from, "_name": "Loans", "_balance": user_balance,
-                                          "_totalSupply": asset.totalSupply()}])
+                                            "_totalSupply": asset.totalSupply()}])
                 self.LoanRepaid(_from, _symbol, repaid,
                                 f'Loan of {repaid} {_symbol} repaid to Balanced.')
                 asset.is_dead()
@@ -570,11 +587,17 @@ class Loans(IconScoreBase):
         remaining_supply = total_batch_debt
         remaining_bnusd = bnusd_received
         change_in_pos_dict = {}
+        rewards_batch_list = []
 
         for pos_id, user_debt in positions_dict.items():
             loan_share = remaining_bnusd * user_debt // remaining_supply
             remaining_bnusd -= loan_share
-            self._positions[pos_id][_symbol] = user_debt - loan_share
+            updated_debt = user_debt - loan_share
+            self._positions[pos_id][_symbol] = updated_debt
+
+            pos_address = self.getPositionAddress(pos_id)
+            user_dict = {"_user": pos_address, "_balance": updated_debt}
+            rewards_batch_list.append(user_dict)
 
             sicx_share = sicx_to_sell * user_debt // remaining_supply
             sicx_to_sell -= sicx_share
@@ -582,7 +605,9 @@ class Loans(IconScoreBase):
 
             remaining_supply -= user_debt
             change_in_pos_dict[pos_id] = {"d": -loan_share, "c": -sicx_share}
-
+        rewards = self.create_interface_score(self._rewards.get(), Rewards)
+        rewards.updateBatchRewardsData({"_name": "Loans", "_totalSupply": asset.totalSupply(),
+                                        "_data": rewards_batch_list})
         self.Rebalance(self.msg.sender, _symbol, str(change_in_pos_dict),
                        total_batch_debt)
 
@@ -631,10 +656,17 @@ class Loans(IconScoreBase):
         remaining_supply = total_batch_debt
         remaining_bnusd = bnusd_to_sell
         change_in_pos_dict = {}
+        rewards_batch_list = []
+
         for pos_id, user_debt in positions_dict.items():
             loan_share = remaining_bnusd * user_debt // remaining_supply
             remaining_bnusd -= loan_share
-            self._positions[pos_id]["bnUSD"] = user_debt + loan_share
+            updated_debt = user_debt + loan_share
+            self._positions[pos_id]["bnUSD"] = updated_debt
+
+            pos_address = self.getPositionAddress(pos_id)
+            user_dict = {"_user": pos_address, "_balance": updated_debt}
+            rewards_batch_list.append(user_dict)
 
             sicx_share = remaining_sicx * user_debt // remaining_supply
             remaining_sicx -= sicx_share
@@ -643,6 +675,9 @@ class Loans(IconScoreBase):
             remaining_supply -= user_debt
             change_in_pos_dict[str(pos_id)] = {"d": loan_share, "c": sicx_share}
 
+        rewards = self.create_interface_score(self._rewards.get(), Rewards)
+        rewards.updateBatchRewardsData({"_name": "Loans", "_totalSupply": self._assets['bnUSD'].totalSupply(),
+                                        "_data": rewards_batch_list})
         self.Rebalance(self.msg.sender, 'bnUSD', str(change_in_pos_dict),
                        total_batch_debt)
 
@@ -740,7 +775,7 @@ class Loans(IconScoreBase):
         self._assets[_asset].mint(self._dividends.get(), fee)
         rewards = self.create_interface_score(self._rewards.get(), Rewards)
         rewards.updateRewardsData([{"_user": _from, "_name": "Loans", "_balance": asset.balanceOf(_from),
-                                  "_totalSupply": asset.totalSupply()}])
+                                    "_totalSupply": asset.totalSupply()}])
         self.FeePaid(_asset, fee, "origination")
 
     @loans_on
