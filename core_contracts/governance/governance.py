@@ -351,10 +351,11 @@ class Governance(IconScoreBase):
 
     def _execute_vote_actions(self, _vote_actions: str) -> None:
         actions = json_loads(_vote_actions)
-        for action in actions:
-            if type(action) == list:
+        if type(actions) == list:
+            for action in actions:
                 self.vote_execute[action[0]](**action[1])
-            elif type(action) == dict:
+        elif type(actions) == dict:
+            for action in actions:
                 self.vote_execute[action](**actions[action])
 
     def _refund_vote_definition_fee(self, proposal: ProposalDB) -> None:
