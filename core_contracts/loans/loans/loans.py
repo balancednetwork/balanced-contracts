@@ -177,8 +177,6 @@ class Loans(IconScoreBase):
         self._redeem_batch.set(REDEEM_BATCH_SIZE)
         self._max_retire_percent.set(MAX_RETIRE_PERCENT)
         self._max_debts_list_length.set(MAX_DEBTS_LIST_LENGTH)
-        self._max_sicx_sell.set(1000 * EXA)
-        self._max_sicx_sell.set(1000 * EXA)
 
     def on_update(self) -> None:
         super().on_update()
