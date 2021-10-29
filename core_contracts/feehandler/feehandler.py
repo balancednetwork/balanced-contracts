@@ -164,7 +164,7 @@ class FeeHandler(IconScoreBase):
             try:
                 # Raises JSONDecodeError if trying to decode an empty string.
                 path = json_loads(self._routes[self.msg.sender][self._getContractAddress("baln")])
-            except BaseException:
+            except:
                 path = []
                 
             if path:
