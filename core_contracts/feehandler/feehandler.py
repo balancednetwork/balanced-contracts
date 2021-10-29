@@ -164,14 +164,18 @@ class FeeHandler(IconScoreBase):
             try:
                 # Raises JSONDecodeError if trying to decode an empty string.
                 path = json_loads(self._routes[self.msg.sender][self._getContractAddress("baln")])
-            except:
+            except BaseException:
                 path = []
                 
             if path:
                 # Use router.
-                self._transferToken(self.msg.sender, self._getContractAddress("router"), 
-                                    self._getTokenBalance(self.msg.sender), 
-                                    self._createDataFieldRouter(self._getContractAddress("dividends"), path))
+                try:
+                    self._transferToken(self.msg.sender, self._getContractAddress("router"), 
+                                        self._getTokenBalance(self.msg.sender), 
+                                        self._createDataFieldRouter(self._getContractAddress("dividends"), path))
+                except BaseException as e:
+                    self.FeeNotProcessed(self.msg.sender, repr(e))
+
             else:
                 # Use dex.
                 self._transferToken(self.msg.sender, self._getContractAddress("dex"), self._getTokenBalance(self.msg.sender), 
@@ -271,3 +275,7 @@ class FeeHandler(IconScoreBase):
         """
         token = self.create_interface_score(_token, IRC2Interface)
         token.transfer(_to, _amount, _data)
+
+    @eventlog(indexed=2)
+    def FeeNotProcessed(self, _token: Address, _error: str):
+        pass
