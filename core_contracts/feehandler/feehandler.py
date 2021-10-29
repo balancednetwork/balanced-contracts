@@ -166,20 +166,22 @@ class FeeHandler(IconScoreBase):
                 path = json_loads(self._routes[self.msg.sender][self._getContractAddress("baln")])
             except:
                 path = []
-                
-            if path:
-                # Use router.
-                try:
+
+            # Attempt to process fees. Catch Error and report via eventlog if failure.
+            try:
+                if path:
+                    # Use router.
                     self._transferToken(self.msg.sender, self._getContractAddress("router"), 
                                         self._getTokenBalance(self.msg.sender), 
                                         self._createDataFieldRouter(self._getContractAddress("dividends"), path))
-                except BaseException as e:
-                    self.FeeNotProcessed(self.msg.sender, repr(e))
 
-            else:
-                # Use dex.
-                self._transferToken(self.msg.sender, self._getContractAddress("dex"), self._getTokenBalance(self.msg.sender), 
-                                    self._createDataFieldDex(self._getContractAddress("baln"), self._getContractAddress("dividends")))
+                else:
+                    # Use dex.
+                    self._transferToken(self.msg.sender, self._getContractAddress("dex"), self._getTokenBalance(self.msg.sender), 
+                                        self._createDataFieldDex(self._getContractAddress("baln"), self._getContractAddress("dividends")))
+            
+            except BaseException as e:
+                self.FeeNotProcessed(self.msg.sender, repr(e))
 
         # Set the block for this fee processing event.
         self._last_fee_processing_block[self.msg.sender] = self.block_height
