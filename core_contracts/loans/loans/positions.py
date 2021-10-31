@@ -213,6 +213,8 @@ class PositionsDB:
         self._id_factory = IdFactory(self.IDFACTORY, db)
         self.addressID = DictDB(self.ADDRESSID, db, value_type=int)
         self.next_node = VarDB(self.NEXT_NODE, db, value_type=int)
+        self._snapshot_db = SnapshotDB(db, loans)
+
 
     def __getitem__(self, _id: int) -> Position:
         if _id < 0:
