@@ -29,7 +29,7 @@ class FeeHandler(IconScoreBase):
         return f"Balanced {TAG}"
 
     @external
-    @only_owner
+    @only_governance
     def setAcceptedDividendTokens(self, _tokens: List[Address]) -> None:
         """
         Specifies which tokens that does not need converting before they are sent to
@@ -56,7 +56,7 @@ class FeeHandler(IconScoreBase):
         return [token for token in self._accepted_dividend_tokens]
 
     @external
-    @only_owner
+    @only_governance
     def setRoute(self, _fromToken: Address, _toToken: Address, _path: List[Address]) -> None:
         """
         Sets a route to use when converting from token A to token B.
@@ -72,7 +72,7 @@ class FeeHandler(IconScoreBase):
         self._routes[_fromToken][_toToken] = json_dumps(_path)
 
     @external
-    @only_owner
+    @only_governance
     def deleteRoute(self, _fromToken: Address, _toToken: Address) -> None:
         """
         Deletes the route used when converting from token A to token B.
@@ -103,7 +103,7 @@ class FeeHandler(IconScoreBase):
         return route
 
     @external
-    @only_owner
+    @only_governance
     def setFeeProcessingInterval(self, _interval: int) -> None:
         """
         Sets the number of blocks that must occur before a particular

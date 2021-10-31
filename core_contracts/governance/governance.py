@@ -87,6 +87,30 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def setFeeProcessingInterval(self, _interval: int) -> None:
+        fee_handler = self.create_interface_score(self.addresses['feehandler'], feeHandlerInterface)
+        fee_handler.setFeeProcessingInterval(_interval)
+
+    @external
+    @only_owner
+    def deleteRoute(self, _fromToken: Address, _toToken: Address) -> None:
+        fee_handler = self.create_interface_score(self.addresses['feehandler'], feeHandlerInterface)
+        fee_handler.deleteRoute(_fromToken, _toToken)
+
+    @external
+    @only_owner
+    def setAcceptedDividendTokens(self, _tokens: List[Address]) -> None:
+        fee_handler = self.create_interface_score(self.addresses['feehandler'], feeHandlerInterface)
+        fee_handler.setAcceptedDividendTokens(_tokens)
+
+    @external
+    @only_owner
+    def setRoute(self, _fromToken: Address, _toToken: Address, _path: List[Address]) -> None:
+        fee_handler = self.create_interface_score(self.addresses['feehandler'], feeHandlerInterface)
+        fee_handler.setFeeProcessingInterval(_fromToken, _toToken, _path)
+
+    @external
+    @only_owner
     def setQuorum(self, quorum: int) -> None:
         """
         Sets the percentage of the total eligible baln which must participate in a vote
