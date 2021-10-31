@@ -100,7 +100,7 @@ class Position(object):
         for symbol in self.asset_db.aclist:
             asset = self.asset_db[symbol]
             amount = self.assets[_id][symbol]
-            if _day == -1 or _day == self._loans.getDay() or self.snaps[-1] < _day < self._loans.getDay():
+            if _day == -1 or _day == self._loans.getDay():
                 price = asset.priceInLoop()
             else:
                 price = self.snaps_db[_day].prices[symbol]
@@ -122,7 +122,7 @@ class Position(object):
         for symbol in self.asset_db.aalist:
             amount = self.assets[_id][symbol]
             if amount > 0:
-                if _day == -1 or _day == self._loans.getDay() or self.snaps[-1] < _day < self._loans.getDay():
+                if _day == -1 or _day == self._loans.getDay():
                     if _readonly:
                         price = self.asset_db[symbol].lastPriceInLoop()
                     else:
@@ -214,7 +214,6 @@ class PositionsDB:
         self.addressID = DictDB(self.ADDRESSID, db, value_type=int)
         self.next_node = VarDB(self.NEXT_NODE, db, value_type=int)
         self._snapshot_db = SnapshotDB(db, loans)
-
 
     def __getitem__(self, _id: int) -> Position:
         if _id < 0:
