@@ -334,7 +334,7 @@ class Governance(IconScoreBase):
         result = self.checkVote(vote_index)
         if result['for'] + result['against'] >= result['quorum']:
             if (EXA - majority) * result['for'] > majority * result['against']:
-                if actions != "[]":
+                if actions != "[]" or "{}":
                     try:
                         self._execute_vote_actions(actions)
                         proposal.status.set(ProposalStatus.STATUS[ProposalStatus.EXECUTED])
