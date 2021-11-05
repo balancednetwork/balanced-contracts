@@ -269,6 +269,9 @@ class DEX(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        # To Do
+        # Add the feehandler address below
+        # self._feehandler.set(Address.from_string("cx4131b1b29bd66f162a4d7537fdc20f6aa3ae9782"))
 
     @external(readonly=True)
     def name(self) -> str:
@@ -707,7 +710,6 @@ class DEX(IconScoreBase):
         else:
             revert(f"{TAG}: Fallback directly not allowed.")
 
-
     @dex_on
     @external
     def transfer(self, _to: Address, _value: int, _id: int, _data: bytes = None):
@@ -732,10 +734,10 @@ class DEX(IconScoreBase):
         """
         if _value < 0:
             revert(f"{TAG}: Transferring value cannot be less than 0.")
-        
+
         if self._balance[_id][_from] < _value:
             revert(f"{TAG}: Out of balance.")
-        
+
         if self.is_locking_pool(_id):
             revert(f"{TAG}: untransferrable token id")
 
@@ -953,7 +955,7 @@ class DEX(IconScoreBase):
             icx_total = self._icx_queue_total.get()
             return icx_total * self.getSicxBnusdPrice() // self._get_sicx_rate()
         elif self._pool_quote[_id] == self._sicx.get():
-            sicx_total =  self._pool_total[_id][self._sicx.get()] * 2
+            sicx_total = self._pool_total[_id][self._sicx.get()] * 2
             return self.getSicxBnusdPrice() * sicx_total // EXA
         elif self._pool_quote[_id] == self._bnUSD.get():
             return self._pool_total[_id][self._bnUSD.get()] * 2
@@ -1009,7 +1011,6 @@ class DEX(IconScoreBase):
                 'quote_decimals': self._token_precisions[quote_token],
                 'min_quote': self._get_rewardable_amount(quote_token)
             }
-
 
     @external(readonly=True)
     def isEarningRewards(self, _address: Address, _id: int) -> bool:
@@ -1200,7 +1201,6 @@ class DEX(IconScoreBase):
             counterparty_icx = counterparty_order.get_value1()
             counterparty_filled = False
 
-
             # Perform match. Matched amount is up to order size
             matched_icx = min(counterparty_icx, order_remaining_icx)
             order_remaining_icx -= matched_icx
@@ -1238,7 +1238,7 @@ class DEX(IconScoreBase):
         # Publish an eventlog with the swap results
         self.Swap(self._SICXICX_POOL_ID, self._sicx.get(), self._sicx.get(), None, _sender,
                   _sender, _value, order_icx_value, self.now(), conversion_fees,
-                  baln_fees, self._icx_queue_total.get(), 
+                  baln_fees, self._icx_queue_total.get(),
                   0, self._get_sicx_rate(), effective_fill_price)
 
         # Send fees to feehandler and ICX converted to the sender
@@ -1537,7 +1537,6 @@ class DEX(IconScoreBase):
         else:
             return self._baln_snapshot[_id]['values'][matched_index]
 
-
     @external(readonly=True)
     def getTotalValue(self, _name: str, _snapshot_id: int) -> int:
         # return self.totalSupplyAt(self._named_markets[_name], _snapshot_id)
@@ -1649,8 +1648,8 @@ class DEX(IconScoreBase):
         quote_token = self._pool_quote[_id]
 
         user_quote_left = (balance - _value) * self._pool_total[_id][quote_token] \
-            // self._total[_id]
-        
+                          // self._total[_id]
+
         if user_quote_left < self._get_rewardable_amount(quote_token):
             _value = balance
             self._active_addresses[_id].remove(self.msg.sender)
@@ -1803,7 +1802,7 @@ class DEX(IconScoreBase):
         # Only add restrictions to Balanced pools
         if self.is_locking_pool(_id):
             self._revert_below_minimum(user_quote_holdings, _quoteToken)
-        
+
         self._active_addresses[_id].add(self.msg.sender)
 
         self._update_account_snapshot(_owner, _id)
