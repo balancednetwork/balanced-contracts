@@ -107,7 +107,7 @@ class Governance(IconScoreBase):
     @only_owner
     def setRoute(self, _fromToken: Address, _toToken: Address, _path: List[Address]) -> None:
         fee_handler = self.create_interface_score(self.addresses['feehandler'], feeHandlerInterface)
-        fee_handler.setFeeProcessingInterval(_fromToken, _toToken, _path)
+        fee_handler.setRoute(_fromToken, _toToken, _path)
 
     @external
     @only_owner
