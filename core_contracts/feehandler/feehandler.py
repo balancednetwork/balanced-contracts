@@ -16,6 +16,7 @@ class FeeHandler(IconScoreBase):
         self._last_txhash = VarDB("last_txhash", db, bytes)
         self._routes = DictDB("routes", db, str, depth=2)
         self._governance = VarDB("governance", db, Address)
+        self._enabled = VarDB("enabled", db, bool)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
@@ -27,6 +28,16 @@ class FeeHandler(IconScoreBase):
     @external(readonly=True)
     def name(self) -> str:
         return f"Balanced {TAG}"
+
+    @external
+    @only_governance
+    def enable(self) -> None:
+        self._enabled.set(True)
+
+    @external
+    @only_governance
+    def disable(self) -> None:
+        self._enabled.set(False)
 
     @external
     @only_owner
@@ -225,6 +236,11 @@ class FeeHandler(IconScoreBase):
 
         :param _token: Token address.
         """
+
+        # Hold on processing fees until governance allows it
+        if not self._enabled.get():
+            return False
+
         last_conversion = self._last_fee_processing_block[_token]
         target_block = last_conversion + self._fee_processing_interval.get()
 
