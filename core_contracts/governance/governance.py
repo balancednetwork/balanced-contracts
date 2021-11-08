@@ -1034,3 +1034,15 @@ class Governance(IconScoreBase):
     def vote_index12_actions_fixes(self):
         proposal = ProposalDB(var_key=12, db=self.db)
         proposal.status.set('Executed')
+
+    @external
+    @only_owner
+    def enable_fee_handler(self):
+        feehandler = self.create_interface_score(self.addresses['feehandler'], FeeHandlerInterface)
+        feehandler.enable()
+
+    @external
+    @only_owner
+    def disable_fee_handler(self):
+        feehandler = self.create_interface_score(self.addresses['feehandler'], FeeHandlerInterface)
+        feehandler.disable()
