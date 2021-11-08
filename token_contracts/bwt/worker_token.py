@@ -106,8 +106,9 @@ class WorkerToken(IRC2):
                 tokens -= balance
                 try:
                     baln.transfer(address, amount)
-                except Exception:
-                    revert(f'{TAG}: {amount} BALN not sent to {address}.')
+                except BaseException as e:
+                    revert(f'{TAG}: {amount} BALN not sent to {address}. '
+                           f'Exception: {e}')
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:

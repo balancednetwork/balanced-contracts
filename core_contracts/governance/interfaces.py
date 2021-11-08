@@ -361,14 +361,6 @@ class SetAddressesInterface(InterfaceScore):
     def setRouter(self, _address: Address) -> None:
         pass
 
-    @interface
-    def setRebalancing(self, _address: Address) -> None:
-        pass
-
-    @interface
-    def setFeehandler(self, _address: Address) -> None:
-        pass
-
 
 class BalancedInterface(InterfaceScore):
 

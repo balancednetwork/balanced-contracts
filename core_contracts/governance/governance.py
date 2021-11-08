@@ -59,15 +59,6 @@ class Governance(IconScoreBase):
         proposal = ProposalDB(var_key=vote_index, db=self.db)
         return {'for_voters': proposal.for_voters_count.get(), 'against_voters': proposal.against_voters_count.get()}
 
-    @external(readonly=True)
-    def getContractAddress(self, contract: str) -> Address:
-        """
-        Gets the address of any contract controlled by this governance contract.
-
-        :param contract: name of the contract you want the address for
-        """
-        return self.addresses[contract]
-
     @external
     @only_owner
     def setVoteDuration(self, duration: int) -> None:
@@ -165,7 +156,7 @@ class Governance(IconScoreBase):
 
     @external
     def defineVote(self, name: str, description: str, vote_start: int,
-                   snapshot: int, actions: str = "[]") -> None:
+                   snapshot: int, actions: str = "{}") -> None:
         """
         Defines a new vote and which actions are to be executed if it is successful.
 
@@ -173,8 +164,8 @@ class Governance(IconScoreBase):
         :param description: description of the vote
         :param vote_start: day to start the vote
         :param snapshot: which day to use for the baln stake snapshot
-        :param actions: json string on the form: [['<action_1>', {<kwargs for action_1>}],
-                                                  ['<action_2>', {<kwargs_for_action_2>}], [..]]
+        :param actions: json string on the form: {'<action_1>': {<kwargs for action_1>},
+                                                  '<action_2>': {<kwargs_for_action_2>},..}
         """
         if len(description) > 500:
             revert(f'Description must be less than or equal to 500 characters.')
@@ -199,8 +190,8 @@ class Governance(IconScoreBase):
         bnusd = self.create_interface_score(self.addresses['bnUSD'], BnUSDInterface)
         bnusd.govTransfer(self.msg.sender, self.addresses['daofund'], self._bnusd_vote_definition_fee.get())
 
-        actions_list = json_loads(actions)
-        if len(actions_list) > self.maxActions():
+        actions_dict = json_loads(actions)
+        if len(actions_dict) > self.maxActions():
             revert(f"Balanced Governance: Only {self.maxActions()} actions are allowed")
 
         ProposalDB.create_proposal(name=name, description=description, proposer=self.msg.sender,
@@ -334,7 +325,7 @@ class Governance(IconScoreBase):
         result = self.checkVote(vote_index)
         if result['for'] + result['against'] >= result['quorum']:
             if (EXA - majority) * result['for'] > majority * result['against']:
-                if actions != "[]":
+                if actions != "{}":
                     try:
                         self._execute_vote_actions(actions)
                         proposal.status.set(ProposalStatus.STATUS[ProposalStatus.EXECUTED])
@@ -352,10 +343,7 @@ class Governance(IconScoreBase):
     def _execute_vote_actions(self, _vote_actions: str) -> None:
         actions = json_loads(_vote_actions)
         for action in actions:
-            if type(action) == list:
-                self.vote_execute[action[0]](**action[1])
-            elif type(action) == dict:
-                self.vote_execute[action](**actions[action])
+            self.vote_execute[action](**actions[action])
 
     def _refund_vote_definition_fee(self, proposal: ProposalDB) -> None:
         if not proposal.fee_refunded.get():
@@ -584,6 +572,12 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def setMaxSellAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setMaxSellAmount(_sicx_value, _bnusd_value)
+
+    @external
+    @only_owner
     def setAddresses(self, _addresses: BalancedAddresses) -> None:
         self.addresses.setAddresses(_addresses)
 
@@ -712,12 +706,6 @@ class Governance(IconScoreBase):
     @external
     @only_owner
     def updateBalTokenDistPercentage(self, _recipient_list: List[DistPercentDict]) -> None:
-        """
-        Assign percentages for distribution to the data sources. Must sum to 100%.
-        """
-        self.internal_updateBalTokenDistPercentage(_recipient_list)
-
-    def internal_updateBalTokenDistPercentage(self, _recipient_list: List[DistPercentDict]) -> None:
         """
         Assign percentages for distribution to the data sources. Must sum to 100%.
         """
@@ -1028,9 +1016,3 @@ class Governance(IconScoreBase):
         proposal.status.set('Executed')
 
         self.setRebalancingThreshold(25000000000000000)
-
-    @external
-    @only_owner
-    def vote_index12_actions_fixes(self):
-        proposal = ProposalDB(var_key=12, db=self.db)
-        proposal.status.set('Executed')

@@ -140,6 +140,7 @@ class Rewards(IconScoreBase):
                 revert(f'{TAG}: Recipient {name} does not exist.')
 
             percent = recipient['dist_percent']
+            # self._recipient_split[name] = percent
             self._update_recipient_snapshot(name, percent)
             source = self._data_source_db[name]
             if source.get_data()['dist_percent'] == 0:
@@ -202,6 +203,8 @@ class Rewards(IconScoreBase):
             revert(f'{TAG}: Data source must be a contract.')
         self._recipients.put(_name)
         self._complete_recipient.put(_name)
+        # self._recipient_split[_name] = 0
+        # self._update_recipient_snapshot(_name, 0)
         self._data_source_db.new_source(_name, _address)
 
     @external

@@ -72,11 +72,6 @@ class DexTokenInterface(InterfaceScore):
     def getSicxBnusdPrice(self) -> int:
         pass
 
-class GovernanceInterface(InterfaceScore):
-    @interface
-    def getContractAddress(self, contract: str) -> Address:
-        pass
-
 
 class Loans(IconScoreBase):
     _LOANS_ON = 'loans_on'
@@ -866,9 +861,7 @@ class Loans(IconScoreBase):
         self._assets[_asset].mint(_from, _amount)
 
         # Pay fee
-        governance = self.create_interface_score(self._governance.get(), GovernanceInterface)
-        fee_handler = governance.getContractAddress("feehandler")
-        self._assets[_asset].mint(fee_handler, fee)
+        self._assets[_asset].mint(self._dividends.get(), fee)
         self.FeePaid(_asset, fee, "origination")
 
     @loans_on

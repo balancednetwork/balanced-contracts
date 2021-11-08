@@ -220,8 +220,9 @@ class ReserveFund(IconScoreBase):
             symbol = token_score.symbol()
             token_score.transfer(_to, _amount)
             self.TokenTransfer(_to, _amount, f'{msg} {_amount} {symbol} sent to {_to}.')
-        except Exception:
-            revert(f'{TAG}: {_amount} {symbol} not sent to {_to}.')
+        except BaseException as e:
+            revert(f'{TAG}: {_amount} {symbol} not sent to {_to}. '
+                   f'Exception: {e}')
 
     @payable
     def fallback(self):

@@ -112,14 +112,6 @@ class DAOfund(IconScoreBase):
             self._fund[address] = self._fund[symbol]
             self._fund[symbol] = 0
 
-    @external
-    @only_owner
-    def setTokenBalance(self, _token: Address) -> None:
-        token_score = self.create_interface_score(_token, TokenInterface)
-        balance = token_score.balanceOf(self.address)
-        if balance:
-            self._fund[str(_token)] = balance
-
     @external(readonly=True)
     def name(self) -> str:
         return "Balanced DAOfund"
