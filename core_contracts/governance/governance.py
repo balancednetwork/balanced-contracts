@@ -334,7 +334,7 @@ class Governance(IconScoreBase):
         result = self.checkVote(vote_index)
         if result['for'] + result['against'] >= result['quorum']:
             if (EXA - majority) * result['for'] > majority * result['against']:
-                if actions != "[]":
+                if actions != "[]" or "{}":
                     try:
                         self._execute_vote_actions(actions)
                         proposal.status.set(ProposalStatus.STATUS[ProposalStatus.EXECUTED])
@@ -351,10 +351,11 @@ class Governance(IconScoreBase):
 
     def _execute_vote_actions(self, _vote_actions: str) -> None:
         actions = json_loads(_vote_actions)
-        for action in actions:
-            if type(action) == list:
+        if type(actions) == list:
+            for action in actions:
                 self.vote_execute[action[0]](**action[1])
-            elif type(action) == dict:
+        elif type(actions) == dict:
+            for action in actions:
                 self.vote_execute[action](**actions[action])
 
     def _refund_vote_definition_fee(self, proposal: ProposalDB) -> None:
@@ -1034,3 +1035,15 @@ class Governance(IconScoreBase):
     def vote_index12_actions_fixes(self):
         proposal = ProposalDB(var_key=12, db=self.db)
         proposal.status.set('Executed')
+
+    @external
+    @only_owner
+    def enable_fee_handler(self):
+        feehandler = self.create_interface_score(self.addresses['feehandler'], FeeHandlerInterface)
+        feehandler.enable()
+
+    @external
+    @only_owner
+    def disable_fee_handler(self):
+        feehandler = self.create_interface_score(self.addresses['feehandler'], FeeHandlerInterface)
+        feehandler.disable()
