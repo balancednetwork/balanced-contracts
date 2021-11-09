@@ -526,3 +526,13 @@ class RouterInterface(InterfaceScore):
     @interface
     def setSicx(self, _address: Address) -> None:
         pass
+
+
+class FeeHandlerInterface(InterfaceScore):
+    @interface
+    def enable(self):
+        pass
+
+    @interface
+    def disable(self) -> None:
+        pass

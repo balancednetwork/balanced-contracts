@@ -252,6 +252,9 @@ class DEX(IconScoreBase):
         # Cache of token precisions, filled on first call of `deposit`
         self._token_precisions = DictDB('token_precisions', db, value_type=int)
 
+        # Transaction hashes seen
+        self._current_tx = VarDB('current_tx', db, value_type=bytes)
+
     def on_install(self, _governance: Address) -> None:
         super().on_install()
         self._governance.set(_governance)
@@ -554,7 +557,6 @@ class DEX(IconScoreBase):
             return False
 
     @payable
-    @dex_on
     def fallback(self):
         """
         Payable method called by sending ICX directly into the SCORE.
@@ -643,7 +645,21 @@ class DEX(IconScoreBase):
         self._update_account_snapshot(self.msg.sender, self._SICXICX_POOL_ID)
         self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
 
-    @dex_on
+    def is_reentrant_tx(self) -> bool:
+        """
+        Checks whether a method calling this function has been called
+        by this transaction at any previous point in the same hash.
+        This only check methods using this function, not reentrance generally.
+        """
+        reentrancy_status = False
+
+        if self.tx.hash == self._current_tx.get():
+            reentrancy_status = True
+        else:
+            self._current_tx.set(self.tx.hash)
+
+        return reentrancy_status
+
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes):
         """
@@ -1269,6 +1285,12 @@ class DEX(IconScoreBase):
                 self._dividends_done.set(False)
 
     def _check_distributions(self) -> None:
+        # Do not call distribute multiple times for the same tx
+        # This is the most expensive part of swaps, and grows very
+        # fast when doing a routed swap
+        if self.is_reentrant_tx():
+            return
+
         if not self._rewards_done.get():
             rewards = self.create_interface_score(self._rewards.get(), Rewards)
             self._rewards_done.set(rewards.distribute())

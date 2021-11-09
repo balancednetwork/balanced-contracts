@@ -13,7 +13,7 @@ class Router(IconScoreBase):
     _STAKING_ADDRESS = 'staking_address'
     _GOVERNANCE_ADDRESS = 'governance_address'
     _ADMIN = 'admin'
-    _JAECHANG_LIMIT = 10  # Unbounded iterations won't pass audit
+    _JAECHANG_LIMIT = 4 # Unbounded iterations won't pass audit
     _MINT_ADDRESS = Address.from_string('hx0000000000000000000000000000000000000000')
 
     ####################################

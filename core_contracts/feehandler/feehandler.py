@@ -16,6 +16,7 @@ class FeeHandler(IconScoreBase):
         self._last_txhash = VarDB("last_txhash", db, bytes)
         self._routes = DictDB("routes", db, str, depth=2)
         self._governance = VarDB("governance", db, Address)
+        self._enabled = VarDB("enabled", db, bool)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
@@ -30,6 +31,16 @@ class FeeHandler(IconScoreBase):
 
     @external
     @only_governance
+    def enable(self) -> None:
+        self._enabled.set(True)
+
+    @external
+    @only_governance
+    def disable(self) -> None:
+        self._enabled.set(False)
+
+    @external
+    @only_owner
     def setAcceptedDividendTokens(self, _tokens: List[Address]) -> None:
         """
         Specifies which tokens that does not need converting before they are sent to
@@ -64,7 +75,7 @@ class FeeHandler(IconScoreBase):
         :param _fromToken: Address of token A.
         :param _toToken: Address of token B.
         :param _path: The path to take when converting from token A to token B.
-                      Token A is omitted from this path. E.g. assuming token C and D are 
+                      Token A is omitted from this path. E.g. assuming token C and D are
                       needed for the convertion, the path is specified in the following format:
                       [<address_token_c>, <address_token_d>, <address_token_b>].
         """
@@ -78,10 +89,10 @@ class FeeHandler(IconScoreBase):
         Deletes the route used when converting from token A to token B.
 
         :param _fromToken: Address of the token A.
-        :param _toToken: Address of token B.    
+        :param _toToken: Address of token B.
         """
         del self._routes[_fromToken][_toToken]
-    
+
     @external(readonly=True)
     def getRoute(self, _fromToken: Address, _toToken: Address) -> dict:
         """
@@ -99,7 +110,7 @@ class FeeHandler(IconScoreBase):
             "toToken": _toToken,
             "path": json_loads(path)
         }
-        
+
         return route
 
     @external
@@ -147,7 +158,7 @@ class FeeHandler(IconScoreBase):
         # If token is accepted dividend token -> forward total token balance to dividends contract.
         if self.msg.sender in self._accepted_dividend_tokens:
             self._transferToken(self.msg.sender, self._getContractAddress("dividends"), self._getTokenBalance(self.msg.sender))
-        
+
         # Else convert to baln and forward to dividends contract.
         else:
             try:
@@ -155,16 +166,22 @@ class FeeHandler(IconScoreBase):
                 path = json_loads(self._routes[self.msg.sender][self._getContractAddress("baln")])
             except:
                 path = []
-                
-            if path:
-                # Use router.
-                self._transferToken(self.msg.sender, self._getContractAddress("router"), 
-                                    self._getTokenBalance(self.msg.sender), 
-                                    self._createDataFieldRouter(self._getContractAddress("dividends"), path))
-            else:
-                # Use dex.
-                self._transferToken(self.msg.sender, self._getContractAddress("dex"), self._getTokenBalance(self.msg.sender), 
-                                    self._createDataFieldDex(self._getContractAddress("baln"), self._getContractAddress("dividends")))
+
+            # Attempt to process fees. Catch Error and report via eventlog if failure.
+            try:
+                if path:
+                    # Use router.
+                    self._transferToken(self.msg.sender, self._getContractAddress("router"),
+                                        self._getTokenBalance(self.msg.sender),
+                                        self._createDataFieldRouter(self._getContractAddress("dividends"), path))
+
+                else:
+                    # Use dex.
+                    self._transferToken(self.msg.sender, self._getContractAddress("dex"), self._getTokenBalance(self.msg.sender),
+                                        self._createDataFieldDex(self._getContractAddress("baln"), self._getContractAddress("dividends")))
+
+            except BaseException as e:
+                self.FeeNotProcessed(self.msg.sender, repr(e))
 
         # Set the block for this fee processing event.
         self._last_fee_processing_block[self.msg.sender] = self.block_height
@@ -208,7 +225,7 @@ class FeeHandler(IconScoreBase):
             b'", "receiver": "' + str(_receiver).encode() + b'"}}'
         )
         return data
-       
+
 
     def _getContractAddress(self, _contract: str) -> Address:
         """
@@ -225,6 +242,11 @@ class FeeHandler(IconScoreBase):
 
         :param _token: Token address.
         """
+
+        # Hold on processing fees until governance allows it
+        if not self._enabled.get():
+            return False
+
         last_conversion = self._last_fee_processing_block[_token]
         target_block = last_conversion + self._fee_processing_interval.get()
 
@@ -255,3 +277,7 @@ class FeeHandler(IconScoreBase):
         """
         token = self.create_interface_score(_token, IRC2Interface)
         token.transfer(_to, _amount, _data)
+
+    @eventlog(indexed=2)
+    def FeeNotProcessed(self, _token: Address, _error: str):
+        pass
