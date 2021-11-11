@@ -171,6 +171,7 @@ class LoansInterface(InterfaceScore):
     def setMaxSellAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
         pass
 
+    @interface
     def setContinuousRewardsDay(self, _day: int) -> None:
         pass
 
