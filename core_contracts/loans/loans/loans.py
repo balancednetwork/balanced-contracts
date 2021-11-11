@@ -104,12 +104,6 @@ class GovernanceInterface(InterfaceScore):
         pass
 
 
-class GovernanceInterface(InterfaceScore):
-    @interface
-    def getContractAddress(self, contract: str) -> Address:
-        pass
-
-
 class Loans(IconScoreBase):
     _LOANS_ON = 'loans_on'
     _GOVERNANCE = 'governance'
@@ -470,12 +464,17 @@ class Loans(IconScoreBase):
     def checkForNewDay(self) -> (int, bool):
         day = self.getDay()
         new_day: bool = False
-        if day > self._current_day.get():
-            new_day = True
-            self._current_day.set(day)
-            self._positions._take_snapshot()
+        if day < self._continuous_reward_day.get():
+            new_day: bool = False
+            if day > self._current_day.get():
+                new_day = True
+                self._current_day.set(day)
+                self._positions._take_snapshot()
+                self.check_dead_markets()
+            return day, new_day
+        else:
             self.check_dead_markets()
-        return day, new_day
+            return day, new_day
 
     @loans_on
     @external
@@ -561,11 +560,8 @@ class Loans(IconScoreBase):
                 self._sICX_expected.set(False)
             else:
                 _value = 0
-        if self.getDay() < self._continuous_reward_day.get():
-            day, new_day = self.checkForNewDay()
-            self.checkDistributions(day, new_day)
-        else:
-            self.check_dead_markets()
+        day, new_day = self.checkForNewDay()
+        self.checkDistributions(day, new_day)
         pos = self._positions.get_pos(_from)
         if _value > 0:
             pos['sICX'] = pos['sICX'] + _value
@@ -596,11 +592,8 @@ class Loans(IconScoreBase):
             revert(f'{TAG}: Insufficient balance.')
         bad_debt = asset.bad_debt.get()
         if bad_debt > 0:
-            if self.getDay() < self._continuous_reward_day.get():
-                day, new_day = self.checkForNewDay()
-                self.checkDistributions(day, new_day)
-            else:
-                self.check_dead_markets()
+            day, new_day = self.checkForNewDay()
+            self.checkDistributions(day, new_day)
             bd_value = min(bad_debt, _value)
             asset.burnFrom(_from, bd_value)
             sicx = self.bd_redeem(_from, asset, bd_value)
@@ -633,14 +626,10 @@ class Loans(IconScoreBase):
         if user_balance < _value:
             revert(f'{TAG}: Insufficient balance.')
         if self._positions._exists(_from) and _repay:
-            if check_day:
-                day, new_day = self.checkForNewDay()
-                self.checkDistributions(day, new_day)
-            else:
-                self.check_dead_markets()
-                rewards = self.create_interface_score(self._rewards.get(), Rewards)
-                rewards.updateRewardsData([{"_user": _from, "_name": "Loans", "_balance": user_balance,
-                                            "_totalSupply": asset.totalSupply()}])
+            day, new_day = self.checkForNewDay()
+            self.checkDistributions(day, new_day)
+            reward_info = [{"_user": _from, "_name": "Loans", "_balance": user_balance,
+                                            "_totalSupply": asset.totalSupply()}]
             pos = self._positions.get_pos(_from)
             if _value > pos[_symbol]:
                 revert(f'{TAG}: Repaid amount is greater than the amount in the position of {_from}')
@@ -659,6 +648,9 @@ class Loans(IconScoreBase):
                     pos_id = pos.id.get()
                     if not pos.has_debt():
                         self._positions.remove_nonzero(pos_id)
+                else:
+                    rewards = self.create_interface_score(self._rewards.get(), Rewards)
+                    rewards.updateRewardsData(reward_info)
                 self.LoanRepaid(_from, _symbol, repaid,
                                 f'Loan of {repaid} {_symbol} repaid to Balanced.')
                 asset.is_dead()
@@ -928,11 +920,8 @@ class Loans(IconScoreBase):
         _from = self.msg.sender
         if not self._positions._exists(_from):
             revert(f'{TAG}: This address does not have a position on Balanced.')
-        if self.getDay() < self._continuous_reward_day.get():
-            day, new_day = self.checkForNewDay()
-            self.checkDistributions(day, new_day)
-        else:
-            self.check_dead_markets()
+        day, new_day = self.checkForNewDay()
+        self.checkDistributions(day, new_day)
         pos = self._positions.get_pos(_from)
 
         if pos['sICX'] < _value:
@@ -961,10 +950,7 @@ class Loans(IconScoreBase):
             revert(f'{TAG}: This address does not have a position on Balanced.')
         pos = self._positions.get_pos(_owner)
         check_day = self.getDay() < self._continuous_reward_day.get()
-        if check_day:
-            _standing = pos.update_standing()
-        else:
-            _standing = pos.get_standing()["standing"]
+        _standing = pos.update_standing()
 
         if _standing == Standing.LIQUIDATE:
             pos_id = pos.id.get()
@@ -978,6 +964,11 @@ class Loans(IconScoreBase):
                 active = asset.is_active()
                 debt = pos[symbol]
                 if not is_collateral and active and debt > 0:
+                    if not check_day:
+                        rewards = self.create_interface_score(self._rewards.get(), Rewards)
+                        rewards.updateRewardsData(
+                            [{"_user": _owner, "_name": "Loans", "_balance": asset.balanceOf(_owner),
+                              "_totalSupply": asset.totalSupply()}])
                     bad_debt = asset.bad_debt.get()
                     asset.bad_debt.set(bad_debt + debt)
                     symbol_debt = debt * asset.priceInLoop() // EXA
@@ -986,11 +977,6 @@ class Loans(IconScoreBase):
                     for_pool -= share  # The share of the collateral for that asset.
                     pool = asset.liquidation_pool.get()
                     asset.liquidation_pool.set(pool + share)
-                    if not check_day:
-                        rewards = self.create_interface_score(self._rewards.get(), Rewards)
-                        rewards.updateRewardsData(
-                            [{"_user": _owner, "_name": "Loans", "_balance": asset.balanceOf(_owner),
-                              "_totalSupply": asset.totalSupply()}])
                     del pos[symbol]
             pos['sICX'] = 0
             self._send_token('sICX', self.msg.sender, reward, "Liquidation reward of")
