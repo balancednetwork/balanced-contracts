@@ -13,7 +13,7 @@ class Router(IconScoreBase):
     _STAKING_ADDRESS = 'staking_address'
     _GOVERNANCE_ADDRESS = 'governance_address'
     _ADMIN = 'admin'
-    _JAECHANG_LIMIT = 10 # Unbounded iterations won't pass audit
+    _JAECHANG_LIMIT = 4 # Unbounded iterations won't pass audit
     _MINT_ADDRESS = Address.from_string('hx0000000000000000000000000000000000000000')
 
     ####################################
@@ -29,12 +29,13 @@ class Router(IconScoreBase):
             self._STAKING_ADDRESS, db, value_type=Address)
         self._dex = VarDB(self._DEX_ADDRESS, db, value_type=Address)
 
-
-
     def on_install(self, _governance: Address) -> None:
         super().on_install()
         self._governance.set(_governance)
         self._admin.set(_governance)
+        self._dex.set(Address.from_string("cxa0af3165c08318e988cb30993b3048335b94af6c"))
+        self._sicx.set(Address.from_string("cx2609b924e33ef00b648a409245c7ea394c467824"))
+        self._staking.set(Address.from_string("cx43e2eec79eb76293c298f2b17aec06097be606e0"))
 
     def on_update(self) -> None:
         super().on_update()
@@ -75,7 +76,6 @@ class Router(IconScoreBase):
         :param _dex: the new DEX address to set.
         """
         self._dex.set(_dex)
-
 
     @external(readonly=True)
     def getSicx(self) -> Address:
@@ -152,7 +152,8 @@ class Router(IconScoreBase):
         else:
             token = self.create_interface_score(_fromToken, TokenInterface)
             balance = token.balanceOf(self.address)
-            token.transfer(self._dex.get(), balance, b'{"method":"_swap","params":{"toToken":"' + str(_toToken).encode('utf-8') + b'"}}')
+            token.transfer(self._dex.get(), balance,
+                           b'{"method":"_swap","params":{"toToken":"' + str(_toToken).encode('utf-8') + b'"}}')
 
     def _route(self, _from: Address, _startToken: Address, _path: List[Address], _minReceive: int):
         current_token = _startToken
@@ -185,7 +186,6 @@ class Router(IconScoreBase):
     @payable
     def fallback(self):
         pass
-
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes):
@@ -226,6 +226,11 @@ class Router(IconScoreBase):
                 if minimum_receive < 0:
                     revert(f"{TAG}: Must specify a positive number for minimum to receive")
 
+            if "receiver" in unpacked_data["params"]:
+                receiver = Address.from_string(unpacked_data["params"]["receiver"])
+            else:
+                receiver = _from
+
             if len(unpacked_data["params"]["path"]) > self._JAECHANG_LIMIT:
                 revert(f"Passed max swaps of {self._JAECHANG_LIMIT}")
 
@@ -237,7 +242,7 @@ class Router(IconScoreBase):
                 else:
                     path.append(None)
 
-            self._route(_from, _fromToken, path, minimum_receive)
+            self._route(receiver, _fromToken, path, minimum_receive)
 
         else:
             revert(f"{TAG}: Fallback directly not allowed.")

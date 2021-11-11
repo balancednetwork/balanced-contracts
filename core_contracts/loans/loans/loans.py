@@ -98,6 +98,11 @@ class DexTokenInterface(InterfaceScore):
     def getSicxBnusdPrice(self) -> int:
         pass
 
+class GovernanceInterface(InterfaceScore):
+    @interface
+    def getContractAddress(self, contract: str) -> Address:
+        pass
+
 
 class GovernanceInterface(InterfaceScore):
     @interface

@@ -47,6 +47,25 @@ class RebalancingInterface(InterfaceScore):
         pass
 
 
+# An interface to the feeHandler SCORE
+class feeHandlerInterface(InterfaceScore):
+    @interface
+    def setAcceptedDividendTokens(self, _tokens: List[Address]) -> None:
+        pass
+
+    @interface
+    def setRoute(self, _fromToken: Address, _toToken: Address, _path: List[Address]) -> None:
+        pass
+
+    @interface
+    def deleteRoute(self, _fromToken: Address, _toToken: Address) -> None:
+        pass
+
+    @interface
+    def setFeeProcessingInterval(self, _interval: int) -> None:
+        pass
+
+
 # An interface to the Loans SCORE
 class LoansInterface(InterfaceScore):
     @interface
@@ -305,6 +324,7 @@ class DividendsInterface(InterfaceScore):
     def addAcceptedTokens(self, _token: Address) -> None:
         pass
 
+
 # An interface to call the setAddress methods on each SCORE.
 class SetAddressesInterface(InterfaceScore):
 
@@ -484,11 +504,13 @@ class BalancedWorkerTokenInterface(InterfaceScore):
     def adminTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = None):
         pass
 
+
 class BnUSDInterface(InterfaceScore):
 
     @interface
     def govTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = b'None') -> None:
         pass
+
 
 # An interface to the Router SCORE
 class RouterInterface(InterfaceScore):
