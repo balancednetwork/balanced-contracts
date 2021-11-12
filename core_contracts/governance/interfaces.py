@@ -51,7 +51,7 @@ class RebalancingInterface(InterfaceScore):
 class LoansInterface(InterfaceScore):
     @interface
     def depositAndBorrow(self, _asset: str = '', _amount: int = 0,
-                         _from: Address = None, _value: int = 0) -> None:
+                         _from: Address = None, _value: int = 0, loan_collateral: str = '') -> None:
         pass
 
     @interface
@@ -302,6 +302,7 @@ class DividendsInterface(InterfaceScore):
     def addAcceptedTokens(self, _token: Address) -> None:
         pass
 
+
 # An interface to call the setAddress methods on each SCORE.
 class SetAddressesInterface(InterfaceScore):
 
@@ -477,11 +478,13 @@ class BalancedWorkerTokenInterface(InterfaceScore):
     def adminTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = None):
         pass
 
+
 class BnUSDInterface(InterfaceScore):
 
     @interface
     def govTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = b'None') -> None:
         pass
+
 
 # An interface to the Router SCORE
 class RouterInterface(InterfaceScore):
