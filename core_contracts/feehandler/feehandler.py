@@ -40,7 +40,7 @@ class FeeHandler(IconScoreBase):
         self._enabled.set(False)
 
     @external
-    @only_owner
+    @only_governance
     def setAcceptedDividendTokens(self, _tokens: List[Address]) -> None:
         """
         Specifies which tokens that does not need converting before they are sent to
@@ -181,7 +181,8 @@ class FeeHandler(IconScoreBase):
                                         self._createDataFieldDex(self._getContractAddress("baln"), self._getContractAddress("dividends")))
 
             except BaseException as e:
-                self.FeeNotProcessed(self.msg.sender, repr(e))
+                revert(f'Fee conversion for {self.msg.sender} failed, {repr(e)}')
+                # self.FeeNotProcessed(self.msg.sender, repr(e))
 
         # Set the block for this fee processing event.
         self._last_fee_processing_block[self.msg.sender] = self.block_height
