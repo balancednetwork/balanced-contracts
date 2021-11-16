@@ -272,9 +272,7 @@ class DEX(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        # To Do
-        # Add the feehandler address below
-        # self._feehandler.set(Address.from_string("cx4131b1b29bd66f162a4d7537fdc20f6aa3ae9782"))
+        self._feehandler.set(Address.from_string("cx5faae53c4dbd1fbe4a2eb4aab6565030f10da5c6"))
 
     @external(readonly=True)
     def name(self) -> str:
