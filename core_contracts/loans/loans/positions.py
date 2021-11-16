@@ -35,23 +35,34 @@ class Position(object):
 
         self.snaps = ArrayDB('snaps', db, int)
         self.assets = DictDB('assets', db, int, depth=2)
+        self.flag = DictDB('flag', db, bool)
+        self.const = DictDB('const', db, int)
 
     def __getitem__(self, _symbol: str) -> int:
         if _symbol in self.asset_db.slist:
+            if self.flag[_symbol]:
+                return self.const[_symbol]
             return self.assets[self.snaps[-1]][_symbol]
         else:
             revert(f'{TAG}: {_symbol} is not a supported asset on Balanced.')
 
     def __setitem__(self, key: str, value: int):
-        day = self.check_snap()
-        self.assets[day][key] = value
+        if self._loans.getDay() < self._loans._continuous_reward_day.get():
+            day = self.check_snap()
+            self.assets[day][key] = value
+        else:
+            self.const[key] = value
+            self.flag[key] = True
         if key in self.asset_db.aalist:
             borrowers = self.asset_db[key].get_borrowers()
             # if id does not exist in borrowers a new node is created.
             borrowers[self.id.get()] = value
 
     def __delitem__(self, _symbol: str):
-        self.assets[self.snaps[-1]].remove(_symbol)
+        if self.flag[_symbol]:
+            self.const.remove(_symbol)
+        else:
+            self.assets[self.snaps[-1]].remove(_symbol)
         if _symbol in self.asset_db.aalist:
             self.asset_db[_symbol].remove_borrower(self.id.get())
 
@@ -115,8 +126,12 @@ class Position(object):
         if _id == -1:
             return False
         for symbol in self.asset_db.aalist:
-            if self.assets[_id][symbol] != 0:
-                return True
+            if self.flag[symbol]:
+                if self.const[symbol] != 0:
+                    return True
+            else:
+                if self.assets[_id][symbol] != 0:
+                    return True
         return False
 
     def _collateral_value(self, _day: int = -1) -> int:
@@ -132,7 +147,10 @@ class Position(object):
         value = 0
         for symbol in self.asset_db.aclist:
             asset = self.asset_db[symbol]
-            amount = self.assets[_id][symbol]
+            if self.flag[symbol]:
+                amount = self.const[symbol]
+            else:
+                amount = self.assets[_id][symbol]
             if _day == -1 or _day == self._loans.getDay():
                 price = asset.priceInLoop()
             else:
@@ -153,7 +171,10 @@ class Position(object):
             return 0
         asset_value = 0
         for symbol in self.asset_db.aalist:
-            amount = self.assets[_id][symbol]
+            if self.flag[symbol]:
+                amount = self.const[symbol]
+            else:
+                amount = self.assets[_id][symbol]
             if amount > 0:
                 if _day == -1 or _day == self._loans.getDay():
                     if _readonly:
@@ -189,24 +210,8 @@ class Position(object):
 
         ratio = collateral * EXA // debt
 
-        if ratio > self._loans._mining_ratio.get() * EXA // POINTS:
-            if _day == -1 or _day == self._loans.getDay():
-                if _readonly:
-                    price = self.asset_db["bnUSD"].lastPriceInLoop()
-                else:
-                    price = self.asset_db["bnUSD"].priceInLoop()
-            else:
-                price = self.snaps_db[_day].prices["bnUSD"]
-
-            bnUSD_debt: int = debt * EXA // price
-            if bnUSD_debt < self._loans._min_mining_debt.get():
-                standing = Standing.NOT_MINING
-            else:
-                standing = Standing.MINING
-        elif ratio > self._loans._locking_ratio.get() * EXA // POINTS:
-            standing = Standing.NOT_MINING
-        elif ratio > self._loans._liquidation_ratio.get() * EXA // POINTS:
-            standing = Standing.LOCKED
+        if ratio > self._loans._liquidation_ratio.get() * EXA // POINTS:
+            standing = Standing.MINING
         else:
             standing = Standing.LIQUIDATE
 
@@ -244,9 +249,14 @@ class Position(object):
             return {}
         assets = {}
         for asset in self.asset_db.slist:
-            if asset in self.assets[_id]:
-                amount = self.assets[_id][asset]
-                assets[asset] = amount
+            if self.flag[asset]:
+                amount = self.const[asset]
+                if amount:
+                    assets[asset] = amount
+            else:
+                if asset in self.assets[_id]:
+                    amount = self.assets[_id][asset]
+                    assets[asset] = amount
 
         pos_id = self.id.get()
         status = self.get_standing(_day, True)
@@ -347,12 +357,18 @@ class PositionsDB:
         _id = self._id_factory.get_uid()
         self.addressID[_address] = _id
         now = self._loans.now()
-        snap_id = self._loans.getDay()
         _new_pos = self.__getitem__(_id)
+        if self._loans.getDay() < self._loans._continuous_reward_day.get():
+            snap_id = self._loans.getDay()
+            _new_pos.snaps.put(snap_id)
+        elif (self._loans.getDay() == 1):
+            snap_id = 1
+            _new_pos.snaps.put(1)
+        else:
+            snap_id = _new_pos.snaps[-1]
         _new_pos.id.set(_id)
         _new_pos.created.set(now)
         _new_pos.address.set(_address)
-        _new_pos.snaps.put(snap_id)
         _new_pos.assets[snap_id]['sICX'] = 0
         self._items[_id] = _new_pos
         return _new_pos
