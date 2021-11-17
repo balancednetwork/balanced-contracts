@@ -234,9 +234,6 @@ class FeeHandler(IconScoreBase):
             revert(f'Fee conversion for {address} failed, {repr(e)}')
             # self.FeeNotProcessed(self.msg.sender, repr(e))
 
-        # Set the block for this fee processing event.
-        self._last_fee_processing_block[self.msg.sender] = self.block_height
-
     def _createDataFieldRouter(self, _receiver: Address, _path: list) -> bytes:
         """
         Constructs the data to pass to the router contract when making a swap.
