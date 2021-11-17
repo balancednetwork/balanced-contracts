@@ -97,7 +97,6 @@ class Loans(IconScoreBase):
     _MINING_RATIO = 'mining_ratio'
     _LOCKING_RATIO = 'locking_ratio'
     _LIQUIDATION_RATIO = 'liquidation_ratio'
-    _ORIGINATION_FEE = 'origination_fee'
     _REDEMPTION_FEE = 'redemption_fee'
     _RETIREMENT_BONUS = 'retirement_bonus'
     _LIQUIDATION_REWARD = 'liquidation_reward'
@@ -137,7 +136,6 @@ class Loans(IconScoreBase):
         self._mining_ratio = VarDB(self._MINING_RATIO, db, value_type=int)
         self._locking_ratio = VarDB(self._LOCKING_RATIO, db, value_type=int)
         self._liquidation_ratio = VarDB(self._LIQUIDATION_RATIO, db, value_type=int)
-        self._origination_fee = VarDB(self._ORIGINATION_FEE, db, value_type=int)
         self._redemption_fee = VarDB(self._REDEMPTION_FEE, db, value_type=int)
         self._retirement_bonus = VarDB(self._RETIREMENT_BONUS, db, value_type=int)
         self._liquidation_reward = VarDB(self._LIQUIDATION_REWARD, db, value_type=int)
@@ -167,7 +165,6 @@ class Loans(IconScoreBase):
         self._mining_ratio.set(MINING_RATIO)
         self._locking_ratio.set(LOCKING_RATIO)
         self._liquidation_ratio.set(LIQUIDATION_RATIO)
-        self._origination_fee.set(ORIGINATION_FEE)
         self._redemption_fee.set(REDEMPTION_FEE)
         self._liquidation_reward.set(LIQUIDATION_REWARD)
         self._retirement_bonus.set(BAD_DEBT_RETIREMENT_BONUS)
@@ -179,6 +176,12 @@ class Loans(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+
+        _ORIGINATION_FEE = 'origination_fee'
+        _origination_fee = VarDB(_ORIGINATION_FEE, self.db, value_type=int)
+        self._assets["sicx"].set_origination_fee(_origination_fee.get())
+        self._assets["bnUSD"].set_origination_fee(_origination_fee.get())
+        _origination_fee.remove()
 
     # BEGIN: TEMPORARY METHODS TO BE REMOVED AFTER MIGRATION #
     # TODO: REMOVE THE METHODS BELOW AFTER MIGRATION IS COMPLETE
@@ -242,6 +245,18 @@ class Loans(IconScoreBase):
         self.ContractActive("Loans", "Active")
         self._current_day.set(self.getDay())
         self._positions._snapshot_db.start_new_snapshot()
+
+    @only_governance
+    @external(readonly=True)
+    def set_ltv(self, symbol: str, value: int) -> None:
+        asset = self._assets[symbol]
+        asset.set_ltv(value)
+
+    @only_governance
+    @external(readonly=True)
+    def set_origination_fee(self, symbol: str, value: int) -> None:
+        asset = self._assets[symbol]
+        asset.set_origination_fee(value)
 
     @external
     @only_governance
@@ -427,11 +442,14 @@ class Loans(IconScoreBase):
     @only_admin
     def addAsset(self, _token_address: Address,
                  _active: bool = True,
-                 _collateral: bool = False) -> None:
+                 _collateral: bool = False,
+                 _origination_fee: int = None,
+                 _ltv: int = None
+                 ) -> None:
         """
         Adds a token to the assets dictionary.
         """
-        self._assets.add_asset(_token_address, _active, _collateral)
+        self._assets.add_asset(_token_address, _active, _collateral, _origination_fee, _ltv)
         token_score = self.create_interface_score(_token_address, TokenInterface)
         self.AssetAdded(_token_address, token_score.symbol(), _collateral)
 
@@ -881,7 +899,7 @@ class Loans(IconScoreBase):
         # Check for sufficient collateral
         collateral = pos.collateral_value(symbol=collateral_symbol)
         max_debt_value = POINTS * collateral // self._locking_ratio.get()
-        fee = self._origination_fee.get() * _amount // POINTS
+        fee = self._assets[collateral_symbol].get_origination_fee() * _amount // POINTS
         new_debt_value = self._assets[_asset].priceInLoop() * (_amount + fee) // EXA
 
         # Check for loan minimum
@@ -1096,9 +1114,9 @@ class Loans(IconScoreBase):
         self._liquidation_ratio.set(_ratio)
 
     @external
-    @only_admin
-    def setOriginationFee(self, _fee: int) -> None:
-        self._origination_fee.set(_fee)
+    @only_governance
+    def setOriginationFee(self, symbol: str, _fee: int) -> None:
+        self._assets[symbol].set_origination_fee(_fee)
 
     @external
     @only_admin
@@ -1154,7 +1172,7 @@ class Loans(IconScoreBase):
             "mining ratio": self._mining_ratio.get(),
             "locking ratio": self._locking_ratio.get(),
             "liquidation ratio": self._liquidation_ratio.get(),
-            "origination fee": self._origination_fee.get(),
+            # "origination fee": self._origination_fee.get(),
             "redemption fee": self._redemption_fee.get(),
             "liquidation reward": self._liquidation_reward.get(),
             "new loan minimum": self._new_loan_minimum.get(),

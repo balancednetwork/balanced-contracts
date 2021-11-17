@@ -36,8 +36,8 @@ class MockClass:
     def setLockingRatio(self, _value: int):
         self.callStack.append(f"setLockingRatio({_value})")
 
-    def setOriginationFee(self, _fee: int):
-        self.callStack.append(f"setOriginationFee({_fee})")
+    def setOriginationFee(self, symbol: str, _fee: int):
+        self.callStack.append(f"setOriginationFee({symbol},{_fee})")
 
     def balanceOfAt(self, _account, pool_id, _day):
         return self._balanceOfAt

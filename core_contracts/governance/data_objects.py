@@ -1,6 +1,7 @@
 from .utils.consts import *
 from .interfaces import *
 
+
 # TypedDict for disbursement specs
 class Disbursement(TypedDict):
     address: str
@@ -107,22 +108,21 @@ class Addresses(object):
 
     def getAddresses(self) -> dict:
         return {
-                'loans': self._loans.get(),
-                'dex': self._dex.get(),
-                'staking': self._staking.get(),
-                'rewards': self._rewards.get(),
-                'reserve': self._reserve.get(),
-                'dividends': self._dividends.get(),
-                'daofund': self._daofund.get(),
-                'oracle': self._oracle.get(),
-                'sicx': self._sicx.get(),
-                'bnUSD': self._bnUSD.get(),
-                'baln': self._baln.get(),
-                'bwt': self._bwt.get(),
-                'rebalancing': self._rebalancing.get(),
-                'router': self._router.get()
-               }
-
+            'loans': self._loans.get(),
+            'dex': self._dex.get(),
+            'staking': self._staking.get(),
+            'rewards': self._rewards.get(),
+            'reserve': self._reserve.get(),
+            'dividends': self._dividends.get(),
+            'daofund': self._daofund.get(),
+            'oracle': self._oracle.get(),
+            'sicx': self._sicx.get(),
+            'bnUSD': self._bnUSD.get(),
+            'baln': self._baln.get(),
+            'bwt': self._bwt.get(),
+            'rebalancing': self._rebalancing.get(),
+            'router': self._router.get()
+        }
 
     def setAddress(self, contract: str) -> None:
 
@@ -131,19 +131,18 @@ class Addresses(object):
 
         score = self._gov.create_interface_score(self[contract], SetAddressesInterface)
         set_methods = {'admin': score.setAdmin, 'loans': score.setLoans,
-        'staking': score.setStaking, 'rewards': score.setRewards,
-        'reserve': score.setReserve, 'dividends': score.setDividends,
-        'daofund': score.setDaofund, 'oracle': score.setOracle,
-        'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
-        'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
-        'router': score.setRouter, 'rebalancing': score.setRebalancing}
+                       'staking': score.setStaking, 'rewards': score.setRewards,
+                       'reserve': score.setReserve, 'dividends': score.setDividends,
+                       'daofund': score.setDaofund, 'oracle': score.setOracle,
+                       'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
+                       'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
+                       'router': score.setRouter, 'rebalancing': score.setRebalancing}
 
         for address in ADDRESSES[contract]:
             try:
                 set_methods[address](self[address])
             except Exception:
                 revert(f'Problem setting {address} on {contract}')
-
 
     def setContractAddresses(self) -> None:
         """
@@ -179,7 +178,6 @@ class Addresses(object):
 
 
 class ProposalDB:
-
     _PREFIX = "ProposalDB_"
 
     def __init__(self, var_key: int, db: IconScoreDatabase):
@@ -217,9 +215,9 @@ class ProposalDB:
         return proposal.proposals_count.get()
 
     @classmethod
-    def create_proposal(cls, name: str, description: str, proposer: Address, quorum: int, majority: int, snapshot: int, start: int,
+    def create_proposal(cls, name: str, description: str, proposer: Address, quorum: int, majority: int, snapshot: int,
+                        start: int,
                         end: int, actions: str, fee: int, db: IconScoreDatabase) -> 'ProposalDB':
-
         vote_index = cls(0, db).proposals_count.get() + 1
         new_proposal = ProposalDB(vote_index, db)
         new_proposal.proposals_count.set(vote_index)
