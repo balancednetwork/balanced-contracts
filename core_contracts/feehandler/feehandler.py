@@ -198,7 +198,7 @@ class FeeHandler(IconScoreBase):
 
         allowed_addresses_length = len(self._allowed_addresses)
         if not allowed_addresses_length:
-            revert(f"{TAG}: ")
+            revert(f"{TAG}: No allowed addresses.")
 
         while not balance:
             current_index += 1
