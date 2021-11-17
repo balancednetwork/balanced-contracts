@@ -67,7 +67,7 @@ class Rewards(InterfaceScore):
         pass
 
     @interface
-    def updateRewardsData(self, _rewardsData: List[RewardsData]) -> None:
+    def updateRewardsData(self, _rewardsData: RewardsData) -> None:
         pass
 
     @interface
@@ -208,6 +208,8 @@ class Loans(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        # self._continuous_reward_day.set(45)
+
 
     @external(readonly=True)
     def name(self) -> str:
@@ -463,18 +465,15 @@ class Loans(IconScoreBase):
     @external
     def checkForNewDay(self) -> (int, bool):
         day = self.getDay()
-        new_day: bool = False
-        if day < self._continuous_reward_day.get():
-            new_day: bool = False
-            if day > self._current_day.get():
-                new_day = True
-                self._current_day.set(day)
-                self._positions._take_snapshot()
-                self.check_dead_markets()
-            return day, new_day
+        new_day = False
+        if self._current_day.get() < day < self._continuous_reward_day.get():
+            new_day = True
+            self._current_day.set(day)
+            self._positions._take_snapshot()
+            self.check_dead_markets()
         else:
             self.check_dead_markets()
-            return day, new_day
+        return day, new_day
 
     @loans_on
     @external
@@ -560,6 +559,7 @@ class Loans(IconScoreBase):
                 self._sICX_expected.set(False)
             else:
                 _value = 0
+
         day, new_day = self.checkForNewDay()
         self.checkDistributions(day, new_day)
         pos = self._positions.get_pos(_from)
@@ -628,8 +628,8 @@ class Loans(IconScoreBase):
         if self._positions._exists(_from) and _repay:
             day, new_day = self.checkForNewDay()
             self.checkDistributions(day, new_day)
-            reward_info = [{"_user": _from, "_name": "Loans", "_balance": user_balance,
-                                            "_totalSupply": asset.totalSupply()}]
+            reward_info = {"_user": _from, "_name": "Loans", "_balance": user_balance,
+                                            "_totalSupply": asset.totalSupply()}
             pos = self._positions.get_pos(_from)
             if _value > pos[_symbol]:
                 revert(f'{TAG}: Repaid amount is greater than the amount in the position of {_from}')
@@ -650,6 +650,7 @@ class Loans(IconScoreBase):
                         self._positions.remove_nonzero(pos_id)
                 else:
                     rewards = self.create_interface_score(self._rewards.get(), Rewards)
+
                     rewards.updateRewardsData(reward_info)
                 self.LoanRepaid(_from, _symbol, repaid,
                                 f'Loan of {repaid} {_symbol} repaid to Balanced.')
@@ -893,8 +894,13 @@ class Loans(IconScoreBase):
                 self._positions.add_nonzero(pos_id)
         else:
             rewards = self.create_interface_score(self._rewards.get(), Rewards)
-            rewards.updateRewardsData([{"_user": _from, "_name": "Loans", "_balance": asset.balanceOf(_from),
-                                        "_totalSupply": asset.totalSupply()}])
+            rewardsData = {
+                "_user": _from,
+                "_name": "Loans",
+                "_balance": asset.balanceOf(_from),
+                "_totalSupply": asset.totalSupply()
+            }
+            rewards.updateRewardsData(rewardsData)
         new_debt = _amount + fee
         pos[_asset] = pos[_asset] + new_debt
         self.OriginateLoan(_from, _asset, _amount,
@@ -966,9 +972,13 @@ class Loans(IconScoreBase):
                 if not is_collateral and active and debt > 0:
                     if not check_day:
                         rewards = self.create_interface_score(self._rewards.get(), Rewards)
-                        rewards.updateRewardsData(
-                            [{"_user": _owner, "_name": "Loans", "_balance": asset.balanceOf(_owner),
-                              "_totalSupply": asset.totalSupply()}])
+                        rewardsData = {
+                            "_user": _owner,
+                            "_name": "Loans",
+                            "_balance": asset.balanceOf(_owner),
+                            "_totalSupply": asset.totalSupply()
+                        }
+                        rewards.updateRewardsData(rewardsData)
                     bad_debt = asset.bad_debt.get()
                     asset.bad_debt.set(bad_debt + debt)
                     symbol_debt = debt * asset.priceInLoop() // EXA
