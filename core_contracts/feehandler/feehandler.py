@@ -216,8 +216,6 @@ class FeeHandler(IconScoreBase):
         except:
             path = []
 
-        # Attempt to process fees. Catch Error and report via eventlog if failure.
-        balance = self._getTokenBalance(address)
         try:
             if path:
                 # Use router.
@@ -232,7 +230,6 @@ class FeeHandler(IconScoreBase):
 
         except BaseException as e:
             revert(f'Fee conversion for {address} failed, {repr(e)}')
-            # self.FeeNotProcessed(self.msg.sender, repr(e))
 
     def _createDataFieldRouter(self, _receiver: Address, _path: list) -> bytes:
         """
@@ -324,7 +321,3 @@ class FeeHandler(IconScoreBase):
         """
         token = self.create_interface_score(_token, IRC2Interface)
         token.transfer(_to, _amount, _data)
-
-    @eventlog(indexed=2)
-    def FeeNotProcessed(self, _token: Address, _error: str):
-        pass
