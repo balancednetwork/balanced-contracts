@@ -23,6 +23,7 @@ class PrepDelegations(TypedDict):
     _address: Address
     _votes_in_per: int
 
+
 class RewardsDataEntry(TypedDict):
     _user: Address
     _balance: int
@@ -61,7 +62,6 @@ class Rewards(InterfaceScore):
         pass
 
 
-
 # An interface to the Dividends SCORE
 class Dividends(InterfaceScore):
     @interface
@@ -84,6 +84,7 @@ class DexTokenInterface(InterfaceScore):
     @interface
     def getSicxBnusdPrice(self) -> int:
         pass
+
 
 class GovernanceInterface(InterfaceScore):
     @interface
@@ -196,7 +197,6 @@ class Loans(IconScoreBase):
     def on_update(self) -> None:
         super().on_update()
         # self._continuous_reward_day.set(45)
-
 
     @external(readonly=True)
     def name(self) -> str:
@@ -421,7 +421,7 @@ class Loans(IconScoreBase):
         Gets total outstanding debt for mining rewards calculation.
         """
         return self._positions._snapshot_db[_snapshot_id].total_mining_debt.get()
-    
+
     @external(readonly=True)
     def getBalanceAndSupply(self, _name: str, _owner: Address) -> dict:
         if _name == "Loans":
@@ -433,7 +433,6 @@ class Loans(IconScoreBase):
             return rewardsData
         else:
             revert(f"{TAG}: Unsupported data source name")
-
 
     @external(readonly=True)
     def getBnusdValue(self, _name: str) -> int:
@@ -726,7 +725,7 @@ class Loans(IconScoreBase):
 
         if self.getDay() >= self._continuous_reward_day.get():
             rewards = self.create_interface_score(self._rewards.get(), Rewards)
-            rewards.updateBatchRewardsData("Loans",asset.totalSupply(), rewards_batch_list)
+            rewards.updateBatchRewardsData("Loans", asset.totalSupply(), rewards_batch_list)
         self.Rebalance(self.msg.sender, _symbol, str(change_in_pos_dict),
                        total_batch_debt)
 
@@ -741,7 +740,6 @@ class Loans(IconScoreBase):
         :type _total_tokens_required: int
         """
         _symbol = "sICX"
-        asset = self._assets[_symbol]
         batch_size = self._redeem_batch.get()
         borrowers = self._assets['bnUSD'].get_borrowers()
         node_id = borrowers.get_head_id()
@@ -797,7 +795,7 @@ class Loans(IconScoreBase):
 
         if self.getDay() >= self._continuous_reward_day.get():
             rewards = self.create_interface_score(self._rewards.get(), Rewards)
-            rewards.updateBatchRewardsData("Loans",asset.totalSupply(), rewards_batch_list)
+            rewards.updateBatchRewardsData("Loans", self._assets['bnUSD'].totalSupply(), rewards_batch_list)
         self.Rebalance(self.msg.sender, 'bnUSD', str(change_in_pos_dict),
                        total_batch_debt)
 
