@@ -335,14 +335,8 @@ class PositionsDB:
         self.addressID[_address] = _id
         now = self._loans.now()
         _new_pos = self.__getitem__(_id)
-        if self._loans.getDay() < self._loans._continuous_reward_day.get():
-            snap_id = self._loans.getDay()
-            _new_pos.snaps.put(snap_id)
-        elif (self._loans.getDay() == 1):
-            snap_id =1
-            _new_pos.snaps.put(1)
-        else:
-            snap_id =_new_pos.snaps[-1]
+        snap_id = self._loans.getDay()
+        _new_pos.snaps.put(snap_id)
         _new_pos.id.set(_id)
         _new_pos.created.set(now)
         _new_pos.address.set(_address)

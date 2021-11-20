@@ -195,6 +195,8 @@ class Loans(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
+        # self._continuous_reward_day.set(45)
+
 
     @external(readonly=True)
     def name(self) -> str:
@@ -463,18 +465,15 @@ class Loans(IconScoreBase):
     @external
     def checkForNewDay(self) -> (int, bool):
         day = self.getDay()
-        new_day: bool = False
-        if day < self._continuous_reward_day.get():
-            new_day: bool = False
-            if day > self._current_day.get():
-                new_day = True
-                self._current_day.set(day)
-                self._positions._take_snapshot()
-                self.check_dead_markets()
-            return day, new_day
+        new_day = False
+        if self._current_day.get() < day < self._continuous_reward_day.get():
+            new_day = True
+            self._current_day.set(day)
+            self._positions._take_snapshot()
+            self.check_dead_markets()
         else:
             self.check_dead_markets()
-            return day, new_day
+        return day, new_day
 
     @loans_on
     @external
@@ -560,6 +559,7 @@ class Loans(IconScoreBase):
                 self._sICX_expected.set(False)
             else:
                 _value = 0
+
         day, new_day = self.checkForNewDay()
         self.checkDistributions(day, new_day)
         pos = self._positions.get_pos(_from)
@@ -650,6 +650,7 @@ class Loans(IconScoreBase):
                 else:
                     rewards = self.create_interface_score(self._rewards.get(), Rewards)
                     rewards.updateRewardsData("Loans", old_supply, _from, user_balance)
+
                 self.LoanRepaid(_from, _symbol, repaid,
                                 f'Loan of {repaid} {_symbol} repaid to Balanced.')
                 asset.is_dead()
@@ -740,6 +741,7 @@ class Loans(IconScoreBase):
         :type _total_tokens_required: int
         """
         _symbol = "sICX"
+        asset = self._assets[_symbol]
         batch_size = self._redeem_batch.get()
         borrowers = self._assets['bnUSD'].get_borrowers()
         node_id = borrowers.get_head_id()
@@ -963,6 +965,7 @@ class Loans(IconScoreBase):
                     if not check_day:
                         rewards = self.create_interface_score(self._rewards.get(), Rewards)
                         rewards.updateRewardsData("Loans", asset.totalSupply(), _owner, asset.balanceOf(_owner))
+
                     bad_debt = asset.bad_debt.get()
                     asset.bad_debt.set(bad_debt + debt)
                     symbol_debt = debt * asset.priceInLoop() // EXA
