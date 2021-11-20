@@ -43,8 +43,11 @@ class Position(object):
             revert(f'{TAG}: {_symbol} is not a supported asset on Balanced.')
 
     def __setitem__(self, key: str, value: int):
-        day = self.check_snap()
-        self.assets[day][key] = value
+        if self._loans.getDay() < self._loans._continuous_reward_day.get():
+            day = self.check_snap()
+            self.assets[day][key] = value
+        else:
+            self.assets[self.snaps[-1]][key] = value
         if key in self.asset_db.aalist:
             borrowers = self.asset_db[key].get_borrowers()
             # if id does not exist in borrowers a new node is created.
@@ -189,24 +192,8 @@ class Position(object):
 
         ratio = collateral * EXA // debt
 
-        if ratio > self._loans._mining_ratio.get() * EXA // POINTS:
-            if _day == -1 or _day == self._loans.getDay():
-                if _readonly:
-                    price = self.asset_db["bnUSD"].lastPriceInLoop()
-                else:
-                    price = self.asset_db["bnUSD"].priceInLoop()
-            else:
-                price = self.snaps_db[_day].prices["bnUSD"]
-
-            bnUSD_debt: int = debt * EXA // price
-            if bnUSD_debt < self._loans._min_mining_debt.get():
-                standing = Standing.NOT_MINING
-            else:
-                standing = Standing.MINING
-        elif ratio > self._loans._locking_ratio.get() * EXA // POINTS:
-            standing = Standing.NOT_MINING
-        elif ratio > self._loans._liquidation_ratio.get() * EXA // POINTS:
-            standing = Standing.LOCKED
+        if ratio > self._loans._liquidation_ratio.get() * EXA // POINTS:
+            standing = Standing.MINING
         else:
             standing = Standing.LIQUIDATE
 
@@ -347,12 +334,12 @@ class PositionsDB:
         _id = self._id_factory.get_uid()
         self.addressID[_address] = _id
         now = self._loans.now()
-        snap_id = self._loans.getDay()
         _new_pos = self.__getitem__(_id)
+        snap_id = self._loans.getDay()
+        _new_pos.snaps.put(snap_id)
         _new_pos.id.set(_id)
         _new_pos.created.set(now)
         _new_pos.address.set(_address)
-        _new_pos.snaps.put(snap_id)
         _new_pos.assets[snap_id]['sICX'] = 0
         self._items[_id] = _new_pos
         return _new_pos
