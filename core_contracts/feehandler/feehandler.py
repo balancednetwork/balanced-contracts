@@ -218,9 +218,9 @@ class FeeHandler(IconScoreBase):
             if balance:
                 break
             else:
-                current_index += 1
                 if loop_flag and (starting_index == current_index):
                     revert("No fees on the contract")
+                current_index += 1
                 if not loop_flag:
                     loop_flag = True
                 continue
