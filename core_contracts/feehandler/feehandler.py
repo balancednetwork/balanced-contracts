@@ -52,6 +52,10 @@ class FeeHandler(IconScoreBase):
         if len(_tokens) > 10:
             revert("There can be a maximum of 10 accepted dividend tokens.")
 
+        for address in _tokens:
+            if not address.is_contract:
+                revert(f"{TAG}: Address provided is an EOA address. Only contract addresses are allowed.")
+
         # Remove all previous tokens.
         while self._accepted_dividend_tokens:
             self._accepted_dividend_tokens.pop()
@@ -80,6 +84,9 @@ class FeeHandler(IconScoreBase):
                       needed for the convertion, the path is specified in the following format:
                       [<address_token_c>, <address_token_d>, <address_token_b>].
         """
+        for address in _path:
+            if not address.is_contract:
+                revert(f"{TAG}: Address provided is an EOA address. Only contract addresses are allowed.")
         _path = [str(address) for address in _path]
         self._routes[_fromToken][_toToken] = json_dumps(_path)
 
@@ -172,6 +179,8 @@ class FeeHandler(IconScoreBase):
         :param address: Address to be added
         :return:
         """
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._allowed_addresses.put(address)
 
     @external(readonly=True)
@@ -201,13 +210,13 @@ class FeeHandler(IconScoreBase):
             revert(f"{TAG}: No allowed addresses.")
 
         while not balance:
-            current_index += 1
-            if current_index == starting_index:
-                revert(f"{TAG}: Contract has no balance for any of the allowed addresses.")
-            if current_index >= allowed_addresses_length:
-                current_index = 0
             address = self._allowed_addresses[current_index]
             balance = self._getTokenBalance(address)
+            current_index += 1
+            if current_index >= allowed_addresses_length:
+                current_index = 0
+            if current_index == starting_index and balance == 0:
+                revert(f"{TAG}: Contract has no balance for any of the allowed addresses.")
         self._current_allowed_addresses_index.set(current_index)
 
         try:
