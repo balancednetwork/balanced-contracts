@@ -2,7 +2,6 @@ from iconservice import *
 from .interfaces import *
 from .utils.checks import *
 
-
 TAG = 'FeeHandler'
 
 
@@ -17,6 +16,8 @@ class FeeHandler(IconScoreBase):
         self._routes = DictDB("routes", db, str, depth=2)
         self._governance = VarDB("governance", db, Address)
         self._enabled = VarDB("enabled", db, bool)
+        self._allowed_addresses = ArrayDB("allowed_address", db, Address)
+        self._current_allowed_addresses_index = VarDB("_current_allowed_addresses_index", db, int)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
@@ -157,35 +158,78 @@ class FeeHandler(IconScoreBase):
 
         # If token is accepted dividend token -> forward total token balance to dividends contract.
         if self.msg.sender in self._accepted_dividend_tokens:
-            self._transferToken(self.msg.sender, self._getContractAddress("dividends"), self._getTokenBalance(self.msg.sender))
-
-        # Else convert to baln and forward to dividends contract.
-        else:
-            try:
-                # Raises JSONDecodeError if trying to decode an empty string.
-                path = json_loads(self._routes[self.msg.sender][self._getContractAddress("baln")])
-            except:
-                path = []
-
-            # Attempt to process fees. Catch Error and report via eventlog if failure.
-            try:
-                if path:
-                    # Use router.
-                    self._transferToken(self.msg.sender, self._getContractAddress("router"),
-                                        self._getTokenBalance(self.msg.sender),
-                                        self._createDataFieldRouter(self._getContractAddress("dividends"), path))
-
-                else:
-                    # Use dex.
-                    self._transferToken(self.msg.sender, self._getContractAddress("dex"), self._getTokenBalance(self.msg.sender),
-                                        self._createDataFieldDex(self._getContractAddress("baln"), self._getContractAddress("dividends")))
-
-            except BaseException as e:
-                revert(f'Fee conversion for {self.msg.sender} failed, {repr(e)}')
-                # self.FeeNotProcessed(self.msg.sender, repr(e))
+            self._transferToken(self.msg.sender, self._getContractAddress("dividends"),
+                                self._getTokenBalance(self.msg.sender))
 
         # Set the block for this fee processing event.
         self._last_fee_processing_block[self.msg.sender] = self.block_height
+
+    @only_owner
+    @external
+    def add_allowed_address(self, address: Address) -> None:
+        """
+        Adds address into  allowed address list
+        :param address: Address to be added
+        :return:
+        """
+        self._allowed_addresses.put(address)
+
+    @external(readonly=True)
+    def get_allowed_address(self, offset: int = 0) -> List:
+        """
+        Returns 20 allowed address
+        :param offset: Offset
+        :return:
+        """
+        start = offset
+        end = min(len(self._allowed_addresses), offset + 20) - 1
+        return [self._allowed_addresses[i] for i in range(start, end + 1)]
+
+    @external
+    def route_contract_balances(self) -> None:
+        """
+        Converts and sends fees held by the fee handler to destination contract
+        :return:
+        """
+        starting_index = self._current_allowed_addresses_index.get()
+        current_index = starting_index
+        balance = 0
+        address = None
+
+        allowed_addresses_length = len(self._allowed_addresses)
+        if not allowed_addresses_length:
+            revert(f"{TAG}: No allowed addresses.")
+
+        while not balance:
+            current_index += 1
+            if current_index == starting_index:
+                revert(f"{TAG}: Contract has no balance for any of the allowed addresses.")
+            if current_index >= allowed_addresses_length:
+                current_index = 0
+            address = self._allowed_addresses[current_index]
+            balance = self._getTokenBalance(address)
+        self._current_allowed_addresses_index.set(current_index)
+
+        try:
+            # Raises JSONDecodeError if trying to decode an empty string.
+            path = json_loads(self._routes[self.msg.sender][self._getContractAddress("baln")])
+        except:
+            path = []
+
+        try:
+            if path:
+                # Use router.
+                self._transferToken(address, self._getContractAddress("router"), balance,
+                                    self._createDataFieldRouter(self._getContractAddress("dividends"), path))
+
+            else:
+                # Use dex.
+                self._transferToken(address, self._getContractAddress("dex"), balance,
+                                    self._createDataFieldDex(self._getContractAddress("baln"),
+                                                             self._getContractAddress("dividends")))
+
+        except BaseException as e:
+            revert(f'Fee conversion for {address} failed, {repr(e)}')
 
     def _createDataFieldRouter(self, _receiver: Address, _path: list) -> bytes:
         """
@@ -209,8 +253,8 @@ class FeeHandler(IconScoreBase):
 
         # Construct data as a bytestring and return it.
         data = (
-            b'{"method": "_swap", "params": {"path": ' + path +
-            b', "receiver": "' + str(_receiver).encode() + b'"}}'
+                b'{"method": "_swap", "params": {"path": ' + path +
+                b', "receiver": "' + str(_receiver).encode() + b'"}}'
         )
         return data
 
@@ -222,11 +266,10 @@ class FeeHandler(IconScoreBase):
         :param _receiver: Address to receive the funds when all swaps have completed.
         """
         data = (
-            b'{"method": "_swap", "params": {"toToken": "' + str(_toToken).encode() +
-            b'", "receiver": "' + str(_receiver).encode() + b'"}}'
+                b'{"method": "_swap", "params": {"toToken": "' + str(_toToken).encode() +
+                b'", "receiver": "' + str(_receiver).encode() + b'"}}'
         )
         return data
-
 
     def _getContractAddress(self, _contract: str) -> Address:
         """
@@ -278,7 +321,3 @@ class FeeHandler(IconScoreBase):
         """
         token = self.create_interface_score(_token, IRC2Interface)
         token.transfer(_to, _amount, _data)
-
-    @eventlog(indexed=2)
-    def FeeNotProcessed(self, _token: Address, _error: str):
-        pass

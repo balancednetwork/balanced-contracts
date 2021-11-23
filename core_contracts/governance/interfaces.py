@@ -171,6 +171,10 @@ class LoansInterface(InterfaceScore):
     def setMaxSellAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
         pass
 
+    @interface
+    def setContinuousRewardsDay(self, _day: int) -> None:
+        pass
+
 
 # An interface to the Loans SCORE
 class DexInterface(InterfaceScore):
@@ -389,6 +393,10 @@ class SetAddressesInterface(InterfaceScore):
     def setFeehandler(self, _address: Address) -> None:
         pass
 
+    @interface
+    def setStakedLp(self, _address: Address) -> None:
+        pass
+
 
 class BalancedInterface(InterfaceScore):
 
@@ -535,4 +543,18 @@ class FeeHandlerInterface(InterfaceScore):
 
     @interface
     def disable(self) -> None:
+        pass
+
+# An interface to the Router SCORE
+class StakedLpInterface(InterfaceScore):
+    @interface
+    def setDex(self, _address: Address):
+        pass
+
+    @interface
+    def setAdmin(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setRewards(self, _address: Address) -> None:
         pass
