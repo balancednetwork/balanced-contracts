@@ -610,6 +610,21 @@ class Rewards(IconScoreBase):
     def getTimeOffset(self) -> int:
         return self._start_timestamp.get()
 
+    @external
+    @only_governance
+    def setContinuousRewardsDay(self, _continuous_rewards_day: int) -> None:
+        """
+        :param _continuous_rewards_day: is day that continuous rewards are eanbled.
+        """
+        self._continuous_rewards_day.set(_continuous_rewards_day)
+
+    @external(readonly=True)
+    def getContinuousRewardsDay(self) -> int:
+        """
+        Returns the day that continuous rewards are enabled.
+        """
+        return self._continuous_rewards_day.get()
+
     # -------------------------------------------------------------------------------
     #   EVENT LOGS
     # -------------------------------------------------------------------------------
