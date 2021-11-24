@@ -145,7 +145,7 @@ class Position(object):
         :return: Existence of a debt position.
         :rtype: bool
         """
-        if self._loans.getDay() < self._loans._continuous_rewards_day.get():
+        if self._loans.getDay() < self._loans._continuous_reward_day.get():
             _id = self.get_snapshot_id(_day)
             if _id == -1:
                 return False
@@ -170,7 +170,7 @@ class Position(object):
         :rtype: int
         """
         value = 0
-        if self._loans.getDay() < self._loans._continuous_rewards_day.get():
+        if self._loans.getDay() < self._loans._continuous_reward_day.get():
             _id = self.get_snapshot_id(_day)
             if _id == -1:
                 return 0
@@ -205,7 +205,7 @@ class Position(object):
         :rtype: int
         """
         asset_value = 0
-        if self._loans.getDay() < self._loans._continuous_rewards_day.get():
+        if self._loans.getDay() < self._loans._continuous_reward_day.get():
             _id = self.get_snapshot_id(_day)
             if _id == -1:
                 return 0
@@ -303,14 +303,16 @@ class Position(object):
         assets = {}
         for asset in self.asset_db.slist:
             if self.flag[asset] and _day == -1:
-                amount = self.position_loans[asset]
+                if asset == 'sICX':
+                    amount = self.position_collateral[asset]
+                else:
+                    amount = self.position_loans['sICX'][asset]
                 if amount:
                     assets[asset] = amount
             else:
                 if asset in self.assets[_id]:
                     amount = self.assets[_id][asset]
                     assets[asset] = amount
-
         pos_id = self.id.get()
         status = self.get_standing(_day, True)
         position = {
