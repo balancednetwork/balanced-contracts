@@ -267,6 +267,10 @@ class DexInterface(InterfaceScore):
     def totalBalnAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
         pass
 
+    @interface
+    def setContinuousRewardsDay(self, _day: int) -> None:
+        pass
+
 
 # An interface to the Rewards SCORE
 class RewardsInterface(InterfaceScore):
@@ -308,6 +312,10 @@ class RewardsInterface(InterfaceScore):
 
     @interface
     def bonusDist(self, _addresses: List[Address], _amounts: List[int]) -> None:
+        pass
+
+    @interface
+    def setContinuousRewardsDay(self, _day: int) -> None:
         pass
 
 

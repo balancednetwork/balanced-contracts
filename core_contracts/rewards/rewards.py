@@ -363,12 +363,8 @@ class Rewards(IconScoreBase):
     @external
     def claimRewards(self) -> None:
         address = self.msg.sender
-        amount = self._baln_holdings[address]
-        self.DebugLog(f"Claiming Rewards: {address}, accrued: {amount / EXA}")
-
         current_time = self.now()
         self.distribute()
-        accrued_rewards = 0
 
 
         for data_source in self._data_source_db:
@@ -386,11 +382,12 @@ class Rewards(IconScoreBase):
                 self._baln_holdings[address] += accrued_rewards
                 self.RewardsAccrued(address, data_source, accrued_rewards)
         
-        if amount:
+        if self._baln_holdings[address] > 0:
+            accrued_rewards = self._baln_holdings[address]
             baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
             self._baln_holdings[address] = 0
-            baln_token.transfer(self.msg.sender, amount)
-            self.RewardsClaimed(self.msg.sender, amount)
+            baln_token.transfer(self.msg.sender, accrued_rewards)
+            self.RewardsClaimed(self.msg.sender, accrued_rewards)
 
     def _get_day(self) -> int:
         today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS
@@ -612,6 +609,21 @@ class Rewards(IconScoreBase):
     @external(readonly=True)
     def getTimeOffset(self) -> int:
         return self._start_timestamp.get()
+
+    @external
+    @only_governance
+    def setContinuousRewardsDay(self, _continuous_rewards_day: int) -> None:
+        """
+        :param _continuous_rewards_day: is day that continuous rewards are eanbled.
+        """
+        self._continuous_rewards_day.set(_continuous_rewards_day)
+
+    @external(readonly=True)
+    def getContinuousRewardsDay(self) -> int:
+        """
+        Returns the day that continuous rewards are enabled.
+        """
+        return self._continuous_rewards_day.get()
 
     # -------------------------------------------------------------------------------
     #   EVENT LOGS

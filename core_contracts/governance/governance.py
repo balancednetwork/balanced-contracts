@@ -83,6 +83,11 @@ class Governance(IconScoreBase):
     def setContinuousRewardsDay(self, _day: int) -> None:
         loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         loans.setContinuousRewardsDay(_day)
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        dex.setContinuousRewardsDay(_day)
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
+        rewards.setContinuousRewardsDay(_day)
+
 
     @external(readonly=True)
     def getVoteDuration(self) -> int:
