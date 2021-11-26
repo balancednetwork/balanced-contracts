@@ -278,6 +278,8 @@ class Loans(IconScoreBase):
         """
         Returns the current standing for a position.
         """
+        if _snapshot >= self._continuous_reward_day.get():
+            revert(f'{TAG} The continuous rewards is already active.')
         pos = self._positions.get_pos(_address)
         status = pos.get_standing(_snapshot, True)
         status['standing'] = Standing.STANDINGS[status['standing']]
@@ -340,6 +342,8 @@ class Loans(IconScoreBase):
         """
         Get account positions.
         """
+        if _day >= self._continuous_reward_day.get():
+            revert(f'{TAG} The continuous rewards is already active.')
         return self._positions[_index].to_dict(_day)
 
     @external(readonly=True)
@@ -420,6 +424,8 @@ class Loans(IconScoreBase):
         """
         Gets total outstanding debt for mining rewards calculation.
         """
+        if _snapshot_id >= self._continuous_reward_day.get():
+            revert(f'{TAG} The continuous rewards is already active.')
         return self._positions._snapshot_db[_snapshot_id].total_mining_debt.get()
 
     @external(readonly=True)
@@ -449,6 +455,8 @@ class Loans(IconScoreBase):
         """
         Read position data batch.
         """
+        if _snapshot_id > self._continuous_reward_day.get():
+            revert(f'{TAG} The continuous rewards is already active.')
         batch = {}
         snapshot = self._positions._snapshot_db[_snapshot_id]
         total_mining = len(snapshot.mining)

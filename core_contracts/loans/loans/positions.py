@@ -374,7 +374,7 @@ class PositionsDB:
         :rtype: bool
         """
         if _day >= self._loans._continuous_reward_day.get():
-            revert('continu')
+            revert(f'{TAG} The continuous rewards is already active.')
         snapshot = self._snapshot_db[_day]
         _id = snapshot.snap_day.get()
         if _id < _day:
