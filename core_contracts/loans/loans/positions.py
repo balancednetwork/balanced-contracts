@@ -356,7 +356,8 @@ class PositionsDB:
                 snapshot.prices[symbol] = assets[symbol].priceInLoop()
         snapshot.snap_time.set(self._loans.now())
         self._loans.Snapshot(self._loans.getDay())
-        self._snapshot_db.start_new_snapshot()
+        if self._loans.getDay() != self._loans._continuous_reward_day.get():
+            self._snapshot_db.start_new_snapshot()
 
     def _calculate_snapshot(self, _day: int, batch_size: int) -> bool:
         """
@@ -372,6 +373,8 @@ class PositionsDB:
         :return: True if complete.
         :rtype: bool
         """
+        if _day >= self._loans._continuous_reward_day.get():
+            revert('continu')
         snapshot = self._snapshot_db[_day]
         _id = snapshot.snap_day.get()
         if _id < _day:

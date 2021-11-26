@@ -465,13 +465,12 @@ class Loans(IconScoreBase):
     def checkForNewDay(self) -> (int, bool):
         day = self.getDay()
         new_day = False
-        if self._current_day.get() < day < self._continuous_reward_day.get():
+        current_day = self._current_day.get()
+        if current_day < day <= self._continuous_reward_day.get():
             new_day = True
             self._current_day.set(day)
             self._positions._take_snapshot()
-            self.check_dead_markets()
-        else:
-            self.check_dead_markets()
+        self.check_dead_markets()
         return day, new_day
 
     @loans_on
