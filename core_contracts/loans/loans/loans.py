@@ -445,9 +445,10 @@ class Loans(IconScoreBase):
         """
         Returns the total bnUSD value of loans mining BALN for APY calculation.
         """
-        bnUSD_price = self._positions._snapshot_db[-2].prices['bnUSD']
-        loop_value = self._positions._snapshot_db[-2].total_mining_debt.get()
-        return EXA * loop_value // bnUSD_price
+        asset = self._assets['bnUSD']
+        bad_debt = asset.bad_debt.get()
+        total_suppy = asset.totalSupply()
+        return total_suppy - bad_debt
 
     @external(readonly=True)
     def getDataBatch(self, _name: str, _snapshot_id: int,
