@@ -39,9 +39,13 @@ class Governance(IconScoreBase):
         self._bnusd_vote_definition_fee = VarDB('definition_fee', db, int)
         self._quorum = VarDB('quorum', db, int)
 
+        # IS DEV flag
+        self.is_dev = VarDB("is_dev", db, bool)
+
     def on_install(self) -> None:
         super().on_install()
         self._launched.set(False)
+        self.is_dev.set(True)
 
     def on_update(self) -> None:
         super().on_update()
@@ -80,6 +84,20 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def set_zero_hour_dev(self, _hour: int) -> None:
+        if not self.is_dev.get():
+            revert("DEV only function.")
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
+
+        time_delta = DAY_START + U_SECONDS_DAY * (_hour + self._launch_day.get() - 1)
+        loans.setTimeOffset(time_delta)
+        dex.setTimeOffset(time_delta)
+        rewards.setTimeOffset(time_delta)
+
+    @external
+    @only_owner
     def setContinuousRewardsDay(self, _day: int) -> None:
         loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         loans.setContinuousRewardsDay(_day)
@@ -87,7 +105,6 @@ class Governance(IconScoreBase):
         dex.setContinuousRewardsDay(_day)
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.setContinuousRewardsDay(_day)
-
 
     @external(readonly=True)
     def getVoteDuration(self) -> int:
@@ -607,7 +624,6 @@ class Governance(IconScoreBase):
                       {'recipient_name': 'BALN/bnUSD', 'dist_percent': 15 * 10 ** 16},
                       {'recipient_name': 'BALN/sICX', 'dist_percent': 10 * 10 ** 16}]
         rewards.updateBalTokenDistPercentage(recipients)
-
 
     @external
     @only_owner
