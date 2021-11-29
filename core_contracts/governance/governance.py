@@ -515,12 +515,14 @@ class Governance(IconScoreBase):
         dex_address = self.addresses['dex']
         sICX_address = self.addresses['sicx']
         bnUSD_address = self.addresses['bnUSD']
+        stakedLp_address = self.addresses['stakedLp']
         staking = self.create_interface_score(self.addresses['staking'], StakingInterface)
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         bnUSD = self.create_interface_score(bnUSD_address, AssetInterface)
         sICX = self.create_interface_score(sICX_address, AssetInterface)
         dex = self.create_interface_score(dex_address, DexInterface)
+        stakedLp = self.create_interface_score(stakedLp_address, StakedLpInterface)
         price = bnUSD.priceInLoop()
         amount = EXA * value // (price * 7)
         staking.icx(value // 7).stakeICX()
@@ -534,6 +536,7 @@ class Governance(IconScoreBase):
         pid = dex.getPoolId(sICX_address, bnUSD_address)
         dex.setMarketName(pid, name)
         rewards.addNewDataSource(name, dex_address)
+        stakedLp.addPool(pid)
         recipients = [{'recipient_name': 'Loans', 'dist_percent': 25 * 10 ** 16},
                       {'recipient_name': 'sICX/ICX', 'dist_percent': 10 * 10 ** 16},
                       {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10 ** 16},
@@ -548,11 +551,13 @@ class Governance(IconScoreBase):
         dex_address = self.addresses['dex']
         bnUSD_address = self.addresses['bnUSD']
         baln_address = self.addresses['baln']
+        stakedLp_address = self.addresses['stakedLp']
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         baln = self.create_interface_score(baln_address, BalancedInterface)
         bnUSD = self.create_interface_score(bnUSD_address, AssetInterface)
         dex = self.create_interface_score(dex_address, DexInterface)
+        stakedLp = self.create_interface_score(stakedLp_address, StakedLpInterface)
         rewards.claimRewards()
         loans.depositAndBorrow('bnUSD', _bnUSD_amount)
         bnUSD.transfer(dex_address, _bnUSD_amount, json_dumps({"method": "_deposit"}).encode())
@@ -562,6 +567,7 @@ class Governance(IconScoreBase):
         pid = dex.getPoolId(baln_address, bnUSD_address)
         dex.setMarketName(pid, name)
         rewards.addNewDataSource(name, dex_address)
+        stakedLp.addPool(pid)
         recipients = [{'recipient_name': 'Loans', 'dist_percent': 25 * 10 ** 16},
                       {'recipient_name': 'sICX/ICX', 'dist_percent': 10 * 10 ** 16},
                       {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10 ** 16},
@@ -570,6 +576,38 @@ class Governance(IconScoreBase):
                       {'recipient_name': 'sICX/bnUSD', 'dist_percent': 175 * 10 ** 15},
                       {'recipient_name': 'BALN/bnUSD', 'dist_percent': 175 * 10 ** 15}]
         rewards.updateBalTokenDistPercentage(recipients)
+
+    @external
+    @only_owner
+    def createBalnSicxMarket(self, _sicx_amount: int, _baln_amount: int) -> None:
+        dex_address = self.addresses['dex']
+        sicx_address = self.addresses['sicx']
+        baln_address = self.addresses['baln']
+        stakedLp_address = self.addresses['stakedLp']
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
+        baln = self.create_interface_score(baln_address, BalancedInterface)
+        sicx = self.create_interface_score(sicx_address, AssetInterface)
+        dex = self.create_interface_score(dex_address, DexInterface)
+        stakedLp = self.create_interface_score(stakedLp_address, StakedLpInterface)
+        rewards.claimRewards()
+        sicx.transfer(dex_address, _sicx_amount, json_dumps({"method": "_deposit"}).encode())
+        baln.transfer(dex_address, _baln_amount, json_dumps({"method": "_deposit"}).encode())
+        dex.add(baln_address, sicx_address, _baln_amount, _sicx_amount)
+        name = 'BALN/sICX'
+        pid = dex.getPoolId(baln_address, sicx_address)
+        dex.setMarketName(pid, name)
+        rewards.addNewDataSource(name, dex_address)
+        stakedLp.addPool(pid)
+        recipients = [{'recipient_name': 'Loans', 'dist_percent': 20 * 10 ** 16},
+                      {'recipient_name': 'sICX/ICX', 'dist_percent': 10 * 10 ** 16},
+                      {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10 ** 16},
+                      {'recipient_name': 'Reserve Fund', 'dist_percent': 5 * 10 ** 16},
+                      {'recipient_name': 'DAOfund', 'dist_percent': 5 * 10 ** 16},
+                      {'recipient_name': 'sICX/bnUSD', 'dist_percent': 15 * 10 ** 16},
+                      {'recipient_name': 'BALN/bnUSD', 'dist_percent': 15 * 10 ** 16},
+                      {'recipient_name': 'BALN/sICX', 'dist_percent': 10 * 10 ** 16}]
+        rewards.updateBalTokenDistPercentage(recipients)
+
 
     @external
     @only_owner
