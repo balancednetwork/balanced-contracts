@@ -91,7 +91,7 @@ class Governance(IconScoreBase):
         dex = self.create_interface_score(self.addresses['dex'], DexInterface)
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
 
-        time_delta = DAY_START + U_SECONDS_DAY * (_hour + self._launch_day.get() - 1)
+        time_delta = _hour + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1)
         loans.setTimeOffset(time_delta)
         dex.setTimeOffset(time_delta)
         rewards.setTimeOffset(time_delta)
