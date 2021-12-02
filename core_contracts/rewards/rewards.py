@@ -85,7 +85,8 @@ class Rewards(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self._upate_addRecipientsToArrayDB()
+        # self._upate_addRecipientsToArrayDB()
+        self._continuous_rewards_day.set(6)
 
     def _upate_addRecipientsToArrayDB(self) -> None:
         for recipient in self._recipients:

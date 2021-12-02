@@ -196,7 +196,7 @@ class Loans(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        # self._continuous_reward_day.set(45)
+        self._continuous_reward_day.set(6)
 
     @external(readonly=True)
     def name(self) -> str:
