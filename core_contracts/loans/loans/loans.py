@@ -208,6 +208,8 @@ class Loans(IconScoreBase):
         self._loans_on.set(True)
         self.ContractActive("Loans", "Active")
         self._current_day.set(self.getDay())
+        if self.getDay() < self._continuous_reward_day.get():
+            self._positions._snapshot_db.start_new_snapshot()
 
     @external
     @only_governance
