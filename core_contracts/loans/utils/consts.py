@@ -4,7 +4,7 @@ TAG = 'BalancedLoans'
 
 EXA = 10**18
 
-U_SECONDS_DAY = 86400 * 10**6  # Microseconds in a day.
+U_SECONDS_DAY = 86400 * (10 ** 6)
 MIN_UPDATE_TIME = 30 * 10**6  # 30 seconds
 
 # All percentages expressed in terms of points.
@@ -16,7 +16,7 @@ LIQUIDATION_REWARD = 67
 ORIGINATION_FEE = 100
 REDEMPTION_FEE = 50
 BAD_DEBT_RETIREMENT_BONUS = 1000
-MAX_RETIRE_PERCENT = 100
+MAX_RETIRE_PERCENT = 10
 
 NEW_LOAN_MINIMUM = 10 * EXA # USD
 MIN_MINING_DEBT = 50 * EXA # USD
