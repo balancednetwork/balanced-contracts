@@ -115,13 +115,14 @@ class DataSource(object):
             last_update_timestamp = current_time
             self.last_update_time_us.set(current_time)
 
-        reward_day = self.day.get()
+        reward_day = self._rewards._get_day()
 
         # If the current time is equal to the last update time, don't emit any new rewards
         if current_time == last_update_timestamp:
             return previous_running_total
         
         # Emit rewards based on the time delta * reward rate
+        # dbrehmer - TODO: discuss/review here
         emission = self.total_dist[reward_day]
         new_total = self._compute_total_weight(previous_running_total, emission, total_supply, last_update_timestamp, current_time)
 
@@ -144,7 +145,7 @@ class DataSource(object):
     def compute_single_user_data(self, current_time, prev_total_supply: int, user: Address, prev_balance: int) -> int:
         current_user_weight = self.user_weight[user]
         # Then, check the current weight of the pool, updating if necessary via the helper function
-        total_weight = self._compute_total_weight(self.total_weight.get(), self.total_dist[self.day.get()], prev_total_supply, self.last_update_time_us.get(), current_time)
+        total_weight = self._compute_total_weight(self.total_weight.get(), self.total_dist[self._rewards._get_day()], prev_total_supply, self.last_update_time_us.get(), current_time)
 
         accrued_rewards = 0
 
@@ -226,6 +227,17 @@ class DataSource(object):
     def get_value(self) -> int:
         data_source = self._rewards.create_interface_score(self.contract_address.get(), DataSourceInterface)
         return data_source.getBnusdValue(self.name.get())
+    
+    def get_data_at(self, _day: int = -1) -> dict:
+        return {
+            'day': _day,
+            'contract_address': self.contract_address.get(),
+            'dist_percent': self.dist_percent.get(),
+            'precomp': self.precomp.get(),
+            'offset': self.offset.get(),
+            'total_value': self.total_value[_day],
+            'total_dist': self.total_dist[_day]
+        }
 
     def get_data(self) -> dict:
         day = self.day.get()

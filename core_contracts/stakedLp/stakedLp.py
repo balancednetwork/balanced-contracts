@@ -15,7 +15,7 @@ class StakedLp(IconScoreBase):
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         # Business Logic
-        self._supportedPools = ArrayDB('supportedPools', db, int)
+        self._supportedPools = DictDB('supportedPools', db, bool)
         self._poolStakeDetails = DictDB('poolStakeDetails', db, value_type=int, depth=3)
         self._totalStaked = DictDB('totalStaked', db, value_type=int)
         self._addressMap = DictDB('addressMap', db, value_type=Address)
@@ -25,12 +25,10 @@ class StakedLp(IconScoreBase):
         self._dex = VarDB(self._DEX_ADDRESS, db, value_type=Address)
         self._rewards = VarDB(self._REWARDS_ADDRESS, db, value_type=Address)
         self._admin = VarDB(self._ADMIN_ADDRESS, db, value_type=Address)
-        self._governance = VarDB(self._GOVERNANCE_ADDRESS, db, value_type=Address)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
         self._governance.set(_governance)
-        self._supportedPools.put(SICX_BNUSD_ID)
 
     def on_update(self) -> None:
         super().on_update()
@@ -62,12 +60,28 @@ class StakedLp(IconScoreBase):
         self._dex.set(_dex)
 
     @external(readonly=True)
+    def getGovernance(self) -> Address:
+        """
+        Gets the address of the Governance SCORE.
+        """
+        return self._governance.get()
+
+    @only_admin
+    @external
+    def setGovernance(self, _governance: Address) -> None:
+        """
+        :param _dex: the new DEX address to set.
+        """
+        self._governance.set(_dex)
+
+
+    @external(readonly=True)
     def getAdmin(self) -> Address:
         """
         Gets the current admin address. This user can call using the
         `@only_admin` decorator.
         """
-        return self._admin.get()
+        return self._governance.get()
 
     @only_governance
     @external
@@ -107,41 +121,20 @@ class StakedLp(IconScoreBase):
 
     @only_governance
     @external
-    def addPool(self, _id: int, _pool: Address) -> None:
-        self._addressMap[_id] = _pool
-        if _id not in self._supportedPools:
-            self._supportedPools.put(_id)
-
-    @external(readonly=True)
-    def getPoolById(self, _id: int) -> Address:
-        return self._addressMap[_id]
+    def addPool(self, _id: int) -> None:
+        if not self._supportedPools[_id]:
+            self._supportedPools[_id] = True
 
     @only_governance
     @external
-    def removePool(self, _poolID: int) -> None:
-        pool = self._addressMap[_poolID]
-        if pool is None:
-            revert(f"{TAG}: {_poolID} is not in address map")
-        self._addressMap.remove(pool)
-
-        top = self._supportedPools.pop()
-        _is_removed = top == _poolID
-        if _is_removed is False:
-            for i in range(len(self._supportedPools)):
-                if self._supportedPools[i] == _poolID:
-                    self._supportedPools[i] = top
-                    _is_removed = True
-
-        if _is_removed is False:
-            revert(f"{TAG}: {_poolID} is not in supported pool list")
-
-    @external(readonly=True)
-    def getSupportedPools(self) -> dict:
-        return {pool: self._addressMap[pool] for pool in self._supportedPools}
+    def removePool(self, _id: int) -> None:
+        if self._supportedPools[_id]:
+            self._supportedPools[_id] = False
 
     def _stake(self, _user: Address, _id: int, _value: int) -> None:
         # Validate inputs
-        StakedLp._require(_id in self._supportedPools, f'pool with id:{_id} is not supported')
+        pool_id = self._supportedPools[_id]
+        StakedLp._require(pool_id, f'pool with id:{_id} is not supported')
         StakedLp._require(_value > 0, f'Cannot stake less than zero ,value to stake {_value}')
 
         # Compute and store changes

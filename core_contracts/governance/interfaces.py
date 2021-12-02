@@ -566,3 +566,7 @@ class StakedLpInterface(InterfaceScore):
     @interface
     def setRewards(self, _address: Address) -> None:
         pass
+
+    @interface
+    def addPool(self, _id: int) -> None:
+        pass

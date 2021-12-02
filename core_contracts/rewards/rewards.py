@@ -258,6 +258,15 @@ class Rewards(IconScoreBase):
         return result
 
     @external(readonly=True)
+    def getDataSourcesAt(self, _day: int = -1) -> dict:
+        result = {}
+        for name in self._data_source_db:
+            source = self._data_source_db[name]
+            result[name] = source.get_data_at(_day)
+        return result
+
+
+    @external(readonly=True)
     def getSourceData(self, _name: str) -> dict:
         source = self._data_source_db[_name]
         return source.get_data()
@@ -315,6 +324,7 @@ class Rewards(IconScoreBase):
                 self._platform_day.set(platform_day + 1)
                 return False
         if day_of_continuous_rewards or not continuous_rewards_active:
+            self.DebugLog(f"Processing daily rewards: day={day}, continuous_rewards_day={continuous_rewards_day}")
             batch_size = self._batch_size.get()
             for name in self._data_source_db:
                 source = self._data_source_db[name]
@@ -375,7 +385,7 @@ class Rewards(IconScoreBase):
             accrued_rewards = self._data_source_db[data_source].update_single_user_data(current_time, total_supply, address, balance)
         
             # Debugging statement
-            self.DebugLog(f"rewards accrued: {accrued_rewards/EXA}, prev_balance: {balance/EXA}, prev_supply: {total_supply/EXA}")
+            self.DebugLog(f"updating rewards - {data_source} accrued: {accrued_rewards/EXA}, prev_balance: {balance/EXA}, prev_supply: {total_supply/EXA}")
 
             # Update if nonzero only
             if accrued_rewards > 0:
@@ -476,7 +486,7 @@ class Rewards(IconScoreBase):
         accrued_rewards = self._data_source_db[source_name].update_single_user_data(current_time, prev_total_supply, user, prev_balance)
 
         # Debugging statement
-        self.DebugLog(f"rewards accrued: {accrued_rewards/EXA}, prev_balance: {prev_balance/EXA}, prev_supply: {prev_total_supply/EXA}")
+        self.DebugLog(f"updating rewards - {source_name} accrued: {accrued_rewards/EXA}, prev_balance: {prev_balance/EXA}, prev_supply: {prev_total_supply/EXA}")
 
         # Update if nonzero only
         if accrued_rewards > 0:
@@ -501,7 +511,7 @@ class Rewards(IconScoreBase):
 
             # Compute accrued rewards based on previous total supply and balance
             accrued_rewards = self._data_source_db[source_name].update_single_user_data(current_time, prev_total_supply, user, prev_balance)
-            self.DebugLog(f"rewards accrued: {accrued_rewards}, prev_balance: {prev_balance}, prev_supply: {prev_total_supply}")
+            self.DebugLog(f"updating rewards - {source_name} accrued: {accrued_rewards}, prev_balance: {prev_balance}, prev_supply: {prev_total_supply}")
 
             # Update if nonzero only to avoid extra writes
             if accrued_rewards > 0:
