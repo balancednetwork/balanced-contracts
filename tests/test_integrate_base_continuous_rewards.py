@@ -210,6 +210,16 @@ class BalancedTestBaseContinuousRewards(BalancedTestUtils):
         self._launch_balanced()
         self._create_bnusd_market()
 
+    def tearDown(self):
+        for key, value in self.constants.items():
+            # print(value)
+            for i in value:
+                lis1 = []
+                for x, y in i.items():
+                    lis1.append(x)
+                    # lis1.append(y)
+                    self.patch_constants("core_contracts/" + key + "/utils/consts.py", lis1[0], y[1])
+
     def _wallet_setup(self):
         self.icx_factor = 10 ** 18
         self.btest_wallet: 'KeyWallet' = self._wallet_array[5]
