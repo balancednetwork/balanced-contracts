@@ -10,7 +10,7 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the Licenrase.
+# limitations under the License.
 
 from iconservice import *
 from ..utils.checks import *
@@ -85,18 +85,6 @@ class DexTokenInterface(InterfaceScore):
     def getSicxBnusdPrice(self) -> int:
         pass
 
-class BnusdTokenInterface(InterfaceScore):
-    @interface
-    def transfer(self, _to: Address, _value: int, _data: bytes = None):
-        pass
-
-    @interface
-    def lastPriceInLoop(self) -> int:
-        pass
-
-    @interface
-    def balanceOf(self, _owner: Address) -> int:
-        pass
 
 class GovernanceInterface(InterfaceScore):
     @interface
@@ -512,7 +500,6 @@ class Loans(IconScoreBase):
             rewards = self.create_interface_score(self._rewards.get(), Rewards)
             self._rewards_done.set(rewards.distribute())
 
-
     @loans_on
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
@@ -653,7 +640,7 @@ class Loans(IconScoreBase):
             old_supply = asset.totalSupply()
             pos = self._positions.get_pos(_from)
             if _value > pos[_symbol]:
-                revert(f'{TAG}: Repaid amount is greater than the amount in the position of the address')
+                revert(f'{TAG}: Repaid amount is greater than the amount in the position of {_from}')
             if _value > 0:
                 borrowed = pos[_symbol]
                 remaining = borrowed - _value
