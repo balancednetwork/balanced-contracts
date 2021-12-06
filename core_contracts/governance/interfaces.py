@@ -47,6 +47,25 @@ class RebalancingInterface(InterfaceScore):
         pass
 
 
+# An interface to the feeHandler SCORE
+class feeHandlerInterface(InterfaceScore):
+    @interface
+    def setAcceptedDividendTokens(self, _tokens: List[Address]) -> None:
+        pass
+
+    @interface
+    def setRoute(self, _fromToken: Address, _toToken: Address, _path: List[Address]) -> None:
+        pass
+
+    @interface
+    def deleteRoute(self, _fromToken: Address, _toToken: Address) -> None:
+        pass
+
+    @interface
+    def setFeeProcessingInterval(self, _interval: int) -> None:
+        pass
+
+
 # An interface to the Loans SCORE
 class LoansInterface(InterfaceScore):
     @interface
@@ -125,19 +144,35 @@ class LoansInterface(InterfaceScore):
         pass
 
     @interface
-    def setMiningRatio(self, _value) -> None:
+    def setMiningRatio(self, _value: int) -> None:
         pass
 
     @interface
-    def setLockingRatio(self, _value) -> None:
+    def setLockingRatio(self, _value: int) -> None:
         pass
 
     @interface
-    def setOriginationFee(self, _fee) -> None:
+    def setOriginationFee(self, _fee: int) -> None:
+        pass
+
+    @interface
+    def setLiquidationRatio(self, _ratio: int) -> None:
+        pass
+
+    @interface
+    def setRetirementBonus(self, _points: int):
+        pass
+
+    @interface
+    def setLiquidationReward(self, _points: int):
         pass
 
     @interface
     def setMaxSellAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
+        pass
+
+    @interface
+    def setContinuousRewardsDay(self, _day: int) -> None:
         pass
 
 
@@ -146,6 +181,22 @@ class DexInterface(InterfaceScore):
     @interface
     def add(self, _baseToken: Address, _quoteToken: Address, _baseValue: int, _quoteValue: int,
             _withdraw_unused: bool = True):
+        pass
+
+    @interface
+    def setPoolLpFee(self, _value: int) -> None:
+        pass
+
+    @interface
+    def setPoolBalnFee(self, _value: int) -> None:
+        pass
+
+    @interface
+    def setIcxBalnFee(self, _value: int) -> None:
+        pass
+
+    @interface
+    def setIcxConversionFee(self, _value: int) -> None:
         pass
 
     @interface
@@ -216,6 +267,10 @@ class DexInterface(InterfaceScore):
     def totalBalnAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
         pass
 
+    @interface
+    def setContinuousRewardsDay(self, _day: int) -> None:
+        pass
+
 
 # An interface to the Rewards SCORE
 class RewardsInterface(InterfaceScore):
@@ -248,11 +303,19 @@ class RewardsInterface(InterfaceScore):
         pass
 
     @interface
+    def removeDataSource(self, _name: str) -> None:
+        pass
+
+    @interface
     def updateBalTokenDistPercentage(self, _recipient_list: List[DistPercentDict]) -> None:
         pass
 
     @interface
     def bonusDist(self, _addresses: List[Address], _amounts: List[int]) -> None:
+        pass
+
+    @interface
+    def setContinuousRewardsDay(self, _day: int) -> None:
         pass
 
 
@@ -261,6 +324,13 @@ class DividendsInterface(InterfaceScore):
 
     @interface
     def setDistributionActivationStatus(self, _status: bool) -> None:
+        pass
+
+    def setDividendsCategoryPercentage(self, _dist_list: List[DistPercentDict]) -> None:
+        pass
+
+    @interface
+    def addAcceptedTokens(self, _token: Address) -> None:
         pass
 
 
@@ -319,8 +389,28 @@ class SetAddressesInterface(InterfaceScore):
     def setBwt(self, _address: Address) -> None:
         pass
 
+    @interface
+    def setRouter(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setRebalancing(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setFeehandler(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setStakedLp(self, _address: Address) -> None:
+        pass
+
 
 class BalancedInterface(InterfaceScore):
+
+    @interface
+    def totalSupply(self) -> int:
+        pass
 
     @interface
     def totalStakedBalance(self) -> int:
@@ -425,4 +515,58 @@ class BalancedWorkerTokenInterface(InterfaceScore):
 
     @interface
     def adminTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = None):
+        pass
+
+
+class BnUSDInterface(InterfaceScore):
+
+    @interface
+    def govTransfer(self, _from: Address, _to: Address, _value: int, _data: bytes = b'None') -> None:
+        pass
+
+
+# An interface to the Router SCORE
+class RouterInterface(InterfaceScore):
+    @interface
+    def setDex(self, _address: Address):
+        pass
+
+    @interface
+    def setAdmin(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setStaking(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setSicx(self, _address: Address) -> None:
+        pass
+
+
+class FeeHandlerInterface(InterfaceScore):
+    @interface
+    def enable(self):
+        pass
+
+    @interface
+    def disable(self) -> None:
+        pass
+
+# An interface to the Router SCORE
+class StakedLpInterface(InterfaceScore):
+    @interface
+    def setDex(self, _address: Address):
+        pass
+
+    @interface
+    def setAdmin(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setRewards(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def addPool(self, _id: int) -> None:
         pass

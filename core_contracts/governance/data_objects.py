@@ -1,12 +1,10 @@
 from .utils.consts import *
 from .interfaces import *
 
-
 # TypedDict for disbursement specs
 class Disbursement(TypedDict):
-    address: Address
+    address: str
     amount: int
-    symbol: str
 
 
 class BalancedAddresses(TypedDict):
@@ -22,6 +20,9 @@ class BalancedAddresses(TypedDict):
     bnUSD: Address
     baln: Address
     bwt: Address
+    router: Address
+    feehandler: Address
+    stakedLp: Address
 
 
 class VoteActions(object):
@@ -30,12 +31,24 @@ class VoteActions(object):
         self._db = db
         self._gov = gov
         self._actions = {
-            'enable_dividends': self._gov.enableDividends,
+            'enableDividends': self._gov.enableDividends,
             'addNewDataSource': self._gov.addNewDataSource,
-            'updateDistPercent': self._gov.updateBalTokenDistPercentage,
-            'update_mining_ratio': self._gov.setMiningRatio,
-            'update_locking_ratio': self._gov.setLockingRatio,
-            'update_origination_fee': self._gov.setOriginationFee
+            'updateBalTokenDistPercentage': self._gov.internal_updateBalTokenDistPercentage,
+            'setMiningRatio': self._gov.setMiningRatio,
+            'setLockingRatio': self._gov.setLockingRatio,
+            'setOriginationFee': self._gov.setOriginationFee,
+            'setLiquidationRatio': self._gov.setLiquidationRatio,
+            'setRetirementBonus': self._gov.setRetirementBonus,
+            'setLiquidationReward': self._gov.setLiquidationReward,
+            'setMaxRetirePercent': self._gov.setMaxRetirePercent,
+            'setRebalancingThreshold': self._gov.setRebalancingThreshold,
+            'setVoteDuration': self._gov.setVoteDuration,
+            'setQuorum': self._gov.setQuorum,
+            'setVoteDefinitionFee': self._gov.setVoteDefinitionFee,
+            'setBalnVoteDefinitionCriterion': self._gov.setBalnVoteDefinitionCriterion,
+            'setDividendsCategoryPercentage': self._gov.setDividendsCategoryPercentage,
+            'daoDisburse': self._gov.daoDisburse,
+            'addAcceptedTokens': self._gov.addAcceptedTokens
         }
 
     def __getitem__(self, key: str):
@@ -62,6 +75,11 @@ class Addresses(object):
         self._bnUSD = VarDB('bnUSD', db, Address)
         self._baln = VarDB('baln', db, Address)
         self._bwt = VarDB('bwt', db, Address)
+        self._rebalancing = VarDB('rebalancing', db, Address)
+        self._router = VarDB('router', db, Address)
+        self._feehandler = VarDB('feehandler', db, Address)
+        self._stakedLp = VarDB('stakedLp', db, Address)
+
 
     def __getitem__(self, key: str) -> Address:
         if key == 'governance':
@@ -73,7 +91,7 @@ class Addresses(object):
 
     def setAddresses(self, addresses: BalancedAddresses) -> None:
         """
-        Takes a TypedDict with 11 addresses and sets them.
+        Takes a TypedDict with 14 addresses and sets them.
         """
         set_func: dict = {'loans': self._loans.set,
                           'dex': self._dex.set,
@@ -86,7 +104,11 @@ class Addresses(object):
                           'sicx': self._sicx.set,
                           'bnUSD': self._bnUSD.set,
                           'baln': self._baln.set,
-                          'bwt': self._bwt.set}
+                          'bwt': self._bwt.set,
+                          'rebalancing': self._rebalancing.set,
+                          'router': self._router.set,
+                          'feehandler': self._feehandler.set,
+                          'stakedLp': self._stakedLp.set}
         for key, value in addresses.items():
             set_func[key](value)
 
@@ -103,8 +125,35 @@ class Addresses(object):
                 'sicx': self._sicx.get(),
                 'bnUSD': self._bnUSD.get(),
                 'baln': self._baln.get(),
-                'bwt': self._bwt.get()
+                'bwt': self._bwt.get(),
+                'rebalancing': self._rebalancing.get(),
+                'router': self._router.get(),
+                'feehandler': self._feehandler.get(),
+                'stakedLp': self._stakedLp.get()
                }
+
+
+    def setAddress(self, contract: str) -> None:
+
+        if contract not in ADDRESSES:
+            revert(f"{contract} is not defined in the address list")
+
+        score = self._gov.create_interface_score(self[contract], SetAddressesInterface)
+        set_methods = {'admin': score.setAdmin, 'loans': score.setLoans,
+        'staking': score.setStaking, 'rewards': score.setRewards,
+        'reserve': score.setReserve, 'dividends': score.setDividends,
+        'daofund': score.setDaofund, 'oracle': score.setOracle,
+        'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
+        'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
+        'router': score.setRouter, 'rebalancing': score.setRebalancing,
+        'feehandler': score.setFeehandler, 'stakedLp': score.setStakedLp}
+
+        for address in ADDRESSES[contract]:
+            try:
+                set_methods[address](self[address])
+            except Exception:
+                revert(f'Problem setting {address} on {contract}')
+
 
     def setContractAddresses(self) -> None:
         """
@@ -118,13 +167,14 @@ class Addresses(object):
                            'reserve': score.setReserve, 'dividends': score.setDividends,
                            'daofund': score.setDaofund, 'oracle': score.setOracle,
                            'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
-                           'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex}
+                           'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
+                           'router': score.setRouter, 'rebalancing': score.setRebalancing,
+                           'feehandler': score.setFeehandler, 'stakedLp': score.setStakedLp}
             for method in ADDRESSES[contract]:
                 try:
                     set_methods[method](self[method])
-                except BaseException as e:
-                    revert(f'Problem setting {method} on {contract}. '
-                           f'Exception: {e}')
+                except Exception:
+                    revert(f'Problem setting {method} on {contract}.')
 
     def setAdmins(self) -> None:
         """
@@ -134,9 +184,9 @@ class Addresses(object):
             score = self._gov.create_interface_score(self[contract], SetAddressesInterface)
             try:
                 score.setAdmin(self[ADMIN_ADDRESSES[contract]])
-            except BaseException as e:
+            except Exception:
                 revert(f'Problem setting admin address to {ADMIN_ADDRESSES[contract]} '
-                       f'on {contract}. Exception: {e}')
+                       f'on {contract}.')
 
 
 class ProposalDB:
@@ -164,6 +214,8 @@ class ProposalDB:
         self.against_voters_count = VarDB(self._key + "_against_voters_count", db, value_type=int)
         self.total_against_votes = VarDB(self._key + "_total_against_votes", db, value_type=int)
         self.status = VarDB(self._key + "_status", db, value_type=str)
+        self.fee = VarDB(self._key + "_fee", db, value_type=int)
+        self.fee_refunded = VarDB(self._key + "_fee_refunded", db, value_type=bool)
 
     @classmethod
     def proposal_id(cls, _proposal_name: str, db: IconScoreDatabase) -> int:
@@ -177,7 +229,7 @@ class ProposalDB:
 
     @classmethod
     def create_proposal(cls, name: str, description: str, proposer: Address, quorum: int, majority: int, snapshot: int, start: int,
-                        end: int, actions: str, db: IconScoreDatabase) -> 'ProposalDB':
+                        end: int, actions: str, fee: int, db: IconScoreDatabase) -> 'ProposalDB':
 
         vote_index = cls(0, db).proposals_count.get() + 1
         new_proposal = ProposalDB(vote_index, db)
@@ -193,7 +245,10 @@ class ProposalDB:
         new_proposal.actions.set(actions)
         new_proposal.name.set(name)
         new_proposal.description.set(description)
-        new_proposal.status.set(ProposalStatus.STATUS[ProposalStatus.PENDING])
+        new_proposal.status.set(ProposalStatus.STATUS[ProposalStatus.ACTIVE])
+        new_proposal.active.set(True)
+        new_proposal.fee.set(fee)
+        new_proposal.fee_refunded.set(False)
         return new_proposal
 
 
@@ -205,4 +260,5 @@ class ProposalStatus:
     SUCCEEDED = 4
     NO_QUORUM = 5
     EXECUTED = 6
-    STATUS = ["Pending", "Active", "Cancelled", "Defeated", "Succeeded", "No Quorum", "Executed"]
+    FAILED_EXECUTION = 7
+    STATUS = ["Pending", "Active", "Cancelled", "Defeated", "Succeeded", "No Quorum", "Executed", "Failed Execution"]

@@ -213,7 +213,9 @@ class Dividends(IconScoreBase):
 
         self._dividends_categories = ArrayDB(self._DIVIDENDS_CATEGORIES, db, value_type=str)
         self._dividends_percentage = DictDB(self._DIVIDENDS_PERCENTAGE, db, value_type=int)
-
+        self._snapshot_dividends = DictDB('snapshot_dividends', db, value_type=int, depth=3)
+        self._total_snapshots = DictDB("total_snapshots", db, value_type=int)
+        self._complete_dividends_categories = ArrayDB('complete_dividends_categories', db, value_type=str)
         self._distribution_activate = VarDB(self._DISTRIBUTION_ACTIVATE, db, value_type=bool)
 
         self._dividends_batch_size = VarDB(self._DIVIDENDS_BATCH_SIZE, db, value_type=int)
@@ -230,11 +232,15 @@ class Dividends(IconScoreBase):
         self._minimum_eligible_debt.set(MINIMUM_ELIGIBLE_DEBT)
         self._add_initial_categories()
         self._distribution_activate.set(False)
+        self._dividends_batch_size.set(50)
 
     def on_update(self) -> None:
         super().on_update()
-        self._dividends_batch_size.set(50)
-        self._set_time_offset()
+        self._upate_addCategoriesToArrayDB()
+
+    def _upate_addCategoriesToArrayDB(self) -> None:
+        for categories in self._dividends_categories:
+            self._complete_dividends_categories.put(categories)
 
     def _set_time_offset(self) -> None:
         _dex = self.create_interface_score(self._dex_score.get(), DexInterface)
@@ -244,8 +250,8 @@ class Dividends(IconScoreBase):
     def _add_initial_categories(self):
         self._dividends_categories.put(DAOFUND)
         self._dividends_categories.put(BALN_HOLDERS)
-        self._dividends_percentage[DAOFUND] = 4*10**17
-        self._dividends_percentage[BALN_HOLDERS] = 6*10**17
+        self._dividends_percentage[DAOFUND] = 4 * 10 ** 17
+        self._dividends_percentage[BALN_HOLDERS] = 6 * 10 ** 17
 
     @external(readonly=True)
     def name(self) -> str:
@@ -364,19 +370,24 @@ class Dividends(IconScoreBase):
         if _category in self._dividends_categories:
             revert(f"{TAG}: {_category} is already added")
         self._dividends_categories.put(_category)
+        if _category not in self._complete_dividends_categories:
+            self._complete_dividends_categories.put(_category)
 
     @external
     @only_admin
     def removeDividendsCategory(self, _category: str) -> None:
+        currentDay = self.getDay()
         if _category not in self._dividends_categories:
             revert(f"{TAG}: {_category} not found in the list of dividends categories")
-        if self._dividends_percentage[_category] != 0:
+        dividends_dist = self.dividendsAt(currentDay)
+        if dividends_dist[_category] != 0:
             revert(f"{TAG}: Please make the category percentage to 0 before removing")
         remove_from_arraydb(_category, self._dividends_categories)
 
     @external(readonly=True)
     def getDividendsPercentage(self) -> dict:
-        return {item: self._dividends_percentage[item] for item in self._dividends_categories}
+        currentDay = self.getDay()
+        return self.dividendsAt(currentDay)
 
     @external
     @only_admin
@@ -389,10 +400,10 @@ class Dividends(IconScoreBase):
             percent = dist_percent["dist_percent"]
             if category not in self._dividends_categories:
                 revert(f"{TAG}: {category} is not a valid dividends category")
-            self._dividends_percentage[category] = percent
+            self._update_dividends_snapshot(category, percent)
             total_percentage += percent
 
-        if total_percentage != 10**18:
+        if total_percentage != 10 ** 18:
             revert(f"{TAG}: Total percentage doesn't sum up to 100 i.e. 10**18")
 
     @external(readonly=True)
@@ -457,8 +468,8 @@ class Dividends(IconScoreBase):
                     else:
                         self._send_token(self._daofund.get(), total_dividends[str(token)], token, "Daofund dividends")
             self.Claimed(self._daofund.get(), start, end, str(total_dividends))
-        except BaseException as e:
-            revert(f"Balanced Dividends: Error in transferring daofund dividends: Error {e}")
+        except Exception:
+            revert(f"Balanced Dividends: Error in transferring daofund dividends.")
 
     @external
     def claim(self, _start: int = 0, _end: int = 0) -> None:
@@ -487,8 +498,8 @@ class Dividends(IconScoreBase):
                     else:
                         self._send_token(_account, total_dividends[str(token)], token, "User dividends")
             self.Claimed(_account, _start, _end, str(total_dividends))
-        except BaseException as e:
-            revert(f"Balanced Dividends: Error in claiming dividends. Error: {e}")
+        except Exception:
+            revert(f"Balanced Dividends: Error in claiming dividends.")
 
     def _send_ICX(self, _to: Address, amount: int, msg: str) -> None:
         """
@@ -503,9 +514,8 @@ class Dividends(IconScoreBase):
         try:
             self.icx.transfer(_to, amount)
             self.FundTransfer(_to, amount, msg + f' {amount} ICX sent to {_to}.')
-        except BaseException as e:
-            revert(f'{amount} ICX not sent to {_to}. '
-                   f'Exception: {e}')
+        except Exception:
+            revert(f'{amount} ICX not sent to {_to}.')
 
     def _send_token(self, _to: Address, _amount: int, _token: Address, _msg: str) -> None:
         """
@@ -519,9 +529,8 @@ class Dividends(IconScoreBase):
             token_score = self.create_interface_score(_token, IRC2Interface)
             token_score.transfer(_to, _amount)
             self.FundTransfer(_to, _amount, _msg + f" {_amount} token sent to {_to}")
-        except BaseException as e:
-            revert(f"{TAG}: {_amount} token not sent to {_to}. Token: {_token}"
-                   f"Reason: {e}")
+        except Exception:
+            revert(f"{TAG}: {_amount} token not sent to {_to}. Token: {_token}.")
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:
@@ -565,6 +574,13 @@ class Dividends(IconScoreBase):
         :param _start: Starting day of the dividends(inclusive)
         :param _end: Ending day of the dividends(exclusive)
         """
+        
+        # The platform will revert on day 1, and the frontend requires that this API returns or it will crash
+        # We return an empty dict if the current day is 1, bypassing this logic
+
+        if self._snapshot_id.get() == 1:
+            return {}
+
         _start, _end = self._check_start_end(_start, _end)
 
         total_dividends = {}
@@ -603,7 +619,6 @@ class Dividends(IconScoreBase):
         return _start, _end
 
     def _get_dividends_for_day(self, _account: Address, _day: int) -> dict:
-
         if self._is_claimed(_account, _day):
             return {}
 
@@ -632,9 +647,10 @@ class Dividends(IconScoreBase):
 
         my_dividends = {}
         if my_total_baln_token > 0 and total_baln_token > 0:
+            dividends_distribution = self.dividendsAt(_day)
             for token in self._accepted_tokens:
-                my_dividends[str(token)] = (my_total_baln_token * self._dividends_percentage[BALN_HOLDERS]
-                                            * self._daily_fees[_day][str(token)]) // (total_baln_token * 10**18)
+                my_dividends[str(token)] = (my_total_baln_token * dividends_distribution[BALN_HOLDERS]
+                                            * self._daily_fees[_day][str(token)]) // (total_baln_token * 10 ** 18)
 
         return my_dividends
 
@@ -644,8 +660,9 @@ class Dividends(IconScoreBase):
 
         daofund_dividends = {}
         for token in self._accepted_tokens:
-            daofund_dividends[str(token)] = (self._dividends_percentage[DAOFUND] * self._daily_fees[_day][str(token)]) \
-                                            // 10**18
+            dividends_dist = self.dividendsAt(_day)
+            daofund_dividends[str(token)] = (dividends_dist[DAOFUND] * self._daily_fees[_day][str(token)]) \
+                                            // 10 ** 18
         return daofund_dividends
 
     def _add_dividends(self, a: dict, b: dict) -> dict:
@@ -674,6 +691,56 @@ class Dividends(IconScoreBase):
         claimed_word = claimed_bit_map[claimed_word_index]
         mask = (1 << claimed_bit_index)
         return claimed_word & mask == mask
+
+    def _update_dividends_snapshot(self, _category: str, _percent: int) -> None:
+        currentDay = self.getDay()
+        total_snapshots_taken = self._total_snapshots[_category]
+
+        if total_snapshots_taken > 0 and self._snapshot_dividends[_category][total_snapshots_taken - 1][
+            "ids"] == currentDay:
+            self._snapshot_dividends[_category][total_snapshots_taken - 1]["amount"] = _percent
+
+        else:
+            self._snapshot_dividends[_category][total_snapshots_taken]["ids"] = currentDay
+            self._snapshot_dividends[_category][total_snapshots_taken]["amount"] = _percent
+            self._total_snapshots[_category] = total_snapshots_taken + 1
+
+    @external(readonly=True)
+    def dividendsAt(self, _day: int) -> dict:
+        if _day < 0:
+            revert(f"{TAG}: "f"IRC2Snapshot: day:{_day} must be equal to or greater then Zero")
+        dividends_dist = {}
+
+        for _category in self._complete_dividends_categories:
+            total_snapshots_taken = self._total_snapshots[_category]
+            if total_snapshots_taken == 0:
+                dividends_dist[_category] = self._dividends_percentage[_category]
+                continue
+
+            if self._snapshot_dividends[_category][total_snapshots_taken - 1]["ids"] <= _day:
+                dividends_dist[_category] = self._snapshot_dividends[_category][total_snapshots_taken - 1]["amount"]
+                continue
+
+            if self._snapshot_dividends[_category][0]["ids"] > _day:
+                dividends_dist[_category] = self._dividends_percentage[_category]
+                continue
+
+            low = 0
+            high = total_snapshots_taken - 1
+            while high > low:
+                mid = high - (high - low) // 2
+                mid_value = self._snapshot_dividends[_category][mid]
+                if mid_value["ids"] == _day:
+                    dividends_dist[_category] = mid_value["amount"]
+                    continue
+                elif mid_value["ids"] < _day:
+                    low = mid
+                else:
+                    high = mid - 1
+
+            dividends_dist[_category] = self._snapshot_dividends[_category][low]["amount"]
+        dividends_dist = {k: v for k, v in dividends_dist.items() if v != 0}
+        return dividends_dist
 
     # -------------------------------------------------------------------------------
     #   EVENT LOGS

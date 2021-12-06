@@ -9,19 +9,22 @@ DAY_START = 61200 * 10**6  # 17:00 UTC
 MAJORITY = 666666666666666667
 BALNBNUSD_ID = 3
 BALNSICX_ID = 4
+POINTS = 10000
 
 CONTRACTS = ['loans', 'dex', 'staking', 'rewards', 'dividends', 'daofund',
-             'reserve', 'sicx', 'bnUSD', 'baln', 'bwt']
+             'reserve', 'sicx', 'bnUSD', 'baln', 'bwt', 'router', 'feehandler', 'stakedLp']
 
 ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve'],
-             'dex': ['rewards', 'dividends', 'staking', 'sicx', 'bnUSD', 'baln'],
-             'rewards': ['reserve', 'baln', 'bwt', 'daofund'],
+             'dex': ['rewards', 'dividends', 'staking', 'sicx', 'bnUSD', 'baln', 'feehandler', 'stakedLp'],
+             'rewards': ['reserve', 'baln', 'bwt', 'daofund', 'stakedLp'],
              'dividends': ['loans', 'daofund', 'dex', 'baln'],
              'daofund': ['loans'],
              'reserve': ['loans', 'baln', 'sicx'],
              'bnUSD': ['oracle'],
              'baln': ['dividends', 'oracle', 'dex', 'bnUSD'],
-             'bwt': ['baln']}
+             'bwt': ['baln'],
+             'router': ['dex', 'sicx', 'staking'],
+             'stakedLp': ['dex', 'rewards']}
 
 ADMIN_ADDRESSES = {'loans': 'governance',
                    'dex': 'governance',
@@ -31,7 +34,9 @@ ADMIN_ADDRESSES = {'loans': 'governance',
                    'reserve': 'governance',
                    'bnUSD': 'loans',
                    'baln': 'rewards',
-                   'bwt': 'governance'}
+                   'bwt': 'governance',
+                   'router': 'governance',
+                   'stakedLp': 'governance'}
 
 #-------------------------------------------------------------------------------
 # REWARDS LAUNCH CONFIG
