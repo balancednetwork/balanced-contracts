@@ -53,24 +53,22 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
                                      'bnUSD': hex(int(bal_of_bnUSD, 16) + int(fee, 16))}
                 self.assertEqual(position_to_check, assets)
 
-        # check day
-        # update loans and rewards and governance
+        # update loans and rewards and governance and dex
         self.update('loans')
         self.update('cont_rewards')
         self.update('governance')
         self.update('dex')
+
+        # set continuous rewards day
         day = (self.call_tx(self.contracts["loans"], "getDay"))
-        print((self.call_tx(self.contracts["loans"], "getContinuousRewardsDay")))
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, "setContinuousRewardsDay", {"_day": int(day, 16) +1})
         continuous_day = (self.call_tx(self.contracts["loans"], "getContinuousRewardsDay"))
         print(continuous_day)
         print("Waiting for day change")
+        # code pauses for 60 sec
         time.sleep(60)
-        day = (self.call_tx(self.contracts["loans"], "getDay"))
-        print(day)
-        time.sleep(20)
-        day = (self.call_tx(self.contracts["loans"], "getDay"))
-        print(day)
+        # day changes each 2 minutes.
+        # testing for continuous rewards starts from here
 
     def balanceOfTokens(self, name, address):
         params = {
