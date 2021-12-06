@@ -232,7 +232,6 @@ class Dividends(IconScoreBase):
         self._minimum_eligible_debt.set(MINIMUM_ELIGIBLE_DEBT)
         self._add_initial_categories()
         self._distribution_activate.set(False)
-        self._dividends_batch_size.set(50)
 
     def on_update(self) -> None:
         super().on_update()
@@ -574,13 +573,6 @@ class Dividends(IconScoreBase):
         :param _start: Starting day of the dividends(inclusive)
         :param _end: Ending day of the dividends(exclusive)
         """
-        
-        # The platform will revert on day 1, and the frontend requires that this API returns or it will crash
-        # We return an empty dict if the current day is 1, bypassing this logic
-
-        if self._snapshot_id.get() == 1:
-            return {}
-
         _start, _end = self._check_start_end(_start, _end)
 
         total_dividends = {}

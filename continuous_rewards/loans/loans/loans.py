@@ -10,7 +10,7 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the License.
+# limitations under the Licenrase.
 
 from iconservice import *
 from ..utils.checks import *
@@ -22,6 +22,11 @@ from .assets import AssetsDB, Asset
 class PrepDelegations(TypedDict):
     _address: Address
     _votes_in_per: int
+
+
+class RewardsDataEntry(TypedDict):
+    _user: Address
+    _balance: int
 
 
 # An interface to the Emergency Reserve Fund
@@ -48,6 +53,14 @@ class Rewards(InterfaceScore):
     def distribute(self) -> bool:
         pass
 
+    @interface
+    def updateRewardsData(self, _name: str, _totalSupply: int, _user: Address, _balance: int) -> None:
+        pass
+
+    @interface
+    def updateBatchRewardsData(self, _name: str, _totalSupply: int, _data: List[RewardsDataEntry]) -> None:
+        pass
+
 
 # An interface to the Dividends SCORE
 class Dividends(InterfaceScore):
@@ -70,6 +83,19 @@ class TokenInterface(InterfaceScore):
 class DexTokenInterface(InterfaceScore):
     @interface
     def getSicxBnusdPrice(self) -> int:
+        pass
+
+class BnusdTokenInterface(InterfaceScore):
+    @interface
+    def transfer(self, _to: Address, _value: int, _data: bytes = None):
+        pass
+
+    @interface
+    def lastPriceInLoop(self) -> int:
+        pass
+
+    @interface
+    def balanceOf(self, _owner: Address) -> int:
         pass
 
 class GovernanceInterface(InterfaceScore):
@@ -114,6 +140,7 @@ class Loans(IconScoreBase):
     _SICX_RECEIVED = 'sicx_received'
     _BNUSD_EXPECTED = 'bnusd_expected'
     _BNUSD_RECEIVED = 'bnusd_received'
+    _CONTINUOUS_REWARD_DAY = 'continuous_reward_day'
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
@@ -156,6 +183,7 @@ class Loans(IconScoreBase):
         self._sICX_received = VarDB(self._SICX_RECEIVED, db, value_type=int)
         self._bnUSD_expected = VarDB(self._BNUSD_EXPECTED, db, value_type=bool)
         self._bnUSD_received = VarDB(self._BNUSD_RECEIVED, db, value_type=int)
+        self._continuous_reward_day = VarDB(self._CONTINUOUS_REWARD_DAY, db, value_type=int)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
@@ -180,25 +208,7 @@ class Loans(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-
-    @external
-    @only_owner
-    def setNextNode(self, _node_id: int) -> None:
-        self._positions.next_node.set(_node_id)
-
-    @external(readonly=True)
-    def getNextNode(self) -> int:
-        return self._positions.next_node.get()
-
-    @external(readonly=True)
-    def getNonzeroNode(self, _id: int) -> dict:
-        nonzero = self._positions.get_nonzero()
-        return {"next": nonzero.get_next_ro(_id), "prev": nonzero.get_prev_ro(_id)}
-
-    @external(readonly=True)
-    def getMetaData(self) -> str:
-        nonzero = self._positions.get_nonzero()
-        return nonzero.get_metadata()
+        self._continuous_reward_day.set(8)
 
     @external(readonly=True)
     def name(self) -> str:
@@ -210,7 +220,17 @@ class Loans(IconScoreBase):
         self._loans_on.set(True)
         self.ContractActive("Loans", "Active")
         self._current_day.set(self.getDay())
-        self._positions._snapshot_db.start_new_snapshot()
+        if self.getDay() < self._continuous_reward_day.get():
+            self._positions._snapshot_db.start_new_snapshot()
+
+    @external
+    @only_governance
+    def setContinuousRewardsDay(self, _day: int) -> None:
+        self._continuous_reward_day.set(_day)
+
+    @external(readonly=True)
+    def getContinuousRewardsDay(self) -> int:
+        return self._continuous_reward_day.get()
 
     @external
     @only_governance
@@ -244,22 +264,6 @@ class Loans(IconScoreBase):
                 "Dividends": self._dividends_done.get()}
 
     @external(readonly=True)
-    def getDebts(self, _address_list: List[str], _day: int) -> dict:
-        """
-        Returns the debt held by each address in the list.
-        """
-        max_length = self._max_debts_list_length.get()
-        if len(_address_list) > max_length:
-            revert(f'{TAG}: Address list is longer than the maximum '
-                   f'allowable length ({max_length}).')
-        debts = {}
-        for address in _address_list:
-            pos_id = self._positions.get_id_for(Address.from_string(address))
-            snapshot = self._positions._snapshot_db[_day]
-            debts[address] = snapshot.pos_state[pos_id]['total_debt']
-        return debts
-
-    @external(readonly=True)
     def checkDeadMarkets(self) -> list:
         """
         Returns the symbols for all assets with dead_market status.
@@ -288,6 +292,8 @@ class Loans(IconScoreBase):
         """
         Returns the current standing for a position.
         """
+        if _snapshot >= self._continuous_reward_day.get():
+            revert(f'{TAG} The continuous rewards is already active.')
         pos = self._positions.get_pos(_address)
         status = pos.get_standing(_snapshot, True)
         status['standing'] = Standing.STANDINGS[status['standing']]
@@ -350,6 +356,8 @@ class Loans(IconScoreBase):
         """
         Get account positions.
         """
+        if _day >= self._continuous_reward_day.get():
+            revert(f'{TAG} The continuous rewards is already active.')
         return self._positions[_index].to_dict(_day)
 
     @external(readonly=True)
@@ -430,23 +438,31 @@ class Loans(IconScoreBase):
         """
         Gets total outstanding debt for mining rewards calculation.
         """
+        if _snapshot_id >= self._continuous_reward_day.get():
+            revert(f'{TAG} The continuous rewards is already active.')
         return self._positions._snapshot_db[_snapshot_id].total_mining_debt.get()
+
+    @external(readonly=True)
+    def getBalanceAndSupply(self, _name: str, _owner: Address) -> dict:
+        if _name == "Loans":
+            asset = self._assets['bnUSD']
+            rewardsData = {
+                "_balance": asset.balanceOf(_owner),
+                "_totalSupply": asset.totalSupply()
+            }
+            return rewardsData
+        else:
+            revert(f"{TAG}: Unsupported data source name")
 
     @external(readonly=True)
     def getBnusdValue(self, _name: str) -> int:
         """
         Returns the total bnUSD value of loans mining BALN for APY calculation.
         """
-        bnUSD_price = self._positions._snapshot_db[-2].prices['bnUSD']
-        loop_value = self._positions._snapshot_db[-2].total_mining_debt.get()
-        return EXA * loop_value // bnUSD_price
-
-    @external(readonly=True)
-    def getDataCount(self, _snapshot_id: int) -> int:
-        """
-        Returns the number of records in the snapshot.
-        """
-        return len(self._positions._snapshot_db[_snapshot_id].mining)
+        asset = self._assets['bnUSD']
+        bad_debt = asset.bad_debt.get()
+        total_suppy = asset.totalSupply()
+        return total_suppy - bad_debt
 
     @external(readonly=True)
     def getDataBatch(self, _name: str, _snapshot_id: int,
@@ -454,6 +470,8 @@ class Loans(IconScoreBase):
         """
         Read position data batch.
         """
+        if _snapshot_id > self._continuous_reward_day.get():
+            revert(f'{TAG} The continuous rewards is already active.')
         batch = {}
         snapshot = self._positions._snapshot_db[_snapshot_id]
         total_mining = len(snapshot.mining)
@@ -469,12 +487,13 @@ class Loans(IconScoreBase):
     @external
     def checkForNewDay(self) -> (int, bool):
         day = self.getDay()
-        new_day: bool = False
-        if day > self._current_day.get():
+        new_day = False
+        current_day = self._current_day.get()
+        if current_day < day <= self._continuous_reward_day.get():
             new_day = True
             self._current_day.set(day)
             self._positions._take_snapshot()
-            self.check_dead_markets()
+        self.check_dead_markets()
         return day, new_day
 
     @loans_on
@@ -492,6 +511,7 @@ class Loans(IconScoreBase):
         elif not rewards_done:
             rewards = self.create_interface_score(self._rewards.get(), Rewards)
             self._rewards_done.set(rewards.distribute())
+
 
     @loans_on
     @external
@@ -561,6 +581,7 @@ class Loans(IconScoreBase):
                 self._sICX_expected.set(False)
             else:
                 _value = 0
+
         day, new_day = self.checkForNewDay()
         self.checkDistributions(day, new_day)
         pos = self._positions.get_pos(_from)
@@ -622,14 +643,17 @@ class Loans(IconScoreBase):
         asset = self._assets[_symbol]
         if not (asset and asset.is_active()) or asset.is_collateral():
             revert(f'{TAG}: {_symbol} is not an active, borrowable asset on Balanced.')
-        if asset.balanceOf(_from) < _value:
+        user_balance = asset.balanceOf(_from)
+        check_day = self.getDay() < self._continuous_reward_day.get()
+        if user_balance < _value:
             revert(f'{TAG}: Insufficient balance.')
         if self._positions._exists(_from) and _repay:
             day, new_day = self.checkForNewDay()
             self.checkDistributions(day, new_day)
+            old_supply = asset.totalSupply()
             pos = self._positions.get_pos(_from)
             if _value > pos[_symbol]:
-                revert(f'{TAG}: Repaid amount is greater than the amount in the position of {_from}')
+                revert(f'{TAG}: Repaid amount is greater than the amount in the position of the address')
             if _value > 0:
                 borrowed = pos[_symbol]
                 remaining = borrowed - _value
@@ -639,10 +663,16 @@ class Loans(IconScoreBase):
                 else:
                     repaid = borrowed
                     del pos[_symbol]
+
+                asset.burnFrom(_from, repaid)
+                if check_day:
                     pos_id = pos.id.get()
                     if not pos.has_debt():
                         self._positions.remove_nonzero(pos_id)
-                asset.burnFrom(_from, repaid)
+                else:
+                    rewards = self.create_interface_score(self._rewards.get(), Rewards)
+                    rewards.updateRewardsData("Loans", old_supply, _from, user_balance)
+
                 self.LoanRepaid(_from, _symbol, repaid,
                                 f'Loan of {repaid} {_symbol} repaid to Balanced.')
                 asset.is_dead()
@@ -697,11 +727,17 @@ class Loans(IconScoreBase):
         remaining_supply = total_batch_debt
         remaining_bnusd = bnusd_received
         change_in_pos_dict = {}
+        rewards_batch_list = []
 
         for pos_id, user_debt in positions_dict.items():
             loan_share = remaining_bnusd * user_debt // remaining_supply
             remaining_bnusd -= loan_share
-            self._positions[pos_id][_symbol] = user_debt - loan_share
+            updated_debt = user_debt - loan_share
+            self._positions[pos_id][_symbol] = updated_debt
+
+            pos_address = self.getPositionAddress(pos_id)
+            user_dict = {"_user": pos_address, "_balance": user_debt}
+            rewards_batch_list.append(user_dict)
 
             sicx_share = sicx_to_sell * user_debt // remaining_supply
             sicx_to_sell -= sicx_share
@@ -710,6 +746,9 @@ class Loans(IconScoreBase):
             remaining_supply -= user_debt
             change_in_pos_dict[pos_id] = {"d": -loan_share, "c": -sicx_share}
 
+        if self.getDay() >= self._continuous_reward_day.get():
+            rewards = self.create_interface_score(self._rewards.get(), Rewards)
+            rewards.updateBatchRewardsData("Loans", asset.totalSupply(), rewards_batch_list)
         self.Rebalance(self.msg.sender, _symbol, str(change_in_pos_dict),
                        total_batch_debt)
 
@@ -745,7 +784,8 @@ class Loans(IconScoreBase):
         self._bnUSD_received.set(0)
         self._bnUSD_expected.set(False)
 
-        swap_data = b'{"method":"_swap","params":{"toToken":"' + str(self._assets['sICX'].get_address()).encode('utf-8') + b'"}}'
+        swap_data = b'{"method":"_swap","params":{"toToken":"' + str(self._assets['sICX'].get_address()).encode(
+            'utf-8') + b'"}}'
 
         self._sICX_expected.set(True)
         self._send_token('bnUSD', self._dex.get(), bnusd_to_sell, "bnUSD swapped for sICX", swap_data)
@@ -757,10 +797,17 @@ class Loans(IconScoreBase):
         remaining_supply = total_batch_debt
         remaining_bnusd = bnusd_to_sell
         change_in_pos_dict = {}
+        rewards_batch_list = []
+
         for pos_id, user_debt in positions_dict.items():
             loan_share = remaining_bnusd * user_debt // remaining_supply
             remaining_bnusd -= loan_share
-            self._positions[pos_id]["bnUSD"] = user_debt + loan_share
+            updated_debt = user_debt + loan_share
+
+            self._positions[pos_id]["bnUSD"] = updated_debt
+            pos_address = self.getPositionAddress(pos_id)
+            user_dict = {"_user": pos_address, "_balance": user_debt}
+            rewards_batch_list.append(user_dict)
 
             sicx_share = remaining_sicx * user_debt // remaining_supply
             remaining_sicx -= sicx_share
@@ -769,6 +816,9 @@ class Loans(IconScoreBase):
             remaining_supply -= user_debt
             change_in_pos_dict[str(pos_id)] = {"d": loan_share, "c": sicx_share}
 
+        if self.getDay() >= self._continuous_reward_day.get():
+            rewards = self.create_interface_score(self._rewards.get(), Rewards)
+            rewards.updateBatchRewardsData("Loans", self._assets['bnUSD'].totalSupply(), rewards_batch_list)
         self.Rebalance(self.msg.sender, 'bnUSD', str(change_in_pos_dict),
                        total_batch_debt)
 
@@ -856,9 +906,14 @@ class Loans(IconScoreBase):
                    f' which includes a fee of {fee / EXA} {_asset},'
                    f' given an existing loan value of {total_debt / EXA}.')
 
+        check_day = self.getDay() < self._continuous_reward_day.get()
         # Originate loan
-        if total_debt == 0:
-            self._positions.add_nonzero(pos_id)
+        if check_day:
+            if total_debt == 0:
+                self._positions.add_nonzero(pos_id)
+        else:
+            rewards = self.create_interface_score(self._rewards.get(), Rewards)
+            rewards.updateRewardsData("Loans", asset.totalSupply(), _from, asset.balanceOf(_from))
         new_debt = _amount + fee
         pos[_asset] = pos[_asset] + new_debt
         self.OriginateLoan(_from, _asset, _amount,
@@ -913,7 +968,9 @@ class Loans(IconScoreBase):
         if not self._positions._exists(_owner):
             revert(f'{TAG}: This address does not have a position on Balanced.')
         pos = self._positions.get_pos(_owner)
+        check_day = self.getDay() < self._continuous_reward_day.get()
         _standing = pos.update_standing()
+
         if _standing == Standing.LIQUIDATE:
             pos_id = pos.id.get()
             collateral = pos['sICX']
@@ -926,6 +983,10 @@ class Loans(IconScoreBase):
                 active = asset.is_active()
                 debt = pos[symbol]
                 if not is_collateral and active and debt > 0:
+                    if not check_day:
+                        rewards = self.create_interface_score(self._rewards.get(), Rewards)
+                        rewards.updateRewardsData("Loans", asset.totalSupply(), _owner, asset.balanceOf(_owner))
+
                     bad_debt = asset.bad_debt.get()
                     asset.bad_debt.set(bad_debt + debt)
                     symbol_debt = debt * asset.priceInLoop() // EXA
@@ -938,7 +999,8 @@ class Loans(IconScoreBase):
             pos['sICX'] = 0
             self._send_token('sICX', self.msg.sender, reward, "Liquidation reward of")
             self.check_dead_markets()
-            self._positions.remove_nonzero(pos_id)
+            if check_day:
+                self._positions.remove_nonzero(pos_id)
             self.Liquidate(_owner, collateral, f'{collateral} liquidated from {_owner}')
 
     def check_dead_markets(self) -> None:

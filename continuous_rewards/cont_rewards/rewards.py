@@ -35,6 +35,16 @@ class TokenInterface(InterfaceScore):
 
 class Rewards(IconScoreBase):
 
+    @eventlog(indexed=1)
+    def DebugLog(self, _msg: str):
+        pass
+
+    @eventlog(indexed=3)
+    def RewardsAccrued(self, _user: Address, _source: str, _value: int) -> None:
+        pass
+
+
+
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self._governance = VarDB('governance', db, value_type=Address)
@@ -43,6 +53,7 @@ class Rewards(IconScoreBase):
         self._bwt_address = VarDB('bwt_address', db, value_type=Address)
         self._reserve_fund = VarDB('reserve_fund', db, value_type=Address)
         self._daofund = VarDB('dao_fund', db, value_type=Address)
+        self._stakedLp = VarDB('stakedLp', db, value_type=Address)
         self._start_timestamp = VarDB('start_timestamp', db, value_type=int)
         self._batch_size = VarDB('batch_size', db, value_type=int)
         self._baln_holdings = DictDB('baln_holdings', db, value_type=int)
@@ -56,6 +67,7 @@ class Rewards(IconScoreBase):
                                      'DAOfund': self._daofund}
         self._total_dist = VarDB('total_dist', db, value_type=int)
         self._platform_day = VarDB('platform_day', db, value_type=int)
+        self._continuous_rewards_day = VarDB('continuous_rewards_day', db, value_type=int)
         self._data_source_db = DataSourceDB(db, self)
 
     def on_install(self, _governance: Address) -> None:
@@ -69,10 +81,12 @@ class Rewards(IconScoreBase):
         self._recipients.put('Reserve Fund')
         self._recipient_split['DAOfund'] = 0
         self._recipients.put('DAOfund')
+        self._continuous_rewards_day = 0
 
     def on_update(self) -> None:
         super().on_update()
         self._upate_addRecipientsToArrayDB()
+        self._continuous_rewards_day.set(8)
 
     def _upate_addRecipientsToArrayDB(self) -> None:
         for recipient in self._recipients:
@@ -100,12 +114,21 @@ class Rewards(IconScoreBase):
         return self._daily_dist(_day)
 
     @external(readonly=True)
-    def getBalnHoldings(self, _holders: List[str]) -> dict:
+    def getBalnHoldings(self, _holders: List[Address]) -> dict:
         return {holder: self._baln_holdings[holder] for holder in _holders}
 
     @external(readonly=True)
-    def getBalnHolding(self, _holder: str) -> int:
-        return self._baln_holdings[_holder]
+    def getBalnHolding(self, _holder: Address) -> int:
+        accrued_rewards = self._baln_holdings[_holder]
+
+        for data_source in self._data_source_db:
+            data = self._data_source_db[data_source].load_current_supply(_holder)
+            total_supply = data["_totalSupply"]
+            balance = data["_balance"]
+            current_time = self.now()
+            accrued_rewards += self._data_source_db[data_source].compute_single_user_data(current_time, total_supply, _holder, balance)
+
+        return accrued_rewards
 
     @external(readonly=True)
     def distStatus(self) -> dict:
@@ -236,6 +259,15 @@ class Rewards(IconScoreBase):
         return result
 
     @external(readonly=True)
+    def getDataSourcesAt(self, _day: int = -1) -> dict:
+        result = {}
+        for name in self._data_source_db:
+            source = self._data_source_db[name]
+            result[name] = source.get_data_at(_day)
+        return result
+
+
+    @external(readonly=True)
     def getSourceData(self, _name: str) -> dict:
         source = self._data_source_db[_name]
         return source.get_data()
@@ -250,18 +282,31 @@ class Rewards(IconScoreBase):
         else:
             self._snapshot_recipient[_recipient][total_snapshots_taken]["ids"] = currentDay
             self._snapshot_recipient[_recipient][total_snapshots_taken]["amount"] = _percent
-            self._total_snapshots[_recipient] = total_snapshots_taken + 1
-
+            self._total_snapshots[_recipient] = total_snapshots_taken + 1            
+    
     @external
     def distribute(self) -> bool:
         platform_day = self._platform_day.get()
         day = self._get_day()
-        if platform_day < day:
-            if self._total_dist.get() == 0:
+        continuous_rewards_day = self._continuous_rewards_day.get()
+
+        distribution_required = False
+        continuous_rewards_active = (day >= continuous_rewards_day)
+        day_of_continuous_rewards = (day == continuous_rewards_day)
+
+        if (platform_day < day) and not continuous_rewards_active:
+            distribution_required = True
+        elif(platform_day < day + 1) and continuous_rewards_active:
+            distribution_required = True
+
+
+        if distribution_required:
+            if self._total_dist.get() == 0 or continuous_rewards_active:
                 distribution = self._daily_dist(platform_day)
                 baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
                 baln_token.mint(distribution)
                 self._total_dist.set(distribution)
+                self.DebugLog(f"Minted {distribution / EXA} BALN for rewards")
                 shares = EXA
                 remaining = distribution
                 recipient_dist = self.recipientAt(day)
@@ -279,13 +324,16 @@ class Rewards(IconScoreBase):
                 self._total_dist.set(remaining)  # remaining will be == 0 at this point.
                 self._platform_day.set(platform_day + 1)
                 return False
-        batch_size = self._batch_size.get()
-        for name in self._data_source_db:
-            source = self._data_source_db[name]
-            if source.day.get() < day:
-                source._distribute(batch_size)
-                return False
+        if day_of_continuous_rewards or not continuous_rewards_active:
+            self.DebugLog(f"Processing daily rewards: day={day}, continuous_rewards_day={continuous_rewards_day}")
+            batch_size = self._batch_size.get()
+            for name in self._data_source_db:
+                source = self._data_source_db[name]
+                if source.day.get() < day:
+                    source._distribute(batch_size)
+                    return False
         return True
+
 
     @external(readonly=True)
     def recipientAt(self, _day: int) -> dict:
@@ -325,13 +373,32 @@ class Rewards(IconScoreBase):
 
     @external
     def claimRewards(self) -> None:
-        address = str(self.msg.sender)
-        amount = self._baln_holdings[address]
-        if amount:
+        address = self.msg.sender
+        current_time = self.now()
+        self.distribute()
+
+
+        for data_source in self._data_source_db:
+            data = self._data_source_db[data_source].load_current_supply(address)
+            total_supply = data["_totalSupply"]
+            balance = data["_balance"]
+            current_time = self.now()
+            accrued_rewards = self._data_source_db[data_source].update_single_user_data(current_time, total_supply, address, balance)
+        
+            # Debugging statement
+            self.DebugLog(f"updating rewards - {data_source} accrued: {accrued_rewards/EXA}, prev_balance: {balance/EXA}, prev_supply: {total_supply/EXA}")
+
+            # Update if nonzero only
+            if accrued_rewards > 0:
+                self._baln_holdings[address] += accrued_rewards
+                self.RewardsAccrued(address, data_source, accrued_rewards)
+        
+        if self._baln_holdings[address] > 0:
+            accrued_rewards = self._baln_holdings[address]
             baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
             self._baln_holdings[address] = 0
-            baln_token.transfer(self.msg.sender, amount)
-            self.RewardsClaimed(self.msg.sender, amount)
+            baln_token.transfer(self.msg.sender, accrued_rewards)
+            self.RewardsClaimed(self.msg.sender, accrued_rewards)
 
     def _get_day(self) -> int:
         today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS
@@ -403,6 +470,59 @@ class Rewards(IconScoreBase):
         for i, address in enumerate(_addresses):
             self._baln_holdings[str(address)] += _amounts[i]
 
+    # Data Ingestion
+    @external
+    def updateRewardsData(self, _name: str, _totalSupply: int, _user: Address, _balance: int) -> None:
+        _source = self.msg.sender
+        source_name = _name
+        prev_total_supply = _totalSupply
+        prev_balance = _balance
+        user = _user
+        current_time = self.now()
+
+        # trigger the new day if necessary
+        self.distribute()
+        
+        # Compute accrued rewards
+        accrued_rewards = self._data_source_db[source_name].update_single_user_data(current_time, prev_total_supply, user, prev_balance)
+
+        # Debugging statement
+        self.DebugLog(f"updating rewards - {source_name} accrued: {accrued_rewards/EXA}, prev_balance: {prev_balance/EXA}, prev_supply: {prev_total_supply/EXA}")
+
+        # Update if nonzero only
+        if accrued_rewards > 0:
+            self._baln_holdings[user] += accrued_rewards
+            self.RewardsAccrued(user, source_name, accrued_rewards)
+
+    @external
+    def updateBatchRewardsData(self, _name: str, _totalSupply: int, _data: List[RewardsDataEntry]) -> None:
+        source_address = self.msg.sender
+        source_name = _name
+        prev_total_supply = _totalSupply
+        current_time = self.now()
+
+        self.DebugLog(f"incoming request")
+
+        # trigger the new day if necessary
+        self.distribute()
+    
+        for entry in _data:
+            user = entry["_user"]
+            prev_balance = entry["_balance"]
+
+            # Compute accrued rewards based on previous total supply and balance
+            accrued_rewards = self._data_source_db[source_name].update_single_user_data(current_time, prev_total_supply, user, prev_balance)
+            self.DebugLog(f"updating rewards - {source_name} accrued: {accrued_rewards}, prev_balance: {prev_balance}, prev_supply: {prev_total_supply}")
+
+            # Update if nonzero only to avoid extra writes
+            if accrued_rewards > 0:
+                self._baln_holdings[user] += accrued_rewards
+                self.RewardsAccrued(user, source_name, accrued_rewards)
+
+
+
+
+        
     # -------------------------------------------------------------------------------
     #   SETTERS AND GETTERS
     # -------------------------------------------------------------------------------
@@ -473,6 +593,18 @@ class Rewards(IconScoreBase):
 
     @external
     @only_admin
+    def setStakedLp(self, _address: Address) -> None:
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
+        self._stakedLp.set(_address)
+
+    @external(readonly=True)
+    def getStakedLp(self) -> Address:
+        return self._stakedLp.get()
+
+
+    @external
+    @only_admin
     def setBatchSize(self, _batch_size: int) -> None:
         self._batch_size.set(_batch_size)
 
@@ -488,6 +620,21 @@ class Rewards(IconScoreBase):
     @external(readonly=True)
     def getTimeOffset(self) -> int:
         return self._start_timestamp.get()
+
+    @external
+    @only_governance
+    def setContinuousRewardsDay(self, _continuous_rewards_day: int) -> None:
+        """
+        :param _continuous_rewards_day: is day that continuous rewards are eanbled.
+        """
+        self._continuous_rewards_day.set(_continuous_rewards_day)
+
+    @external(readonly=True)
+    def getContinuousRewardsDay(self) -> int:
+        """
+        Returns the day that continuous rewards are enabled.
+        """
+        return self._continuous_rewards_day.get()
 
     # -------------------------------------------------------------------------------
     #   EVENT LOGS

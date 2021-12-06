@@ -77,25 +77,6 @@ class Router(IconScoreBase):
         """
         self._dex.set(_dex)
 
-    @only_owner
-    @external
-    def setGovernance(self, _address: Address) -> None:
-        """
-        :param _address: New contract address to set.
-        Sets new Governance contract address. Should be called before dex use.
-        """
-        if not _address.is_contract:
-            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
-        self._governance.set(_address)
-
-    @external(readonly=True)
-    def getGovernance(self) -> Address:
-        """
-        Gets the address of the Governance contract.
-        """
-        return self._governance.get()
-
-
     @external(readonly=True)
     def getSicx(self) -> Address:
         """

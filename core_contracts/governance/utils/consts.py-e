@@ -2,29 +2,24 @@
 # DEFAULT VALUES
 #-------------------------------------------------------------------------------
 
-EXA = 10**18
-U_SECONDS_DAY = 120000000
+UNITS_PER_TOKEN = 10**18
+U_SECONDS_DAY = 30000000
 DAY_ZERO = 18647 * 2880
 DAY_START = 61200 * 10**6  # 17:00 UTC
-MAJORITY = 666666666666666667
-BALNBNUSD_ID = 3
-BALNSICX_ID = 4
-POINTS = 10000
+
 
 CONTRACTS = ['loans', 'dex', 'staking', 'rewards', 'dividends', 'daofund',
-             'reserve', 'sicx', 'bnUSD', 'baln', 'bwt', 'router', 'feehandler']
+             'reserve', 'sicx', 'bnUSD', 'baln', 'bwt']
 
 ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve'],
-             'dex': ['rewards', 'dividends', 'staking', 'sicx', 'bnUSD', 'baln', 'feehandler'],
+             'dex': ['rewards', 'dividends', 'staking', 'sicx', 'bnUSD', 'baln'],
              'rewards': ['reserve', 'baln', 'bwt', 'daofund'],
              'dividends': ['loans', 'daofund', 'dex', 'baln'],
              'daofund': ['loans'],
              'reserve': ['loans', 'baln', 'sicx'],
              'bnUSD': ['oracle'],
              'baln': ['dividends', 'oracle', 'dex', 'bnUSD'],
-             'bwt': ['baln'],
-             'router': ['dex', 'sicx', 'staking'],
-             'feehandler': []}
+             'bwt': ['baln']}
 
 ADMIN_ADDRESSES = {'loans': 'governance',
                    'dex': 'governance',
@@ -34,8 +29,7 @@ ADMIN_ADDRESSES = {'loans': 'governance',
                    'reserve': 'governance',
                    'bnUSD': 'loans',
                    'baln': 'rewards',
-                   'bwt': 'governance',
-                   'router': 'governance'}
+                   'bwt': 'governance'}
 
 #-------------------------------------------------------------------------------
 # REWARDS LAUNCH CONFIG
