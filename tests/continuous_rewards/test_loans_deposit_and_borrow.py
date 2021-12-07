@@ -1,7 +1,7 @@
 import time
 
 from ..test_integrate_base_loans import BalancedTestBaseLoans
-from tests.stories.loans.deposit_borrow_stories import DEPOSIT_AND_BORROW_STORIES
+from ..stories.loans.deposit_borrow_stories import DEPOSIT_AND_BORROW_STORIES
 
 
 class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
@@ -46,7 +46,7 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
                 self.assertEqual(case['actions']['expected_sicx_baln_loan'], int(bal_of_sicx, 16))
                 self.assertEqual(case['actions']['expected_bnUSD_debt_baln_loan'], int(bal_of_bnUSD, 16))
 
-                account_position = self._getAccountPositions()
+                account_position = self._getAccountPositions(self.user1.get_address())
                 assets = account_position['assets']
                 fee = self.balanceOfTokens('bnUSD', self.contracts['feehandler'])
                 position_to_check = {'sICX': str(bal_of_sicx),
@@ -55,20 +55,23 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
 
         # update loans and rewards and governance and dex
         self.update('loans')
-        self.update('cont_rewards')
+        self.update('rewards')
         self.update('governance')
-        self.update('dex')
+        # self.update('dex')
 
-        # set continuous rewards day
         day = (self.call_tx(self.contracts["loans"], "getDay"))
+        # day changes each 2 minutes.
+        # set continuous rewards day as next day of current day.
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, "setContinuousRewardsDay", {"_day": int(day, 16) +1})
+
         continuous_day = (self.call_tx(self.contracts["loans"], "getContinuousRewardsDay"))
-        print(continuous_day)
         print("Waiting for day change")
         # code pauses for 60 sec
         time.sleep(60)
-        # day changes each 2 minutes.
         # testing for continuous rewards starts from here
+        current_day = int(self.call_tx(self.contracts["loans"], "getDay"), 16)
+        # asserting the continuous rewards day
+        self.assertEqual(int(continuous_day, 16), current_day)
 
     def balanceOfTokens(self, name, address):
         params = {
@@ -77,7 +80,7 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
         response = self.call_tx(self.contracts[name], "balanceOf", params)
         return response
 
-    def _getAccountPositions(self) -> dict:
-        params = {'_owner': self.user1.get_address()}
+    def _getAccountPositions(self, address) -> dict:
+        params = {'_owner': address}
         result = self.call_tx(self.contracts['loans'], "getAccountPositions", params)
         return result

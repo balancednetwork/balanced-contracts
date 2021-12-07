@@ -4,7 +4,7 @@ TAG = 'BalancedLoans'
 
 EXA = 10**18
 
-U_SECONDS_DAY = 30000000
+U_SECONDS_DAY = 120000000
 MIN_UPDATE_TIME = 30 * 10**6  # 30 seconds
 
 # All percentages expressed in terms of points.

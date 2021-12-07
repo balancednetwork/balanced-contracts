@@ -133,7 +133,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
             .from_(from_.get_address()) \
             .to(to) \
             .value(value) \
-            .step_limit(3_000_000_000_000_000) \
+            .step_limit(3_000_000_000_000) \
             .nid(self.nid) \
             .nonce(100) \
             .content_type("application/zip") \
