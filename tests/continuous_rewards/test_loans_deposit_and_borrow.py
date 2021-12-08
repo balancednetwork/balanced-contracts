@@ -57,13 +57,12 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
         self.update('loans')
         self.update('rewards')
         self.update('governance')
-        # self.update('dex')
+        self.update('dex')
 
         day = (self.call_tx(self.contracts["loans"], "getDay"))
         # day changes each 2 minutes.
         # set continuous rewards day as next day of current day.
         self.send_tx(self.btest_wallet, self.contracts['governance'], 0, "setContinuousRewardsDay", {"_day": int(day, 16) +1})
-
         continuous_day = (self.call_tx(self.contracts["loans"], "getContinuousRewardsDay"))
         print("Waiting for day change")
         # code pauses for 60 sec
@@ -72,6 +71,64 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
         current_day = int(self.call_tx(self.contracts["loans"], "getDay"), 16)
         # asserting the continuous rewards day
         self.assertEqual(int(continuous_day, 16), current_day)
+
+    # def test_rewards_new_user(self):
+    #     self.send_icx(self.btest_wallet, self.user1.get_address(), 2500 * 10 ** 18)
+    #     self.send_icx(self.btest_wallet, self.user2.get_address(), 2500 * 10 ** 18)
+    #
+    #     day = (self.call_tx(self.contracts["loans"], "getDay"))
+    #
+    #     params = {"_asset": 'bnUSD', "_amount": 200 * 10 ** 18}
+    #     self.send_tx(self.user2, self.contracts['loans'], 500 * 10 ** 18, 'depositAndBorrow', params)
+    #     print(self._getAccountPositions(self.user2.get_address()))
+    #     print(self.call_tx(self.contracts['rewards'], 'getBalnHolding', {'_holder': str(self.user2.get_address())}))
+    #
+    #     self.update('loans')
+    #     self.update('rewards')
+    #     self.update('governance')
+    #     self.update('dex')
+    #
+    #     continuous_day = int(day, 16) +1
+    #
+    #     self.send_tx(self.btest_wallet, self.contracts['governance'], 0, "setContinuousRewardsDay", {"_day": continuous_day})
+    #
+    #     day = int(self.call_tx(self.contracts["loans"], "getDay"),16)
+    #     while day != continuous_day:
+    #         time.sleep(5)
+    #         day = int(self.call_tx(self.contracts["loans"], "getDay"), 16)
+    #     params = {"_asset": 'bnUSD', "_amount": 200*10**18}
+    #     self.send_tx(self.user1, self.contracts['loans'], 500*10**18, 'depositAndBorrow', params)
+    #     print(self._getAccountPositions(self.user1.get_address()))
+    #     print(self.call_tx(self.contracts['rewards'], 'getBalnHolding', {'_holder': str(self.user1.get_address())}))
+
+    # def test_rewards_new_user(self):
+    #     self.send_icx(self.btest_wallet, self.user1.get_address(), 2500 * 10 ** 18)
+    #     self.send_icx(self.btest_wallet, self.user2.get_address(), 2500 * 10 ** 18)
+    #
+    #     day = (self.call_tx(self.contracts["loans"], "getDay"))
+    #
+    #     params = {"_asset": 'bnUSD', "_amount": 200 * 10 ** 18}
+    #     self.send_tx(self.user2, self.contracts['loans'], 500 * 10 ** 18, 'depositAndBorrow', params)
+    #     print(self._getAccountPositions(self.user2.get_address()))
+    #
+    #     self.update('loans')
+    #     self.update('rewards')
+    #     self.update('governance')
+    #     # self.update('dex')
+    #
+    #     continuous_day = int(day, 16) +1
+    #
+    #     self.send_tx(self.btest_wallet, self.contracts['governance'], 0, "setContinuousRewardsDay", {"_day": continuous_day})
+    #
+    #     day = int(self.call_tx(self.contracts["loans"], "getDay"),16)
+    #     while day != continuous_day:
+    #         time.sleep(5)
+    #         day = int(self.call_tx(self.contracts["loans"], "getDay"), 16)
+    #     params = {"_asset": 'bnUSD', "_amount": 200*10**18}
+    #     self.send_tx(self.user2, self.contracts['loans'], 500*10**18, 'depositAndBorrow', params)
+    #     print(self._getAccountPositions(self.user2.get_address()))
+    #     print(self.call_tx(self.contracts['rewards'], 'getBalnHolding', {'_holder': str(self.user1.get_address())}))
+
 
     def balanceOfTokens(self, name, address):
         params = {

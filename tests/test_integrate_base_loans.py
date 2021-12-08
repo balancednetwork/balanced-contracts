@@ -114,7 +114,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
         signed_transaction = self.build_deploy_tx(from_, to, value, content, params)
         tx_result = self.process_transaction(signed_transaction, network=self.icon_service,
                                              block_confirm_interval=self.BLOCK_INTERVAL)
-
+        print(tx_result)
         self.assertTrue('status' in tx_result)
         self.assertEqual(1, tx_result['status'], f"Failure: {tx_result['failure']}" if tx_result['status'] == 0 else "")
         self.assertTrue('scoreAddress' in tx_result)
@@ -133,7 +133,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
             .from_(from_.get_address()) \
             .to(to) \
             .value(value) \
-            .step_limit(3_000_000_000_000) \
+            .step_limit(2_500_000_000_000) \
             .nid(self.nid) \
             .nonce(100) \
             .content_type("application/zip") \
@@ -321,7 +321,11 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
         governed_contracts = core_contracts + token_contracts
         sicx = "sicx"
         all_contracts = governed_contracts + external_contracts
-
+        cx_add = self.contracts[name]
+        name2 = name
+        if name == 'dex':
+            name2 = name+'.zip'
+        print(name)
         if name in governed_contracts:
             if name in core_contracts:
                 path = os.path.abspath(os.path.join(DIR_PATH, "../continuous_rewards"))
@@ -329,8 +333,8 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
                 path = self.TOKEN_CONTRACTS_PATH
             res = self.process_deploy_tx(
                 from_=self.btest_wallet,
-                to=self.contracts.get(name, self.contracts[name]),
+                to=self.contracts.get(name2, cx_add),
                 value=0,
-                content=os.path.abspath(os.path.join(path, name)),
+                content=os.path.abspath(os.path.join(path, name2)),
                 params={}
             )
