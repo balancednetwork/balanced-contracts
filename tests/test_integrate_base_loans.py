@@ -32,6 +32,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
         "governance": [{"U_SECONDS_DAY": ["U_SECONDS_DAY = 120000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]},
                        {"DAY_ZERO": ["DAY_ZERO = 18647 * 2880", "DAY_ZERO = 18647"]}],
         "loans": [{"U_SECONDS_DAY": ["U_SECONDS_DAY = 120000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]}],
+        "staking": [{"TOP_PREP_COUNT": ["TOP_PREP_COUNT = 2", "TOP_PREP_COUNT = 100"]}],
         "rewards": [{"DAY_IN_MICROSECONDS": ["DAY_IN_MICROSECONDS = 120000000",
                                              "DAY_IN_MICROSECONDS = 86400 * (10 ** 6)"]}]}
 

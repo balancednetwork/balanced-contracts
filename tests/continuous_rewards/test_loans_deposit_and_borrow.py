@@ -133,32 +133,32 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
     #
     #     self.send_tx(self.user1, self.contracts['loans'], 500 * 10 ** 18, 'depositAndBorrow', params)
     #     print(self.call_tx(self.contracts['rewards'], 'getBalnHolding', {'_holder': str(self.user2.get_address())}))
-    #
-    #     # tx = self.send_tx(self.user1, self.contracts['loans'], 500 * 10 ** 18, 'depositAndBorrow', params)
-    #     # start = self.icon_service.get_transaction(tx['txHash'])['timestamp']
-    #     #
-    #     # before = time.time()
-    #     # print(self.call_tx(self.contracts['rewards'], 'getBalnHolding', {'_holder': str(self.user1.get_address())}))
-    #     # after = time.time()
-    #     #
-    #     # end = int(((before+after)/2) * 10**6)
-    #     # elapsed_time = (end - start)
-    #     # print(elapsed_time)
-    #     # bnusd_supply = int(self.totalSupply('bnUSD'), 16)
-    #     # print(bnusd_supply)
-    #     # user_debt = 101 * 10 ** 18
-    #     # daily_emission = 100000
-    #     # sec_per_day = 120000000
-    #     # loans_percent = 0.25
-    #     #
-    #     # # calculation of rewards
-    #     # rewards = ((user_debt / bnusd_supply) * loans_percent * daily_emission * elapsed_time) / sec_per_day
-    #     # print(rewards)
-    #
-    #     print(self.call_tx(self.contracts['rewards'], 'getBalnHolding', {'_holder': str(self.user2.get_address())}))
-    #     self.send_tx(self.user2, self.contracts['rewards'], 0, 'claimRewards', {})
-    #     self.send_tx(self.user2, self.contracts['rewards'], 0, 'claimRewards', {})
-    #     print(self.balanceOfTokens('baln', self.user2.get_address()))
+
+        # tx = self.send_tx(self.user1, self.contracts['loans'], 500 * 10 ** 18, 'depositAndBorrow', params)
+        # start = self.icon_service.get_transaction(tx['txHash'])['timestamp']
+        #
+        # before = time.time()
+        # print(self.call_tx(self.contracts['rewards'], 'getBalnHolding', {'_holder': str(self.user1.get_address())}))
+        # after = time.time()
+        #
+        # end = int(((before+after)/2) * 10**6)
+        # elapsed_time = (end - start)
+        # print(elapsed_time)
+        # bnusd_supply = int(self.totalSupply('bnUSD'), 16)
+        # print(bnusd_supply)
+        # user_debt = 101 * 10 ** 18
+        # daily_emission = 100000
+        # sec_per_day = 120000000
+        # loans_percent = 0.25
+        #
+        # # calculation of rewards
+        # rewards = ((user_debt / bnusd_supply) * loans_percent * daily_emission * elapsed_time) / sec_per_day
+        # print(rewards)
+
+        # print(self.call_tx(self.contracts['rewards'], 'getBalnHolding', {'_holder': str(self.user2.get_address())}))
+        # self.send_tx(self.user2, self.contracts['rewards'], 0, 'claimRewards', {})
+        # self.send_tx(self.user2, self.contracts['rewards'], 0, 'claimRewards', {})
+        # print(self.balanceOfTokens('baln', self.user2.get_address()))
 
     def test_snapshot_data(self):
         """
@@ -221,61 +221,57 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
         snapshot = self.call_tx(self.contracts["loans"], "getSnapshot", {"_snap_id": 3})
         self.assertDictEqual(snapshot, {})
 
-    # def test_user_rewards(self):
-    #     '''
-    #     User takes a loan on continuous rewards activation day and
-    #     the rewards allocated for that user is tested.
-    #     '''
-    #     self.send_icx(self.btest_wallet, self.user1.get_address(), 2500 * 10 ** 18)
-    #     self.send_icx(self.btest_wallet, self.user2.get_address(), 2500 * 10 ** 18)
-    #
-    #     day = int(self.call_tx(self.contracts["loans"], "getDay"), 0)
-    #     params = {"_asset": 'bnUSD', "_amount": 100 * 10 ** 18}
-    #
-    #     self.update('loans')
-    #     self.update('rewards')
-    #     self.update('governance')
-    #     self.update('dex')
-    #
-    #     continuous_day = day + 1
-    #
-    #     self.send_tx(self.btest_wallet, self.contracts['governance'], 0, "setContinuousRewardsDay",
-    #                  {"_day": continuous_day})
-    #
-    #     while day != 2:
-    #         time.sleep(5)
-    #         day = int(self.call_tx(self.contracts["loans"], "getDay"), 16)
-    #
-    #     self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
-    #     self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
-    #
-    #     tx = self.send_tx(self.user1, self.contracts['loans'], 500 * 10 ** 18, 'depositAndBorrow', params)
-    #     tx = self.send_tx(self.user1, self.contracts['loans'], 500 * 10 ** 18, 'depositAndBorrow', params)
-    #     bheight = (self.icon_service.get_block(tx['blockHeight']))
-    #     start = bheight['time_stamp']
-    #
-    #     tx = self.send_tx(self.user1, self.contracts['rewards'], 0, 'claimRewards', {})
-    #     # user balance is checked once user claims rewards.
-    #     user_baln = int(self.balanceOfTokens('baln', self.user1.get_address()), 16)
-    #     user_baln = user_baln/10**18
-    #
-    #     bheight = (self.icon_service.get_block(tx['blockHeight']))
-    #     end = bheight['time_stamp']
-    #     elapsed_time = (end - start)
-    #     bnusd_supply = int(self.totalSupply('bnUSD'), 16)
-    #     user_debt = 101 * 10 ** 18
-    #     pos = self._getAccountPositions(self.user1.get_address())
-    #     print(pos)
-    #     daily_emission = 100000
-    #     sec_per_day = 120000000
-    #     loans_percent = 0.25
-    #
-    #     # calculation of rewards
-    #     rewards = ((user_debt / bnusd_supply) * loans_percent * daily_emission * elapsed_time) / sec_per_day
-    #     change = rewards - user_baln
-    #     print(rewards)
-    #     print(user_baln)
-    #     self.assertEqual(change, 0)
+    def test_user_rewards(self):
+        '''
+        User takes a loan on continuous rewards activation day and
+        the rewards allocated for that user is tested.
+        '''
+        self.send_icx(self.btest_wallet, self.user1.get_address(), 2500 * 10 ** 18)
+        self.send_icx(self.btest_wallet, self.user2.get_address(), 2500 * 10 ** 18)
+
+        day = int(self.call_tx(self.contracts["loans"], "getDay"), 0)
+        params = {"_asset": 'bnUSD', "_amount": 100 * 10 ** 18}
+
+        self.update('loans')
+        self.update('rewards')
+        self.update('governance')
+        self.update('dex')
+
+        continuous_day = day + 1
+
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, "setContinuousRewardsDay",
+                     {"_day": continuous_day})
+
+        while day != 2:
+            time.sleep(5)
+            day = int(self.call_tx(self.contracts["loans"], "getDay"), 16)
+
+        self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
+        self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
+
+        # tx = self.send_tx(self.user1, self.contracts['loans'], 500 * 10 ** 18, 'depositAndBorrow', params)
+        tx = self.send_tx(self.user1, self.contracts['loans'], 500 * 10 ** 18, 'depositAndBorrow', params)
+        bheight = (self.icon_service.get_block(tx['blockHeight']))
+        start = bheight['time_stamp']
+
+        tx = self.send_tx(self.user1, self.contracts['rewards'], 0, 'claimRewards', {})
+        # user balance is checked once user claims rewards.
+        user_baln = int(self.balanceOfTokens('baln', self.user1.get_address()), 16)
+        user_baln = user_baln/10**18
+
+        bheight = (self.icon_service.get_block(tx['blockHeight']))
+        end = bheight['time_stamp']
+        elapsed_time = (end - start)
+        bnusd_supply = int(self.totalSupply('bnUSD'), 16)
+        user_debt = 101 * 10 ** 18
+        daily_emission = 100000
+        sec_per_day = 120000000
+        loans_percent = 0.25
+
+        # calculation of rewards
+        rewards = ((user_debt / bnusd_supply) * loans_percent * daily_emission * elapsed_time) / sec_per_day
+        change = rewards - user_baln
+        self.assertEqual(change, 0)
 
     def test_mining_status(self):
         '''
