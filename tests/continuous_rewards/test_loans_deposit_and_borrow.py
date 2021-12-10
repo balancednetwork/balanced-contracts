@@ -168,6 +168,9 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
         self.send_icx(self.btest_wallet, self.user1.get_address(), 2500 * 10 ** 18)
         self.send_icx(self.btest_wallet, self.user2.get_address(), 2500 * 10 ** 18)
 
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, "setContinuousRewardsDay",
+                     {"_day": 3})
+
         day = int(self.call_tx(self.contracts["loans"], "getDay"), 0)
         params = {"_asset": 'bnUSD', "_amount": 100 * 10 ** 18}
         self.send_tx(self.user1, self.contracts['loans'], 500 * 10 ** 18, 'depositAndBorrow', params)
@@ -181,16 +184,6 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
         self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
 
         self.send_tx(self.user2, self.contracts['loans'], 500 * 10 ** 18, 'depositAndBorrow', params)
-
-        self.update('loans')
-        self.update('rewards')
-        self.update('governance')
-        self.update('dex')
-
-        continuous_day = day + 1
-
-        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, "setContinuousRewardsDay",
-                     {"_day": continuous_day})
 
         while day != 3:
             time.sleep(5)
@@ -207,7 +200,6 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
         # on the continuous rewards activation day, calling getSnapshot with snap_id 3
         snapshot = self.call_tx(self.contracts["loans"], "getSnapshot", {"_snap_id": 3})
         self.assertDictEqual(snapshot, {})
-
 
         while day != 4:
             time.sleep(5)
@@ -228,24 +220,20 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
         '''
         self.send_icx(self.btest_wallet, self.user1.get_address(), 2500 * 10 ** 18)
         self.send_icx(self.btest_wallet, self.user2.get_address(), 2500 * 10 ** 18)
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, "setContinuousRewardsDay",
+                     {"_day": 3})
 
         day = int(self.call_tx(self.contracts["loans"], "getDay"), 0)
         params = {"_asset": 'bnUSD', "_amount": 100 * 10 ** 18}
 
-        self.update('loans')
-        self.update('rewards')
-        self.update('governance')
-        self.update('dex')
-
-        continuous_day = day + 1
-
-        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, "setContinuousRewardsDay",
-                     {"_day": continuous_day})
-
-        while day != 2:
+        while day != 3:
             time.sleep(5)
             day = int(self.call_tx(self.contracts["loans"], "getDay"), 16)
 
+        self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
+        self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
+        self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
+        self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
         self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
         self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
 
@@ -255,6 +243,7 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
         start = bheight['time_stamp']
 
         tx = self.send_tx(self.user1, self.contracts['rewards'], 0, 'claimRewards', {})
+
         # user balance is checked once user claims rewards.
         user_baln = int(self.balanceOfTokens('baln', self.user1.get_address()), 16)
         user_baln = user_baln/10**18
@@ -265,11 +254,12 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
         bnusd_supply = int(self.totalSupply('bnUSD'), 16)
         user_debt = 101 * 10 ** 18
         daily_emission = 100000
-        sec_per_day = 120000000
+        sec_per_day = 180000000
         loans_percent = 0.25
 
         # calculation of rewards
         rewards = ((user_debt / bnusd_supply) * loans_percent * daily_emission * elapsed_time) / sec_per_day
+
         change = rewards - user_baln
         self.assertEqual(change, 0)
 
@@ -281,30 +271,22 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
         self.send_icx(self.btest_wallet, self.user1.get_address(), 2500 * 10 ** 18)
         self.send_icx(self.btest_wallet, self.user2.get_address(), 2500 * 10 ** 18)
 
-        day = (self.call_tx(self.contracts["loans"], "getDay"))
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, "setContinuousRewardsDay",
+                     {"_day": 2})
 
         # takes a loan so that the user standing remains not mining.
-        params = {"_asset": 'bnUSD', "_amount": 200 * 10 ** 18}
+        params = {"_asset": 'bnUSD', "_amount": 205 * 10 ** 18}
         self.send_tx(self.user2, self.contracts['loans'], 500 * 10 ** 18, 'depositAndBorrow', params)
         acc_pos = self._getAccountPositions(self.user2.get_address())
         mining_status = acc_pos['standing']
         self.assertEqual(mining_status, 'Not Mining')
 
-        # update to continuous rewards
-        self.update('loans')
-        self.update('rewards')
-        self.update('governance')
-        self.update('dex')
-        continuous_day = int(day, 16) + 1
-        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, "setContinuousRewardsDay",
-                     {"_day": continuous_day})
-
         day = int(self.call_tx(self.contracts["loans"], "getDay"), 16)
-        while day != continuous_day:
+        while day != 3:
             time.sleep(5)
             day = int(self.call_tx(self.contracts["loans"], "getDay"), 16)
 
-        # continuous rewards is activated from here(day2)
+        # continuous rewards is activated from here(day3)
 
         self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
         self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
@@ -313,15 +295,15 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
         params = {"_asset": 'bnUSD', "_amount": 200 * 10 ** 18}
         self.send_tx(self.user1, self.contracts['loans'], 500 * 10 ** 18, 'depositAndBorrow', params)
         acc_pos = (self._getAccountPositions(self.user1.get_address()))
-
-        print(self.call_tx(self.contracts['loans'], "getPositionStanding", {"_address": self.user1.get_address()
-                                                                            , "_snapshot": 1}))
-
-        print(self.call_tx(self.contracts['loans'], "getPositionStanding", {"_address": self.user1.get_address()
-                                                                            , "_snapshot": 2}))
-
-        print(self.call_tx(self.contracts['loans'], "getPositionStanding", {"_address": self.user1.get_address()
-                                                                            , "_snapshot": 3}))
+        #
+        # print(self.call_tx(self.contracts['loans'], "getPositionStanding", {"_address": self.user1.get_address()
+        #                                                                     , "_snapshot": 1}))
+        #
+        # print(self.call_tx(self.contracts['loans'], "getPositionStanding", {"_address": self.user1.get_address()
+        #                                                                     , "_snapshot": 2}))
+        #
+        # print(self.call_tx(self.contracts['loans'], "getPositionStanding", {"_address": self.user1.get_address()
+        #                                                                     , "_snapshot": 3}))
         mining_status = acc_pos['standing']
         self.assertEqual(mining_status, 'Mining')
 
@@ -331,19 +313,19 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
         self.assertEqual(mining_status, 'Mining')
 
 
-        print(self.call_tx(self.contracts['loans'], "getPositionStanding", {"_address": self.user2.get_address()
-                                                                            , "_snapshot": 1}))
-
-        print(self.call_tx(self.contracts['loans'], "getPositionStanding", {"_address": self.user2.get_address()
-                                                                            , "_snapshot": 2}))
-
-        print(self.call_tx(self.contracts['loans'], "getPositionStanding", {"_address": self.user2.get_address()
-                                                                            , "_snapshot": 3}))
-
-        print(self.call_tx(self.contracts['loans'], "getPositionStanding", {"_address": self.user2.get_address()
-                                                                            }))
-        print(self.call_tx(self.contracts['loans'], "getPositionStanding", {"_address": self.user1.get_address()
-                                                                            }))
+        # print(self.call_tx(self.contracts['loans'], "getPositionStanding", {"_address": self.user2.get_address()
+        #                                                                     , "_snapshot": 1}))
+        #
+        # print(self.call_tx(self.contracts['loans'], "getPositionStanding", {"_address": self.user2.get_address()
+        #                                                                     , "_snapshot": 2}))
+        #
+        # print(self.call_tx(self.contracts['loans'], "getPositionStanding", {"_address": self.user2.get_address()
+        #                                                                     , "_snapshot": 3}))
+        #
+        # print(self.call_tx(self.contracts['loans'], "getPositionStanding", {"_address": self.user2.get_address()
+        #                                                                     }))
+        # print(self.call_tx(self.contracts['loans'], "getPositionStanding", {"_address": self.user1.get_address()
+        #                                                                     }))
 
         baln_rewards = int(
             self.call_tx(self.contracts['rewards'], 'getBalnHolding', {'_holder': str(self.user1.get_address())}), 16)
@@ -361,6 +343,9 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
         self.send_icx(self.btest_wallet, self.user1.get_address(), 2500 * 10 ** 18)
         self.send_icx(self.btest_wallet, self.user2.get_address(), 2500 * 10 ** 18)
 
+        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, "setContinuousRewardsDay",
+                     {"_day": 3})
+
         day = (self.call_tx(self.contracts["loans"], "getDay"))
         params = {"_asset": 'bnUSD', "_amount": 100 * 10 ** 18}
         self.send_tx(self.user2, self.contracts['loans'], 2000 * 10 ** 18, 'depositAndBorrow', params)
@@ -376,16 +361,8 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
         params = {"_asset": 'bnUSD', "_amount": 50 * 10 ** 18}
         self.send_tx(self.user1, self.contracts['loans'], 2000 * 10 ** 18, 'depositAndBorrow', params)
 
-        self.update('loans')
-        self.update('rewards')
-        self.update('governance')
-        self.update('dex')
-        continuous_day = day + 1
-        self.send_tx(self.btest_wallet, self.contracts['governance'], 0, "setContinuousRewardsDay",
-                     {"_day": continuous_day})
-
         day = int(self.call_tx(self.contracts["loans"], "getDay"), 16)
-        while day != continuous_day:
+        while day != 3:
             time.sleep(5)
             day = int(self.call_tx(self.contracts["loans"], "getDay"), 16)
 
@@ -399,6 +376,7 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
 
         user2_pos = (self._getAccountPositions(self.user2.get_address()))
         user1_pos = (self._getAccountPositions(self.user1.get_address()))
+        self.send_tx(self.btest_wallet, self.contracts['loans'], 2000 * 10 ** 18, 'depositAndBorrow', params)
 
         expected_dict = {str(self.user2.get_address()): int(user2_pos['total_debt'], 0), str(self.user1.get_address()):
             int(user1_pos['total_debt'], 0)}
@@ -410,6 +388,26 @@ class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
             v = int(v, 16)
             data_batch[k] = v
         self.assertDictEqual(expected_dict, data_batch)
+
+        data_batch1 = self.call_tx(self.contracts['loans'], "getDataBatch",
+                                   {"_name": "aab", "_snapshot_id": 1, "_limit": 50})
+        batch_dict = {}
+        for k, v in data_batch1.items():
+            v = int(v, 16)
+            batch_dict[k] = v
+        self.assertDictEqual({str(self.user2.get_address()): int(user2_pos['total_debt'], 0)}, batch_dict)
+
+        data_batch3 = self.call_tx(self.contracts['loans'], "getDataBatch",
+                                   {"_name": "aab", "_snapshot_id": 3, "_limit": 50})
+        batch_dict = {}
+        for k, v in data_batch3.items():
+            v = int(v, 16)
+            batch_dict[k] = v
+        self.assertDictEqual(expected_dict, batch_dict)
+        data_batch4 = self.call_tx(self.contracts['loans'], "getDataBatch",
+                                   {"_name": "aab", "_snapshot_id": 4, "_limit": 50})
+        # since the continuous rewards is activated on day 3 , the function is reverted.
+        self.assertEqual(data_batch4['message'], "BalancedLoans The continuous rewards is already active.")
 
     def balanceOfTokens(self, name, address):
         params = {
