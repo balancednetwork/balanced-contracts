@@ -1,7 +1,6 @@
 import time
 
 from ..test_integrate_base_loans import BalancedTestBaseLoans
-from ..stories.loans.deposit_borrow_stories import DEPOSIT_AND_BORROW_STORIES
 
 
 class BalancedTestDepositAndBorrow(BalancedTestBaseLoans):
