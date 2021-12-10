@@ -16,6 +16,10 @@ TAG = 'Balanced DEX'
 
 
 # An interface to the Rewards SCORE
+class RewardsDataEntry(TypedDict):
+    _user: Address
+    _balance: int
+
 class Rewards(InterfaceScore):
     @interface
     def distribute(self) -> bool:
@@ -25,6 +29,23 @@ class Rewards(InterfaceScore):
     def addNewDataSource(self, _data_source_name: str, _contract_address: Address) -> None:
         pass
 
+    @interface
+    def updateRewardsData(self, _name: str, _totalSupply: int, _user: Address, _balance: int) -> None:
+        pass
+
+    @interface
+    def updateBatchRewardsData(self, _name: str, _totalSupply: int, _data: List[RewardsDataEntry]) -> None:
+        pass
+
+
+class StakedLP(InterfaceScore):
+    @interface
+    def balanceOf(self, _owner: Address, _id: int) -> int:
+        pass
+
+    @interface 
+    def totalSupply(self, _id: int) -> int:
+        pass
 
 # An interface to the Dividends SCORE
 
@@ -54,6 +75,7 @@ class DEX(IconScoreBase):
     _REWARDS_ADDRESS = 'rewards_address'
     _GOVERNANCE_ADDRESS = 'governance_address'
     _FEEHANDLER_ADDRESS = 'feehandler_address'
+    _STAKEDLP_ADDRESS = 'stakedLp_address'
     _NAMED_MARKETS = 'named_markets'
     _ADMIN = 'admin'
     _DEX_ON = 'dex_on'
@@ -163,6 +185,8 @@ class DEX(IconScoreBase):
             self._BALN_ADDRESS, db, value_type=Address)
         self._feehandler = VarDB(
             self._FEEHANDLER_ADDRESS, db, value_type=Address)
+        self._stakedLp = VarDB(
+            self._STAKEDLP_ADDRESS, db, value_type = Address)
 
         # DEX Activation (can be set by governance only)
         self._dex_on = VarDB(self._DEX_ON, db, value_type=bool)
@@ -255,6 +279,9 @@ class DEX(IconScoreBase):
         # Transaction hashes seen
         self._current_tx = VarDB('current_tx', db, value_type=bytes)
 
+        # Activation day for continuous rewards
+        self._continuous_rewards_day = VarDB('continuous_rewards_day', db, value_type=int)
+
     def on_install(self, _governance: Address) -> None:
         super().on_install()
         self._governance.set(_governance)
@@ -269,6 +296,7 @@ class DEX(IconScoreBase):
         self._current_day.set(1)
         self._named_markets[self._SICXICX_MARKET_NAME] = self._SICXICX_POOL_ID
         self._markets_to_names[self._SICXICX_POOL_ID] = self._SICXICX_MARKET_NAME
+        self._continuous_rewards_day.set(0)
 
     def on_update(self) -> None:
         super().on_update()
@@ -442,6 +470,23 @@ class DEX(IconScoreBase):
         """
         return self._feehandler.get()
 
+    @only_admin
+    @external
+    def setStakedLp(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new fee handler contract address.
+        """
+        self._stakedLp.set(_address)
+
+    @external(readonly=True)
+    def getStakedLp(self) -> Address:
+        """
+        Gets the address of the fee handler contract.
+        """
+        return self._stakedLp.get()
+
+
     @only_governance
     @external
     def setPoolLpFee(self, _value: int) -> None:
@@ -551,10 +596,29 @@ class DEX(IconScoreBase):
         Internal function, mapped to mainnet pool IDs. Will be deprecated upon the release
         of continuous rewards.
         """
-        if id < FIRST_NON_BALANCED_POOL or id == USDS_BNUSD_ID or id == IUSDT_BNUSD_ID:
+
+        continuous_rewards_launched = (self._continuous_rewards_day.get() > self._current_day.get())
+        restricted_pool_id = (id < FIRST_NON_BALANCED_POOL or id == USDS_BNUSD_ID or id == IUSDT_BNUSD_ID)
+
+        if  not restricted_pool_id or continuous_rewards_launched:
             return True
         else:
             return False
+
+    @external
+    @only_governance
+    def setContinuousRewardsDay(self, _continuous_rewards_day: int) -> None:
+        """
+        :param _continuous_rewards_day: is day that continuous rewards are eanbled.
+        """
+        self._continuous_rewards_day.set(_continuous_rewards_day)
+
+    @external(readonly=True)
+    def getContinuousRewardsDay(self) -> int:
+        """
+        Returns the day that continuous rewards are enabled.
+        """
+        return self._continuous_rewards_day.get()
 
     @payable
     def fallback(self):
@@ -586,6 +650,7 @@ class DEX(IconScoreBase):
 
         order_id = self._icx_queue_order_id[self.msg.sender]
         order_value = self.msg.value
+        old_order_value = 0
 
         # write withdrawal lock
         self._withdraw_lock[self._SICXICX_POOL_ID][self.msg.sender] = self.now()
@@ -593,13 +658,16 @@ class DEX(IconScoreBase):
         if order_id:
             # TODO: Modify instead of cancel/replace, after debugging scorelib
             node = self._icx_queue._get_node(order_id)
-            order_value += node.get_value1()
+            old_order_value = node.get_value1()
+            order_value += old_order_value
             self._icx_queue.remove(order_id)
 
         order_id = self._icx_queue.append(order_value, self.msg.sender)
         self._icx_queue_order_id[self.msg.sender] = order_id
 
-        current_icx_total = self._icx_queue_total.get() + self.msg.value
+        old_icx_total = self._icx_queue_total.get()
+
+        current_icx_total = old_icx_total + self.msg.value
         self._icx_queue_total.set(current_icx_total)
 
         # Revert orders below the minimum amount
@@ -608,6 +676,12 @@ class DEX(IconScoreBase):
 
         self._update_account_snapshot(self.msg.sender, self._SICXICX_POOL_ID)
         self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
+
+        rewards_entry = {"_user": self.msg.sender, "_balance": old_order_value}
+
+        rewards = self.create_interface_score(self._rewards.get(), Rewards)
+        rewards.updateBatchRewardsData(self._SICXICX_MARKET_NAME, old_icx_total, [rewards_entry])
+
 
     @dex_on
     @external
@@ -632,7 +706,9 @@ class DEX(IconScoreBase):
         order = self._icx_queue._get_node(order_id)
         withdraw_amount = order.get_value1()
 
-        current_icx_total = self._icx_queue_total.get() - withdraw_amount
+        old_icx_total = self._icx_queue_total.get()
+
+        current_icx_total = old_icx_total - withdraw_amount
         self._icx_queue_total.set(current_icx_total)
 
         self._icx_queue.remove(order_id)
@@ -644,6 +720,12 @@ class DEX(IconScoreBase):
 
         self._update_account_snapshot(self.msg.sender, self._SICXICX_POOL_ID)
         self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
+        
+        rewards_entry = {"_user": self.msg.sender, "_balance": withdraw_amount}
+
+        rewards = self.create_interface_score(self._rewards.get(), Rewards)
+        rewards.updateBatchRewardsData(self._SICXICX_MARKET_NAME, old_icx_total, [rewards_entry])
+
 
     def is_reentrant_tx(self) -> bool:
         """
@@ -989,6 +1071,10 @@ class DEX(IconScoreBase):
         if not order_id:
             return 0
         return self._icx_queue._get_node(order_id).get_value1()
+    
+    @external(readonly=True)
+    def getPoolName(self, _id: int) -> str:
+        return self._markets_to_names[_id] if _id in self._markets_to_names else None
 
     @external(readonly=True)
     def getPoolStats(self, _id: int) -> dict:
@@ -1029,16 +1115,6 @@ class DEX(IconScoreBase):
             }
 
     @external(readonly=True)
-    def isEarningRewards(self, _address: Address, _id: int) -> bool:
-        """
-        Returns whether an address is currently eligible to earn rewards.
-
-        :param _address: Address to check
-        :param _id: PoolId
-        """
-        return _address in self._active_addresses[_id]
-
-    @external(readonly=True)
     def totalDexAddresses(self, _id: int) -> int:
         """
         Returns total number of users that have used the dex.
@@ -1074,6 +1150,30 @@ class DEX(IconScoreBase):
         deposit_time = self._withdraw_lock[_id][_user]
         if deposit_time + WITHDRAW_LOCK_TIMEOUT > self.now():
             revert(f"{TAG}: Assets must remain in the pool for 24 hours, please try again later.")
+
+    @external(readonly=True)
+    def getBalanceAndSupply(self, _name: str, _owner: Address) -> dict:
+        if _name == self._SICXICX_MARKET_NAME:
+            rewardsData = {
+                "_balance": self.balanceOf(_owner, self._SICXICX_POOL_ID),
+                "_totalSupply": self.totalSupply(self._SICXICX_POOL_ID)
+            }
+            return rewardsData
+        
+        pool_id = self.lookupPid(_name)
+        if pool_id:
+            staked_lp_score = self.create_interface_score(self._stakedLp.get(), StakedLP)
+            total_supply = staked_lp_score.totalSupply(pool_id)
+            balance = staked_lp_score.balanceOf(_owner, pool_id)
+            rewardsData = {
+                "_balance": balance,
+                "_totalSupply": total_supply
+
+            }
+            return rewardsData
+            
+        else:
+            revert(f"{TAG}: Unsupported data source name")
 
     ####################################
     # Internal exchange function
@@ -1182,6 +1282,10 @@ class DEX(IconScoreBase):
 
         sicx_score = self.create_interface_score(
             self._sicx.get(), TokenInterface)
+        
+        # Track previous data for rewards
+        old_icx_total = self._icx_queue_total.get()
+        old_data = []
 
         # subtract out fees to LPs
         baln_fees = _value * self._icx_baln_fee.get() // FEE_SCALE
@@ -1217,6 +1321,11 @@ class DEX(IconScoreBase):
             counterparty_icx = counterparty_order.get_value1()
             counterparty_filled = False
 
+            old_data.append({
+                "_user": counterparty_address,
+                "_balance": counterparty_icx,
+            })
+
             # Perform match. Matched amount is up to order size
             matched_icx = min(counterparty_icx, order_remaining_icx)
             order_remaining_icx -= matched_icx
@@ -1245,7 +1354,7 @@ class DEX(IconScoreBase):
                 filled = True
 
         # Subtract the filled ICX from the queue
-        self._icx_queue_total.set(self._icx_queue_total.get() - order_icx_value)
+        self._icx_queue_total.set(old_icx_total - order_icx_value)
         self._update_total_supply_snapshot(self._SICXICX_POOL_ID)
 
         # Compute effective fill price after fees for eventlog
@@ -1256,6 +1365,10 @@ class DEX(IconScoreBase):
                   _sender, _value, order_icx_value, self.now(), conversion_fees,
                   baln_fees, self._icx_queue_total.get(),
                   0, self._get_sicx_rate(), effective_fill_price)
+        
+        rewards = self.create_interface_score(self._rewards.get(), Rewards)
+        rewards.updateBatchRewardsData(self._SICXICX_MARKET_NAME, old_icx_total, [old_data])
+
 
         # Send fees to feehandler and ICX converted to the sender
         sicx_score.transfer(self._feehandler.get(), baln_fees)
@@ -1299,16 +1412,6 @@ class DEX(IconScoreBase):
                 self._dividends.get(), Dividends)
             self._dividends_done.set(dividends.distribute())
 
-    @external(readonly=True)
-    def inspectBalanceSnapshot(self, _account: Address, _id: int, _snapshot_id: int) -> dict:
-        return {
-            'ids': self._account_balance_snapshot[_id][_account]['ids'][_snapshot_id],
-            'values': self._account_balance_snapshot[_id][_account]['values'][_snapshot_id],
-            'avgs': self._account_balance_snapshot[_id][_account]['avgs'][_snapshot_id],
-            'time': self._account_balance_snapshot[_id][_account]['time'][_snapshot_id],
-            'length': self._account_balance_snapshot[_id][_account]['length'][0]
-        }
-
     def _update_account_snapshot(self, _account: Address, _id: int) -> None:
         """
         Updates a user's balance 24h avg snapshot
@@ -1340,8 +1443,6 @@ class DEX(IconScoreBase):
 
             self._account_balance_snapshot[_id][_account]['ids'][length] = current_id
             self._account_balance_snapshot[_id][_account]['values'][length] = current_value
-            self._account_balance_snapshot[_id][_account]['avgs'][length] = average
-            self._account_balance_snapshot[_id][_account]['time'][length] = current_time
             self._account_balance_snapshot[_id][_account]['length'][0] += 1
             return
         else:
@@ -1350,24 +1451,12 @@ class DEX(IconScoreBase):
         # If there is a snapshot existing, it either falls before or in the current window.
         if last_snapshot_id < current_id:
             # If the snapshot is before the current window, we should create a new entry
-            previous_value = self._account_balance_snapshot[_id][_account]['values'][length - 1]
-
-            average = ((day_elapsed_us * previous_value) + (day_remaining_us * current_value)) // U_SECONDS_DAY
-
             self._account_balance_snapshot[_id][_account]['ids'][length] = current_id
             self._account_balance_snapshot[_id][_account]['values'][length] = current_value
-            self._account_balance_snapshot[_id][_account]['avgs'][length] = average
-            self._account_balance_snapshot[_id][_account]['time'][length] = current_time
             self._account_balance_snapshot[_id][_account]['length'][0] += 1
         else:
             # If the snapshot is in the current window, we should update the current entry
-            previous_average = self._account_balance_snapshot[_id][_account]['avgs'][length - 1]
-
-            average = ((previous_average * day_elapsed_us) + (current_value * day_remaining_us)) // U_SECONDS_DAY
-
             self._account_balance_snapshot[_id][_account]['values'][length - 1] = current_value
-            self._account_balance_snapshot[_id][_account]['avgs'][length - 1] = average
-            self._account_balance_snapshot[_id][_account]['time'][length - 1] = current_time
 
     def _update_baln_snapshot(self, _id: int) -> None:
         """
@@ -1394,8 +1483,6 @@ class DEX(IconScoreBase):
 
             self._baln_snapshot[_id]['ids'][length] = current_id
             self._baln_snapshot[_id]['values'][length] = current_value
-            self._baln_snapshot[_id]['avgs'][length] = average
-            self._baln_snapshot[_id]['time'][length] = current_time
             self._baln_snapshot[_id]['length'][0] += 1
             return
         else:
@@ -1404,25 +1491,12 @@ class DEX(IconScoreBase):
         # If there is a snapshot existing, it either falls before or in the current window.
         if last_snapshot_id < current_id:
             # If the snapshot is before the current window, we should create a new entry
-            previous_value = self._baln_snapshot[_id]['values'][length - 1]
-
-            average = ((day_elapsed_us * previous_value) + (day_remaining_us * current_value)) // U_SECONDS_DAY
-
             self._baln_snapshot[_id]['ids'][length] = current_id
             self._baln_snapshot[_id]['values'][length] = current_value
-            self._baln_snapshot[_id]['avgs'][length] = average
-            self._baln_snapshot[_id]['time'][length] = current_time
-
             self._baln_snapshot[_id]['length'][0] += 1
         else:
             # If the snapshot is in the current window, we should update the current entry
-            previous_average = self._baln_snapshot[_id]['avgs'][length - 1]
-
-            average = ((previous_average * day_elapsed_us) + (current_value * day_remaining_us)) // U_SECONDS_DAY
-
             self._baln_snapshot[_id]['values'][length - 1] = current_value
-            self._baln_snapshot[_id]['avgs'][length - 1] = average
-            self._baln_snapshot[_id]['time'][length - 1] = current_time
 
     def _update_total_supply_snapshot(self, _id: int) -> None:
         """
@@ -1445,8 +1519,6 @@ class DEX(IconScoreBase):
 
             self._total_supply_snapshot[_id]['ids'][length] = current_id
             self._total_supply_snapshot[_id]['values'][length] = current_value
-            self._total_supply_snapshot[_id]['avgs'][length] = average
-            self._total_supply_snapshot[_id]['time'][length] = current_time
             self._total_supply_snapshot[_id]['length'][0] += 1
             return
         else:
@@ -1455,25 +1527,11 @@ class DEX(IconScoreBase):
         # If there is a snapshot existing, it either falls before or in the current window.
         if last_snapshot_id < current_id:
             # If the snapshot is before the current window, we should create a new entry
-            previous_value = self._total_supply_snapshot[_id]['values'][length - 1]
-
-            average = ((day_elapsed_us * previous_value) + (day_remaining_us * current_value)) // U_SECONDS_DAY
-
             self._total_supply_snapshot[_id]['ids'][length] = current_id
             self._total_supply_snapshot[_id]['values'][length] = current_value
-            self._total_supply_snapshot[_id]['avgs'][length] = average
-            self._total_supply_snapshot[_id]['time'][length] = current_time
-
             self._total_supply_snapshot[_id]['length'][0] += 1
         else:
-            # If the snapshot is in the current window, we should update the current entry
-            previous_average = self._total_supply_snapshot[_id]['avgs'][length - 1]
-
-            average = ((previous_average * day_elapsed_us) + (current_value * day_remaining_us)) // U_SECONDS_DAY
-
             self._total_supply_snapshot[_id]['values'][length - 1] = current_value
-            self._total_supply_snapshot[_id]['avgs'][length - 1] = average
-            self._total_supply_snapshot[_id]['time'][length - 1] = current_time
 
     @external(readonly=True)
     def balanceOfAt(self, _account: Address, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
@@ -1492,18 +1550,13 @@ class DEX(IconScoreBase):
 
         if self._account_balance_snapshot[_id][_account]['ids'][0] == _snapshot_id:
             # If the most recent snapshot is the requested snapshot, return the last average
-            return self._account_balance_snapshot[_id][_account]['avgs'][0]
+            return self._account_balance_snapshot[_id][_account]['values'][0]
         elif low == 0:
             return 0
         else:
             matched_index = low - 1
 
-        # If we matched the day before, weighted avg will be same as ending value.
-        # If we matched the day of, return the actual weighted average
-        if self._account_balance_snapshot[_id][_account]['ids'][matched_index] == _snapshot_id and _twa:
-            return self._account_balance_snapshot[_id][_account]['avgs'][matched_index]
-        else:
-            return self._account_balance_snapshot[_id][_account]['values'][matched_index]
+        return self._account_balance_snapshot[_id][_account]['values'][matched_index]
 
     @external(readonly=True)
     def totalSupplyAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
@@ -1521,16 +1574,13 @@ class DEX(IconScoreBase):
                 low = mid + 1
 
         if self._total_supply_snapshot[_id]['ids'][0] == _snapshot_id:
-            return self._total_supply_snapshot[_id]['avgs'][0]
+            return self._total_supply_snapshot[_id]['values'][0]
         elif low == 0:
             return 0
         else:
             matched_index = low - 1
 
-        if self._total_supply_snapshot[_id]['ids'][matched_index] == _snapshot_id and _twa:
-            return self._total_supply_snapshot[_id]['avgs'][matched_index]
-        else:
-            return self._total_supply_snapshot[_id]['values'][matched_index]
+        return self._total_supply_snapshot[_id]['values'][matched_index]
 
     @external(readonly=True)
     def totalBalnAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
@@ -1548,16 +1598,13 @@ class DEX(IconScoreBase):
                 low = mid + 1
 
         if self._baln_snapshot[_id]['ids'][0] == _snapshot_id:
-            return self._baln_snapshot[_id]['avgs'][0]
+            return self._baln_snapshot[_id]['values'][0]
         elif low == 0:
             return 0
         else:
             matched_index = low - 1
 
-        if self._baln_snapshot[_id]['ids'][matched_index] == _snapshot_id and _twa:
-            return self._baln_snapshot[_id]['avgs'][matched_index]
-        else:
-            return self._baln_snapshot[_id]['values'][matched_index]
+        return self._baln_snapshot[_id]['values'][matched_index]
 
     @external(readonly=True)
     def getTotalValue(self, _name: str, _snapshot_id: int) -> int:
