@@ -445,9 +445,10 @@ class Loans(IconScoreBase):
     @external(readonly=True)
     def getBalanceAndSupply(self, _name: str, _owner: Address) -> dict:
         if _name == "Loans":
+            pos = self._positions.get_pos(_owner)
             asset = self._assets['bnUSD']
             rewardsData = {
-                "_balance": asset.balanceOf(_owner),
+                "_balance": pos['bnUSD'],
                 "_totalSupply": asset.totalSupply()
             }
             return rewardsData
