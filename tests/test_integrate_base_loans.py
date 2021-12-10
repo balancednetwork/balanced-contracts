@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 from typing import Union
 
 from iconsdk.builder.call_builder import CallBuilder
@@ -24,8 +25,22 @@ def get_key(my_dict: dict, value: Union[str, int]):
 class BalancedTestBaseLoans(IconIntegrateTestBase):
     CORE_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../core_contracts"))
     TOKEN_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../token_contracts"))
+    constants = {"dex": [
+        {"WITHDRAW_LOCK_TIMEOUT": ["WITHDRAW_LOCK_TIMEOUT = 180000000",
+                                   "WITHDRAW_LOCK_TIMEOUT = 86400 * (10 ** 6)"]},
+        {"U_SECONDS_DAY": ["U_SECONDS_DAY= 180000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]}],
+        "governance": [{"U_SECONDS_DAY": ["U_SECONDS_DAY = 180000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]},
+                       {"DAY_ZERO": ["DAY_ZERO = 18647 * 2880", "DAY_ZERO = 18647"]}],
+        "loans": [{"U_SECONDS_DAY": ["U_SECONDS_DAY = 180000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]}],
+        "staking": [{"TOP_PREP_COUNT": ["TOP_PREP_COUNT = 2", "TOP_PREP_COUNT = 100"]}],
+        "rewards": [{"DAY_IN_MICROSECONDS": ["DAY_IN_MICROSECONDS = 180000000",
+                                             "DAY_IN_MICROSECONDS = 86400 * (10 ** 6)"]}]}
 
-    CORE_CONTRACTS = ["loans", "staking", "dividends", "reserve", "daofund", "rewards", "dex", "governance", "oracle"]
+    def patch_constants(self, file_name, old_value, new_value):
+        subprocess.call("sed -i -e 's/^" + old_value + ".*/" + new_value + "/' " + file_name, shell=True)
+
+    CORE_CONTRACTS = ["loans", "staking", "dividends", "reserve", "daofund", "rewards", "dex", "governance", "oracle"
+        , "router", "feehandler", 'stakedLp']
     TOKEN_CONTRACTS = ["sicx", "bnUSD", "baln", "bwt"]
     CONTRACTS = CORE_CONTRACTS + TOKEN_CONTRACTS
 
@@ -46,7 +61,14 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
         self.nid = 3
         self.send_icx(self._test1, self.btest_wallet.get_address(), 1_000_000 * self.icx_factor)
         self.send_icx(self._test1, self.staking_wallet.get_address(), 1_000_000 * self.icx_factor)
-
+        for key, value in self.constants.items():
+            # print(value)
+            for i in value:
+                lis1 = []
+                for x, y in i.items():
+                    lis1.append(x)
+                    # lis1.append(y)
+                    self.patch_constants("core_contracts/" + key + "/utils/consts.py", lis1[0], y[0])
         # if os.path.exists(os.path.join(DIR_PATH, "scores_address.json")):
         #     with open(os.path.join(DIR_PATH, "scores_address.json"), "r") as file:
         #         self.contracts = json.load(file)
@@ -55,6 +77,16 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
         self._deploy_all()
         self._config_balanced()
         self._launch_balanced()
+
+    def tearDown(self):
+        for key, value in self.constants.items():
+            # print(value)
+            for i in value:
+                lis1 = []
+                for x, y in i.items():
+                    lis1.append(x)
+                    # lis1.append(y)
+                    self.patch_constants("core_contracts/" + key + "/utils/consts.py", lis1[0], y[1])
 
     def _wallet_setup(self):
         self.icx_factor = 10 ** 18
@@ -81,7 +113,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
         signed_transaction = self.build_deploy_tx(from_, to, value, content, params)
         tx_result = self.process_transaction(signed_transaction, network=self.icon_service,
                                              block_confirm_interval=self.BLOCK_INTERVAL)
-
+        print(tx_result)
         self.assertTrue('status' in tx_result)
         self.assertEqual(1, tx_result['status'], f"Failure: {tx_result['failure']}" if tx_result['status'] == 0 else "")
         self.assertTrue('scoreAddress' in tx_result)
@@ -100,7 +132,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
             .from_(from_.get_address()) \
             .to(to) \
             .value(value) \
-            .step_limit(3_000_000_000) \
+            .step_limit(2_500_000_000_000) \
             .nid(self.nid) \
             .nonce(100) \
             .content_type("application/zip") \
@@ -182,7 +214,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
 
     def _deploy_all(self):
         governance = "governance"
-        core_contracts = ["daofund", "dex", "dividends", "loans", "reserve", "rewards"]
+        core_contracts = ["daofund", "dex", "dividends", "loans", "reserve", "rewards", "router", "feehandler", "stakedLp"]
         external_contracts = ["oracle", "staking"]
         token_contracts = ["baln", "bnUSD", "bwt"]
         governed_contracts = core_contracts + token_contracts
@@ -282,22 +314,26 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
 
     def update(self, name):
         # self.build_deploy_tx(self.btest_wallet, self.contracts[name] )
-        core_contracts = ["governance","daofund", "dex", "dividends", "loans", "reserve", "rewards"]
+        core_contracts = ["governance", "daofund", "dex", "dividends", "loans", "reserve", "rewards"]
         external_contracts = ["oracle", "staking"]
         token_contracts = ["baln", "bnUSD", "bwt"]
         governed_contracts = core_contracts + token_contracts
         sicx = "sicx"
         all_contracts = governed_contracts + external_contracts
-
+        cx_add = self.contracts[name]
+        name2 = name
+        if name == 'dex':
+            name2 = name+'.zip'
+        print(name)
         if name in governed_contracts:
             if name in core_contracts:
-                path = self.CORE_CONTRACTS_PATH
+                path = os.path.abspath(os.path.join(DIR_PATH, "../continuous_rewards"))
             else:
                 path = self.TOKEN_CONTRACTS_PATH
             res = self.process_deploy_tx(
                 from_=self.btest_wallet,
-                to=self.contracts.get(name, self.contracts[name]),
+                to=self.contracts.get(name2, cx_add),
                 value=0,
-                content=os.path.abspath(os.path.join(path, name)),
+                content=os.path.abspath(os.path.join(path, name2)),
                 params={}
             )
