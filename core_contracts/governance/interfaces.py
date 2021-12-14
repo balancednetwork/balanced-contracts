@@ -389,6 +389,10 @@ class SetAddressesInterface(InterfaceScore):
     def setFeehandler(self, _address: Address) -> None:
         pass
 
+    @interface
+    def setStabilityfund(self, _address: Address) -> None:
+        pass
+
 
 class BalancedInterface(InterfaceScore):
 
