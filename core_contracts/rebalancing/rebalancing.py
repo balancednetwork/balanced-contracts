@@ -59,6 +59,7 @@ class Rebalancing(IconScoreBase):
     _SICX_ADDRESS = 'sicx_address'
     _DEX_ADDRESS = 'dex_address'
     _LOANS_ADDRESS = 'loans_address'
+    _STABILITY_FUND_ADDRESS = "stability_fund_address"
     _GOVERNANCE_ADDRESS = 'governance_address'
     _SICX_RECEIVABLE = 'sicx_receivable'
     _ADMIN = 'admin'
@@ -70,6 +71,7 @@ class Rebalancing(IconScoreBase):
         self._sicx = VarDB(self._SICX_ADDRESS, db, value_type=Address)
         self._dex = VarDB(self._DEX_ADDRESS, db, value_type=Address)
         self._loans = VarDB(self._LOANS_ADDRESS, db, value_type=Address)
+        self._stability_fund = VarDB(self._STABILITY_FUND_ADDRESS, db, value_type=Address)
         self._governance = VarDB(self._GOVERNANCE_ADDRESS, db, value_type=Address)
         self._admin = VarDB(self._ADMIN, db, value_type=Address)
         self._sicx_receivable = VarDB(self._SICX_RECEIVABLE, db, value_type=int)
@@ -104,6 +106,17 @@ class Rebalancing(IconScoreBase):
         if not _address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._loans.set(_address)
+
+    @external
+    @only_admin
+    def setStabilityfund(self, _address: Address) -> None:
+        """
+        :param _address: New contract address to set.
+        Sets new bnUSD contract address.
+        """
+        if not _address.is_contract:
+            revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
+        self._stability_fund.set(_address)
 
     @external
     @only_admin
