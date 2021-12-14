@@ -22,6 +22,7 @@ class BalancedAddresses(TypedDict):
     bwt: Address
     router: Address
     feehandler: Address
+    stabilityfund: Address
 
 
 class VoteActions(object):
@@ -77,6 +78,7 @@ class Addresses(object):
         self._rebalancing = VarDB('rebalancing', db, Address)
         self._router = VarDB('router', db, Address)
         self._feehandler = VarDB('feehandler', db, Address)
+        self._stabilityfund = VarDB('stabilityfund', db, Address)
 
     def __getitem__(self, key: str) -> Address:
         if key == 'governance':
@@ -88,7 +90,7 @@ class Addresses(object):
 
     def setAddresses(self, addresses: BalancedAddresses) -> None:
         """
-        Takes a TypedDict with 14 addresses and sets them.
+        Takes a TypedDict with 16 addresses and sets them.
         """
         set_func: dict = {'loans': self._loans.set,
                           'dex': self._dex.set,
@@ -104,7 +106,8 @@ class Addresses(object):
                           'bwt': self._bwt.set,
                           'rebalancing': self._rebalancing.set,
                           'router': self._router.set,
-                          'feehandler': self._feehandler.set}
+                          'feehandler': self._feehandler.set,
+                          'stabilityfund': self._stabilityfund.set}
         for key, value in addresses.items():
             set_func[key](value)
 
@@ -124,7 +127,8 @@ class Addresses(object):
                 'bwt': self._bwt.get(),
                 'rebalancing': self._rebalancing.get(),
                 'router': self._router.get(),
-                'feehandler': self._feehandler.get()
+                'feehandler': self._feehandler.get(),
+                'stabilityfund': self._stabilityfund.get()
                }
 
 
@@ -141,7 +145,7 @@ class Addresses(object):
         'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
         'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
         'router': score.setRouter, 'rebalancing': score.setRebalancing,
-        'feehandler': score.setFeehandler}
+        'feehandler': score.setFeehandler, 'stabilityfund': score.setStabilityfund}
 
         for address in ADDRESSES[contract]:
             try:
@@ -164,7 +168,7 @@ class Addresses(object):
                            'sicx': score.setSicx, 'bnUSD': score.setbnUSD,
                            'baln': score.setBaln, 'bwt': score.setBwt, 'dex': score.setDex,
                            'router': score.setRouter, 'rebalancing': score.setRebalancing,
-                           'feehandler': score.setFeehandler}
+                           'feehandler': score.setFeehandler, 'stabilityfund': score.setStabilityfund}
             for method in ADDRESSES[contract]:
                 try:
                     set_methods[method](self[method])
