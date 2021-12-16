@@ -4,6 +4,10 @@ from iconservice import *
 # ================================================
 #  Exceptions
 # ================================================
+class StabilityFundOutOfBalance(Exception):
+    pass
+
+
 class SenderNotScoreOwnerError(Exception):
     pass
 
