@@ -1,9 +1,19 @@
 from iconservice import *
 from .utils.checks import *
+from .utils.enums import *
 
 TAG = 'Rebalancing'
 
 EXA = 10 ** 18
+
+class StabilityFundInterface(InterfaceScore):
+    @interface
+    def raisePrice(self, amount) -> None:
+        pass
+    
+    @interface
+    def lowerPrice(self, amount) -> None:
+        pass
 
 
 class sICXTokenInterface(InterfaceScore):
@@ -217,17 +227,64 @@ class Rebalancing(IconScoreBase):
         """
            Calls the retireRedeem method or generateBnusd on loans to balance the sICX/bnUSD price on the DEX.
         """
-        loans = self.create_interface_score(self._loans.get(), LoansInterface)
-
         higher, token_amount, lower = self.getRebalancingStatus()
+        
         if token_amount > 0:
+
             if higher:
-                loans.raisePrice(token_amount)
+                try:
+                    self._rebalanceUsingStabilityFund(token_amount, RebalancingType.FORWARD)
+                except StabilityFundOutOfBalance:
+                    self._rebalanceUsingLoans(token_amount, RebalancingType.FORWARD)
+
         else:
             token_amount = abs(token_amount)
+
             if lower:
-                loans.lowerPrice(token_amount)
+                try:
+                    self._rebalanceUsingStabilityFund(token_amount, RebalancingType.REVERSE)
+                except StabilityFundOutOfBalance:
+                    self._rebalanceUsingLoans(token_amount, RebalancingType.REVERSE)
+
+    def _rebalanceUsingLoans(self, _amount: int, _rebalancing_type: RebalancingType) -> None:
+        loans = self.create_interface_score(self._loans.get(), LoansInterface)
+
+        if _rebalancing_type == RebalancingType.FORWARD:
+            loans.raisePrice(_amount)
+
+        elif _rebalancing_type == RebalancingType.REVERSE:
+            loans.lowerPrice(_amount)
+
+        else:
+            revert("Unknown rebalancing error using Loans.")
+
+    def _rebalanceUsingStabilityFund(self, _amount: int, _rebalancing_type: RebalancingType) -> None:
+        stability_fund_address = self._stability_fund.get()
+
+        if _rebalancing_type == RebalancingType.FORWARD:
+            bnusd = create_interface_score(self._bnUSD.get(), BnusdTokenInterface)
+            bnusd_balance = bnusd.balanceOf(stability_fund_address)
+
+            if not bnusd_balance > 0:
+                raise StabilityFundOutOfBalance
+            else:
+                stability_fund = create_interface_score(self._stability_fund.get(), StabilityFundInterface)
+                stability_fund.raisePrice(min(bnusd_balance, _amount))
+
+        elif _rebalancing_type == RebalancingType.REVERSE:
+            sicx = create_interface_score(self._sicx.get(), sICXTokenInterface)
+            sicx_balance = sicx.balanceOf(stability_fund_address)
+            
+            if not sicx_balance > 0:
+                raise StabilityFundOutOfBalance
+            else:
+                stability_fund = create_interface_score(self._stability_fund.get(), StabilityFundInterface)
+                stability_fund.raisePrice(min(sicx_balance, _amount))
+
+        else:
+            revert("Unknown rebalancing error using the stability fund.")
 
     @external
     def tokenFallback(self, _from: Address, value: int, _data: bytes) -> None:
         pass
+
