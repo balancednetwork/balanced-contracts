@@ -40,7 +40,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
         subprocess.call("sed -i -e 's/^" + old_value + ".*/" + new_value + "/' " + file_name, shell=True)
 
     CORE_CONTRACTS = ["loans", "staking", "dividends", "reserve", "daofund", "rewards", "dex", "governance", "oracle"
-        , "router", "feehandler", 'stakedLp']
+        ,"rebalancing", "router", "feehandler", 'stakedLp']
     TOKEN_CONTRACTS = ["sicx", "bnUSD", "baln", "bwt"]
     CONTRACTS = CORE_CONTRACTS + TOKEN_CONTRACTS
 
@@ -77,6 +77,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
         self._deploy_all()
         self._config_balanced()
         self._launch_balanced()
+        self._create_bnusd_market()
 
     def tearDown(self):
         for key, value in self.constants.items():
@@ -214,7 +215,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
 
     def _deploy_all(self):
         governance = "governance"
-        core_contracts = ["daofund", "dex", "dividends", "loans", "reserve", "rewards", "router", "feehandler", "stakedLp"]
+        core_contracts = ["daofund", "dex", "dividends", "loans", "reserve", "rewards", "rebalancing", "router", "feehandler", "stakedLp"]
         external_contracts = ["oracle", "staking"]
         token_contracts = ["baln", "bnUSD", "bwt"]
         governed_contracts = core_contracts + token_contracts
@@ -311,6 +312,12 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
             self.assertTrue('status' in tx_result, tx_result)
             self.assertEqual(1, tx_result['status'],
                              f"Failure: {tx_result['failure']}" if tx_result['status'] == 0 else "")
+
+    def _create_bnusd_market(self):
+        contract = "governance"
+        print(f"----------------------------Calling {contract} contract-------------------------------------------")
+        self.send_tx(self.btest_wallet, to=self.contracts[contract], value=4000000 * self.icx_factor,
+                     method='createBnusdMarket')
 
     def update(self, name):
         # self.build_deploy_tx(self.btest_wallet, self.contracts[name] )
