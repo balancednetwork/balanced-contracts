@@ -1115,16 +1115,6 @@ class DEX(IconScoreBase):
             }
 
     @external(readonly=True)
-    def isEarningRewards(self, _address: Address, _id: int) -> bool:
-        """
-        Returns whether an address is currently eligible to earn rewards.
-
-        :param _address: Address to check
-        :param _id: PoolId
-        """
-        return _address in self._active_addresses[_id]
-
-    @external(readonly=True)
     def totalDexAddresses(self, _id: int) -> int:
         """
         Returns total number of users that have used the dex.
@@ -1422,16 +1412,6 @@ class DEX(IconScoreBase):
                 self._dividends.get(), Dividends)
             self._dividends_done.set(dividends.distribute())
 
-    @external(readonly=True)
-    def inspectBalanceSnapshot(self, _account: Address, _id: int, _snapshot_id: int) -> dict:
-        return {
-            'ids': self._account_balance_snapshot[_id][_account]['ids'][_snapshot_id],
-            'values': self._account_balance_snapshot[_id][_account]['values'][_snapshot_id],
-            'avgs': self._account_balance_snapshot[_id][_account]['avgs'][_snapshot_id],
-            'time': self._account_balance_snapshot[_id][_account]['time'][_snapshot_id],
-            'length': self._account_balance_snapshot[_id][_account]['length'][0]
-        }
-
     def _update_account_snapshot(self, _account: Address, _id: int) -> None:
         """
         Updates a user's balance 24h avg snapshot
@@ -1463,8 +1443,6 @@ class DEX(IconScoreBase):
 
             self._account_balance_snapshot[_id][_account]['ids'][length] = current_id
             self._account_balance_snapshot[_id][_account]['values'][length] = current_value
-            self._account_balance_snapshot[_id][_account]['avgs'][length] = average
-            self._account_balance_snapshot[_id][_account]['time'][length] = current_time
             self._account_balance_snapshot[_id][_account]['length'][0] += 1
             return
         else:
@@ -1473,24 +1451,12 @@ class DEX(IconScoreBase):
         # If there is a snapshot existing, it either falls before or in the current window.
         if last_snapshot_id < current_id:
             # If the snapshot is before the current window, we should create a new entry
-            previous_value = self._account_balance_snapshot[_id][_account]['values'][length - 1]
-
-            average = ((day_elapsed_us * previous_value) + (day_remaining_us * current_value)) // U_SECONDS_DAY
-
             self._account_balance_snapshot[_id][_account]['ids'][length] = current_id
             self._account_balance_snapshot[_id][_account]['values'][length] = current_value
-            self._account_balance_snapshot[_id][_account]['avgs'][length] = average
-            self._account_balance_snapshot[_id][_account]['time'][length] = current_time
             self._account_balance_snapshot[_id][_account]['length'][0] += 1
         else:
             # If the snapshot is in the current window, we should update the current entry
-            previous_average = self._account_balance_snapshot[_id][_account]['avgs'][length - 1]
-
-            average = ((previous_average * day_elapsed_us) + (current_value * day_remaining_us)) // U_SECONDS_DAY
-
             self._account_balance_snapshot[_id][_account]['values'][length - 1] = current_value
-            self._account_balance_snapshot[_id][_account]['avgs'][length - 1] = average
-            self._account_balance_snapshot[_id][_account]['time'][length - 1] = current_time
 
     def _update_baln_snapshot(self, _id: int) -> None:
         """
@@ -1517,8 +1483,6 @@ class DEX(IconScoreBase):
 
             self._baln_snapshot[_id]['ids'][length] = current_id
             self._baln_snapshot[_id]['values'][length] = current_value
-            self._baln_snapshot[_id]['avgs'][length] = average
-            self._baln_snapshot[_id]['time'][length] = current_time
             self._baln_snapshot[_id]['length'][0] += 1
             return
         else:
@@ -1527,25 +1491,12 @@ class DEX(IconScoreBase):
         # If there is a snapshot existing, it either falls before or in the current window.
         if last_snapshot_id < current_id:
             # If the snapshot is before the current window, we should create a new entry
-            previous_value = self._baln_snapshot[_id]['values'][length - 1]
-
-            average = ((day_elapsed_us * previous_value) + (day_remaining_us * current_value)) // U_SECONDS_DAY
-
             self._baln_snapshot[_id]['ids'][length] = current_id
             self._baln_snapshot[_id]['values'][length] = current_value
-            self._baln_snapshot[_id]['avgs'][length] = average
-            self._baln_snapshot[_id]['time'][length] = current_time
-
             self._baln_snapshot[_id]['length'][0] += 1
         else:
             # If the snapshot is in the current window, we should update the current entry
-            previous_average = self._baln_snapshot[_id]['avgs'][length - 1]
-
-            average = ((previous_average * day_elapsed_us) + (current_value * day_remaining_us)) // U_SECONDS_DAY
-
             self._baln_snapshot[_id]['values'][length - 1] = current_value
-            self._baln_snapshot[_id]['avgs'][length - 1] = average
-            self._baln_snapshot[_id]['time'][length - 1] = current_time
 
     def _update_total_supply_snapshot(self, _id: int) -> None:
         """
@@ -1568,8 +1519,6 @@ class DEX(IconScoreBase):
 
             self._total_supply_snapshot[_id]['ids'][length] = current_id
             self._total_supply_snapshot[_id]['values'][length] = current_value
-            self._total_supply_snapshot[_id]['avgs'][length] = average
-            self._total_supply_snapshot[_id]['time'][length] = current_time
             self._total_supply_snapshot[_id]['length'][0] += 1
             return
         else:
@@ -1578,25 +1527,11 @@ class DEX(IconScoreBase):
         # If there is a snapshot existing, it either falls before or in the current window.
         if last_snapshot_id < current_id:
             # If the snapshot is before the current window, we should create a new entry
-            previous_value = self._total_supply_snapshot[_id]['values'][length - 1]
-
-            average = ((day_elapsed_us * previous_value) + (day_remaining_us * current_value)) // U_SECONDS_DAY
-
             self._total_supply_snapshot[_id]['ids'][length] = current_id
             self._total_supply_snapshot[_id]['values'][length] = current_value
-            self._total_supply_snapshot[_id]['avgs'][length] = average
-            self._total_supply_snapshot[_id]['time'][length] = current_time
-
             self._total_supply_snapshot[_id]['length'][0] += 1
         else:
-            # If the snapshot is in the current window, we should update the current entry
-            previous_average = self._total_supply_snapshot[_id]['avgs'][length - 1]
-
-            average = ((previous_average * day_elapsed_us) + (current_value * day_remaining_us)) // U_SECONDS_DAY
-
             self._total_supply_snapshot[_id]['values'][length - 1] = current_value
-            self._total_supply_snapshot[_id]['avgs'][length - 1] = average
-            self._total_supply_snapshot[_id]['time'][length - 1] = current_time
 
     @external(readonly=True)
     def balanceOfAt(self, _account: Address, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
@@ -1615,18 +1550,13 @@ class DEX(IconScoreBase):
 
         if self._account_balance_snapshot[_id][_account]['ids'][0] == _snapshot_id:
             # If the most recent snapshot is the requested snapshot, return the last average
-            return self._account_balance_snapshot[_id][_account]['avgs'][0]
+            return self._account_balance_snapshot[_id][_account]['values'][0]
         elif low == 0:
             return 0
         else:
             matched_index = low - 1
 
-        # If we matched the day before, weighted avg will be same as ending value.
-        # If we matched the day of, return the actual weighted average
-        if self._account_balance_snapshot[_id][_account]['ids'][matched_index] == _snapshot_id and _twa:
-            return self._account_balance_snapshot[_id][_account]['avgs'][matched_index]
-        else:
-            return self._account_balance_snapshot[_id][_account]['values'][matched_index]
+        return self._account_balance_snapshot[_id][_account]['values'][matched_index]
 
     @external(readonly=True)
     def totalSupplyAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
@@ -1644,16 +1574,13 @@ class DEX(IconScoreBase):
                 low = mid + 1
 
         if self._total_supply_snapshot[_id]['ids'][0] == _snapshot_id:
-            return self._total_supply_snapshot[_id]['avgs'][0]
+            return self._total_supply_snapshot[_id]['values'][0]
         elif low == 0:
             return 0
         else:
             matched_index = low - 1
 
-        if self._total_supply_snapshot[_id]['ids'][matched_index] == _snapshot_id and _twa:
-            return self._total_supply_snapshot[_id]['avgs'][matched_index]
-        else:
-            return self._total_supply_snapshot[_id]['values'][matched_index]
+        return self._total_supply_snapshot[_id]['values'][matched_index]
 
     @external(readonly=True)
     def totalBalnAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
@@ -1671,16 +1598,13 @@ class DEX(IconScoreBase):
                 low = mid + 1
 
         if self._baln_snapshot[_id]['ids'][0] == _snapshot_id:
-            return self._baln_snapshot[_id]['avgs'][0]
+            return self._baln_snapshot[_id]['values'][0]
         elif low == 0:
             return 0
         else:
             matched_index = low - 1
 
-        if self._baln_snapshot[_id]['ids'][matched_index] == _snapshot_id and _twa:
-            return self._baln_snapshot[_id]['avgs'][matched_index]
-        else:
-            return self._baln_snapshot[_id]['values'][matched_index]
+        return self._baln_snapshot[_id]['values'][matched_index]
 
     @external(readonly=True)
     def getTotalValue(self, _name: str, _snapshot_id: int) -> int:

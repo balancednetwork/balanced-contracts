@@ -208,8 +208,8 @@ class Loans(IconScoreBase):
         self._loans_on.set(True)
         self.ContractActive("Loans", "Active")
         self._current_day.set(self.getDay())
-        if self.getDay() < self._continuous_reward_day.get():
-            self._positions._snapshot_db.start_new_snapshot()
+        # if self.getDay() < self._continuous_reward_day.get():
+        self._positions._snapshot_db.start_new_snapshot()
 
     @external
     @only_governance
@@ -433,9 +433,10 @@ class Loans(IconScoreBase):
     @external(readonly=True)
     def getBalanceAndSupply(self, _name: str, _owner: Address) -> dict:
         if _name == "Loans":
+            pos = self._positions.get_pos(_owner)
             asset = self._assets['bnUSD']
             rewardsData = {
-                "_balance": asset.balanceOf(_owner),
+                "_balance": pos['bnUSD'],
                 "_totalSupply": asset.totalSupply()
             }
             return rewardsData
@@ -639,7 +640,8 @@ class Loans(IconScoreBase):
             self.checkDistributions(day, new_day)
             old_supply = asset.totalSupply()
             pos = self._positions.get_pos(_from)
-            if _value > pos[_symbol]:
+            user_debt = pos[_symbol]
+            if _value > user_debt:
                 revert(f'{TAG}: Repaid amount is greater than the amount in the position of {_from}')
             if _value > 0:
                 borrowed = pos[_symbol]
@@ -658,7 +660,7 @@ class Loans(IconScoreBase):
                         self._positions.remove_nonzero(pos_id)
                 else:
                     rewards = self.create_interface_score(self._rewards.get(), Rewards)
-                    rewards.updateRewardsData("Loans", old_supply, _from, user_balance)
+                    rewards.updateRewardsData("Loans", old_supply, _from, user_debt)
 
                 self.LoanRepaid(_from, _symbol, repaid,
                                 f'Loan of {repaid} {_symbol} repaid to Balanced.')
@@ -900,7 +902,7 @@ class Loans(IconScoreBase):
                 self._positions.add_nonzero(pos_id)
         else:
             rewards = self.create_interface_score(self._rewards.get(), Rewards)
-            rewards.updateRewardsData("Loans", asset.totalSupply(), _from, asset.balanceOf(_from))
+            rewards.updateRewardsData("Loans", asset.totalSupply(), _from, pos[_asset])
         new_debt = _amount + fee
         pos[_asset] = pos[_asset] + new_debt
         self.OriginateLoan(_from, _asset, _amount,
@@ -974,7 +976,7 @@ class Loans(IconScoreBase):
                 if not is_collateral and active and debt > 0:
                     if not check_day:
                         rewards = self.create_interface_score(self._rewards.get(), Rewards)
-                        rewards.updateRewardsData("Loans", asset.totalSupply(), _owner, asset.balanceOf(_owner))
+                        rewards.updateRewardsData("Loans", asset.totalSupply(), _owner, pos[symbol])
 
                     bad_debt = asset.bad_debt.get()
                     asset.bad_debt.set(bad_debt + debt)
