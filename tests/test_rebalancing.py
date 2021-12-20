@@ -92,6 +92,24 @@ class TestRebalancing(ScoreTestCase):
         self.score.setBnusd(address)
         self.assertEqual(address, self.score._bnUSD.get())
 
+    
+    def test_setStabilityfund_not_admin(self):
+        with self.assertRaises(SenderNotAuthorized) as err:
+            self.score.setStabilityfund(self.test_account1)
+
+    def test_setStabilityfund_not_contract(self):
+        self.set_msg(self.admin)
+        with self.assertRaises(IconScoreException) as err:
+            self.score.setStabilityfund(self.test_account1)
+        self.assertIn("Rebalancing: Address provided is an EOA address. A contract address is required.",
+                      str(err.exception))
+
+    def test_setStabilityfund(self):
+        self.set_msg(self.admin)
+        address = Address.from_string(f"cx{'1010' * 10}")
+        self.score.setStabilityfund(address)
+        self.assertEqual(address, self.score._stability_fund.get())
+
     def test_setLoans_not_admin(self):
         with self.assertRaises(SenderNotAuthorized) as err:
             self.score.setLoans(self.test_account1)
