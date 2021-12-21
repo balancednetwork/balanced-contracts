@@ -601,9 +601,9 @@ class DEX(IconScoreBase):
         restricted_pool_id = (id < FIRST_NON_BALANCED_POOL or id == USDS_BNUSD_ID or id == IUSDT_BNUSD_ID)
 
         if  not restricted_pool_id or continuous_rewards_launched:
-            return True
-        else:
             return False
+        else:
+            return True
 
     @external
     @only_governance

@@ -69,6 +69,7 @@ class Rewards(IconScoreBase):
         self._platform_day = VarDB('platform_day', db, value_type=int)
         self._continuous_rewards_day = VarDB('continuous_rewards_day', db, value_type=int)
         self._data_source_db = DataSourceDB(db, self)
+        self._migrating_to_continuous = VarDB('migrating_to_continuous', db, value_type=bool)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
@@ -402,7 +403,7 @@ class Rewards(IconScoreBase):
     def _get_day(self) -> int:
         today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS
         return today
-
+    
     def _daily_dist(self, _day: int) -> int:
         if _day <= 60:
             return 10 ** 23

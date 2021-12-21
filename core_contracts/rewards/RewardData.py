@@ -93,13 +93,13 @@ class DataSource(object):
     def _compute_total_weight(self, previous_total_weight: int, emission: int, total_supply: int, last_update_time: int, current_time: int) -> int:
         # Return if there is no supply to emit based on or no emission
         if emission == 0 or total_supply == 0:
-            return 0
+            return previous_total_weight
         
         time_delta = current_time - last_update_time
 
         # We may decide to increase the max time delta to drop writes
         if time_delta == 0:
-            return 0
+            return previous_total_weight
         
         weight_delta = (emission * time_delta * EXA) // (DAY_IN_MICROSECONDS * total_supply)
         new_total_weight = previous_total_weight + weight_delta
@@ -115,20 +115,31 @@ class DataSource(object):
             last_update_timestamp = current_time
             self.last_update_time_us.set(current_time)
 
-        reward_day = self._rewards._get_day()
-
         # If the current time is equal to the last update time, don't emit any new rewards
         if current_time == last_update_timestamp:
             return previous_running_total
         
         # Emit rewards based on the time delta * reward rate
-        # dbrehmer - TODO: discuss/review here
-        emission = self.total_dist[reward_day]
-        new_total = self._compute_total_weight(previous_running_total, emission, total_supply, last_update_timestamp, current_time)
+        start_timestamp_us = self._rewards._start_timestamp.get()
+        previous_rewards_day = 0
+        previous_day_end_us = 0
 
-        # Debug code, remove before a live launch
-        if new_total < previous_running_total:
-            revert(f"Reward computation error, new_weight={new_total}, old_weight={previous_running_total}, emission={emission}")
+        while last_update_timestamp < current_time:
+            # Play forward all days
+            previous_rewards_day = (last_update_timestamp - start_timestamp_us) // DAY_IN_MICROSECONDS
+            previous_day_end_us = start_timestamp_us + (DAY_IN_MICROSECONDS *  (previous_rewards_day + 1))
+
+            end_compute_timestamp_us = min(previous_day_end_us, current_time)
+
+        
+            emission = self.total_dist[previous_rewards_day]
+            new_total = self._compute_total_weight(previous_running_total, emission, total_supply, last_update_timestamp, end_compute_timestamp_us)
+
+            # Debug code, remove before a live launch
+            if new_total < previous_running_total:
+                revert(f"Reward computation error, new_weight={new_total}, old_weight={previous_running_total}, emission={emission}")
+            
+            last_update_timestamp = end_compute_timestamp_us
         
         # Write new total weight to disk if it has changed
         if new_total > previous_running_total:
