@@ -233,6 +233,7 @@ class Loans(IconScoreBase):
         for asset in pos.asset_db.slist:
             if pos.flag[asset]:
                 continue
+            pos.flag[asset] = True
             if pos.asset_db[asset].is_collateral():
                 pos.position_collateral[asset] = pos.assets[asset]
             else:
