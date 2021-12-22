@@ -227,6 +227,18 @@ class Loans(IconScoreBase):
         self._loans_on.set(value)
         self.ContractActive("Loans", "Active" if value else "Inactive")
 
+    @external
+    def migrate_user_to_loans(self, address: Address):
+        pos = self._positions.get_pos(address)
+        for asset in pos.asset_db.slist:
+            if pos.flag[asset]:
+                continue
+            pos.flag[asset] = True
+            if pos.asset_db[asset].is_collateral():
+                pos.position_collateral[asset] = pos.assets[asset]
+            else:
+                pos.position_loans["sicx"][asset] = pos.assets[asset]
+
     @external(readonly=True)
     def getLoansOn(self) -> bool:
         return self._loans_on.get()
