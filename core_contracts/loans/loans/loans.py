@@ -196,7 +196,7 @@ class Loans(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        # self._continuous_reward_day.set(45)
+        self._continuous_reward_day.set(6)
 
     @external(readonly=True)
     def name(self) -> str:
@@ -208,6 +208,8 @@ class Loans(IconScoreBase):
         self._loans_on.set(True)
         self.ContractActive("Loans", "Active")
         self._current_day.set(self.getDay())
+        if self.getDay() < self._continuous_reward_day.get():
+            self._positions._snapshot_db.start_new_snapshot()
 
     @external
     @only_governance
@@ -289,6 +291,8 @@ class Loans(IconScoreBase):
         """
         Returns the current standing for a position.
         """
+        if _snapshot >= self._continuous_reward_day.get():
+            revert(f'{TAG} The continuous rewards is already active.')
         pos = self._positions.get_pos(_address)
         status = pos.get_standing(_snapshot, True)
         status['standing'] = Standing.STANDINGS[status['standing']]
@@ -351,6 +355,8 @@ class Loans(IconScoreBase):
         """
         Get account positions.
         """
+        if _day >= self._continuous_reward_day.get():
+            revert(f'{TAG} The continuous rewards is already active.')
         return self._positions[_index].to_dict(_day)
 
     @external(readonly=True)
@@ -431,6 +437,8 @@ class Loans(IconScoreBase):
         """
         Gets total outstanding debt for mining rewards calculation.
         """
+        if _snapshot_id >= self._continuous_reward_day.get():
+            revert(f'{TAG} The continuous rewards is already active.')
         return self._positions._snapshot_db[_snapshot_id].total_mining_debt.get()
 
     @external(readonly=True)
@@ -450,9 +458,10 @@ class Loans(IconScoreBase):
         """
         Returns the total bnUSD value of loans mining BALN for APY calculation.
         """
-        bnUSD_price = self._positions._snapshot_db[-2].prices['bnUSD']
-        loop_value = self._positions._snapshot_db[-2].total_mining_debt.get()
-        return EXA * loop_value // bnUSD_price
+        asset = self._assets['bnUSD']
+        bad_debt = asset.bad_debt.get()
+        total_suppy = asset.totalSupply()
+        return total_suppy - bad_debt
 
     @external(readonly=True)
     def getDataBatch(self, _name: str, _snapshot_id: int,
@@ -460,8 +469,8 @@ class Loans(IconScoreBase):
         """
         Read position data batch.
         """
-        if self.getDay() >= self._continuous_reward_day.get():
-            revert(f'{TAG}: The continuous rewards is already active.')
+        if _snapshot_id > self._continuous_reward_day.get():
+            revert(f'{TAG} The continuous rewards is already active.')
         batch = {}
         snapshot = self._positions._snapshot_db[_snapshot_id]
         total_mining = len(snapshot.mining)
@@ -478,13 +487,12 @@ class Loans(IconScoreBase):
     def checkForNewDay(self) -> (int, bool):
         day = self.getDay()
         new_day = False
-        if self._current_day.get() < day < self._continuous_reward_day.get():
+        current_day = self._current_day.get()
+        if current_day < day <= self._continuous_reward_day.get():
             new_day = True
             self._current_day.set(day)
             self._positions._take_snapshot()
-            self.check_dead_markets()
-        else:
-            self.check_dead_markets()
+        self.check_dead_markets()
         return day, new_day
 
     @loans_on

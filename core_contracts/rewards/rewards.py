@@ -85,7 +85,8 @@ class Rewards(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self._upate_addRecipientsToArrayDB()
+        # self._upate_addRecipientsToArrayDB()
+        self._continuous_rewards_day.set(6)
 
     def _upate_addRecipientsToArrayDB(self) -> None:
         for recipient in self._recipients:
@@ -258,6 +259,15 @@ class Rewards(IconScoreBase):
         return result
 
     @external(readonly=True)
+    def getDataSourcesAt(self, _day: int = -1) -> dict:
+        result = {}
+        for name in self._data_source_db:
+            source = self._data_source_db[name]
+            result[name] = source.get_data_at(_day)
+        return result
+
+
+    @external(readonly=True)
     def getSourceData(self, _name: str) -> dict:
         source = self._data_source_db[_name]
         return source.get_data()
@@ -315,6 +325,7 @@ class Rewards(IconScoreBase):
                 self._platform_day.set(platform_day + 1)
                 return False
         if day_of_continuous_rewards or not continuous_rewards_active:
+            self.DebugLog(f"Processing daily rewards: day={day}, continuous_rewards_day={continuous_rewards_day}")
             batch_size = self._batch_size.get()
             for name in self._data_source_db:
                 source = self._data_source_db[name]
@@ -363,12 +374,8 @@ class Rewards(IconScoreBase):
     @external
     def claimRewards(self) -> None:
         address = self.msg.sender
-        amount = self._baln_holdings[address]
-        self.DebugLog(f"Claiming Rewards: {address}, accrued: {amount / EXA}")
-
         current_time = self.now()
         self.distribute()
-        accrued_rewards = 0
 
 
         for data_source in self._data_source_db:
@@ -379,18 +386,19 @@ class Rewards(IconScoreBase):
             accrued_rewards = self._data_source_db[data_source].update_single_user_data(current_time, total_supply, address, balance)
         
             # Debugging statement
-            self.DebugLog(f"rewards accrued: {accrued_rewards/EXA}, prev_balance: {balance/EXA}, prev_supply: {total_supply/EXA}")
+            self.DebugLog(f"updating rewards - {data_source} accrued: {accrued_rewards/EXA}, prev_balance: {balance/EXA}, prev_supply: {total_supply/EXA}")
 
             # Update if nonzero only
             if accrued_rewards > 0:
                 self._baln_holdings[address] += accrued_rewards
                 self.RewardsAccrued(address, data_source, accrued_rewards)
         
-        if amount:
+        if self._baln_holdings[address] > 0:
+            accrued_rewards = self._baln_holdings[address]
             baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
             self._baln_holdings[address] = 0
-            baln_token.transfer(self.msg.sender, amount)
-            self.RewardsClaimed(self.msg.sender, amount)
+            baln_token.transfer(self.msg.sender, accrued_rewards)
+            self.RewardsClaimed(self.msg.sender, accrued_rewards)
 
     def _get_day(self) -> int:
         today = (self.now() - self._start_timestamp.get()) // DAY_IN_MICROSECONDS
@@ -479,7 +487,7 @@ class Rewards(IconScoreBase):
         accrued_rewards = self._data_source_db[source_name].update_single_user_data(current_time, prev_total_supply, user, prev_balance)
 
         # Debugging statement
-        self.DebugLog(f"rewards accrued: {accrued_rewards/EXA}, prev_balance: {prev_balance/EXA}, prev_supply: {prev_total_supply/EXA}")
+        self.DebugLog(f"updating rewards - {source_name} accrued: {accrued_rewards/EXA}, prev_balance: {prev_balance/EXA}, prev_supply: {prev_total_supply/EXA}")
 
         # Update if nonzero only
         if accrued_rewards > 0:
@@ -504,7 +512,7 @@ class Rewards(IconScoreBase):
 
             # Compute accrued rewards based on previous total supply and balance
             accrued_rewards = self._data_source_db[source_name].update_single_user_data(current_time, prev_total_supply, user, prev_balance)
-            self.DebugLog(f"rewards accrued: {accrued_rewards}, prev_balance: {prev_balance}, prev_supply: {prev_total_supply}")
+            self.DebugLog(f"updating rewards - {source_name} accrued: {accrued_rewards}, prev_balance: {prev_balance}, prev_supply: {prev_total_supply}")
 
             # Update if nonzero only to avoid extra writes
             if accrued_rewards > 0:
@@ -612,6 +620,21 @@ class Rewards(IconScoreBase):
     @external(readonly=True)
     def getTimeOffset(self) -> int:
         return self._start_timestamp.get()
+
+    @external
+    @only_governance
+    def setContinuousRewardsDay(self, _continuous_rewards_day: int) -> None:
+        """
+        :param _continuous_rewards_day: is day that continuous rewards are eanbled.
+        """
+        self._continuous_rewards_day.set(_continuous_rewards_day)
+
+    @external(readonly=True)
+    def getContinuousRewardsDay(self) -> int:
+        """
+        Returns the day that continuous rewards are enabled.
+        """
+        return self._continuous_rewards_day.get()
 
     # -------------------------------------------------------------------------------
     #   EVENT LOGS
