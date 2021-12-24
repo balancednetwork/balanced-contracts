@@ -109,6 +109,7 @@ class DataSource(object):
     def _update_total_weight(self, current_time: int, total_supply: int) -> int:
         previous_running_total = self.total_weight.get()
         last_update_timestamp = self.last_update_time_us.get()
+        original_last_update_timestamp = last_update_timestamp
 
         # Special case for the day1s
         if last_update_timestamp == 0:
@@ -144,8 +145,10 @@ class DataSource(object):
         # Write new total weight to disk if it has changed
         if new_total > previous_running_total:
             self.total_weight.set(new_total)
+
+        if current_time > original_last_update_timestamp:
             self.last_update_time_us.set(current_time)
-        
+
         return new_total
     
     def _compute_user_rewards(self, prev_user_balance: int, total_weight: int, user_weight: int) -> int:
