@@ -157,7 +157,7 @@ class DataSource(object):
         return delta_weight * prev_user_balance
     
     def compute_single_user_data(self, current_time, prev_total_supply: int, user: Address, prev_balance: int) -> int:
-        current_user_weight = self.user_weight[user]
+        current_user_weight = self.user_weight[str(user)]
         # Then, check the current weight of the pool, updating if necessary via the helper function
         total_weight = self._compute_total_weight(self.total_weight.get(), self.total_dist[self._rewards._get_day()], prev_total_supply, self.last_update_time_us.get(), current_time)
 
@@ -173,7 +173,7 @@ class DataSource(object):
 
     def update_single_user_data(self, current_time: int, prev_total_supply: int, user: Address, prev_balance: int) -> int:
         # First, get the current user's weight
-        current_user_weight = self.user_weight[user]
+        current_user_weight = self.user_weight[str(user)]
         # Then, check the current weight of the pool, updating if necessary via the helper function
         total_weight = self._update_total_weight(current_time, prev_total_supply)
 
@@ -185,7 +185,7 @@ class DataSource(object):
             if prev_balance > 0:
                 accrued_rewards = self._compute_user_rewards(prev_balance, total_weight, current_user_weight) // EXA
             # Update the user's weight to the current total weight regardless of reward
-            self.user_weight[user] = total_weight
+            self.user_weight[str(user)] = total_weight
         
         return accrued_rewards
 
@@ -227,7 +227,7 @@ class DataSource(object):
                     )
                 remaining -= token_share
                 shares -= data_batch[address]
-                self._rewards._baln_holdings[address] += token_share
+                self._rewards._baln_holdings[str(address)] += token_share
             self.total_dist[day] = remaining
             self.total_value[day] = shares
             self._rewards.Report(day, name, remaining, shares)

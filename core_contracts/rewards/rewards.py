@@ -115,11 +115,11 @@ class Rewards(IconScoreBase):
 
     @external(readonly=True)
     def getBalnHoldings(self, _holders: List[Address]) -> dict:
-        return {holder: self._baln_holdings[holder] for holder in _holders}
+        return {holder: self._baln_holdings[str(holder)] for holder in _holders}
 
     @external(readonly=True)
     def getBalnHolding(self, _holder: Address) -> int:
-        accrued_rewards = self._baln_holdings[_holder]
+        accrued_rewards = self._baln_holdings[str(_holder)]
 
         for data_source in self._data_source_db:
             data = self._data_source_db[data_source].load_current_supply(_holder)
@@ -390,13 +390,13 @@ class Rewards(IconScoreBase):
 
             # Update if nonzero only
             if accrued_rewards > 0:
-                self._baln_holdings[address] += accrued_rewards
+                self._baln_holdings[str(address)] += accrued_rewards
                 self.RewardsAccrued(address, data_source, accrued_rewards)
         
-        if self._baln_holdings[address] > 0:
-            accrued_rewards = self._baln_holdings[address]
+        if self._baln_holdings[str(address)] > 0:
+            accrued_rewards = self._baln_holdings[str(address)]
             baln_token = self.create_interface_score(self._baln_address.get(), TokenInterface)
-            self._baln_holdings[address] = 0
+            self._baln_holdings[str(address)] = 0
             baln_token.transfer(self.msg.sender, accrued_rewards)
             self.RewardsClaimed(self.msg.sender, accrued_rewards)
 
@@ -491,7 +491,7 @@ class Rewards(IconScoreBase):
 
         # Update if nonzero only
         if accrued_rewards > 0:
-            self._baln_holdings[user] += accrued_rewards
+            self._baln_holdings[str(user)] += accrued_rewards
             self.RewardsAccrued(user, source_name, accrued_rewards)
 
     @external
@@ -516,7 +516,7 @@ class Rewards(IconScoreBase):
 
             # Update if nonzero only to avoid extra writes
             if accrued_rewards > 0:
-                self._baln_holdings[user] += accrued_rewards
+                self._baln_holdings[str(user)] += accrued_rewards
                 self.RewardsAccrued(user, source_name, accrued_rewards)
 
 
