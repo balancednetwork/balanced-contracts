@@ -230,18 +230,37 @@ class Loans(IconScoreBase):
     @external
     def migrate_user_to_loans(self, address: Address):
         pos = self._positions.get_pos(address)
+        _id = pos.get_snapshot_id()
         for asset in pos.asset_db.slist:
             if pos.flag[asset]:
                 continue
             pos.flag[asset] = True
             if pos.asset_db[asset].is_collateral():
-                pos.position_collateral[asset] = pos.assets[asset]
+                pos.position_collateral[asset] = pos.assets[_id][asset]
             else:
-                pos.position_loans["sicx"][asset] = pos.assets[asset]
+                pos.position_loans["sICX"][asset] = pos.assets[_id][asset]
 
     @external(readonly=True)
     def getLoansOn(self) -> bool:
         return self._loans_on.get()
+
+    @external(readonly=True)
+    def checkValue(self, address: Address) -> dict:
+        pos = self._positions.get_pos(address)
+        lis = {'flag': {}, 'old': {}}
+
+        for asset in pos.asset_db.slist:
+            lis['flag'][asset] = pos.flag[asset]
+            lis['old'][asset] = pos.assets[1][asset]
+            if pos.asset_db[asset].is_collateral():
+                amount = pos.position_collateral[asset]
+                lis[asset] = amount
+            else:
+                lis[asset] = {}
+                for collateral in pos.asset_db.aclist:
+                    amount = pos.position_loans[collateral][asset]
+                    lis[asset][collateral] = amount
+        return lis
 
     @external(readonly=True)
     def getDay(self) -> int:

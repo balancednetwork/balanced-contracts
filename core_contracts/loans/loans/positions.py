@@ -324,7 +324,8 @@ class Position(object):
             return {}
         assets = {}
         for asset in self.asset_db.slist:
-            if not asset.is_active():
+            _asset = self.asset_db[asset]
+            if not _asset.is_active():
                 continue
             if self.flag[asset] and _day == -1:
                 if asset == 'sICX':
