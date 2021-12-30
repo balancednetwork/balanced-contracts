@@ -21,6 +21,7 @@ class BalancedAddresses(TypedDict):
     baln: Address
     bwt: Address
     router: Address
+    rebalancing: Address
     feehandler: Address
     stakedLp: Address
 

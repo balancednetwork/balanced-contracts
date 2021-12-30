@@ -241,7 +241,6 @@ class Position(object):
         """
         Calculates the standing for a position. Uses the readonly method for
         asset prices if the _readonly flag is True.
-
         :return: Total debt, collateralization ration, enum of standing from class Standing.
         :rtype: dict
         """
@@ -261,10 +260,32 @@ class Position(object):
 
         ratio = collateral * EXA // debt
 
-        if ratio > self._loans._liquidation_ratio.get() * EXA // POINTS:
-            standing = Standing.MINING
+        if self._loans.getDay() < self._loans._continuous_reward_day.get():
+            if ratio > self._loans._mining_ratio.get() * EXA // POINTS:
+                if _day == -1 or _day == self._loans.getDay():
+                    if _readonly:
+                        price = self.asset_db["bnUSD"].lastPriceInLoop()
+                    else:
+                        price = self.asset_db["bnUSD"].priceInLoop()
+                else:
+                    price = self.snaps_db[_day].prices["bnUSD"]
+
+                bnUSD_debt: int = debt * EXA // price
+                if bnUSD_debt < self._loans._min_mining_debt.get():
+                    standing = Standing.NOT_MINING
+                else:
+                    standing = Standing.MINING
+            elif ratio > self._loans._locking_ratio.get() * EXA // POINTS:
+                standing = Standing.NOT_MINING
+            elif ratio > self._loans._liquidation_ratio.get() * EXA // POINTS:
+                standing = Standing.LOCKED
+            else:
+                standing = Standing.LIQUIDATE
         else:
-            standing = Standing.LIQUIDATE
+            if ratio > self._loans._liquidation_ratio.get() * EXA // POINTS:
+                standing = Standing.MINING
+            else:
+                standing = Standing.LIQUIDATE
 
         status['ratio'] = ratio
         status['standing'] = standing
@@ -302,7 +323,8 @@ class Position(object):
             return {}
         assets = {}
         for asset in self.asset_db.slist:
-            if not asset.is_active():
+            _asset = self.asset_db[asset]
+            if not _asset.is_active():
                 continue
             if self.flag[asset] and _day == -1:
                 if asset == 'sICX':

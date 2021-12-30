@@ -498,7 +498,7 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
-    def launchBalanced(self, _hour: int = None) -> None:
+    def launchBalanced(self) -> None:
 
         if self._launched.get():
             return
@@ -513,10 +513,6 @@ class Governance(IconScoreBase):
         # Minimum day value is 1 since 0 is the default value for uninitialized storage.
 
         time_delta = DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1)
-        if self.is_dev:
-            if _hour is None:
-                revert("_hour cannot be  None while in dev mode.")
-            time_delta = _hour + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1)
         loans.setTimeOffset(time_delta)
         dex.setTimeOffset(time_delta)
         rewards.setTimeOffset(time_delta)
