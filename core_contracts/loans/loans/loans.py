@@ -229,6 +229,8 @@ class Loans(IconScoreBase):
 
     @external
     def migrate_user_to_loans(self, address: Address):
+        if self.getDay() < self._continuous_reward_day.get():
+            revert(f"This method can be called only after continuous rewards day is active.")
         pos = self._positions.get_pos(address)
         _id = pos.get_snapshot_id()
         for asset in pos.asset_db.slist:

@@ -316,7 +316,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
     def _create_bnusd_market(self):
         contract = "governance"
         print(f"----------------------------Calling {contract} contract-------------------------------------------")
-        self.send_tx(self.btest_wallet, to=self.contracts[contract], value=4000000 * self.icx_factor,
+        self.send_tx(self.btest_wallet, to=self.contracts[contract], value=400000 * self.icx_factor,
                      method='createBnusdMarket')
 
     def update(self, name):
