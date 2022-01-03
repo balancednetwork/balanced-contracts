@@ -171,6 +171,7 @@ class Dividends(IconScoreBase):
 
     _CLAIMED_BIT_MAP = "claimed_bit_map_"
     _TIME_OFFSET = "time_offset"
+    _DIVIDENDS_ENABLED_TO_STAKED_BALN_ONLY_DAY = "dividends_enabled_to_staked_baln_only_day"
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
@@ -221,6 +222,8 @@ class Dividends(IconScoreBase):
         self._dividends_batch_size = VarDB(self._DIVIDENDS_BATCH_SIZE, db, value_type=int)
 
         self._time_offset = VarDB(self._TIME_OFFSET, db, value_type=int)
+        self._dividends_enabled_to_staked_baln_day = VarDB(self._DIVIDENDS_ENABLED_TO_STAKED_BALN_ONLY_DAY, db,
+                                                           value_type=int)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
@@ -322,6 +325,17 @@ class Dividends(IconScoreBase):
     @external(readonly=True)
     def getDex(self) -> Address:
         return self._dex_score.get()
+
+    @external
+    @only_admin
+    def setDividendsOnlyToStakedBalnDay(self, _day: int) -> None:
+        if _day <= self._snapshot_id.get():
+            revert(f"{TAG}: Day should be greater than the current snapshot ID.")
+        self._dividends_enabled_to_staked_baln_day.set(_day)
+
+    @external(readonly=True)
+    def getDividendsOnlyToStakedBalnDay(self) -> int:
+        return self._dividends_enabled_to_staked_baln_day.get()
 
     @external(readonly=True)
     def getBalances(self) -> dict:
@@ -629,17 +643,20 @@ class Dividends(IconScoreBase):
 
         my_baln_from_pools = 0
         total_baln_from_pools = 0
-        for pool_id in (BALNBNUSD_ID, BALNSICX_ID):
-            my_lp = dex_score.balanceOfAt(_account, pool_id, _day)
-            total_lp = dex_score.totalSupplyAt(pool_id, _day)
-            total_baln = dex_score.totalBalnAt(pool_id, _day)
+        dividends_switching_day = self._dividends_enabled_to_staked_baln_day.get()
 
-            equivalent_baln = 0
-            if my_lp > 0 and total_lp > 0 and total_baln > 0:
-                equivalent_baln = (my_lp * total_baln) // total_lp
+        if dividends_switching_day == 0 or _day < dividends_switching_day:
+            for pool_id in (BALNBNUSD_ID, BALNSICX_ID):
+                my_lp = dex_score.balanceOfAt(_account, pool_id, _day)
+                total_lp = dex_score.totalSupplyAt(pool_id, _day)
+                total_baln = dex_score.totalBalnAt(pool_id, _day)
 
-            my_baln_from_pools += equivalent_baln
-            total_baln_from_pools += total_baln
+                equivalent_baln = 0
+                if my_lp > 0 and total_lp > 0 and total_baln > 0:
+                    equivalent_baln = (my_lp * total_baln) // total_lp
+
+                my_baln_from_pools += equivalent_baln
+                total_baln_from_pools += total_baln
 
         my_total_baln_token = staked_baln + my_baln_from_pools
         total_baln_token = total_staked_baln + total_baln_from_pools
