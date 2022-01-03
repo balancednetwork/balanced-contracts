@@ -93,13 +93,13 @@ class DataSource(object):
     def _compute_total_weight(self, previous_total_weight: int, emission: int, total_supply: int, last_update_time: int, current_time: int) -> int:
         # Return if there is no supply to emit based on or no emission
         if emission == 0 or total_supply == 0:
-            return 0
+            return previous_total_weight
         
         time_delta = current_time - last_update_time
 
         # We may decide to increase the max time delta to drop writes
         if time_delta == 0:
-            return 0
+            return previous_total_weight
         
         weight_delta = (emission * time_delta * EXA) // (DAY_IN_MICROSECONDS * total_supply)
         new_total_weight = previous_total_weight + weight_delta
@@ -109,32 +109,46 @@ class DataSource(object):
     def _update_total_weight(self, current_time: int, total_supply: int) -> int:
         previous_running_total = self.total_weight.get()
         last_update_timestamp = self.last_update_time_us.get()
+        original_last_update_timestamp = last_update_timestamp
 
         # Special case for the day1s
         if last_update_timestamp == 0:
             last_update_timestamp = current_time
             self.last_update_time_us.set(current_time)
 
-        reward_day = self._rewards._get_day()
-
         # If the current time is equal to the last update time, don't emit any new rewards
         if current_time == last_update_timestamp:
             return previous_running_total
         
         # Emit rewards based on the time delta * reward rate
-        # dbrehmer - TODO: discuss/review here
-        emission = self.total_dist[reward_day]
-        new_total = self._compute_total_weight(previous_running_total, emission, total_supply, last_update_timestamp, current_time)
+        start_timestamp_us = self._rewards._start_timestamp.get()
+        previous_rewards_day = 0
+        previous_day_end_us = 0
 
-        # Debug code, remove before a live launch
-        if new_total < previous_running_total:
-            revert(f"Reward computation error, new_weight={new_total}, old_weight={previous_running_total}, emission={emission}")
+        while last_update_timestamp < current_time:
+            # Play forward all days
+            previous_rewards_day = (last_update_timestamp - start_timestamp_us) // DAY_IN_MICROSECONDS
+            previous_day_end_us = start_timestamp_us + (DAY_IN_MICROSECONDS *  (previous_rewards_day + 1))
+
+            end_compute_timestamp_us = min(previous_day_end_us, current_time)
+
+        
+            emission = self.total_dist[previous_rewards_day]
+            new_total = self._compute_total_weight(previous_running_total, emission, total_supply, last_update_timestamp, end_compute_timestamp_us)
+
+            # Debug code, remove before a live launch
+            if new_total < previous_running_total:
+                revert(f"Reward computation error, new_weight={new_total}, old_weight={previous_running_total}, emission={emission}")
+            
+            last_update_timestamp = end_compute_timestamp_us
         
         # Write new total weight to disk if it has changed
         if new_total > previous_running_total:
             self.total_weight.set(new_total)
+
+        if current_time > original_last_update_timestamp:
             self.last_update_time_us.set(current_time)
-        
+
         return new_total
     
     def _compute_user_rewards(self, prev_user_balance: int, total_weight: int, user_weight: int) -> int:
@@ -143,7 +157,7 @@ class DataSource(object):
         return delta_weight * prev_user_balance
     
     def compute_single_user_data(self, current_time, prev_total_supply: int, user: Address, prev_balance: int) -> int:
-        current_user_weight = self.user_weight[user]
+        current_user_weight = self.user_weight[str(user)]
         # Then, check the current weight of the pool, updating if necessary via the helper function
         total_weight = self._compute_total_weight(self.total_weight.get(), self.total_dist[self._rewards._get_day()], prev_total_supply, self.last_update_time_us.get(), current_time)
 
@@ -159,7 +173,7 @@ class DataSource(object):
 
     def update_single_user_data(self, current_time: int, prev_total_supply: int, user: Address, prev_balance: int) -> int:
         # First, get the current user's weight
-        current_user_weight = self.user_weight[user]
+        current_user_weight = self.user_weight[str(user)]
         # Then, check the current weight of the pool, updating if necessary via the helper function
         total_weight = self._update_total_weight(current_time, prev_total_supply)
 
@@ -171,7 +185,7 @@ class DataSource(object):
             if prev_balance > 0:
                 accrued_rewards = self._compute_user_rewards(prev_balance, total_weight, current_user_weight) // EXA
             # Update the user's weight to the current total weight regardless of reward
-            self.user_weight[user] = total_weight
+            self.user_weight[str(user)] = total_weight
         
         return accrued_rewards
 
@@ -213,7 +227,7 @@ class DataSource(object):
                     )
                 remaining -= token_share
                 shares -= data_batch[address]
-                self._rewards._baln_holdings[address] += token_share
+                self._rewards._baln_holdings[str(address)] += token_share
             self.total_dist[day] = remaining
             self.total_value[day] = shares
             self._rewards.Report(day, name, remaining, shares)

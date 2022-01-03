@@ -196,7 +196,7 @@ class Loans(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self._continuous_reward_day.set(6)
+        # self._continuous_reward_day.set(45)
 
     @external(readonly=True)
     def name(self) -> str:
@@ -208,6 +208,7 @@ class Loans(IconScoreBase):
         self._loans_on.set(True)
         self.ContractActive("Loans", "Active")
         self._current_day.set(self.getDay())
+        # if self.getDay() < self._continuous_reward_day.get():
         self._positions._snapshot_db.start_new_snapshot()
 
     @external
@@ -469,6 +470,15 @@ class Loans(IconScoreBase):
     @external(readonly=True)
     def getBalanceAndSupply(self, _name: str, _owner: Address) -> dict:
         if _name == "Loans":
+            position = self._positions
+            _id = position.addressID[_owner]
+            if _id < 1:
+                rewardsData = {
+                    "_balance": 0,
+                    "_totalSupply": 0
+                }
+                return rewardsData
+            pos = position.__getitem__(_id)
             pos = self._positions.get_pos(_owner)
             asset = self._assets['bnUSD']
             rewardsData = {

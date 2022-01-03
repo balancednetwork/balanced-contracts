@@ -23,3 +23,18 @@ The repository structure is:
   - `bnUSD` - Synthetic US Dollar, based on the band oracle price. Can be minted by locking up collateral (sICX)
   - `bwt` - Balanced worker token, given to core contributers as pay and earns a part of the inflation
   - `sicx` - staked ICX token, allows users to transact a staked token. Staking contract will allow choice of prep voted for in an update
+
+
+# Running the Test suite
+
+1. First, ensure that tbears is running on your machine. You can set it (although it says mainnet, it is a devnet config) up with:
+
+```
+docker run -it --name tbears-container -p 9000:9000 iconloop/tbears:mainnet
+```
+
+2. Run the tests
+```
+tbears test .
+```
+
