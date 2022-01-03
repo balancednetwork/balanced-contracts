@@ -236,7 +236,6 @@ class Dividends(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self._upate_addCategoriesToArrayDB()
 
     def _upate_addCategoriesToArrayDB(self) -> None:
         for categories in self._dividends_categories:
