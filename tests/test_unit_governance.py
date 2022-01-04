@@ -421,7 +421,7 @@ class TestGovernanceUnit(ScoreTestCase):
                                stakedBalanceOfAt=5)
         with mock.patch.object(self.governance, "create_interface_score", wraps=mock_class.patch_internal):
             vote = self.governance.myVotingWeight(self.test_account1, 1)
-            self.assertEqual((2 * (1 * 3 // 2) + 5), vote)
+            self.assertEqual(5, vote)
 
     def test_addDataSource(self):
         mock_class = MockClass(balanceOfAt=1, totalSupplyAt=2, totalBalnAt=3, totalStakedBalanceOfAt=4,
