@@ -25,7 +25,7 @@ ADDRESSES = {'loans': ['rewards', 'dividends', 'staking', 'reserve'],
              'bwt': ['baln'],
              'router': ['dex', 'sicx', 'staking'],
              'feehandler': [],
-             'stabilityfund': ['dex', 'sicx', 'bnUSD', 'rebalancing']}
+             'stabilityfund': ['dex', 'sicx', 'bnUSD', 'rebalancing', 'daofund']}
 
 ADMIN_ADDRESSES = {'loans': 'governance',
                    'dex': 'governance',
