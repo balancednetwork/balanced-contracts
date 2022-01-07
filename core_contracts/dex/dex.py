@@ -1771,6 +1771,12 @@ class DEX(IconScoreBase):
 
         else:
 
+            pool_base = self._pool_base[_id]
+            pool_quote = self._pool_quote[_id]
+
+            if (pool_base != _baseToken) or (pool_quote != _quoteToken):
+                revert(f"Must supply {_baseToken} as base and {_quoteToken} as quote for pool {_id}")
+
             # We will commit up to the supplied assets, and refund the rest
             base_from_quote = (_quoteValue * self._pool_total[_id][self._pool_base[_id]]) // (
                 self._pool_total[_id][self._pool_quote[_id]])
@@ -1796,6 +1802,9 @@ class DEX(IconScoreBase):
             liquidity_from_quote = (self._total[_id] * quote_to_commit) // self._pool_total[_id][_quoteToken]
 
             liquidity = min(liquidity_from_base, liquidity_from_quote)
+
+            if liquidity <= 0:
+                revert(f"Cannot receive {liquidity} LP tokens")
 
         # Apply the funds to the pool and add LP tokens
         self._pool_total[_id][_baseToken] += base_to_commit
