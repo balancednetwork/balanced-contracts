@@ -17,7 +17,7 @@ class FeeHandler(IconScoreBase):
         self._governance = VarDB("governance", db, Address)
         self._enabled = VarDB("enabled", db, bool)
         self._allowed_addresses = ArrayDB("allowed_address", db, Address)
-        self._current_allowed_addresses_index = VarDB("_current_allowed_addresses_index", db, int)
+        self._next_allowed_addresses_index = VarDB("_next_allowed_addresses_index", db, int)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
@@ -200,24 +200,31 @@ class FeeHandler(IconScoreBase):
         Converts and sends fees held by the fee handler to destination contract
         :return:
         """
-        starting_index = self._current_allowed_addresses_index.get()
+        starting_index = self._next_allowed_addresses_index.get()
         current_index = starting_index
-        balance = 0
-        address = None
+        loop_flag = False
 
         allowed_addresses_length = len(self._allowed_addresses)
         if not allowed_addresses_length:
             revert(f"{TAG}: No allowed addresses.")
 
-        while not balance:
-            address = self._allowed_addresses[current_index]
-            balance = self._getTokenBalance(address)
-            current_index += 1
+        while True:
             if current_index >= allowed_addresses_length:
                 current_index = 0
-            if current_index == starting_index and balance == 0:
-                revert(f"{TAG}: Contract has no balance for any of the allowed addresses.")
-        self._current_allowed_addresses_index.set(current_index)
+
+            address = self._allowed_addresses[current_index]
+            balance = self._getTokenBalance(address)
+
+            if balance:
+                break
+            else:
+                if loop_flag and (starting_index == current_index):
+                    revert("No fees on the contract")
+                current_index += 1
+                if not loop_flag:
+                    loop_flag = True
+                continue
+        self._next_allowed_addresses_index.set(current_index + 1)
 
         try:
             # Raises JSONDecodeError if trying to decode an empty string.
