@@ -179,7 +179,7 @@ class FeeHandler(IconScoreBase):
         :param address: Address to be added
         :return:
         """
-        if not _address.is_contract:
+        if not address.is_contract:
             revert(f"{TAG}: Address provided is an EOA address. A contract address is required.")
         self._allowed_addresses.put(address)
 
