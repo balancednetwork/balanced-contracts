@@ -680,6 +680,61 @@ class Loans(IconScoreBase):
 
     @loans_on
     @external
+    def sellCollateral(self, _amount_of_collateral: int) -> None:
+        """
+        This function will pay off debt from sender by
+        selling _amount_of_collateral collateral.
+        :param _amount_of_collateral: Number of token to be sold.
+        :type _amount_of_collateral: int
+        """
+        _from = self.msg.sender
+        if not self._positions._exists(_from):
+            revert(f'{TAG}: No collateral sold because, '
+                   f'{_from} does not have a position in Balanced')
+        if not _amount_of_collateral > 0:
+            revert(f'{TAG}: Amount of Collateral must be greater than zero.')
+
+        _symbol = "bnUSD"
+        asset = self._assets[_symbol]
+        position = self._positions.get_pos(_from)
+        user_debt = position["bnUSD"]
+        user_sICX = position['sICX'] 
+        if _amount_of_collateral >= user_sICX:
+            revert(f'{TAG}: Deposited collateral must be equal or greater than amount to be sold.')
+
+        swap_data = b'{"method":"_swap","params":{"toToken":"' + str(asset.get_address()).encode('utf-8') + b'"}}'
+        self._bnUSD_expected.set(True)
+        self._send_token('sICX', self._dex.get(), _amount_of_collateral, "sICX swapped for bnUSD", swap_data)
+        bnusd_received = self._bnUSD_received.get()
+        self._bnUSD_received.set(0)
+        self._bnUSD_expected.set(False)
+
+        if bnusd_received >= user_debt:
+            revert(f'{TAG}: Repaid amount is greater than the amount in the position of {_from}')
+
+        check_day = self.getDay() < self._continuous_reward_day.get()
+    
+        day, new_day = self.checkForNewDay()
+        self.checkDistributions(day, new_day)
+        old_supply = asset.totalSupply()
+
+        position["bnUSD"] -= bnusd_received
+        position['sICX'] -= _amount_of_collateral
+        asset.burnFrom(self.address, bnusd_received)
+
+        if check_day:
+            pos_id = position.id.get()
+            if not position.has_debt():
+                self._positions.remove_nonzero(pos_id)
+        else:
+            rewards = self.create_interface_score(self._rewards.get(), Rewards)
+            rewards.updateRewardsData("Loans", old_supply, _from, user_debt)
+
+        self.CollateralSold(_from, _amount_of_collateral, bnusd_received)
+        asset.is_dead()
+
+    @loans_on
+    @external
     @only_rebalance
     def raisePrice(self, _total_tokens_required: int) -> None:
         """
@@ -1212,6 +1267,10 @@ class Loans(IconScoreBase):
 
     @eventlog(indexed=3)
     def BadDebtRetired(self, account: Address, symbol: str, amount: int, sicx_received: int):
+        pass
+
+    @eventlog(indexed=3)
+    def CollateralSold(self, account: Address, collateral_sold: int, dept_repaid: int):
         pass
 
     @eventlog(indexed=2)
