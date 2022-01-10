@@ -225,7 +225,7 @@ class Rebalancing(IconScoreBase):
     @external
     def rebalance(self) -> None:
         """
-        Balanced the sICX/bnUSD price on the DEX. If there are funds in the stability fund, 
+        Balances the sICX/bnUSD price on the DEX. If there are funds in the stability fund, 
         then that is used. If there are no funds in the stability fund, then the loans contract is used. 
         """
         higher, token_amount, lower = self.getRebalancingStatus()
