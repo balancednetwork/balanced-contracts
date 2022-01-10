@@ -231,7 +231,7 @@ class Loans(IconScoreBase):
     def get_ltv(self, symbol: str) -> int :
         return self._assets[symbol].get_ltv()
 
-    @external
+    @external(readonly=True)
     def get_origination_fee(self, symbol: str) -> int:
         return self._assets[symbol].set_origination_fee()
 
