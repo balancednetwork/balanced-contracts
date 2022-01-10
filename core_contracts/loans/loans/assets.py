@@ -17,6 +17,7 @@ from ..scorelib.linked_list import *
 TAG = 'BalancedLoansAssets'
 ASSET_DB_PREFIX = b'asset'
 
+
 # An interface of token to distribute daily rewards
 class TokenInterface(InterfaceScore):
     @interface
@@ -61,6 +62,7 @@ class Asset(object):
     def __init__(self, db: IconScoreDatabase, loans: IconScoreBase) -> None:
         self._db = db
         self._loans = loans
+
         self.added = VarDB('added', db, value_type=int)
         self.asset_address = VarDB('address', db, value_type=Address)
         self.bad_debt = VarDB('bad_debt', db, value_type=int)
@@ -68,7 +70,31 @@ class Asset(object):
         self._burned = VarDB('burned', db, value_type=int)
         self._is_collateral = VarDB('is_collateral', db, value_type=bool)
         self._active = VarDB('active', db, value_type=bool)
+
+        self._loan_to_value = VarDB('_loan_to_value', db, int)
+        self._origination_fee = VarDB("_origination_fee", db, int)
+
         self.dead_market = VarDB('dead_market', db, value_type=bool)
+
+    def get_ltv(self):
+        return self._loan_to_value.get()
+
+    def get_origination_fee(self):
+        return self._origination_fee.get()
+
+    def set_ltv(self, value: int) -> None:
+        if not self._is_collateral:
+            revert("Value can only be set for collateral assets.")
+        if not (0 >= value >= 10000):
+            revert("Value should be between 0 and 10000.")
+        self._loan_to_value.set(value)
+
+    def set_origination_fee(self, value: int) -> None:
+        if not self._is_collateral:
+            revert("Value can only be set for collateral assets.")
+        if not (0 >= value >= 10000):
+            revert("Value should be between 0 and 10000.")
+        self._origination_fee.set(value)
 
     def symbol(self) -> str:
         token = self._loans.create_interface_score(self.asset_address.get(), TokenInterface)
@@ -242,13 +268,21 @@ class AssetsDB:
             assets[symbol] = asset.lastPriceInLoop()
         return assets
 
-    def add_asset(self, _address: Address, is_active: bool = True, is_collateral: bool = False) -> None:
+    def add_asset(self, _address: Address, is_active: bool = True, is_collateral: bool = False,
+                  _origination_fee: int = None, _ltv: int = None) -> None:
         address = str(_address)
         if _address in self.alist:
             revert(f'{TAG}: {address} already exists in the database.')
         self.alist.put(_address)
         asset = self._get_asset(address)
         asset.asset_address.set(_address)
+        if is_collateral:
+            if _origination_fee is None:
+                revert("Invalid value for origination fee.")
+            if _ltv is None:
+                revert("Invalid value for LTV.")
+            asset.set_origination_fee(_origination_fee)
+            asset.set_ltv(_ltv)
         asset.added.set(self._loans.now())
         symbol = asset.symbol()
         self.slist.put(symbol)

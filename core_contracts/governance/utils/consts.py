@@ -55,6 +55,7 @@ RECIPIENTS = [{'recipient_name': 'Loans', 'dist_percent': 25 * 10**16},
 # LOANS LAUNCH CONFIG
 #-------------------------------------------------------------------------------
 
+# TODO: Bigya: add defaults ltv and origination for collaterals
 ASSETS = [{'address': 'sicx', 'active': True, 'collateral': True},
           {'address': 'bnUSD', 'active': True, 'collateral': False},
           {'address': 'baln', 'active': False, 'collateral': True}]

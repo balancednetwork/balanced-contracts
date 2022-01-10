@@ -658,9 +658,9 @@ class Governance(IconScoreBase):
         loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         loans.setLockingRatio(_value)
 
-    def setOriginationFee(self, _fee: int):
+    def setOriginationFee(self, symbol: str, _fee: int):
         loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
-        loans.setOriginationFee(_fee)
+        loans.setOriginationFee(symbol, _fee)
 
     def setLiquidationRatio(self, _ratio: int):
         loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
@@ -698,12 +698,14 @@ class Governance(IconScoreBase):
     @only_owner
     def addAsset(self, _token_address: Address,
                  _active: bool = True,
-                 _collateral: bool = False) -> None:
+                 _collateral: bool = False,
+                 _origination_fee: int = None,
+                 _ltv: int = None) -> None:
         """
         Adds a token to the assets dictionary on the Loans contract.
         """
         loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
-        loans.addAsset(_token_address, _active, _collateral)
+        loans.addAsset(_token_address, _active, _collateral, _origination_fee, _ltv)
         asset = self.create_interface_score(_token_address, AssetInterface)
         asset.setAdmin(self.addresses['loans'])
 

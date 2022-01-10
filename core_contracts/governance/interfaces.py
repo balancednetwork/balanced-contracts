@@ -96,7 +96,9 @@ class LoansInterface(InterfaceScore):
     @interface
     def addAsset(self, _token_address: Address,
                  _active: bool = True,
-                 _collateral: bool = False) -> None:
+                 _collateral: bool = False,
+                 _origination_fee: int = None,
+                 _ltv: int = None) -> None:
         pass
 
     @interface
@@ -152,7 +154,7 @@ class LoansInterface(InterfaceScore):
         pass
 
     @interface
-    def setOriginationFee(self, _fee: int) -> None:
+    def setOriginationFee(self, symbol: str, _fee: int) -> None:
         pass
 
     @interface
