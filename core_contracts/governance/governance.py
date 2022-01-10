@@ -39,9 +39,13 @@ class Governance(IconScoreBase):
         self._bnusd_vote_definition_fee = VarDB('definition_fee', db, int)
         self._quorum = VarDB('quorum', db, int)
 
+        # IS DEV flag
+        self.is_dev = VarDB("is_dev", db, bool)
+
     def on_install(self) -> None:
         super().on_install()
         self._launched.set(False)
+        self.is_dev.set(True)
 
     def on_update(self) -> None:
         super().on_update()
@@ -77,6 +81,30 @@ class Governance(IconScoreBase):
         :param duration: number of days a vote will be active once started
         """
         self._vote_duration.set(duration)
+
+    @external
+    @only_owner
+    def set_zero_hour_dev(self, _hour: int) -> None:
+        if not self.is_dev.get():
+            revert("DEV only function.")
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
+
+        time_delta = _hour + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1)
+        loans.setTimeOffset(time_delta)
+        dex.setTimeOffset(time_delta)
+        rewards.setTimeOffset(time_delta)
+
+    @external
+    @only_owner
+    def setContinuousRewardsDay(self, _day: int) -> None:
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.setContinuousRewardsDay(_day)
+        dex = self.create_interface_score(self.addresses['dex'], DexInterface)
+        dex.setContinuousRewardsDay(_day)
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
+        rewards.setContinuousRewardsDay(_day)
 
     @external(readonly=True)
     def getVoteDuration(self) -> int:
@@ -265,10 +293,9 @@ class Governance(IconScoreBase):
         snapshot = proposal.vote_snapshot.get()
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         stake = baln.stakedBalanceOfAt(sender, snapshot)
-        dex_pool = self._get_pool_baln(sender, snapshot)
-        total_vote = stake + dex_pool
+        total_vote = stake
         if total_vote == 0:
-            revert(f'Balanced tokens need to be staked or BALN liquidity provided to a DEX pool to cast the vote.')
+            revert(f'Balanced tokens need to be staked to cast the vote.')
         prior_vote = (proposal.for_votes_of_user[sender], proposal.against_votes_of_user[sender])
         total_for_votes = proposal.total_for_votes.get()
         total_against_votes = proposal.total_against_votes.get()
@@ -301,25 +328,6 @@ class Governance(IconScoreBase):
         proposal.total_for_votes.set(total_for)
         proposal.total_against_votes.set(total_against)
         self.VoteCast(proposal.name.get(), vote, sender, total_vote, total_for, total_against)
-
-    def _get_pool_baln(self, _account: Address, _day: int) -> int:
-
-        dex_score = self.create_interface_score(self.addresses['dex'], DexInterface)
-
-        my_baln_from_pools = 0
-        for pool_id in (BALNBNUSD_ID, BALNSICX_ID):
-            my_lp = dex_score.balanceOfAt(_account, pool_id, _day)
-            total_lp = dex_score.totalSupplyAt(pool_id, _day)
-            total_baln = dex_score.totalBalnAt(pool_id, _day)
-
-            equivalent_baln = 0
-            if my_lp > 0 and total_lp > 0 and total_baln > 0:
-                equivalent_baln = (my_lp * total_baln) // total_lp
-
-            my_baln_from_pools += equivalent_baln
-
-        my_total_baln_token = my_baln_from_pools
-        return my_total_baln_token
 
     @external(readonly=True)
     def totalBaln(self, _day: int) -> int:
@@ -448,8 +456,7 @@ class Governance(IconScoreBase):
     def myVotingWeight(self, _address: Address, _day: int) -> int:
         baln = self.create_interface_score(self.addresses['baln'], BalancedInterface)
         stake = baln.stakedBalanceOfAt(_address, _day)
-        dex_pool = self._get_pool_baln(_address, _day)
-        total_vote = stake + dex_pool
+        total_vote = stake
         return total_vote
 
     @external
@@ -473,6 +480,7 @@ class Governance(IconScoreBase):
     @external
     @only_owner
     def launchBalanced(self) -> None:
+
         if self._launched.get():
             return
         self._launched.set(True)
@@ -484,6 +492,7 @@ class Governance(IconScoreBase):
         self._set_launch_day(day)
         self._set_launch_time(self.now())
         # Minimum day value is 1 since 0 is the default value for uninitialized storage.
+
         time_delta = DAY_START + U_SECONDS_DAY * (DAY_ZERO + self._launch_day.get() - 1)
         loans.setTimeOffset(time_delta)
         dex.setTimeOffset(time_delta)
@@ -506,12 +515,14 @@ class Governance(IconScoreBase):
         dex_address = self.addresses['dex']
         sICX_address = self.addresses['sicx']
         bnUSD_address = self.addresses['bnUSD']
+        stakedLp_address = self.addresses['stakedLp']
         staking = self.create_interface_score(self.addresses['staking'], StakingInterface)
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         bnUSD = self.create_interface_score(bnUSD_address, AssetInterface)
         sICX = self.create_interface_score(sICX_address, AssetInterface)
         dex = self.create_interface_score(dex_address, DexInterface)
+        stakedLp = self.create_interface_score(stakedLp_address, StakedLpInterface)
         price = bnUSD.priceInLoop()
         amount = EXA * value // (price * 7)
         staking.icx(value // 7).stakeICX()
@@ -525,6 +536,7 @@ class Governance(IconScoreBase):
         pid = dex.getPoolId(sICX_address, bnUSD_address)
         dex.setMarketName(pid, name)
         rewards.addNewDataSource(name, dex_address)
+        stakedLp.addPool(pid)
         recipients = [{'recipient_name': 'Loans', 'dist_percent': 25 * 10 ** 16},
                       {'recipient_name': 'sICX/ICX', 'dist_percent': 10 * 10 ** 16},
                       {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10 ** 16},
@@ -539,11 +551,13 @@ class Governance(IconScoreBase):
         dex_address = self.addresses['dex']
         bnUSD_address = self.addresses['bnUSD']
         baln_address = self.addresses['baln']
+        stakedLp_address = self.addresses['stakedLp']
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         baln = self.create_interface_score(baln_address, BalancedInterface)
         bnUSD = self.create_interface_score(bnUSD_address, AssetInterface)
         dex = self.create_interface_score(dex_address, DexInterface)
+        stakedLp = self.create_interface_score(stakedLp_address, StakedLpInterface)
         rewards.claimRewards()
         loans.depositAndBorrow('bnUSD', _bnUSD_amount)
         bnUSD.transfer(dex_address, _bnUSD_amount, json_dumps({"method": "_deposit"}).encode())
@@ -553,6 +567,7 @@ class Governance(IconScoreBase):
         pid = dex.getPoolId(baln_address, bnUSD_address)
         dex.setMarketName(pid, name)
         rewards.addNewDataSource(name, dex_address)
+        stakedLp.addPool(pid)
         recipients = [{'recipient_name': 'Loans', 'dist_percent': 25 * 10 ** 16},
                       {'recipient_name': 'sICX/ICX', 'dist_percent': 10 * 10 ** 16},
                       {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10 ** 16},
@@ -560,6 +575,37 @@ class Governance(IconScoreBase):
                       {'recipient_name': 'DAOfund', 'dist_percent': 5 * 10 ** 16},
                       {'recipient_name': 'sICX/bnUSD', 'dist_percent': 175 * 10 ** 15},
                       {'recipient_name': 'BALN/bnUSD', 'dist_percent': 175 * 10 ** 15}]
+        rewards.updateBalTokenDistPercentage(recipients)
+
+    @external
+    @only_owner
+    def createBalnSicxMarket(self, _sicx_amount: int, _baln_amount: int) -> None:
+        dex_address = self.addresses['dex']
+        sicx_address = self.addresses['sicx']
+        baln_address = self.addresses['baln']
+        stakedLp_address = self.addresses['stakedLp']
+        rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
+        baln = self.create_interface_score(baln_address, BalancedInterface)
+        sicx = self.create_interface_score(sicx_address, AssetInterface)
+        dex = self.create_interface_score(dex_address, DexInterface)
+        stakedLp = self.create_interface_score(stakedLp_address, StakedLpInterface)
+        rewards.claimRewards()
+        sicx.transfer(dex_address, _sicx_amount, json_dumps({"method": "_deposit"}).encode())
+        baln.transfer(dex_address, _baln_amount, json_dumps({"method": "_deposit"}).encode())
+        dex.add(baln_address, sicx_address, _baln_amount, _sicx_amount)
+        name = 'BALN/sICX'
+        pid = dex.getPoolId(baln_address, sicx_address)
+        dex.setMarketName(pid, name)
+        rewards.addNewDataSource(name, dex_address)
+        stakedLp.addPool(pid)
+        recipients = [{'recipient_name': 'Loans', 'dist_percent': 20 * 10 ** 16},
+                      {'recipient_name': 'sICX/ICX', 'dist_percent': 10 * 10 ** 16},
+                      {'recipient_name': 'Worker Tokens', 'dist_percent': 20 * 10 ** 16},
+                      {'recipient_name': 'Reserve Fund', 'dist_percent': 5 * 10 ** 16},
+                      {'recipient_name': 'DAOfund', 'dist_percent': 5 * 10 ** 16},
+                      {'recipient_name': 'sICX/bnUSD', 'dist_percent': 15 * 10 ** 16},
+                      {'recipient_name': 'BALN/bnUSD', 'dist_percent': 15 * 10 ** 16},
+                      {'recipient_name': 'BALN/sICX', 'dist_percent': 10 * 10 ** 16}]
         rewards.updateBalTokenDistPercentage(recipients)
 
     @external

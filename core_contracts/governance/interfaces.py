@@ -173,6 +173,10 @@ class LoansInterface(InterfaceScore):
     def setMaxSellAmount(self, _sicx_value: int, _bnusd_value: int) -> None:
         pass
 
+    @interface
+    def setContinuousRewardsDay(self, _day: int) -> None:
+        pass
+
 
 # An interface to the Loans SCORE
 class DexInterface(InterfaceScore):
@@ -265,6 +269,10 @@ class DexInterface(InterfaceScore):
     def totalBalnAt(self, _id: int, _snapshot_id: int, _twa: bool = False) -> int:
         pass
 
+    @interface
+    def setContinuousRewardsDay(self, _day: int) -> None:
+        pass
+
 
 # An interface to the Rewards SCORE
 class RewardsInterface(InterfaceScore):
@@ -306,6 +314,10 @@ class RewardsInterface(InterfaceScore):
 
     @interface
     def bonusDist(self, _addresses: List[Address], _amounts: List[int]) -> None:
+        pass
+
+    @interface
+    def setContinuousRewardsDay(self, _day: int) -> None:
         pass
 
 
@@ -389,6 +401,10 @@ class SetAddressesInterface(InterfaceScore):
 
     @interface
     def setFeehandler(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setStakedLp(self, _address: Address) -> None:
         pass
 
 
@@ -537,4 +553,22 @@ class FeeHandlerInterface(InterfaceScore):
 
     @interface
     def disable(self) -> None:
+        pass
+
+# An interface to the Router SCORE
+class StakedLpInterface(InterfaceScore):
+    @interface
+    def setDex(self, _address: Address):
+        pass
+
+    @interface
+    def setAdmin(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def setRewards(self, _address: Address) -> None:
+        pass
+
+    @interface
+    def addPool(self, _id: int) -> None:
         pass
