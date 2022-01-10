@@ -466,7 +466,9 @@ class Governance(IconScoreBase):
         for asset in ASSETS:
             loans.addAsset(addresses[asset['address']],
                            asset['active'],
-                           asset['collateral'])
+                           asset['collateral'],
+                           asset.get('origination_fee'),
+                           asset.get('ltv'))
 
     @external
     @only_owner

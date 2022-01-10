@@ -216,16 +216,24 @@ class Loans(IconScoreBase):
         self._positions._snapshot_db.start_new_snapshot()
 
     @only_governance
-    @external(readonly=True)
+    @external
     def set_ltv(self, symbol: str, value: int) -> None:
         asset = self._assets[symbol]
         asset.set_ltv(value)
 
     @only_governance
-    @external(readonly=True)
+    @external
     def set_origination_fee(self, symbol: str, value: int) -> None:
         asset = self._assets[symbol]
         asset.set_origination_fee(value)
+
+    @external(readonly=True)
+    def get_ltv(self, symbol: str) -> int :
+        return self._assets[symbol].get_ltv()
+
+    @external
+    def get_origination_fee(self, symbol: str) -> int:
+        return self._assets[symbol].set_origination_fee()
 
     @external
     @only_governance
@@ -854,7 +862,7 @@ class Loans(IconScoreBase):
         # Check for sufficient collateral
         collateral = pos._collateral_value()
         max_debt_value = POINTS * collateral // self._locking_ratio.get()
-        fee = self._origination_fee.get() * _amount // POINTS
+        fee = self._assets["sICX"].get_origination_fee() * _amount // POINTS
         new_debt_value = self._assets[_asset].priceInLoop() * (_amount + fee) // EXA
 
         # Check for loan minimum
