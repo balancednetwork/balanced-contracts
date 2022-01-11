@@ -97,8 +97,7 @@ class LoansInterface(InterfaceScore):
     def addAsset(self, _token_address: Address,
                  _active: bool = True,
                  _collateral: bool = False,
-                 _origination_fee: int = None,
-                 _ltv: int = None) -> None:
+                 _origination_fee: int = None) -> None:
         pass
 
     @interface
@@ -175,6 +174,10 @@ class LoansInterface(InterfaceScore):
 
     @interface
     def setContinuousRewardsDay(self, _day: int) -> None:
+        pass
+
+    @interface
+    def set_origination_fee(self, symbol: str, _value: int) -> None:
         pass
 
 

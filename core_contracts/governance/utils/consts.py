@@ -56,6 +56,6 @@ RECIPIENTS = [{'recipient_name': 'Loans', 'dist_percent': 25 * 10 ** 16},
 # LOANS LAUNCH CONFIG
 # -------------------------------------------------------------------------------
 
-ASSETS = [{'address': 'sicx', 'active': True, 'collateral': True, 'origination_fee': 100, 'ltv': 75},
+ASSETS = [{'address': 'sicx', 'active': True, 'collateral': True, 'origination_fee': 100},
           {'address': 'bnUSD', 'active': True, 'collateral': False},
-          {'address': 'baln', 'active': False, 'collateral': True, 'origination_fee': 90, 'ltv': 70}]
+          {'address': 'baln', 'active': False, 'collateral': True, 'origination_fee': 90}]

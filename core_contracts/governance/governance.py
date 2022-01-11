@@ -115,6 +115,12 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def set_origination_fee(self, symbol: str, _value: int) -> None:
+        loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
+        loans.set_origination_fee(symbol, _value)
+
+    @external
+    @only_owner
     def setFeeProcessingInterval(self, _interval: int) -> None:
         fee_handler = self.create_interface_score(self.addresses['feehandler'], feeHandlerInterface)
         fee_handler.setFeeProcessingInterval(_interval)
@@ -474,8 +480,7 @@ class Governance(IconScoreBase):
             loans.addAsset(addresses[asset['address']],
                            asset['active'],
                            asset['collateral'],
-                           asset.get('origination_fee'),
-                           asset.get('ltv'))
+                           asset.get('origination_fee'))
 
     @external
     @only_owner
@@ -747,13 +752,12 @@ class Governance(IconScoreBase):
     def addAsset(self, _token_address: Address,
                  _active: bool = True,
                  _collateral: bool = False,
-                 _origination_fee: int = None,
-                 _ltv: int = None) -> None:
+                 _origination_fee: int = None) -> None:
         """
         Adds a token to the assets dictionary on the Loans contract.
         """
         loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
-        loans.addAsset(_token_address, _active, _collateral, _origination_fee, _ltv)
+        loans.addAsset(_token_address, _active, _collateral, _origination_fee)
         asset = self.create_interface_score(_token_address, AssetInterface)
         asset.setAdmin(self.addresses['loans'])
 

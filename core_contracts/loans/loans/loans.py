@@ -192,8 +192,6 @@ class Loans(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-
-
         _ORIGINATION_FEE = 'origination_fee'
         _origination_fee = VarDB(_ORIGINATION_FEE, self.db, value_type=int)
         self._assets["sicx"].set_origination_fee(_origination_fee.get())
@@ -243,23 +241,13 @@ class Loans(IconScoreBase):
 
     @only_governance
     @external
-    def set_ltv(self, symbol: str, value: int) -> None:
-        asset = self._assets[symbol]
-        asset.set_ltv(value)
-
-    @only_governance
-    @external
     def set_origination_fee(self, symbol: str, value: int) -> None:
         asset = self._assets[symbol]
         asset.set_origination_fee(value)
 
     @external(readonly=True)
-    def get_ltv(self, symbol: str) -> int :
-        return self._assets[symbol].get_ltv()
-
-    @external(readonly=True)
     def get_origination_fee(self, symbol: str) -> int:
-        return self._assets[symbol].set_origination_fee()
+        return self._assets[symbol].get_origination_fee()
 
     @external
     @only_governance
@@ -435,12 +423,11 @@ class Loans(IconScoreBase):
                  _active: bool = True,
                  _collateral: bool = False,
                  _origination_fee: int = None,
-                 _ltv: int = None
                  ) -> None:
         """
         Adds a token to the assets dictionary.
         """
-        self._assets.add_asset(_token_address, _active, _collateral, _origination_fee, _ltv)
+        self._assets.add_asset(_token_address, _active, _collateral, _origination_fee)
         token_score = self.create_interface_score(_token_address, TokenInterface)
         self.AssetAdded(_token_address, token_score.symbol(), _collateral)
 

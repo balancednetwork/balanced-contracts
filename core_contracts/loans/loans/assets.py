@@ -71,28 +71,17 @@ class Asset(object):
         self._is_collateral = VarDB('is_collateral', db, value_type=bool)
         self._active = VarDB('active', db, value_type=bool)
 
-        self._loan_to_value = VarDB('_loan_to_value', db, int)
         self._origination_fee = VarDB("_origination_fee", db, int)
 
         self.dead_market = VarDB('dead_market', db, value_type=bool)
 
-    def get_ltv(self):
-        return self._loan_to_value.get()
-
     def get_origination_fee(self):
         return self._origination_fee.get()
-
-    def set_ltv(self, value: int) -> None:
-        if not self._is_collateral:
-            revert("Value can only be set for collateral assets.")
-        if not (0 >= value >= 10000):
-            revert("Value should be between 0 and 10000.")
-        self._loan_to_value.set(value)
 
     def set_origination_fee(self, value: int) -> None:
         if not self._is_collateral:
             revert("Value can only be set for collateral assets.")
-        if not (0 >= value >= 10000):
+        if not (0 <= value <= 10000):
             revert("Value should be between 0 and 10000.")
         self._origination_fee.set(value)
 
@@ -269,7 +258,7 @@ class AssetsDB:
         return assets
 
     def add_asset(self, _address: Address, is_active: bool = True, is_collateral: bool = False,
-                  _origination_fee: int = None, _ltv: int = None) -> None:
+                  _origination_fee: int = None) -> None:
         address = str(_address)
         if _address in self.alist:
             revert(f'{TAG}: {address} already exists in the database.')
@@ -279,10 +268,7 @@ class AssetsDB:
         if is_collateral:
             if _origination_fee is None:
                 revert("Invalid value for origination fee.")
-            if _ltv is None:
-                revert("Invalid value for LTV.")
             asset.set_origination_fee(_origination_fee)
-            asset.set_ltv(_ltv)
         asset.added.set(self._loans.now())
         symbol = asset.symbol()
         self.slist.put(symbol)
