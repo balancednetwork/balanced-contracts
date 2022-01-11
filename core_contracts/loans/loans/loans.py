@@ -228,7 +228,7 @@ class Loans(IconScoreBase):
         self.ContractActive("Loans", "Active" if value else "Inactive")
 
     @external
-    def migrate_user_to_loans(self, address: Address):
+    def migrateUserData(self, address: Address):
         if self.getDay() < self._continuous_reward_day.get():
             revert(f"This method can be called only after continuous rewards day is active.")
         pos = self._positions.get_pos(address)
@@ -243,26 +243,26 @@ class Loans(IconScoreBase):
                 pos.position_loans["sICX"][asset] = pos.assets[_id][asset]
 
     @external(readonly=True)
-    def checkValue(self, address: Address) -> dict:
+    def userMigrationDetails(self, address: Address) -> dict:
         """
         Returns data of a user before and after data migration
         @param address: user address
         """
         pos = self._positions.get_pos(address)
-        lis = {'flag': {}, 'old': {}}
+        migration_details = {'flag': {}, 'old': {}}
 
         for asset in pos.asset_db.slist:
-            lis['flag'][asset] = pos.flag[asset]
-            lis['old'][asset] = pos.assets[1][asset]
+            migration_details['flag'][asset] = pos.flag[asset]
+            migration_details['old'][asset] = pos.assets[1][asset]
             if pos.asset_db[asset].is_collateral():
                 amount = pos.position_collateral[asset]
-                lis[asset] = amount
+                migration_details[asset] = amount
             else:
-                lis[asset] = {}
+                migration_details[asset] = {}
                 for collateral in pos.asset_db.aclist:
                     amount = pos.position_loans[collateral][asset]
-                    lis[asset][collateral] = amount
-        return lis
+                    migration_details[asset][collateral] = amount
+        return migration_details
 
     @external(readonly=True)
     def getLoansOn(self) -> bool:
@@ -479,7 +479,6 @@ class Loans(IconScoreBase):
                 }
                 return rewardsData
             pos = position.__getitem__(_id)
-            pos = self._positions.get_pos(_owner)
             asset = self._assets['bnUSD']
             rewardsData = {
                 "_balance": pos['bnUSD'],
