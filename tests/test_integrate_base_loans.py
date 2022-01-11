@@ -39,8 +39,8 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
     def patch_constants(self, file_name, old_value, new_value):
         subprocess.call("sed -i -e 's/^" + old_value + ".*/" + new_value + "/' " + file_name, shell=True)
 
-    CORE_CONTRACTS = ["loans", "staking", "dividends", "reserve", "daofund", "rewards", "dex", "governance", "oracle"
-        , "router", "feehandler", 'stakedLp']
+    CORE_CONTRACTS = ["loans", "staking", "dividends", "reserve", "daofund", "rewards", "dex", "governance", "oracle",
+        'rebalancing', "router", "feehandler", 'stakedLp']
     TOKEN_CONTRACTS = ["sicx", "bnUSD", "baln", "bwt"]
     CONTRACTS = CORE_CONTRACTS + TOKEN_CONTRACTS
 
@@ -214,7 +214,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
 
     def _deploy_all(self):
         governance = "governance"
-        core_contracts = ["daofund", "dex", "dividends", "loans", "reserve", "rewards", "router", "feehandler", "stakedLp"]
+        core_contracts = ["daofund", "dex", "dividends", "loans", "reserve", "rewards",'rebalancing', "router", "feehandler", "stakedLp"]
         external_contracts = ["oracle", "staking"]
         token_contracts = ["baln", "bnUSD", "bwt"]
         governed_contracts = core_contracts + token_contracts
