@@ -25,7 +25,7 @@ class BalancedTestDataMigration(BalancedTestBaseMigration):
         for i in range(6):
             self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
 
-        self.send_tx(self.user1, self.contracts['loans'], 0, 'migrate_user_to_loans',
+        self.send_tx(self.user1, self.contracts['loans'], 0, 'migrateUserData',
                      {'address': self.user1.get_address()})
 
         after = self._readOnly(self.user1.get_address())
@@ -58,7 +58,7 @@ class BalancedTestDataMigration(BalancedTestBaseMigration):
         for i in range(6):
             self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
 
-        self.send_tx(self.user1, self.contracts['loans'], 0, 'migrate_user_to_loans',
+        self.send_tx(self.user1, self.contracts['loans'], 0, 'migrateUserData',
                      {'address': self.user1.get_address()})
 
         self.send_tx(self.user1, self.contracts['loans'], 1000 * 10 ** 18, 'depositAndBorrow',
@@ -99,7 +99,7 @@ class BalancedTestDataMigration(BalancedTestBaseMigration):
         for i in range(6):
             self.send_tx(self.btest_wallet, self.contracts['rewards'], 0, 'distribute', {})
 
-        self.send_tx(self.user1, self.contracts['loans'], 0, 'migrate_user_to_loans',
+        self.send_tx(self.user1, self.contracts['loans'], 0, 'migrateUserData',
                      {'address': self.user1.get_address()})
 
         self.send_tx(self.user2, self.contracts['loans'], 1000 * 10 ** 18, 'depositAndBorrow',
@@ -162,7 +162,7 @@ class BalancedTestDataMigration(BalancedTestBaseMigration):
 
         bnusdValue = (self.call_tx(self.contracts['loans'], 'getBnusdValue', {'_name': 'a'}))
 
-        checkValue = (self.call_tx(self.contracts['loans'], 'checkValue', {'address': address}))
+        checkValue = (self.call_tx(self.contracts['loans'], 'userMigrationDetails', {'address': address}))
 
         return {'dist_status': dist_status, 'dead_market': dead_market, 'posCount': posCount,
                 'pos_standing': pos_standing, 'posAddr': posAddr, 'totalCollateral': totalCollateral, 'acc_pos': acc_pos,
