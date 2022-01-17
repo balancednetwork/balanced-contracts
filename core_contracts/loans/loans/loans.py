@@ -227,6 +227,43 @@ class Loans(IconScoreBase):
         self._loans_on.set(value)
         self.ContractActive("Loans", "Active" if value else "Inactive")
 
+    @external
+    def migrateUserData(self, address: Address):
+        if self.getDay() < self._continuous_reward_day.get():
+            revert(f"This method can be called only after continuous rewards day is active.")
+        pos = self._positions.get_pos(address)
+        _id = pos.get_snapshot_id()
+        for asset in pos.asset_db.slist:
+            if pos.flag[asset]:
+                continue
+            pos.flag[asset] = True
+            if pos.asset_db[asset].is_collateral():
+                pos.position_collateral[asset] = pos.assets[_id][asset]
+            else:
+                pos.position_loans["sICX"][asset] = pos.assets[_id][asset]
+
+    @external(readonly=True)
+    def userMigrationDetails(self, address: Address) -> dict:
+        """
+        Returns data of a user before and after data migration
+        @param address: user address
+        """
+        pos = self._positions.get_pos(address)
+        migration_details = {'flag': {}, 'old': {}}
+
+        for asset in pos.asset_db.slist:
+            migration_details['flag'][asset] = pos.flag[asset]
+            migration_details['old'][asset] = pos.assets[1][asset]
+            if pos.asset_db[asset].is_collateral():
+                amount = pos.position_collateral[asset]
+                migration_details[asset] = amount
+            else:
+                migration_details[asset] = {}
+                for collateral in pos.asset_db.aclist:
+                    amount = pos.position_loans[collateral][asset]
+                    migration_details[asset][collateral] = amount
+        return migration_details
+
     @external(readonly=True)
     def getLoansOn(self) -> bool:
         return self._loans_on.get()
@@ -966,8 +1003,10 @@ class Loans(IconScoreBase):
             revert(f'{TAG}: This address does not have a position on Balanced.')
         pos = self._positions.get_pos(_owner)
         check_day = self.getDay() < self._continuous_reward_day.get()
-        _standing = pos.update_standing()
-
+        if check_day:
+            _standing = pos.update_standing()
+        else:
+            _standing = pos.get_standing()
         if _standing == Standing.LIQUIDATE:
             pos_id = pos.id.get()
             collateral = pos['sICX']

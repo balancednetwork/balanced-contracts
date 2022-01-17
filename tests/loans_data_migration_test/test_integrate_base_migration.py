@@ -22,25 +22,25 @@ def get_key(my_dict: dict, value: Union[str, int]):
     return list(my_dict.keys())[list(my_dict.values()).index(value)]
 
 
-class BalancedTestBaseLoans(IconIntegrateTestBase):
-    CORE_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../core_contracts"))
-    TOKEN_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../token_contracts"))
+class BalancedTestBaseMigration(IconIntegrateTestBase):
+    CORE_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../../core_contracts"))
+    TOKEN_CONTRACTS_PATH = os.path.abspath(os.path.join(DIR_PATH, "../../token_contracts"))
     constants = {"dex": [
-        {"WITHDRAW_LOCK_TIMEOUT": ["WITHDRAW_LOCK_TIMEOUT = 180000000",
+        {"WITHDRAW_LOCK_TIMEOUT": ["WITHDRAW_LOCK_TIMEOUT = 120000000",
                                    "WITHDRAW_LOCK_TIMEOUT = 86400 * (10 ** 6)"]},
-        {"U_SECONDS_DAY": ["U_SECONDS_DAY= 180000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]}],
-        "governance": [{"U_SECONDS_DAY": ["U_SECONDS_DAY = 180000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]},
-                       {"DAY_ZERO": ["DAY_ZERO = 18647 * 2880", "DAY_ZERO = 18647"]}],
-        "loans": [{"U_SECONDS_DAY": ["U_SECONDS_DAY = 180000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]}],
+        {"U_SECONDS_DAY": ["U_SECONDS_DAY= 120000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]}],
+        "governance": [{"U_SECONDS_DAY": ["U_SECONDS_DAY = 120000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]},
+                       {"DAY_ZERO": ["DAY_ZERO = 18647 * 720", "DAY_ZERO = 18647"]}],
+        "loans": [{"U_SECONDS_DAY": ["U_SECONDS_DAY = 120000000", "U_SECONDS_DAY = 86400 * (10 ** 6)"]}],
         "staking": [{"TOP_PREP_COUNT": ["TOP_PREP_COUNT = 2", "TOP_PREP_COUNT = 100"]}],
-        "rewards": [{"DAY_IN_MICROSECONDS": ["DAY_IN_MICROSECONDS = 180000000",
+        "rewards": [{"DAY_IN_MICROSECONDS": ["DAY_IN_MICROSECONDS = 120000000",
                                              "DAY_IN_MICROSECONDS = 86400 * (10 ** 6)"]}]}
 
     def patch_constants(self, file_name, old_value, new_value):
         subprocess.call("sed -i -e 's/^" + old_value + ".*/" + new_value + "/' " + file_name, shell=True)
 
-    CORE_CONTRACTS = ["loans", "staking", "dividends", "reserve", "daofund", "rewards", "dex", "governance", "oracle",
-        'rebalancing', "router", "feehandler", 'stakedLp']
+    CORE_CONTRACTS = ["loans", "staking", "dividends", "reserve", "daofund", "rewards", "dex", "governance", "oracle"
+        ,"rebalancing", "router", "feehandler", 'stakedLp']
     TOKEN_CONTRACTS = ["sicx", "bnUSD", "baln", "bwt"]
     CONTRACTS = CORE_CONTRACTS + TOKEN_CONTRACTS
 
@@ -68,7 +68,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
                 for x, y in i.items():
                     lis1.append(x)
                     # lis1.append(y)
-                    self.patch_constants("core_contracts/" + key + "/utils/consts.py", lis1[0], y[0])
+                    self.patch_constants("../core_contracts/" + key + "/utils/consts.py", lis1[0], y[0])
         # if os.path.exists(os.path.join(DIR_PATH, "scores_address.json")):
         #     with open(os.path.join(DIR_PATH, "scores_address.json"), "r") as file:
         #         self.contracts = json.load(file)
@@ -77,6 +77,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
         self._deploy_all()
         self._config_balanced()
         self._launch_balanced()
+        self._create_bnusd_market()
 
     def tearDown(self):
         for key, value in self.constants.items():
@@ -86,7 +87,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
                 for x, y in i.items():
                     lis1.append(x)
                     # lis1.append(y)
-                    self.patch_constants("core_contracts/" + key + "/utils/consts.py", lis1[0], y[1])
+                    self.patch_constants("../core_contracts/" + key + "/utils/consts.py", lis1[0], y[1])
 
     def _wallet_setup(self):
         self.icx_factor = 10 ** 18
@@ -209,12 +210,12 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
         ).build()
         response = self.process_call(call, self.icon_service)
         print(f"-----Reading method={method} contract------")
-        # print(f"-------------------The output is: : {response}")
+        print(f"-------------------The output is: : {response}")
         return response
 
     def _deploy_all(self):
         governance = "governance"
-        core_contracts = ["daofund", "dex", "dividends", "loans", "reserve", "rewards", "router", "rebalancing", "feehandler", "stakedLp"]
+        core_contracts = ["daofund", "dex", "dividends", "loans", "reserve", "rewards", "rebalancing", "router", "feehandler", "stakedLp"]
         external_contracts = ["oracle", "staking"]
         token_contracts = ["baln", "bnUSD", "bwt"]
         governed_contracts = core_contracts + token_contracts
@@ -271,7 +272,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
         self.contracts[sicx] = sicx_deploy_tx[SCORE_ADDRESS]
         self.contracts["system"] = SCORE_INSTALL_ADDRESS
         print(json.dumps(self.contracts))
-        with open(os.path.join(DIR_PATH, "scores_address.json"), "w") as file:
+        with open(os.path.join(DIR_PATH, "../../scores_address.json"), "w") as file:
             json.dump(self.contracts, file, indent=4)
 
     def _config_balanced(self):
@@ -312,6 +313,12 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
             self.assertEqual(1, tx_result['status'],
                              f"Failure: {tx_result['failure']}" if tx_result['status'] == 0 else "")
 
+    def _create_bnusd_market(self):
+        contract = "governance"
+        print(f"----------------------------Calling {contract} contract-------------------------------------------")
+        self.send_tx(self.btest_wallet, to=self.contracts[contract], value=400000 * self.icx_factor,
+                     method='createBnusdMarket')
+
     def update(self, name):
         # self.build_deploy_tx(self.btest_wallet, self.contracts[name] )
         core_contracts = ["governance", "daofund", "dex", "dividends", "loans", "reserve", "rewards"]
@@ -327,7 +334,7 @@ class BalancedTestBaseLoans(IconIntegrateTestBase):
         print(name)
         if name in governed_contracts:
             if name in core_contracts:
-                path = os.path.abspath(os.path.join(DIR_PATH, "../continuous_rewards"))
+                path = os.path.abspath(os.path.join(DIR_PATH, "../../core_contracts"))
             else:
                 path = self.TOKEN_CONTRACTS_PATH
             res = self.process_deploy_tx(

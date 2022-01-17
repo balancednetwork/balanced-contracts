@@ -35,26 +35,55 @@ class Position(object):
 
         self.snaps = ArrayDB('snaps', db, int)
         self.assets = DictDB('assets', db, int, depth=2)
+        self.flag = DictDB('flag', db, bool)
+        self.position_loans = DictDB('loan_balance', db, int, depth=2)
+        self.position_collateral = DictDB('collateral_balance', db, int)
 
     def __getitem__(self, _symbol: str) -> int:
-        if _symbol in self.asset_db.slist:
-            return self.assets[self.snaps[-1]][_symbol]
+        if self._loans.getDay() < self._loans._continuous_reward_day.get():
+            if _symbol in self.asset_db.slist:
+                return self.assets[self.snaps[-1]][_symbol]
+            else:
+                revert(f'{TAG}: {_symbol} is not a supported asset on Balanced.')
         else:
-            revert(f'{TAG}: {_symbol} is not a supported asset on Balanced.')
+            if _symbol in self.asset_db.aalist:
+                if self.flag[_symbol]:
+                    return self.position_loans['sICX'][_symbol]
+                return self.assets[self.snaps[-1]][_symbol]
+            elif _symbol in self.asset_db.aclist:
+                if self.flag[_symbol]:
+                    return self.position_collateral[_symbol]
+                return self.assets[self.snaps[-1]][_symbol]
+            else:
+                revert(f'{TAG}: {_symbol} is not a supported asset on Balanced.')
 
     def __setitem__(self, key: str, value: int):
         if self._loans.getDay() < self._loans._continuous_reward_day.get():
             day = self.check_snap()
             self.assets[day][key] = value
         else:
-            self.assets[self.snaps[-1]][key] = value
+            if key == 'sICX':
+                self.position_collateral['sICX'] = value
+            else:
+                self.position_loans['sICX'][key] = value
+            self.flag[key] = True
         if key in self.asset_db.aalist:
             borrowers = self.asset_db[key].get_borrowers()
             # if id does not exist in borrowers a new node is created.
             borrowers[self.id.get()] = value
 
     def __delitem__(self, _symbol: str):
-        self.assets[self.snaps[-1]].remove(_symbol)
+        if self._loans.getDay() < self._loans._continuous_reward_day.get():
+            self.assets[self.snaps[-1]].remove(_symbol)
+        else:
+            if self.flag[_symbol]:
+                if _symbol == 'sICX':
+                    self.position_collateral.remove(_symbol)
+                else:
+                    self.position_loans['sICX'].remove(_symbol)
+            else:
+                self.assets[self.snaps[-1]].remove(_symbol)
+                self.flag[_symbol] = True
         if _symbol in self.asset_db.aalist:
             self.asset_db[_symbol].remove_borrower(self.id.get())
 
@@ -66,6 +95,8 @@ class Position(object):
         :return: index for the current day.
         :rtype: int
         """
+        if self._loans.getDay() >= self._loans._continuous_reward_day.get():
+            revert(f'{TAG}: The continuous rewards is already active.')
         day = self._loans.getDay()
         if day > self.snaps[-1]:
             self.snaps.put(day)
@@ -114,12 +145,21 @@ class Position(object):
         :return: Existence of a debt position.
         :rtype: bool
         """
-        _id = self.get_snapshot_id(_day)
-        if _id == -1:
-            return False
-        for symbol in self.asset_db.aalist:
-            if self.assets[_id][symbol] != 0:
-                return True
+        if self._loans.getDay() < self._loans._continuous_reward_day.get():
+            _id = self.get_snapshot_id(_day)
+            if _id == -1:
+                return False
+            for symbol in self.asset_db.aalist:
+                if self.assets[_id][symbol] != 0:
+                    return True
+        else:
+            for symbol in self.asset_db.aalist:
+                if self.flag[symbol]:
+                    if self.position_loans['sICX'][symbol] != 0:
+                        return True
+                else:
+                    if self.assets[self.snaps[-1]][symbol] != 0:
+                        return True
         return False
 
     def _collateral_value(self, _day: int = -1) -> int:
@@ -129,18 +169,31 @@ class Position(object):
         :return: Value of position collateral in loop.
         :rtype: int
         """
-        _id = self.get_snapshot_id(_day)
-        if _id == -1:
-            return 0
         value = 0
-        for symbol in self.asset_db.aclist:
-            asset = self.asset_db[symbol]
-            amount = self.assets[_id][symbol]
-            if _day == -1 or _day == self._loans.getDay():
-                price = asset.priceInLoop()
-            else:
-                price = self.snaps_db[_day].prices[symbol]
-            value += amount * price // EXA
+        if self._loans.getDay() < self._loans._continuous_reward_day.get():
+            _id = self.get_snapshot_id(_day)
+            if _id == -1:
+                return 0
+            for symbol in self.asset_db.aclist:
+                asset = self.asset_db[symbol]
+                amount = self.assets[_id][symbol]
+                if _day == -1 or _day == self._loans.getDay():
+                    price = asset.priceInLoop()
+                else:
+                    price = self.snaps_db[_day].prices[symbol]
+                value += amount * price // EXA
+        else:
+            for symbol in self.asset_db.aclist:
+                asset = self.asset_db[symbol]
+                if self.flag[symbol] and _day == -1:
+                    amount = self.position_collateral[symbol]
+                else:
+                    amount = self.assets[self.snaps[-1]][symbol]
+                if _day == -1 or _day == self._loans.getDay():
+                    price = asset.priceInLoop()
+                else:
+                    price = self.snaps_db[_day].prices[symbol]
+                value += amount * price // EXA
         return value
 
     def total_debt(self, _day: int = -1, _readonly: bool = False) -> int:
@@ -151,28 +204,43 @@ class Position(object):
         :return: Value of all outstanding debt in loop.
         :rtype: int
         """
-        _id = self.get_snapshot_id(_day)
-        if _id == -1:
-            return 0
         asset_value = 0
-        for symbol in self.asset_db.aalist:
-            amount = self.assets[_id][symbol]
-            if amount > 0:
-                if _day == -1 or _day == self._loans.getDay():
-                    if _readonly:
-                        price = self.asset_db[symbol].lastPriceInLoop()
+        if self._loans.getDay() < self._loans._continuous_reward_day.get():
+            _id = self.get_snapshot_id(_day)
+            if _id == -1:
+                return 0
+            for symbol in self.asset_db.aalist:
+                amount = self.assets[_id][symbol]
+                if amount > 0:
+                    if _day == -1 or _day == self._loans.getDay():
+                        if _readonly:
+                            price = self.asset_db[symbol].lastPriceInLoop()
+                        else:
+                            price = self.asset_db[symbol].priceInLoop()
                     else:
-                        price = self.asset_db[symbol].priceInLoop()
+                        price = self.snaps_db[_day].prices[symbol]
+                    asset_value += (price * amount) // EXA
+        else:
+            for symbol in self.asset_db.aalist:
+                if self.flag[symbol] and _day == -1:
+                    amount = self.position_loans['sICX'][symbol]
                 else:
-                    price = self.snaps_db[_day].prices[symbol]
-                asset_value += (price * amount) // EXA
+                    amount = self.assets[self.snaps[-1]][symbol]
+                if amount > 0:
+                    if _day == -1 or _day == self._loans.getDay():
+                        if _readonly:
+                            price = self.asset_db[symbol].lastPriceInLoop()
+                        else:
+                            price = self.asset_db[symbol].priceInLoop()
+                    else:
+                        price = self.snaps_db[_day].prices[symbol]
+                    asset_value += (price * amount) // EXA
         return asset_value
 
     def get_standing(self, _day: int = -1, _readonly: bool = False) -> dict:
         """
         Calculates the standing for a position. Uses the readonly method for
         asset prices if the _readonly flag is True.
-
         :return: Total debt, collateralization ration, enum of standing from class Standing.
         :rtype: dict
         """
@@ -232,6 +300,8 @@ class Position(object):
         :return: Enum of standing from class Standing.
         :rtype: int
         """
+        if _day >= self._loans._continuous_reward_day.get():
+            revert(f'{TAG}: The continuous rewards is already active.')
         state = self.snaps_db[_day].pos_state[self.id.get()]
 
         status = self.get_standing(_day)
@@ -253,10 +323,20 @@ class Position(object):
             return {}
         assets = {}
         for asset in self.asset_db.slist:
-            if asset in self.assets[_id]:
-                amount = self.assets[_id][asset]
-                assets[asset] = amount
-
+            _asset = self.asset_db[asset]
+            if not _asset.is_active():
+                continue
+            if self.flag[asset] and _day == -1:
+                if asset == 'sICX':
+                    amount = self.position_collateral[asset]
+                else:
+                    amount = self.position_loans['sICX'][asset]
+                if amount:
+                    assets[asset] = amount
+            else:
+                if asset in self.assets[_id]:
+                    amount = self.assets[_id][asset]
+                    assets[asset] = amount
         pos_id = self.id.get()
         status = self.get_standing(_day, True)
         position = {
@@ -362,7 +442,12 @@ class PositionsDB:
         _new_pos.id.set(_id)
         _new_pos.created.set(now)
         _new_pos.address.set(_address)
-        _new_pos.assets[snap_id]['sICX'] = 0
+        check_day = snap_id < self._loans._continuous_reward_day.get()
+        if check_day:
+            _new_pos.assets[snap_id]['sICX'] = 0
+        else:
+            _new_pos.position_collateral['sICX'] = 0
+            _new_pos.flag["sICX"] = True
         self._items[_id] = _new_pos
         return _new_pos
 
