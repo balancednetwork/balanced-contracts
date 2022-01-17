@@ -597,7 +597,7 @@ class DEX(IconScoreBase):
         of continuous rewards.
         """
 
-        continuous_rewards_launched = (self._continuous_rewards_day.get() > self._current_day.get())
+        continuous_rewards_launched = (self._continuous_rewards_day.get() <= self._current_day.get())
         restricted_pool_id = (id < FIRST_NON_BALANCED_POOL or id == USDS_BNUSD_ID or id == IUSDT_BNUSD_ID)
 
         if  not restricted_pool_id or continuous_rewards_launched:
