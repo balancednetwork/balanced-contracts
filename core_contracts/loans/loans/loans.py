@@ -443,7 +443,6 @@ class Loans(IconScoreBase):
                 }
                 return rewardsData
             pos = position.__getitem__(_id)
-            asset = self._assets['bnUSD']
             rewardsData = {
                 "_balance": pos['bnUSD'],
                 "_totalSupply": asset.totalSupply()
