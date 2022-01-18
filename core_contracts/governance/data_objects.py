@@ -20,6 +20,7 @@ class BalancedAddresses(TypedDict):
     bnUSD: Address
     baln: Address
     bwt: Address
+    rebalancing: Address
     router: Address
     feehandler: Address
 

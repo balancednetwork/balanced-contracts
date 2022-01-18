@@ -878,6 +878,12 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def setDividendsOnlyToStakedBalnDay(self, _day: int):
+        dividends = self.create_interface_score(self.addresses['dividends'], DividendsInterface)
+        dividends.setDividendsOnlyToStakedBalnDay(_day)
+
+    @external
+    @only_owner
     def setAssetOracle(self, _symbol: str, _address: Address) -> None:
         loans = self.create_interface_score(self.addresses['loans'], LoansInterface)
         asset_addresses = loans.getAssetTokens()
