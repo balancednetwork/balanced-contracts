@@ -499,6 +499,15 @@ class Loans(IconScoreBase):
         return total_suppy - bad_debt
 
     @external(readonly=True)
+    def getDataCount(self, _snapshot_id: int) -> int:
+        """
+        Returns the number of records in the snapshot.
+        """
+        if _snapshot_id > self._continuous_reward_day.get():
+            revert(f'{TAG} The continuous rewards is already active.')
+        return len(self._positions._snapshot_db[_snapshot_id].mining)
+
+    @external(readonly=True)
     def getDataBatch(self, _name: str, _snapshot_id: int,
                      _limit: int, _offset: int = 0) -> dict:
         """
