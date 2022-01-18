@@ -105,6 +105,9 @@ class Governance(IconScoreBase):
         dex.setContinuousRewardsDay(_day)
         rewards = self.create_interface_score(self.addresses['rewards'], RewardsInterface)
         rewards.setContinuousRewardsDay(_day)
+        dividends = self.create_interface_score(self.addresses['dividends'], DividendsInterface)
+        dividends.setDividendsOnlyToStakedBalnDay(_day)
+
 
     @external(readonly=True)
     def getVoteDuration(self) -> int:

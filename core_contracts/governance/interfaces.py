@@ -333,6 +333,10 @@ class DividendsInterface(InterfaceScore):
     def addAcceptedTokens(self, _token: Address) -> None:
         pass
 
+    @interface
+    def setDividendsOnlyToStakedBalnDay(self, _day: int) -> None:
+        pass
+
 
 # An interface to call the setAddress methods on each SCORE.
 class SetAddressesInterface(InterfaceScore):
