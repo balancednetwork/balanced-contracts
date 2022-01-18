@@ -41,7 +41,7 @@ class StakedLp(IconScoreBase):
     @external(readonly=True)
     def name(self) -> str:
         return f'Balanced {TAG}'
-    
+
     # Contract getters and setters
 
     @external(readonly=True)
@@ -72,8 +72,7 @@ class StakedLp(IconScoreBase):
         """
         :param _dex: the new DEX address to set.
         """
-        self._governance.set(_dex)
-
+        self._governance.set(_governance)
 
     @external(readonly=True)
     def getAdmin(self) -> Address:
@@ -81,7 +80,7 @@ class StakedLp(IconScoreBase):
         Gets the current admin address. This user can call using the
         `@only_admin` decorator.
         """
-        return self._governance.get()
+        return self._admin.get()
 
     @only_governance
     @external
@@ -165,8 +164,8 @@ class StakedLp(IconScoreBase):
         previous_total = self._totalStaked[_id]
 
         StakedLp._require(previous_balance >= _value, f'Cannot unstake,user dont have enough staked balance '
-                                                        f'amount to unstake {_value} '
-                                                        f'staked balance of user: {_user} is  {previous_balance}')
+                                                      f'amount to unstake {_value} '
+                                                      f'staked balance of user: {_user} is  {previous_balance}')
         balance = previous_balance - _value
         total = previous_total - _value
         self._poolStakeDetails[_user][_id][Status.STAKED] = balance
