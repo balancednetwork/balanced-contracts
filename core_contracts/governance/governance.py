@@ -75,6 +75,8 @@ class Governance(IconScoreBase):
 
         :param duration: number of days a vote will be active once started
         """
+        if duration < 1:
+            revert("Vote duration cannot be less than 1.")
         self._vote_duration.set(duration)
 
     @external(readonly=True)
