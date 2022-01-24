@@ -69,7 +69,6 @@ class Governance(IconScoreBase):
         return self.addresses[contract]
 
     @external
-    @only_owner
     def setVoteDuration(self, duration: int) -> None:
         """
         Sets the vote duration.
@@ -601,8 +600,6 @@ class Governance(IconScoreBase):
     def setRebalancing(self, _address: Address) -> None:
         self._rebalancing.set(_address)
 
-    @external
-    @only_owner
     def setRebalancingThreshold(self, _value: int) -> None:
         rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
         rebalancing.setPriceDiffThreshold(_value)
@@ -1071,3 +1068,10 @@ class Governance(IconScoreBase):
     def disable_fee_handler(self):
         feehandler = self.create_interface_score(self.addresses['feehandler'], FeeHandlerInterface)
         feehandler.disable()
+
+    @external
+    @only_owner
+    def BIP21_execution_fixes(self):
+        proposal = ProposalDB(var_key=29, db=self.db)
+        proposal.status.set('Executed')
+        self.setRebalancingThreshold(100000000000000000)
