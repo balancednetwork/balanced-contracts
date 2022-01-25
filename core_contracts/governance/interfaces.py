@@ -464,6 +464,13 @@ class DAOfundInterface(InterfaceScore):
         pass
 
 
+class ReserveInterface(InterfaceScore):
+
+    @interface
+    def disburse(self, _recipient: Address, _amounts: List[Disbursement]) -> bool:
+        pass
+
+
 class AssetInterface(InterfaceScore):
 
     @interface

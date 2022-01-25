@@ -18,6 +18,12 @@ from .utils.checks import *
 TAG = 'BalancedReserveFund'
 
 
+# TypedDict for disbursement specs
+class Disbursement(TypedDict):
+    address: Address
+    amount: int
+
+
 # An interface of token
 class TokenInterface(InterfaceScore):
     @interface
@@ -69,6 +75,7 @@ class ReserveFund(IconScoreBase):
     _SICX_TOKEN = 'sicx_token'
     _BALN = 'baln'
     _SICX = 'sicx'
+    _AWARDS = 'awards'
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
@@ -79,6 +86,7 @@ class ReserveFund(IconScoreBase):
         self._sicx_token = VarDB(self._SICX_TOKEN, db, value_type=Address)
         self._baln = VarDB(self._BALN, db, value_type=int)
         self._sicx = VarDB(self._SICX, db, value_type=int)
+        self._awards = DictDB(self._AWARDS, db, value_type=int, depth=2)
 
     def on_install(self, _governance: Address) -> None:
         super().on_install()
@@ -178,6 +186,51 @@ class ReserveFund(IconScoreBase):
         if sicx_to_send > 0:
             self._send_token(self._sicx_token.get(), self._loans_score.get(), sicx_to_send, 'To Loans:')
         return sicx_to_send
+
+    @external
+    @only_governance
+    def disburse(self, _recipient: Address, _amounts: List[Disbursement]) -> bool:
+        """
+        Disbursement method will be called from the governance SCORE when a
+        vote passes approving an expenditure by the Emergency Reserve.
+
+        :param _recipient: Disbursement recipient address.
+        :type _recipient: :class:`iconservice.base.address.Address`
+        :param _amounts: Amounts of each asset type to disburse.
+        :type _amounts: List[dict]
+        """
+        for asset in _amounts:
+            if asset['address'] == self._sicx_token.get():
+                sicx = self._sicx.get()
+                if sicx < asset['amount']:
+                    revert(f'{TAG}: Insufficient balance of asset {asset["address"]} in the reserve fund.')
+                self._sicx.set(sicx - asset['amount'])
+                self._awards[_recipient][asset['address']] += asset['amount']
+            elif asset['address'] == self._baln_token.get():
+                baln = self._baln.get()
+                if baln < asset['amount']:
+                    revert(f'{TAG}: Insufficient balance of asset {asset["address"]} in the reserve fund.')
+                self._baln.set(baln - asset['amount'])
+                self._awards[_recipient][asset['address']] += asset['amount']
+            else:
+                revert(f'{TAG}: Unavailable assets in the reserve fund requested.')
+        return True
+
+    @external
+    def claim(self) -> None:
+        """
+        Any funds that are authorized for disbursement through Balanced Governance
+        may be claimed using this method.
+        """
+        disbursement = self._awards[self.msg.sender]
+        loans = self.create_interface_score(self._loans_score.get(), LoansInterface)
+        assets = loans.getCollateralTokens()
+        for symbol in assets:
+            amount = disbursement[Address.from_string(assets[symbol])]
+            if amount > 0:
+                disbursement[Address.from_string(assets[symbol])] = 0
+                self._send_token(Address.from_string(assets[symbol]), self.msg.sender,
+                                 amount, 'Balanced Reserve Fund disbursement.')
 
     @external
     def tokenFallback(self, _from: Address, _value: int, _data: bytes) -> None:

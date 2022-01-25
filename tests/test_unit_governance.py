@@ -511,6 +511,23 @@ class TestGovernanceUnit(ScoreTestCase):
                        {'address': 'cx3784537845378453784537845378453784537845', 'amount': 10 * 10 ** 18}]
             self.governance.daoDisburse(_recepient, _amount)
 
+    def test_reserve_disburse(self):
+        _recepient = 'cx3784537845378453784537845378453784537845'
+        _amount = [{'address': 'cx3784537845378453784537845378453784537845', 'amount': 10 * 10 ** 18},
+                   {'address': 'cx3784537845378453784537845378453784537845', 'amount': 10 * 10 ** 18},
+                   {'address': 'cx3784537845378453784537845378453784537845', 'amount': 10 * 10 ** 18}]
+        with self.assertRaises(IconScoreException) as err:
+            self.governance.reserveDisburse(_recepient, _amount)
+        self.assertEqual('Cannot disburse more than 2 assets at a time.', err.exception.message)
+
+        mock_class = MockClass(balanceOfAt=1, totalSupplyAt=1, totalBalnAt=1, totalStakedBalanceOfAt=1, totalSupply=1,
+                               stakedBalanceOf=1, stakedBalanceOfAt=1)
+        with mock.patch.object(self.governance, "create_interface_score", mock_class.patch_internal):
+            _recepient = 'cx3784537845378453784537845378453784537845'
+            _amount = [{'address': 'cx3784537845378453784537845378453784537845', 'amount': 10 * 10 ** 18},
+                       {'address': 'cx3784537845378453784537845378453784537845', 'amount': 10 * 10 ** 18}]
+            self.governance.reserveDisburse(_recepient, _amount)
+
     def test_addAcceptedTokens(self):
         self.set_msg(self.test_account1)
         mock_class = MockClass(balanceOfAt=1, totalSupplyAt=1, totalBalnAt=1, totalStakedBalanceOfAt=1, totalSupply=1,
