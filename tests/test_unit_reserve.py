@@ -22,7 +22,7 @@ class MockClass:
         pass
 
 
-class TestGovernanceUnit(ScoreTestCase):
+class TestReserveUnit(ScoreTestCase):
     def setUp(self):
         super().setUp()
         self.maxDiff = None
