@@ -1027,6 +1027,11 @@ class DEX(IconScoreBase):
                 'quote_decimals': self._token_precisions[quote_token],
                 'min_quote': self._get_rewardable_amount(quote_token)
             }
+    
+    @external(readonly=True)
+    def getPoolStatsForPair(self, _base: Address, _quote: Address) -> dict:
+        id = self._pool_id[_base][_quote]
+        return self.getPoolStats(id)
 
     @external(readonly=True)
     def isEarningRewards(self, _address: Address, _id: int) -> bool:
