@@ -1002,6 +1002,12 @@ class Governance(IconScoreBase):
 
     @external
     @only_owner
+    def addPoolOnStakedLp(self, _id: int) -> None:
+        stakedLp = self.create_interface_score(self.addresses['stakedLp'], StakedLpInterface)
+        stakedLp.addPool(_id)
+
+    @external
+    @only_owner
     def setAddressesOnContract(self, _contract: str) -> None:
         address = self.addresses.setAddress(_contract)
 
