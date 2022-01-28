@@ -33,6 +33,7 @@ class Governance(IconScoreBase):
         self._launch_time = VarDB('launch_time', db, int)
         self._launched = VarDB('launched', db, bool)
         self._rebalancing = VarDB('rebalancing', db, Address)
+        self._disbursements = VarDB('disbursements', db, Address)
         self._time_offset = VarDB('time_offset', db, value_type=int)
         self._vote_duration = VarDB('vote_duration', db, int)
         self._baln_vote_definition_criterion = VarDB('min_baln', db, int)
@@ -585,6 +586,10 @@ class Governance(IconScoreBase):
         rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
         rebalancing.setLoans(_address)
 
+    def setRebalancingThreshold(self, _value: int) -> None:
+        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
+        rebalancing.setPriceDiffThreshold(_value)
+
     @external
     @only_owner
     def setLoansRebalance(self, _address: Address) -> None:
@@ -602,9 +607,18 @@ class Governance(IconScoreBase):
     def setRebalancing(self, _address: Address) -> None:
         self._rebalancing.set(_address)
 
-    def setRebalancingThreshold(self, _value: int) -> None:
-        rebalancing = self.create_interface_score(self._rebalancing.get(), RebalancingInterface)
-        rebalancing.setPriceDiffThreshold(_value)
+    @external(readonly=True)
+    def getRebalancing(self) -> Address:
+        return self._rebalancing.get()
+
+    @external
+    @only_owner
+    def setDisbursements(self, _address: Address) -> None:
+        self._disbursements.set(_address)
+
+    @external(readonly=True)
+    def getDisbursements(self) -> Address:
+        return self._disbursements.get()
 
     @external
     @only_owner
@@ -867,6 +881,23 @@ class Governance(IconScoreBase):
             disbursement['address'] = Address.from_string(disbursement['address'])
         dao = self.create_interface_score(self.addresses['daofund'], DAOfundInterface)
         dao.disburse(_recipient, _amounts)
+
+    def batchDisburse(self, _source: str, _amounts: List[Disbursement]):
+        if len(_amounts) > 3:
+            revert(f"Cannot disburse more than 3 assets at a time.")
+        _source = Address.from_string(_source)
+        disburse_address = self._disbursements.get()
+        for disbursement in _amounts:
+            disbursement['address'] = Address.from_string(disbursement['address'])
+
+        if _source == self.addresses['daofund']:
+            dao = self.create_interface_score(_source, DAOfundInterface)
+            dao.disburse(disburse_address, _amounts)
+        elif _source == self.addresses['reserve']:
+            reserve = self.create_interface_score(_source, ReserveInterface)
+            reserve.disburse(disburse_address, _amounts)
+        disburse = self.create_interface_score(disburse_address, DisbursementsInterface)
+        disburse.batchDisburse(_source)
 
     @external
     @only_owner
