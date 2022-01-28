@@ -894,7 +894,7 @@ class Governance(IconScoreBase):
             dao = self.create_interface_score(self.addresses['daofund'], DAOfundInterface)
             dao.disburse(disburse_address, _amounts)
         elif _source == self.addresses['reserve']:
-            reserve = self.create_interface_score(self.addresses['daofund'], DAOfundInterface)
+            reserve = self.create_interface_score(self.addresses['reserve'], ReserveInterface)
             reserve.disburse(disburse_address, _amounts)
         disburse = self.create_interface_score(disburse_address, DisbursementsInterface)
         disburse.batchDisburse(_source)
