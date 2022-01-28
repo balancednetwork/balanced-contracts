@@ -25,6 +25,18 @@ class StakingInterface(InterfaceScore):
         pass
 
 
+class ReserveInterface(InterfaceScore):
+    @interface
+    def disburse(self, _recipient: Address, _amounts: List[Disbursement]) -> bool:
+        pass
+
+
+class DisbursementsInterface(InterfaceScore):
+    @interface
+    def batchDisburse(self, _source: str) -> None:
+        pass
+
+
 class RebalancingInterface(InterfaceScore):
     @interface
     def setPriceDiffThreshold(self, _value: int) -> None:
