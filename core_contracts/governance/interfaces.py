@@ -33,7 +33,7 @@ class ReserveInterface(InterfaceScore):
 
 class DisbursementsInterface(InterfaceScore):
     @interface
-    def batchDisburse(self, _source: str) -> None:
+    def batchDisburse(self, _source: Address) -> None:
         pass
 
 
