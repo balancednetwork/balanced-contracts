@@ -153,6 +153,7 @@ class Staking(IconScoreBase):
         self._icx_payable = DictDB(self._ICX_PAYABLE, db, value_type=int)
         # dictdb for storing the prep address and their delegated value
         self._prep_delegations = DictDB(self._PREP_DELEGATIONS, db, value_type=int)
+        # Vardb to add all the dust to a specific prep
         self._dust_prep = VarDB('dust_prep', db, value_type=Address)
         # initializing the system score
         self._system = IconScoreBase.create_interface_score(SYSTEM_SCORE_ADDRESS, InterfaceSystemScore)
@@ -192,14 +193,24 @@ class Staking(IconScoreBase):
     @external
     @only_owner
     def setDustPrep(self, _address: Address) -> None:
+        """
+        Sets the prep address that receives all the dust value.
+        """
         self._dust_prep.set(_address)
 
     @external(readonly=True)
     def getDustPrep(self) -> Address:
+        """
+        Returns the prep address that receives all the dust value.
+        """
         return self._dust_prep.get()
 
     @external
+    @only_owner
     def setPrepDelegations(self, _delegations_dict: dict) -> None:
+        """
+        Sets the delegations directly to the staking contract dictdb.
+        """
         for prep, delegations in _delegations_dict.items():
             self._prep_delegations[Address.from_string(prep)] = delegations
 
