@@ -82,6 +82,11 @@ class PrepDelegations(TypedDict):
     _votes_in_per: int
 
 
+class ContractDelegation(TypedDict):
+    _address: Address
+    _votes_in_icx: int
+
+
 class Staking(IconScoreBase):
     _SICX_SUPPLY = 'sICX_supply'
     _RATE = '_rate'
@@ -207,12 +212,14 @@ class Staking(IconScoreBase):
 
     @external
     @only_owner
-    def setPrepDelegations(self, _delegations_dict: dict) -> None:
+    def setPrepDelegations(self, _delegations_dict: List[ContractDelegation]) -> None:
         """
         Sets the delegations directly to the staking contract dictdb.
         """
-        for prep, delegations in _delegations_dict.items():
-            self._prep_delegations[Address.from_string(prep)] = delegations
+        for single_prep in _delegations_dict:
+            prep = single_prep["_address"]
+            delegations = single_prep["_votes_in_icx"]
+            self._prep_delegations[str(prep)] = delegations
 
     @external
     @only_owner
@@ -403,7 +410,7 @@ class Staking(IconScoreBase):
             amount_to_stake += single_prep["_votes_in_per"]
             address_delegations += f'{str(single_prep_address)}:{single_prep["_votes_in_per"]}.'
             balance = self._set_address_delegations(_to, single_prep_address,
-                                          single_prep["_votes_in_per"], user_icx_hold)
+                                                    single_prep["_votes_in_per"], user_icx_hold)
             temp_icx_balance += balance
         dust_balance = user_icx_hold - temp_icx_balance
         if dust_balance > 0:
