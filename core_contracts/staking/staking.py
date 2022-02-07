@@ -178,7 +178,15 @@ class Staking(IconScoreBase):
 
     def on_update(self) -> None:
         super().on_update()
-        self._block_height_week.set(100000000000)
+
+    @external
+    @only_owner
+    def setBlockHeightWeek(self, _height: int) -> None:
+        self._block_height_week.set(_height)
+
+    @external(readonly=True)
+    def getBlockHeightWeek(self) -> int:
+        return self._block_height_week.get()
 
     @external(readonly=True)
     def name(self) -> str:
