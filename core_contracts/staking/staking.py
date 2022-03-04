@@ -722,13 +722,21 @@ class Staking(IconScoreBase):
         voting_power_check = 0
         for i, prep in enumerate(self._top_preps):
             prep_str = str(prep)
-            value_in_icx = self._prep_delegations[prep_str] + evenly_distribute_value
+            value_in_icx = max(self._prep_delegations[prep_str] + evenly_distribute_value, 0)
             voting_power_check += value_in_icx
             # If this is the last prep, we add the dust.
             if i == total_preps - 1:
                 dust = self.getTotalStake() - voting_power_check
-                value_in_icx += dust
-                self._prep_delegations[prep_str] += dust
+                if dust > 0:
+                    value_in_icx += dust
+                    self._prep_delegations[prep_str] += dust
+                elif dust < 0:
+                    first_prep_delegation = delegation_list[0]
+                    icx_value = first_prep_delegation.get("value")
+                    prep_address = first_prep_delegation.get("address")
+                    delegation_list[0] = {"address": prep_address, "value": icx_value + dust}
+                else:
+                    pass
             delegation_list.append({"address": prep, "value": value_in_icx})
         self._system.setDelegation(delegation_list)
 
